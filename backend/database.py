@@ -41,10 +41,12 @@ class Transacao(Base):
     saldo = Column(Float)
     reembolso = Column(Boolean, default=False)
     notas = Column(String)
-    subcategoria_id = Column(Integer, ForeignKey("subcategorias.id"))
+    categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=True)
+    subcategoria_id = Column(Integer, ForeignKey("subcategorias.id"), nullable=True)
 
+    categoria = relationship("Categoria")
     subcategoria = relationship("Subcategoria", back_populates="transacoes")
-
+    
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
 
