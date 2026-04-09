@@ -46,6 +46,17 @@ class Transacao(Base):
 
     categoria = relationship("Categoria")
     subcategoria = relationship("Subcategoria", back_populates="transacoes")
+
+class RegraCategorizacao(Base):
+    __tablename__ = "regras_categorizacao"
+
+    id = Column(Integer, primary_key=True)
+    palavra_chave = Column(String, nullable=False, unique=True)
+    categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
+    subcategoria_id = Column(Integer, ForeignKey("subcategorias.id"), nullable=True)
+
+    categoria = relationship("Categoria")
+    subcategoria = relationship("Subcategoria")
     
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
