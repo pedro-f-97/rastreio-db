@@ -1,0 +1,9 @@
+# Base de dados
+rastreio.db
+
+# Ambiente virtual
+backend/venv/
+
+# Python
+__pycache__/
+*.pyc
