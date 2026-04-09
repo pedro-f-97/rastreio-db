@@ -7,3 +7,6 @@ backend/venv/
 # Python
 __pycache__/
 *.pyc
+
+# Ficheiros com dados pessoais
+*.xlsx
