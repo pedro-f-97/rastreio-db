@@ -19,6 +19,12 @@ def normalizar_saldo(valor):
 def migrar():
     criar_tabelas()
     session = SessionLocal()
+    total_existente = session.query(Transacao).count()
+    if total_existente > 0:
+        print(f"A base de dados já tem {total_existente} transações. Migração cancelada.")
+        session.close()
+        return
+    session = SessionLocal()
 
     wb = load_workbook(CAMINHO_EXCEL, read_only=True)
     ws_extratos = wb["Extratos"]
