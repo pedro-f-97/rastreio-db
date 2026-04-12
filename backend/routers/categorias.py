@@ -60,3 +60,22 @@ def renomear_categoria(categoria_id: int, categoria: CategoriaCreate, db: Sessio
     db.commit()
     db.refresh(cat)
     return cat
+
+@router.put("/{categoria_id}/subcategorias/{subcategoria_id}")
+def renomear_subcategoria(categoria_id: int, subcategoria_id: int, subcategoria: SubcategoriaCreate, db: Session = Depends(get_db)):
+    sub = db.query(Subcategoria).filter(Subcategoria.id == subcategoria_id, Subcategoria.categoria_id == categoria_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
+    sub.nome = subcategoria.nome
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+@router.delete("/{categoria_id}/subcategorias/{subcategoria_id}")
+def apagar_subcategoria(categoria_id: int, subcategoria_id: int, db: Session = Depends(get_db)):
+    sub = db.query(Subcategoria).filter(Subcategoria.id == subcategoria_id, Subcategoria.categoria_id == categoria_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
+    db.delete(sub)
+    db.commit()
+    return {"ok": True}
