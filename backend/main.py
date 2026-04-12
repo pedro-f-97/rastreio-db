@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from database import criar_tabelas
-from routers import categorias, transacoes
+from routers import categorias, transacoes, regras
 
 app = FastAPI()
 
@@ -8,6 +8,7 @@ criar_tabelas()
 
 app.include_router(categorias.router)
 app.include_router(transacoes.router)
+app.include_router(regras.router)
 
 @app.get("/health")
 def health():

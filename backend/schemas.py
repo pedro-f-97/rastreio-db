@@ -13,3 +13,8 @@ class TransacaoUpdate(BaseModel):
     subcategoria_id: Optional[int] = None
     reembolso: Optional[bool] = None
     notas: Optional[str] = None
+    
+class RegraCreate(BaseModel):
+    palavra_chave: str
+    categoria_id: int
+    subcategoria_id: Optional[int] = None
