@@ -4,6 +4,18 @@ from datetime import datetime
 
 CAMINHO_EXCEL = "../Extrato.xlsx"
 
+MAPEAMENTO_CATEGORIAS = {
+    "Salário": "Receita",
+    "Reembolso": None,
+    "Entretenimento": "Entretenimento",
+    "Gasto Doméstico": "Casa",
+    "Investimento": "Investimento",
+    "Transporte": "Transporte",
+    "Saúde": "Saúde",
+    "Aparência": "Aparência",
+    "Despesa Legal": "Pontual",
+}
+
 def normalizar_saldo(valor):
     if valor is None:
         return None
@@ -37,18 +49,6 @@ def migrar():
             break
         categorias_excel.append(row[2])  # coluna Categoria
 
-    # Criar categorias únicas na BD
-    categorias_unicas = set(c for c in categorias_excel if c)
-    mapa_categorias = {}  # nome → objeto Categoria
-
-    for nome in categorias_unicas:
-        cat = session.query(Categoria).filter_by(nome=nome).first()
-        if not cat:
-            cat = Categoria(nome=nome)
-            session.add(cat)
-            session.flush()  # para obter o id sem fazer commit
-        mapa_categorias[nome] = cat
-
     # Ler e inserir transações
     transacoes_excel = []
     for row in ws_extratos.iter_rows(min_row=2, values_only=True):
@@ -77,15 +77,16 @@ def migrar():
         else:
             valor = 0.0
 
-        nome_categoria = categorias_excel[i] if i < len(categorias_excel) else None
-        categoria = mapa_categorias.get(nome_categoria) if nome_categoria else None
+        nome_categoria_excel = categorias_excel[i] if i < len(categorias_excel) else None
+        nome_categoria_novo = MAPEAMENTO_CATEGORIAS.get(nome_categoria_excel) if nome_categoria_excel else None
+        categoria = session.query(Categoria).filter_by(nome=nome_categoria_novo).first() if nome_categoria_novo else None
 
         t = Transacao(
             data=data,
             descricao=descricao,
             valor=valor,
             saldo=saldo,
-            reembolso=nome_categoria == "Reembolso",
+            reembolso=nome_categoria_excel == "Reembolso",
             categoria_id=categoria.id if categoria else None,
         )
         session.add(t)

@@ -29,8 +29,10 @@ uvicorn main:app --reload
 
 ## Recriar a base de dados (apaga tudo!)
 ```bash
+cd backend
 rm rastreio.db
 python database.py
+python popular_bd.py
 python migrar_excel.py
 ```
 
