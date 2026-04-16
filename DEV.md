@@ -17,6 +17,13 @@ source venv/bin/activate
 ```
 O prompt passa a mostrar `(venv)` quando está ativo.
 
+## Arrancar o frontend
+```bash
+cd frontend
+npm run dev
+```
+- Frontend disponível em: `http://localhost:5173`
+
 ## Arrancar o servidor
 ```bash
 cd backend
