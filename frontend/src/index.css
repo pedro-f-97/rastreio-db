@@ -1,0 +1,54 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #252525;
+  --border: #333333;
+  --text-primary: #f0f0f0;
+  --text-secondary: #888888;
+  --accent: #4a9eff;
+  --accent-hover: #3a8eef;
+  --danger: #ff4a4a;
+  --success: #4aff8a;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 0;
+  font-size: 14px;
+}
+
+button:hover {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+input, select {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 0;
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--accent);
+}
