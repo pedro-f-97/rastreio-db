@@ -1,12 +1,15 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Boolean, ForeignKey
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from datetime import date
+from typing import List, Optional
+from sqlalchemy import create_engine, String, Float, Date, Boolean, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 # Ligação à base de dados SQLite
 DATABASE_URL = "sqlite:///./rastreio.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
-# Base para os modelos
-Base = declarative_base()
+# Em 2.0, criamos uma classe que herda de DeclarativeBase
+class Base(DeclarativeBase):
+    pass
 
 # Sessão para interagir com a base de dados
 SessionLocal = sessionmaker(bind=engine)
@@ -14,53 +17,57 @@ SessionLocal = sessionmaker(bind=engine)
 class Categoria(Base):
     __tablename__ = "categorias"
 
-    id = Column(Integer, primary_key=True)
-    nome = Column(String, nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
 
-    subcategorias = relationship("Subcategoria", back_populates="categoria")
+    # Tipagem forte para as relações
+    subcategorias: Mapped[List["Subcategoria"]] = relationship("Subcategoria", back_populates="categoria")
 
 
 class Subcategoria(Base):
     __tablename__ = "subcategorias"
 
-    id = Column(Integer, primary_key=True)
-    nome = Column(String, nullable=False)
-    categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias.id"), nullable=False)
 
-    categoria = relationship("Categoria", back_populates="subcategorias")
-    transacoes = relationship("Transacao", back_populates="subcategoria")
+    categoria: Mapped["Categoria"] = relationship("Categoria", back_populates="subcategorias")
+    transacoes: Mapped[List["Transacao"]] = relationship("Transacao", back_populates="subcategoria")
 
 
 class Transacao(Base):
     __tablename__ = "transacoes"
 
-    id = Column(Integer, primary_key=True)
-    data = Column(Date, nullable=False)
-    descricao = Column(String, nullable=False)
-    valor = Column(Float, nullable=False)
-    saldo = Column(Float)
-    reembolso = Column(Boolean, default=False)
-    notas = Column(String)
-    categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=True)
-    subcategoria_id = Column(Integer, ForeignKey("subcategorias.id"), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    data: Mapped[date] = mapped_column(Date, nullable=False)
+    descricao: Mapped[str] = mapped_column(String(255), nullable=False)
+    valor: Mapped[float] = mapped_column(Float, nullable=False)
+    saldo: Mapped[Optional[float]] = mapped_column(Float) # Optional[] define automaticamente nullable=True
+    reembolso: Mapped[bool] = mapped_column(Boolean, default=False)
+    notas: Mapped[Optional[str]] = mapped_column(String(500))
+    
+    categoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categorias.id"))
+    subcategoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subcategorias.id"))
 
-    categoria = relationship("Categoria")
-    subcategoria = relationship("Subcategoria", back_populates="transacoes")
+    categoria: Mapped[Optional["Categoria"]] = relationship("Categoria")
+    subcategoria: Mapped[Optional["Subcategoria"]] = relationship("Subcategoria", back_populates="transacoes")
+
 
 class RegraCategorizacao(Base):
     __tablename__ = "regras_categorizacao"
 
-    id = Column(Integer, primary_key=True)
-    palavra_chave = Column(String, nullable=False, unique=True)
-    categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
-    subcategoria_id = Column(Integer, ForeignKey("subcategorias.id"), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    palavra_chave: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias.id"), nullable=False)
+    subcategoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subcategorias.id"))
 
-    categoria = relationship("Categoria")
-    subcategoria = relationship("Subcategoria")
+    categoria: Mapped["Categoria"] = relationship("Categoria")
+    subcategoria: Mapped[Optional["Subcategoria"]] = relationship("Subcategoria")
     
+
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
 
 if __name__ == "__main__":
     criar_tabelas()
-    print("Tabelas criadas com sucesso!")
+    print("Tabelas criadas com sucesso no novo estilo Mapped!")
