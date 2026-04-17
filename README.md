@@ -1,16 +1,68 @@
 # rastreio-db
 
-Aplicação pessoal para registo e análise de despesas bancárias.
-Importação de extratos, categorização automática e dashboard de estatísticas.
+Tracker pessoal de despesas bancárias, desenvolvido como projecto de portfolio.
 
-## Stack
-- Backend: Python + FastAPI + SQLAlchemy
-- Frontend: React
-- Base de dados: SQLite
+## Tecnologias
+
+- **Backend:** Python 3.14 + FastAPI + SQLAlchemy + SQLite
+- **Frontend:** React + Vite
+- **Servidor:** Uvicorn
+
+## Arquitectura
+rastreio-db/
+├── backend/
+│   ├── database.py          # Modelos SQLAlchemy e ligação à BD
+│   ├── main.py              # Ponto de entrada FastAPI
+│   ├── popular_bd.py        # Popula BD com categorias e subcategorias
+│   ├── migrar_excel.py      # Migração única de dados históricos
+│   ├── requirements.txt
+│   └── routers/
+│       ├── categorias.py    # CRUD de categorias e subcategorias
+│       ├── transacoes.py    # Listagem e edição de transações
+│       ├── regras.py        # Regras de categorização automática
+│       └── importacao.py    # Importação de extratos Excel do banco
+└── frontend/
+└── src/
+├── api/
+│   └── client.js    # Cliente axios centralizado
+└── pages/
+├── Transacoes.jsx
+├── Categorias.jsx
+└── Regras.jsx
+
+## Modelo de dados
+
+- **Categoria** — categorias de despesa (Casa, Transporte, Saúde, etc.)
+- **Subcategoria** — subdivisão de cada categoria (Supermercado, Combustível, etc.)
+- **Transacao** — registo de cada movimento bancário, com categoria, subcategoria, flag de reembolso e notas
+- **RegraCategorizacao** — regras por palavra-chave para categorização automática na importação
+
+## Categorias
+
+| Categoria | Subcategorias |
+|---|---|
+| Receita | Salário, IRS, Transferência de Poupanças |
+| Entretenimento | Lazer, Jogos, Cinema, Viagens, Subscrições, Restauração |
+| Transporte | Combustível, Portagens, Seguro, Manutenção |
+| Saúde | Consultas, Farmácia, Outros |
+| Casa | Renda, Manutenção, Compras, Supermercado |
+| Aparência | Roupa, Cabeleireiro |
+| Investimento | ETFs, Crypto, Poupança |
+| Pontual | Jurídico |
 
 ## Funcionalidades
-- Importação de extratos bancários (Excel)
-- Categorização automática por regras de palavras-chave
-- Categorias e subcategorias personalizadas
-- Dashboard com estatísticas mensais e por categoria
-- Suporte a reembolsos
+
+- Importação de extratos Excel exportados do banco
+- Deteção automática de duplicados por `data + descrição + valor + saldo`
+- Categorização automática por regras de palavra-chave
+- Edição manual de categoria, subcategoria, reembolso e notas
+- Interface web com dark mode
+
+## Estado actual
+
+- [x] Backend completo com todos os endpoints
+- [x] Migração de dados históricos
+- [ ] Página de Transações (em desenvolvimento)
+- [ ] Página de Categorias
+- [ ] Página de Regras
+- [ ] Estatísticas e relatórios
