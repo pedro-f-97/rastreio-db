@@ -14,7 +14,18 @@ def get_db():
 
 @router.get("/")
 def listar_categorias(db: Session = Depends(get_db)):
-    return db.query(Categoria).all()
+    categorias = db.query(Categoria).all()
+    return [
+        {
+            "id": cat.id,
+            "nome": cat.nome,
+            "subcategorias": [
+                {"id": sub.id, "nome": sub.nome}
+                for sub in cat.subcategorias
+            ]
+        }
+        for cat in categorias
+    ]
 
 @router.get("/{categoria_id}/subcategorias")
 def listar_subcategorias(categoria_id: int, db: Session = Depends(get_db)):

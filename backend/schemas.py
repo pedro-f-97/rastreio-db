@@ -19,8 +19,8 @@ class SubcategoriaBase(BaseModel):
     nome: str
     categoria_id: int
 
-class SubcategoriaCreate(SubcategoriaBase):
-    pass
+class SubcategoriaCreate(BaseModel):
+    nome: str
 
 class Subcategoria(SubcategoriaBase):
     id: int

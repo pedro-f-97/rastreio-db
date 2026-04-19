@@ -5,5 +5,29 @@ export function listarCategorias() {
 }
 
 export function listarSubcategorias(categoriaId) {
-    return client.get(`/categorias/${categoriaId}/subcategorias/`);
+    return client.get(`/categorias/${categoriaId}/subcategorias`);
+}
+
+export function criarCategoria(nome) {
+    return client.post('/categorias/', { nome });
+}
+
+export function renomearCategoria(id, nome) {
+    return client.put(`/categorias/${id}`, { nome });
+}
+
+export function apagarCategoria(id) {
+    return client.delete(`/categorias/${id}`);
+}
+
+export function criarSubcategoria(categoriaId, nome) {
+    return client.post(`/categorias/${categoriaId}/subcategorias`, { nome });
+}
+
+export function renomearSubcategoria(categoriaId, subcategoriaId, nome) {
+    return client.put(`/categorias/${categoriaId}/subcategorias/${subcategoriaId}`, { nome });
+}
+
+export function apagarSubcategoria(categoriaId, subcategoriaId) {
+    return client.delete(`/categorias/${categoriaId}/subcategorias/${subcategoriaId}`);
 }
