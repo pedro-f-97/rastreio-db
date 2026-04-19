@@ -1,16 +1,17 @@
 from fastapi import FastAPI
-from database import criar_tabelas
+from fastapi.middleware.cors import CORSMiddleware
 from routers import categorias, transacoes, regras, importacao
 
 app = FastAPI()
 
-criar_tabelas()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(categorias.router)
 app.include_router(transacoes.router)
 app.include_router(regras.router)
 app.include_router(importacao.router)
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}

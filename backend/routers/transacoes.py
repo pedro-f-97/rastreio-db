@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import extract
+from typing import Optional
 from database import SessionLocal, Transacao
 from schemas import TransacaoUpdate
 
@@ -13,8 +15,47 @@ def get_db():
         db.close()
 
 @router.get("/")
-def listar_transacoes(db: Session = Depends(get_db)):
-    return db.query(Transacao).all()
+def listar_transacoes(
+    pagina: int = Query(1, ge=1),
+    tamanho: int = Query(50, ge=1, le=200),
+    mes: Optional[int] = Query(None, ge=1, le=12),
+    ano: Optional[int] = Query(None, ge=2000),
+    categoria_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Transacao).order_by(Transacao.data.desc())
+
+    if ano:
+        query = query.filter(extract('year', Transacao.data) == ano)
+    if mes:
+        query = query.filter(extract('month', Transacao.data) == mes)
+    if categoria_id:
+        query = query.filter(Transacao.categoria_id == categoria_id)
+
+    total = query.count()
+    items = query.offset((pagina - 1) * tamanho).limit(tamanho).all()
+
+    return {
+        "total": total,
+        "pagina": pagina,
+        "tamanho": tamanho,
+        "items": [
+            {
+                "id": t.id,
+                "data": t.data,
+                "descricao": t.descricao,
+                "valor": t.valor,
+                "saldo": t.saldo,
+                "reembolso": t.reembolso,
+                "notas": t.notas,
+                "categoria_id": t.categoria_id,
+                "categoria_nome": t.categoria.nome if t.categoria else None,
+                "subcategoria_id": t.subcategoria_id,
+                "subcategoria_nome": t.subcategoria.nome if t.subcategoria else None,
+            }
+            for t in items
+        ]
+    }
 
 @router.put("/{transacao_id}")
 def atualizar_transacao(transacao_id: int, dados: TransacaoUpdate, db: Session = Depends(get_db)):

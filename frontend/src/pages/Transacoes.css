@@ -1,0 +1,157 @@
+.transacoes-page {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.transacoes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.transacoes-header h1 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.btn-importar {
+    background: var(--accent);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-importar:hover {
+    opacity: 0.85;
+}
+
+.filtros {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.filtros select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.total-info {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.erro {
+    color: var(--danger);
+    font-size: 0.9rem;
+}
+
+.carregando {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* Tabela */
+
+.tabela-wrapper {
+    overflow-x: auto;
+}
+
+.tabela-transacoes {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.tabela-transacoes th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.tabela-transacoes td {
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.tabela-transacoes tr:hover td {
+    background: var(--bg-secondary);
+}
+
+.tabela-transacoes tr.despesa .valor {
+    color: var(--danger);
+}
+
+.tabela-transacoes tr.receita .valor {
+    color: var(--success);
+}
+
+.tabela-transacoes select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.tabela-transacoes input[type="text"] {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    width: 100%;
+    padding: 0.25rem 0;
+}
+
+.tabela-transacoes input[type="text"]:focus {
+    outline: none;
+    border-bottom: 1px solid var(--accent);
+}
+
+.tabela-transacoes input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+}
+
+/* Paginação */
+
+.paginacao {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.paginacao button {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.paginacao button:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+}
+
+.paginacao button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
