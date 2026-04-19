@@ -10,23 +10,31 @@ Tracker pessoal de despesas bancárias, desenvolvido como projecto de portfolio.
 
 ## Arquitectura
 rastreio-db/
+├── .gitignore
+├── README.md
 ├── backend/
 │   ├── database.py          # Modelos SQLAlchemy e ligação à BD
-│   ├── main.py              # Ponto de entrada FastAPI
+│   ├── main.py              # Ponto de entrada FastAPI + CORS
 │   ├── popular_bd.py        # Popula BD com categorias e subcategorias
 │   ├── migrar_excel.py      # Migração única de dados históricos
 │   ├── requirements.txt
 │   └── routers/
 │       ├── categorias.py    # CRUD de categorias e subcategorias
-│       ├── transacoes.py    # Listagem e edição de transações
+│       ├── transacoes.py    # Listagem paginada e edição de transações
 │       ├── regras.py        # Regras de categorização automática
 │       └── importacao.py    # Importação de extratos Excel do banco
 └── frontend/
 └── src/
 ├── api/
-│   └── client.js    # Cliente axios centralizado
+│   ├── client.js        # Cliente axios centralizado
+│   ├── transacoes.js    # Chamadas ao endpoint de transações
+│   └── categorias.js    # Chamadas ao endpoint de categorias
+├── components/
+│   ├── TabelaTransacoes.jsx
+│   └── FiltrosTransacoes.jsx
 └── pages/
 ├── Transacoes.jsx
+├── Transacoes.css
 ├── Categorias.jsx
 └── Regras.jsx
 
@@ -55,14 +63,15 @@ rastreio-db/
 - Importação de extratos Excel exportados do banco
 - Deteção automática de duplicados por `data + descrição + valor + saldo`
 - Categorização automática por regras de palavra-chave
-- Edição manual de categoria, subcategoria, reembolso e notas
+- Edição inline de categoria, subcategoria, reembolso e notas directamente na tabela
+- Paginação e filtros por ano, mês e categoria
 - Interface web com dark mode
 
 ## Estado actual
 
 - [x] Backend completo com todos os endpoints
 - [x] Migração de dados históricos
-- [ ] Página de Transações (em desenvolvimento)
+- [x] Página de Transações (tabela, filtros, paginação, importação, edição inline)
 - [ ] Página de Categorias
 - [ ] Página de Regras
 - [ ] Estatísticas e relatórios
