@@ -72,6 +72,6 @@ rastreio-db/
 - [x] Backend completo com todos os endpoints
 - [x] Migração de dados históricos
 - [x] Página de Transações (tabela, filtros, paginação, importação, edição inline)
-- [ ] Página de Categorias
+- [x] Página de Categorias (CRUD de categorias e subcategorias)
 - [ ] Página de Regras
 - [ ] Estatísticas e relatórios
