@@ -9,6 +9,7 @@ CATEGORIAS = {
     "Aparência": ["Roupa", "Cabeleireiro"],
     "Investimento": ["ETFs", "Crypto", "Poupança"],
     "Pontual": ["Jurídico"],
+    "Prendas": ["Família"],
 }
 
 def popular():
