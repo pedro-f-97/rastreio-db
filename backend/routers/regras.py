@@ -14,7 +14,18 @@ def get_db():
 
 @router.get("/")
 def listar_regras(db: Session = Depends(get_db)):
-    return db.query(RegraCategorizacao).all()
+    regras = db.query(RegraCategorizacao).all()
+    return [
+        {
+            "id": r.id,
+            "palavra_chave": r.palavra_chave,
+            "categoria_id": r.categoria_id,
+            "categoria_nome": r.categoria.nome if r.categoria else None,
+            "subcategoria_id": r.subcategoria_id,
+            "subcategoria_nome": r.subcategoria.nome if r.subcategoria else None,
+        }
+        for r in regras
+    ]
 
 @router.post("/")
 def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):

@@ -1,0 +1,96 @@
+.regras-page {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.regras-page h1 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.regras-form {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.regras-form input,
+.regras-form select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.regras-form input {
+    width: 200px;
+}
+
+.regras-form input:focus,
+.regras-form select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.regras-form select:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.regras-form button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.regras-form button:hover {
+    opacity: 0.85;
+}
+
+.feedback {
+    font-size: 0.9rem;
+    color: var(--success);
+}
+
+.tabela-regras {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.tabela-regras th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+}
+
+.tabela-regras td {
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.tabela-regras tr:hover td {
+    background: var(--bg-secondary);
+}
+
+.btn-apagar {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    opacity: 0.6;
+}
+
+.btn-apagar:hover {
+    opacity: 1;
+}
