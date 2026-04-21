@@ -73,5 +73,5 @@ rastreio-db/
 - [x] Migração de dados históricos
 - [x] Página de Transações (tabela, filtros, paginação, importação, edição inline)
 - [x] Página de Categorias (CRUD de categorias e subcategorias)
-- [ ] Página de Regras
+- [x] Página de Regras (criação, listagem e remoção de regras de categorização)
 - [ ] Estatísticas e relatórios
