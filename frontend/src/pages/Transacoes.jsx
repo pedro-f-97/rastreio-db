@@ -3,6 +3,7 @@ import { listarTransacoes, atualizarTransacao, importarExtrato } from '../api/tr
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import TabelaTransacoes from '../components/TabelaTransacoes';
 import FiltrosTransacoes from '../components/FiltrosTransacoes';
+import { listarRegras, criarRegra } from '../api/regras';
 import './Transacoes.css';
 
 export default function Transacoes() {
@@ -23,6 +24,7 @@ export default function Transacoes() {
     // Estado da UI
     const [carregando, setCarregando] = useState(false);
     const [erro, setErro] = useState(null);
+    const [regras, setRegras] = useState([]);
 
     const totalPaginas = Math.ceil(total / filtros.tamanho);
 
@@ -49,9 +51,10 @@ export default function Transacoes() {
         carregarTransacoes();
     }, [carregarTransacoes]);
 
-    // Carrega categorias uma só vez
+    // Carrega categorias e regras uma só vez
     useEffect(() => {
         listarCategorias().then(res => setCategorias(res.data));
+        listarRegras().then(res => setRegras(res.data));
     }, []);
 
     function mudarFiltro(novosFiltros) {
@@ -79,6 +82,11 @@ export default function Transacoes() {
         }
     }
 
+    async function aoCriarRegra(novaRegra) {
+        const res = await criarRegra(novaRegra);
+        setRegras(prev => [...prev, res.data.regra]);
+    }
+
     return (
         <div className="transacoes-page">
             <div className="transacoes-header">
@@ -104,7 +112,9 @@ export default function Transacoes() {
                     <TabelaTransacoes
                         transacoes={transacoes}
                         categorias={categorias}
+                        regras={regras}
                         onGuardar={guardarCampo}
+                        onCriarRegra={aoCriarRegra}
                         listarSubcategorias={listarSubcategorias}
                     />
                     <div className="paginacao">
