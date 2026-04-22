@@ -28,7 +28,8 @@ rastreio-db/
 ├── api/
 │   ├── client.js        # Cliente axios centralizado
 │   ├── transacoes.js    # Chamadas ao endpoint de transações
-│   └── categorias.js    # Chamadas ao endpoint de categorias
+│   ├── categorias.js    # Chamadas ao endpoint de categorias
+│   └── regras.js        # Chamadas ao endpoint de regras
 ├── components/
 │   ├── TabelaTransacoes.jsx
 │   └── FiltrosTransacoes.jsx
@@ -36,7 +37,9 @@ rastreio-db/
 ├── Transacoes.jsx
 ├── Transacoes.css
 ├── Categorias.jsx
-└── Regras.jsx
+├── Categorias.css
+├── Regras.jsx
+└── Regras.css
 
 ## Modelo de dados
 
@@ -57,12 +60,15 @@ rastreio-db/
 | Aparência | Roupa, Cabeleireiro |
 | Investimento | ETFs, Crypto, Poupança |
 | Pontual | Jurídico |
+| Prendas | Família |
 
 ## Funcionalidades
 
 - Importação de extratos Excel exportados do banco
 - Deteção automática de duplicados por `data + descrição + valor + saldo`
 - Categorização automática por regras de palavra-chave
+- Transações com descrição iniciada por `TRF` são sempre manuais — o contexto varia (renda, partilha de despesa, etc.) e não devem ser categorizadas automaticamente
+- Sugestão de criação de regra ao categorizar manualmente uma transação
 - Edição inline de categoria, subcategoria, reembolso e notas directamente na tabela
 - Paginação e filtros por ano, mês e categoria
 - Interface web com dark mode
@@ -71,7 +77,7 @@ rastreio-db/
 
 - [x] Backend completo com todos os endpoints
 - [x] Migração de dados históricos
-- [x] Página de Transações (tabela, filtros, paginação, importação, edição inline)
+- [x] Página de Transações (tabela, filtros, paginação, importação, edição inline, sugestão de regras)
 - [x] Página de Categorias (CRUD de categorias e subcategorias)
 - [x] Página de Regras (criação, listagem e remoção de regras de categorização)
 - [ ] Estatísticas e relatórios
