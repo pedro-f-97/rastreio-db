@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 
-export default function TabelaTransacoes({ transacoes, categorias, onGuardar, listarSubcategorias }) {
+export default function TabelaTransacoes({ transacoes, categorias, regras, onGuardar, onCriarRegra, listarSubcategorias }) {
     const [subcategorias, setSubcategorias] = useState({});
     const [notasEditando, setNotasEditando] = useState({});
+    const [modalRegra, setModalRegra] = useState(null);
+// { transacaoId, descricao, categoria_id, subcategoria_id, palavraChave }
 
     // Carrega subcategorias para cada categoria única presente nas transações
     useEffect(() => {
@@ -20,7 +22,6 @@ export default function TabelaTransacoes({ transacoes, categorias, onGuardar, li
 
     async function aoMudarCategoria(t, novaCatId) {
         const id = novaCatId ? Number(novaCatId) : null;
-        // Ao mudar categoria, limpa subcategoria
         await onGuardar(t.id, 'categoria_id', id);
         await onGuardar(t.id, 'subcategoria_id', null);
 
@@ -28,6 +29,15 @@ export default function TabelaTransacoes({ transacoes, categorias, onGuardar, li
             const res = await listarSubcategorias(id);
             setSubcategorias(prev => ({ ...prev, [id]: res.data }));
         }
+
+        verificarRegra(t, id, null);
+    }
+
+    async function aoMudarSubcategoria(t, novaSubId) {
+        console.log('aoMudarSubcategoria', t.id, novaSubId);
+        const id = novaSubId ? Number(novaSubId) : null;
+        await onGuardar(t.id, 'subcategoria_id', id);
+        verificarRegra(t, t.categoria_id, id);
     }
 
     function aoEditarNotas(id, valor) {
@@ -39,6 +49,29 @@ export default function TabelaTransacoes({ transacoes, categorias, onGuardar, li
         if (novas !== undefined && novas !== t.notas) {
             onGuardar(t.id, 'notas', novas);
         }
+    }
+
+    function verificarRegra(t, categoriaId, subcategoriaId) {
+        if (!categoriaId) return;
+        if (t.descricao.toUpperCase().startsWith("TRF")) return;
+
+        // Verifica se já existe alguma regra cuja palavra-chave está contida na descrição
+        const regraExistente = regras.some(r =>
+            t.descricao.toLowerCase().includes(r.palavra_chave.toLowerCase())
+        );
+        if (regraExistente) return;
+
+        // Sugere como palavra-chave a palavra mais longa da descrição com mais de 3 caracteres
+        const palavras = t.descricao.split(/\s+/).filter(p => p.length > 3);
+        const sugestao = palavras.reduce((a, b) => a.length >= b.length ? a : b, '');
+
+        setModalRegra({
+            transacaoId: t.id,
+            descricao: t.descricao,
+            categoria_id: categoriaId,
+            subcategoria_id: subcategoriaId,
+            palavraChave: sugestao,
+        });
     }
 
     return (
@@ -79,7 +112,7 @@ export default function TabelaTransacoes({ transacoes, categorias, onGuardar, li
                             <td>
                                 <select
                                     value={t.subcategoria_id ?? ''}
-                                    onChange={e => onGuardar(t.id, 'subcategoria_id', e.target.value ? Number(e.target.value) : null)}
+                                    onChange={e => aoMudarSubcategoria(t, e.target.value || null)}
                                     disabled={!t.categoria_id}
                                 >
                                     <option value="">—</option>
@@ -110,6 +143,37 @@ export default function TabelaTransacoes({ transacoes, categorias, onGuardar, li
                     ))}
                 </tbody>
             </table>
+        {modalRegra && (
+            <div className="modal-overlay">
+                <div className="modal">
+                    <h3>Criar regra de categorização?</h3>
+                    <p className="modal-descricao">{modalRegra.descricao}</p>
+                    <input
+                        type="text"
+                        value={modalRegra.palavraChave}
+                        onChange={e => setModalRegra(prev => ({ ...prev, palavraChave: e.target.value }))}
+                    />
+                    <div className="modal-accoes">
+                        <button onClick={() => setModalRegra(null)}>Ignorar</button>
+                        <button
+                            className="btn-confirmar"
+                            onClick={async () => {
+                                if (!modalRegra.palavraChave.trim()) return;
+                                await onCriarRegra({
+                                    palavra_chave: modalRegra.palavraChave.trim(),
+                                    categoria_id: modalRegra.categoria_id,
+                                    subcategoria_id: modalRegra.subcategoria_id,
+                                });
+                                setModalRegra(null);
+                            }}
+                        >
+                            Criar regra
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        
         </div>
     );
 }

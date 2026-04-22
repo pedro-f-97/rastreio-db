@@ -45,7 +45,8 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
     # Aplicar regra às transações existentes sem categoria
     transacoes = db.query(Transacao).filter(
         Transacao.categoria_id == None,
-        Transacao.descricao.ilike(f"%{regra.palavra_chave}%")
+        Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
+        ~Transacao.descricao.ilike("TRF%")
     ).all()
 
     for t in transacoes:

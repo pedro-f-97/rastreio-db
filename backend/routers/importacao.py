@@ -15,6 +15,8 @@ def get_db():
         db.close()
 
 def aplicar_regras(transacao, regras):
+    if transacao.descricao.upper().startswith("TRF"):
+        return
     for regra in regras:
         if regra.palavra_chave.upper() in transacao.descricao.upper():
             transacao.categoria_id = regra.categoria_id
