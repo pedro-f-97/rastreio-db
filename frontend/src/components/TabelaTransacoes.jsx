@@ -108,9 +108,7 @@ export default function TabelaTransacoes({
 
         if (regraExistente) return;
 
-        const palavras = descricao
-            .split(" ")
-            .filter(p => p.length > 3);
+        const palavras = t.descricao.split(" ").filter(p => p.length > 3);
 
         if (palavras.length === 0) return;
 
@@ -129,6 +127,7 @@ export default function TabelaTransacoes({
             inicio,
             fim,
         });
+        console.log('modal', { descricao: t.descricao, sugestao, inicio, fim });
     }
 
     // =========================
@@ -238,23 +237,21 @@ export default function TabelaTransacoes({
                             <input
                                 type="range"
                                 min={0}
-                                max={modalRegra.descricao.length}
+                                max={modalRegra.fim - 1}
                                 value={modalRegra.inicio}
                                 onChange={e => {
                                     const inicio = Number(e.target.value);
-                                    if (inicio >= modalRegra.fim) return;
                                     setModalRegra(prev => ({ ...prev, inicio }));
                                 }}
                             />
 
                             <input
                                 type="range"
-                                min={0}
+                                min={modalRegra.inicio + 1}
                                 max={modalRegra.descricao.length}
                                 value={modalRegra.fim}
                                 onChange={e => {
                                     const fim = Number(e.target.value);
-                                    if (fim <= modalRegra.inicio) return;
                                     setModalRegra(prev => ({ ...prev, fim }));
                                 }}
                             />
