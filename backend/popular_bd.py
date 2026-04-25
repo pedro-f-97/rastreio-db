@@ -2,8 +2,8 @@ from database import SessionLocal, Categoria, Subcategoria, criar_tabelas
 
 CATEGORIAS = {
     "Receita": ["Salário", "IRS", "Transferência de Poupanças"],
-    "Entretenimento": ["Lazer", "Jogos", "Cinema", "Viagens", "Subscrições", "Restauração"],
-    "Transporte": ["Combustível", "Portagens", "Seguro", "Manutenção"],
+    "Entretenimento": ["Lazer", "Jogos", "Cinema", "Viagens", "Subscrições", "Restauração", "Hardware"],
+    "Transporte": ["Combustível", "Portagens", "Seguro", "Manutenção", "Carro"],
     "Saúde": ["Consultas", "Farmácia", "Outros"],
     "Casa": ["Renda", "Manutenção", "Compras", "Supermercado"],
     "Aparência": ["Roupa", "Cabeleireiro"],

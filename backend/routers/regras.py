@@ -29,7 +29,6 @@ def listar_regras(db: Session = Depends(get_db)):
 
 @router.post("/")
 def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
-    # Verificar se já existe regra com esta palavra-chave
     existente = db.query(RegraCategorizacao).filter_by(palavra_chave=regra.palavra_chave).first()
     if existente:
         raise HTTPException(status_code=400, detail="Já existe uma regra com esta palavra-chave")
@@ -42,20 +41,31 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
     db.add(nova)
     db.flush()
 
-    # Aplicar regra às transações existentes sem categoria
-    transacoes = db.query(Transacao).filter(
+    # Transações sem categoria
+    sem_categoria = db.query(Transacao).filter(
         Transacao.categoria_id == None,
         Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
         ~Transacao.descricao.ilike("TRF%")
     ).all()
-
-    for t in transacoes:
+    for t in sem_categoria:
         t.categoria_id = nova.categoria_id
+        t.subcategoria_id = nova.subcategoria_id
+
+    # Transações com categoria coincidente mas sem subcategoria
+    com_categoria = db.query(Transacao).filter(
+        Transacao.categoria_id == nova.categoria_id,
+        Transacao.subcategoria_id == None,
+        Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
+        ~Transacao.descricao.ilike("TRF%")
+    ).all()
+    for t in com_categoria:
         t.subcategoria_id = nova.subcategoria_id
 
     db.commit()
     db.refresh(nova)
-    return {"regra": nova, "transacoes_atualizadas": len(transacoes)}
+
+    atualizadas = len(sem_categoria) + len(com_categoria)
+    return {"regra": nova, "transacoes_atualizadas": atualizadas}
 
 @router.delete("/{regra_id}")
 def apagar_regra(regra_id: int, db: Session = Depends(get_db)):

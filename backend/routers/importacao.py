@@ -19,8 +19,13 @@ def aplicar_regras(transacao, regras):
         return
     for regra in regras:
         if regra.palavra_chave.upper() in transacao.descricao.upper():
-            transacao.categoria_id = regra.categoria_id
-            transacao.subcategoria_id = regra.subcategoria_id
+            # Sem categoria — preenche tudo
+            if transacao.categoria_id is None:
+                transacao.categoria_id = regra.categoria_id
+                transacao.subcategoria_id = regra.subcategoria_id
+            # Com categoria coincidente mas sem subcategoria — preenche só subcategoria
+            elif transacao.categoria_id == regra.categoria_id and transacao.subcategoria_id is None:
+                transacao.subcategoria_id = regra.subcategoria_id
             break
 
 @router.post("/")
