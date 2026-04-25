@@ -35,6 +35,13 @@ export default function FiltrosTransacoes({ filtros, categorias, onChange }) {
                 <option value="">Todas as categorias</option>
                 {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
+
+            <button
+                className={filtros.por_categorizar ? 'btn-filtro-activo' : 'btn-filtro'}
+                onClick={() => onChange({ por_categorizar: !filtros.por_categorizar, ano: null })}
+            >
+                {filtros.por_categorizar ? 'Mostrar todas' : 'Por categorizar'}
+            </button>
         </div>
     );
 }
