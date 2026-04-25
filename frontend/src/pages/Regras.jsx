@@ -76,43 +76,49 @@ export default function Regras() {
         setModalAberto(true);
     }
 
-    async function aoAplicar() {
-        // Junta sem_conflito + conflitos aprovados
+    function aoAprovarConflito(t) {
+        const aprovado = {
+            id: t.id,
+            categoria_id: t.categoria_sugerida_id,
+            subcategoria_id: t.subcategoria_sugerida_id,
+        };
+        const novosAprovados = [...conflitosAprovados, aprovado];
+        setConflitosAprovados(novosAprovados);
+
+        if (indiceConflito + 1 >= comConflito.length) {
+            aplicarComAprovados(novosAprovados);
+        } else {
+            setIndiceConflito(prev => prev + 1);
+        }
+    }
+
+    function avancarConflito() {
+        if (indiceConflito + 1 >= comConflito.length) {
+            aplicarComAprovados(conflitosAprovados);
+        } else {
+            setIndiceConflito(prev => prev + 1);
+        }
+    }
+
+    async function aplicarComAprovados(aprovados) {
         const ids = [
             ...semConflito.map(t => ({
                 id: t.id,
                 categoria_id: t.categoria_id,
                 subcategoria_id: t.subcategoria_sugerida_id,
             })),
-            ...conflitosAprovados,
+            ...aprovados,
         ];
 
         if (ids.length === 0) {
-            setFase('concluido');
             setResultado({ aplicadas: 0 });
+            setFase('concluido');
             return;
         }
 
         const res = await aplicarEmMassa(ids);
         setResultado(res.data);
         setFase('concluido');
-    }
-
-    function aoAprovarConflito(t) {
-        setConflitosAprovados(prev => [...prev, {
-            id: t.id,
-            categoria_id: t.categoria_sugerida_id,
-            subcategoria_id: t.subcategoria_sugerida_id,
-        }]);
-        avancarConflito();
-    }
-
-    function avancarConflito() {
-        if (indiceConflito + 1 >= comConflito.length) {
-            setFase('resumo');
-        } else {
-            setIndiceConflito(prev => prev + 1);
-        }
     }
 
     function fecharModal() {
@@ -204,7 +210,7 @@ export default function Regras() {
                                             Analisar conflitos →
                                         </button>
                                     ) : (
-                                        <button className="btn-confirmar" onClick={aoAplicar}>
+                                        <button className="btn-confirmar" onClick={() => aplicarComAprovados([])}>
                                             Aplicar
                                         </button>
                                     )}

@@ -61,8 +61,6 @@ export default function TabelaTransacoes({
 
         await onGuardar(t.id, 'categoria_id', novaCatId);
         await onGuardar(t.id, 'subcategoria_id', null);
-
-        verificarRegra(updated, novaCatId, null);
     }
 
     async function aoMudarSubcategoria(t, novaSubId) {
