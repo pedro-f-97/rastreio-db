@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { listarRegras, criarRegra, apagarRegra } from '../api/regras';
+import { listarRegras, criarRegra, apagarRegra, preVisualizarRegras, aplicarEmMassa } from '../api/regras';
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import './Regras.css';
 
@@ -13,6 +13,15 @@ export default function Regras() {
         subcategoria_id: '',
     });
     const [feedback, setFeedback] = useState(null);
+
+    // Estado do modal de aplicação em massa
+    const [modalAberto, setModalAberto] = useState(false);
+    const [semConflito, setSemConflito] = useState([]);
+    const [comConflito, setComConflito] = useState([]);
+    const [conflitosAprovados, setConflitosAprovados] = useState([]);
+    const [indiceConflito, setIndiceConflito] = useState(0);
+    const [fase, setFase] = useState('resumo'); // 'resumo' | 'conflitos' | 'concluido'
+    const [resultado, setResultado] = useState(null);
 
     useEffect(() => {
         carregar();
@@ -57,9 +66,71 @@ export default function Regras() {
         carregar();
     }
 
+    async function aoAbrirModal() {
+        const res = await preVisualizarRegras();
+        setSemConflito(res.data.sem_conflito);
+        setComConflito(res.data.com_conflito);
+        setConflitosAprovados([]);
+        setIndiceConflito(0);
+        setFase(res.data.com_conflito.length > 0 ? 'resumo' : 'resumo');
+        setModalAberto(true);
+    }
+
+    async function aoAplicar() {
+        // Junta sem_conflito + conflitos aprovados
+        const ids = [
+            ...semConflito.map(t => ({
+                id: t.id,
+                categoria_id: t.categoria_id,
+                subcategoria_id: t.subcategoria_sugerida_id,
+            })),
+            ...conflitosAprovados,
+        ];
+
+        if (ids.length === 0) {
+            setFase('concluido');
+            setResultado({ aplicadas: 0 });
+            return;
+        }
+
+        const res = await aplicarEmMassa(ids);
+        setResultado(res.data);
+        setFase('concluido');
+    }
+
+    function aoAprovarConflito(t) {
+        setConflitosAprovados(prev => [...prev, {
+            id: t.id,
+            categoria_id: t.categoria_sugerida_id,
+            subcategoria_id: t.subcategoria_sugerida_id,
+        }]);
+        avancarConflito();
+    }
+
+    function avancarConflito() {
+        if (indiceConflito + 1 >= comConflito.length) {
+            setFase('resumo');
+        } else {
+            setIndiceConflito(prev => prev + 1);
+        }
+    }
+
+    function fecharModal() {
+        setModalAberto(false);
+        setFase('resumo');
+        setResultado(null);
+    }
+
+    const conflitoActual = comConflito[indiceConflito];
+
     return (
         <div className="regras-page">
-            <h1>Regras de categorização</h1>
+            <div className="regras-header">
+                <h1>Regras de categorização</h1>
+                <button className="btn-aplicar" onClick={aoAbrirModal}>
+                    Aplicar regras às transações
+                </button>
+            </div>
 
             <div className="regras-form">
                 <input
@@ -114,6 +185,69 @@ export default function Regras() {
                     ))}
                 </tbody>
             </table>
+
+            {modalAberto && (
+                <div className="modal-overlay">
+                    <div className="modal">
+
+                        {fase === 'resumo' && (
+                            <>
+                                <h3>Aplicar regras às transações</h3>
+                                <p>{semConflito.length} transações serão actualizadas automaticamente.</p>
+                                {comConflito.length > 0 && (
+                                    <p>{comConflito.length} transações têm conflito de categoria — serão analisadas uma a uma.</p>
+                                )}
+                                <div className="modal-accoes">
+                                    <button onClick={fecharModal}>Cancelar</button>
+                                    {comConflito.length > 0 ? (
+                                        <button className="btn-confirmar" onClick={() => setFase('conflitos')}>
+                                            Analisar conflitos →
+                                        </button>
+                                    ) : (
+                                        <button className="btn-confirmar" onClick={aoAplicar}>
+                                            Aplicar
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        {fase === 'conflitos' && conflitoActual && (
+                            <>
+                                <h3>Conflito {indiceConflito + 1} de {comConflito.length}</h3>
+                                <p className="modal-descricao">{conflitoActual.descricao}</p>
+                                <div className="conflito-detalhe">
+                                    <div>
+                                        <span className="label">Categoria actual</span>
+                                        <span>{conflitoActual.categoria_atual_nome}</span>
+                                    </div>
+                                    <div>
+                                        <span className="label">Sugerida pela regra</span>
+                                        <span>{conflitoActual.categoria_sugerida_nome} → {conflitoActual.subcategoria_sugerida_nome}</span>
+                                    </div>
+                                </div>
+                                <div className="modal-accoes">
+                                    <button onClick={avancarConflito}>Ignorar</button>
+                                    <button className="btn-confirmar" onClick={() => aoAprovarConflito(conflitoActual)}>
+                                        Aplicar regra
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {fase === 'concluido' && (
+                            <>
+                                <h3>Concluído</h3>
+                                <p>{resultado?.aplicadas} transações actualizadas.</p>
+                                <div className="modal-accoes">
+                                    <button className="btn-confirmar" onClick={fecharModal}>Fechar</button>
+                                </div>
+                            </>
+                        )}
+
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -94,3 +94,97 @@
 .btn-apagar:hover {
     opacity: 1;
 }
+
+.regras-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.btn-aplicar {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-aplicar:hover {
+    opacity: 0.85;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 500px;
+    max-width: 90vw;
+}
+
+.modal h3 {
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.modal-descricao {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 0.5rem 0.75rem;
+}
+
+.conflito-detalhe {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.conflito-detalhe .label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 0.1rem;
+}
+
+.modal-accoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.modal-accoes button {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.modal-accoes .btn-confirmar {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.modal-accoes button:hover {
+    opacity: 0.85;
+}

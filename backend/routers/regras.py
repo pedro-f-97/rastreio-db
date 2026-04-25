@@ -75,3 +75,62 @@ def apagar_regra(regra_id: int, db: Session = Depends(get_db)):
     db.delete(regra)
     db.commit()
     return {"ok": True}
+
+@router.post("/pre-visualizar")
+def pre_visualizar_regras(db: Session = Depends(get_db)):
+    regras = db.query(RegraCategorizacao).all()
+    transacoes = db.query(Transacao).filter(
+        Transacao.subcategoria_id.is_(None),
+        Transacao.descricao.notilike("TRF%")
+    ).all()
+
+    sem_conflito = []
+    com_conflito = []
+
+    for t in transacoes:
+        for regra in regras:
+            if regra.palavra_chave.upper() in t.descricao.upper():
+                if t.categoria_id is None or t.categoria_id == regra.categoria_id:
+                    sem_conflito.append({
+                        "id": t.id,
+                        "descricao": t.descricao,
+                        "categoria_id": regra.categoria_id,
+                        "categoria_nome": regra.categoria.nome if regra.categoria else None,
+                        "subcategoria_actual_id": t.subcategoria_id,
+                        "subcategoria_actual_nome": t.subcategoria.nome if t.subcategoria else None,
+                        "subcategoria_sugerida_id": regra.subcategoria_id,
+                        "subcategoria_sugerida_nome": regra.subcategoria.nome if regra.subcategoria else None,
+                    })
+                else:
+                    com_conflito.append({
+                        "id": t.id,
+                        "descricao": t.descricao,
+                        "categoria_atual_id": t.categoria_id,
+                        "categoria_atual_nome": t.categoria.nome if t.categoria else None,
+                        "categoria_sugerida_id": regra.categoria_id,
+                        "categoria_sugerida_nome": regra.categoria.nome if regra.categoria else None,
+                        "subcategoria_actual_id": t.subcategoria_id,
+                        "subcategoria_actual_nome": t.subcategoria.nome if t.subcategoria else None,
+                        "subcategoria_sugerida_id": regra.subcategoria_id,
+                        "subcategoria_sugerida_nome": regra.subcategoria.nome if regra.subcategoria else None,
+                    })
+                break
+
+    return {"sem_conflito": sem_conflito, "com_conflito": com_conflito}
+
+
+@router.post("/aplicar-em-massa")
+def aplicar_em_massa(dados: dict, db: Session = Depends(get_db)):
+    items = dados.get("ids", [])
+    aplicadas = 0
+
+    for item in items:
+        t = db.query(Transacao).filter(Transacao.id == item["id"]).first()
+        if not t:
+            continue
+        t.categoria_id = item["categoria_id"]
+        t.subcategoria_id = item["subcategoria_id"]
+        aplicadas += 1
+
+    db.commit()
+    return {"aplicadas": aplicadas}
