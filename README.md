@@ -53,14 +53,14 @@ rastreio-db/
 | Categoria | Subcategorias |
 |---|---|
 | Receita | Salário, IRS, Transferência de Poupanças |
-| Entretenimento | Lazer, Jogos, Cinema, Viagens, Subscrições, Restauração, Hardware |
+| Entretenimento | Lazer, Jogos, Cinema, Viagens, Subscrições, Restauração, Hardware, Diversos |
 | Transporte | Combustível, Portagens, Seguro, Manutenção, Carro, IUC, Inspeção |
 | Saúde | Consultas, Farmácia, Outros |
 | Casa | Renda, Manutenção, Compras, Supermercado |
 | Aparência | Roupa, Cabeleireiro |
 | Investimento | ETFs, Crypto, Poupança |
 | Pontual | Jurídico |
-| Prendas | Família |
+| Prendas | Família, Namorada |
 
 ## Funcionalidades
 
