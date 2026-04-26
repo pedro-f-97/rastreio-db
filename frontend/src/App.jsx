@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import Transacoes from './pages/Transacoes'
 import Categorias from './pages/Categorias'
 import Regras from './pages/Regras'
+import Estatisticas from './pages/Estatisticas'
 import './index.css'
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
             { to: '/', label: 'Transações' },
             { to: '/categorias', label: 'Categorias' },
             { to: '/regras', label: 'Regras' },
+            { to: '/estatisticas', label: 'Estatísticas' },
           ].map(({ to, label }) => (
             <NavLink
               key={to}
@@ -42,12 +44,12 @@ function App() {
             </NavLink>
           ))}
         </nav>
-
         <main style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
           <Routes>
             <Route path="/" element={<Transacoes />} />
             <Route path="/categorias" element={<Categorias />} />
             <Route path="/regras" element={<Regras />} />
+            <Route path="/estatisticas" element={<Estatisticas />} />
           </Routes>
         </main>
       </div>

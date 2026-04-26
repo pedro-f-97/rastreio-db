@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import categorias, transacoes, regras, importacao
+from routers import categorias, transacoes, regras, importacao, estatisticas
 
 app = FastAPI()
 
@@ -15,3 +15,4 @@ app.include_router(categorias.router)
 app.include_router(transacoes.router)
 app.include_router(regras.router)
 app.include_router(importacao.router)
+app.include_router(estatisticas.router)
