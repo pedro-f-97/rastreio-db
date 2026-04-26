@@ -22,14 +22,16 @@ rastreio-db/
 │       ├── categorias.py    # CRUD de categorias e subcategorias
 │       ├── transacoes.py    # Listagem paginada e edição de transações
 │       ├── regras.py        # Regras de categorização automática
-│       └── importacao.py    # Importação de extratos Excel do banco
+│       ├── importacao.py    # Importação de extratos Excel do banco
+│       └── estatisticas.py  # Endpoints de estatísticas e resumos
 └── frontend/
 └── src/
 ├── api/
 │   ├── client.js        # Cliente axios centralizado
 │   ├── transacoes.js    # Chamadas ao endpoint de transações
 │   ├── categorias.js    # Chamadas ao endpoint de categorias
-│   └── regras.js        # Chamadas ao endpoint de regras
+│   ├── regras.js        # Chamadas ao endpoint de regras
+│   └── estatisticas.js  # Chamadas ao endpoint de estatísticas
 ├── components/
 │   ├── TabelaTransacoes.jsx
 │   └── FiltrosTransacoes.jsx
@@ -39,7 +41,9 @@ rastreio-db/
 ├── Categorias.jsx
 ├── Categorias.css
 ├── Regras.jsx
-└── Regras.css
+├── Regras.css
+├── Estatisticas.jsx
+└── Estatisticas.css
 
 ## Modelo de dados
 
@@ -71,6 +75,9 @@ rastreio-db/
 - Sugestão de criação de regra ao categorizar manualmente uma transação
 - Edição inline de categoria, subcategoria, reembolso e notas directamente na tabela
 - Paginação e filtros por ano, mês e categoria
+- Filtro rápido de transações por categorizar
+- Aplicação de regras em massa com resolução individual de conflitos
+- Estatísticas com resumo mensal, evolução gráfica e análise por categoria
 - Interface web com dark mode
 
 ## Estado actual
@@ -79,5 +86,5 @@ rastreio-db/
 - [x] Migração de dados históricos
 - [x] Página de Transações (tabela, filtros, paginação, importação, edição inline, sugestão de regras com selector de substring)
 - [x] Página de Categorias (CRUD de categorias e subcategorias)
-- [x] Página de Regras (criação, listagem e remoção de regras de categorização)
-- [ ] Estatísticas e relatórios
+- [x] Página de Regras (criação, listagem, remoção e aplicação em massa de regras de categorização)
+- [x] Página de Estatísticas (resumo mensal, evolução gráfica, média e mediana por categoria)
