@@ -76,8 +76,18 @@
 
 .valor-positivo {
     color: var(--success);
+    background: rgba(0, 200, 0, 0.08);
 }
 
 .valor-negativo {
     color: var(--danger);
+    background: rgba(255, 0, 0, 0.08);
+}
+
+.mes-positivo td {
+    border-left: 2px solid var(--success);
+}
+
+.mes-negativo td:first-child {
+    border-left: 2px solid var(--danger);
 }

@@ -27,6 +27,7 @@ export default function Estatisticas() {
         label: labelMes(m.ano, m.mes),
         Receitas: m.receitas,
         Despesas: m.despesas,
+        Investimento: m.investimento,
         Saldo: m.saldo,
     }));
 
@@ -65,11 +66,12 @@ export default function Estatisticas() {
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
                         <Bar dataKey="Receitas" fill="var(--success)" />
                         <Bar dataKey="Despesas" fill="var(--danger)" />
+                        <Bar dataKey="Investimento" fill="var(--accent)" />
                     </BarChart>
                 </ResponsiveContainer>
             </section>
 
-            {/* TABELA MENSAL */}
+                        {/* TABELA MENSAL */}
             <section className="secao">
                 <h2>Detalhe por mês</h2>
                 <table className="tabela-stats">
@@ -78,6 +80,7 @@ export default function Estatisticas() {
                             <th>Mês</th>
                             <th>Receitas</th>
                             <th>Despesas</th>
+                            <th>Investimento</th>
                             <th>Saldo</th>
                         </tr>
                     </thead>
@@ -87,6 +90,7 @@ export default function Estatisticas() {
                                 <td>{labelMes(m.ano, m.mes)}</td>
                                 <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
                                 <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
+                                <td>{m.investimento.toFixed(2)} €</td>
                                 <td className={m.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
                                     {m.saldo.toFixed(2)} €
                                 </td>

@@ -15,34 +15,50 @@ def get_db():
 
 @router.get("/resumo-mensal")
 def resumo_mensal(db: Session = Depends(get_db)):
-    # Busca todos os meses com transações
-    meses = db.query(
-        extract('year', Transacao.data).label('ano'),
-        extract('month', Transacao.data).label('mes'),
-        func.sum(Transacao.valor).label('total'),
-        func.sum(func.iif(Transacao.valor < 0, Transacao.valor, 0)).label('despesas'),
-        func.sum(func.iif(Transacao.valor > 0, Transacao.valor, 0)).label('receitas'),
-    ).group_by('ano', 'mes').order_by('ano', 'mes').all()
+    from statistics import median
+
+    transacoes = db.query(Transacao).join(Categoria, Transacao.categoria_id == Categoria.id).all()
+
+    # Agrupa por mês
+    meses = {}
+    for t in transacoes:
+        if not t.categoria:
+            continue
+        
+        chave = (t.data.year, t.data.month)
+        if chave not in meses:
+            meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
+
+        if t.categoria.nome == "Receita" and not t.reembolso and t.valor > 0:
+            meses[chave]["receitas"] += t.valor
+        elif t.categoria.nome == "Investimento":
+            meses[chave]["investimento"] += abs(t.valor)
+        elif t.valor < 0 and t.categoria.nome != "Receita":
+            meses[chave]["despesas"] += abs(t.valor)
+        elif t.valor > 0 and t.reembolso:
+            meses[chave]["despesas"] -= t.valor
 
     resultados = []
-    totais_mes = []
+    totais_despesas = []
 
-    for m in meses:
-        total_despesas = abs(m.despesas or 0)
-        total_receitas = m.receitas or 0
-        saldo = m.total or 0
-        totais_mes.append(total_despesas)
+    for (ano, mes), v in sorted(meses.items()):
+        despesas = round(max(v["despesas"], 0), 2)
+        receitas = round(v["receitas"], 2)
+        investimento = round(v["investimento"], 2)
+        saldo = round(receitas - despesas, 2)
+        totais_despesas.append(despesas)
 
         resultados.append({
-            "ano": int(m.ano),
-            "mes": int(m.mes),
-            "receitas": round(total_receitas, 2),
-            "despesas": round(total_despesas, 2),
-            "saldo": round(saldo, 2),
+            "ano": ano,
+            "mes": mes,
+            "receitas": receitas,
+            "despesas": despesas,
+            "investimento": investimento,
+            "saldo": saldo,
         })
 
-    media = round(sum(totais_mes) / len(totais_mes), 2) if totais_mes else 0
-    mediana = round(median(totais_mes), 2) if totais_mes else 0
+    media = round(sum(totais_despesas) / len(totais_despesas), 2) if totais_despesas else 0
+    mediana = round(median(totais_despesas), 2) if totais_despesas else 0
 
     return {
         "meses": resultados,
@@ -52,7 +68,6 @@ def resumo_mensal(db: Session = Depends(get_db)):
 
 @router.get("/por-categoria")
 def por_categoria(db: Session = Depends(get_db)):
-    # Gastos por categoria por mês
     resultados = db.query(
         extract('year', Transacao.data).label('ano'),
         extract('month', Transacao.data).label('mes'),
@@ -60,7 +75,11 @@ def por_categoria(db: Session = Depends(get_db)):
         Categoria.nome.label('categoria_nome'),
         func.sum(Transacao.valor).label('total'),
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
-     .filter(Transacao.valor < 0)\
+     .filter(
+         Transacao.valor < 0,
+         Categoria.nome != 'Investimento',
+         Categoria.nome != 'Receita',
+     )\
      .group_by('ano', 'mes', Transacao.categoria_id)\
      .order_by('ano', 'mes')\
      .all()
