@@ -68,6 +68,12 @@ def resumo_mensal(db: Session = Depends(get_db)):
 
 @router.get("/por-categoria")
 def por_categoria(db: Session = Depends(get_db)):
+    # Total de meses distintos com transações
+    meses_distintos = db.query(
+        extract('year', Transacao.data).label('ano'),
+        extract('month', Transacao.data).label('mes'),
+    ).distinct().count()
+
     resultados = db.query(
         extract('year', Transacao.data).label('ano'),
         extract('month', Transacao.data).label('mes'),
@@ -84,7 +90,6 @@ def por_categoria(db: Session = Depends(get_db)):
      .order_by('ano', 'mes')\
      .all()
 
-    # Agrupa por categoria para calcular mediana
     por_cat = {}
     for r in resultados:
         cat_id = r.categoria_id
@@ -105,7 +110,8 @@ def por_categoria(db: Session = Depends(get_db)):
 
     for cat in por_cat.values():
         cat["mediana"] = round(median(cat["totais"]), 2) if cat["totais"] else 0
-        cat["media"] = round(sum(cat["totais"]) / len(cat["totais"]), 2) if cat["totais"] else 0
+        # Média real: divide pelo total de meses, não só pelos meses com despesa
+        cat["media"] = round(sum(cat["totais"]) / meses_distintos, 2) if meses_distintos else 0
         del cat["totais"]
 
     return list(por_cat.values())
