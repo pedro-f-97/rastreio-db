@@ -10,7 +10,8 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
 # Define o caminho absoluto para a base de dados
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, '..', 'rastreio.db')
+DB_PATH = os.path.join(BASE_DIR, 'rastreio.db')
+print(f"✅ BD ativa em: {DB_PATH}")
 
 # Em 2.0, criamos uma classe que herda de DeclarativeBase
 class Base(DeclarativeBase):

@@ -39,9 +39,15 @@ export default function Transacoes() {
         try {
             await importarBackup(file);
             alert("Base de dados restaurada com sucesso!");
-            window.location.reload(); // Refresh total para carregar os novos dados
+            
+            // Limpa o valor do input para permitir importar o mesmo ficheiro duas vezes seguidas se necessário
+            e.target.value = null; 
+
+            // Força o recarregamento total da página
+            window.location.reload(); 
         } catch (err) {
-            alert("Erro ao importar backup: " + err.response?.data?.detail || err.message);
+            console.error(err);
+            alert("Erro ao importar backup: " + (err.response?.data?.detail || err.message));
         }
     };
 
