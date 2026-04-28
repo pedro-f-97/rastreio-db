@@ -1,9 +1,11 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, Transacao, RegraCategorizacao
+from database import SessionLocal, Transacao, RegraCategorizacao, DB_PATH
 from openpyxl import load_workbook
 from datetime import datetime
 import io
+import os
+import shutil
 
 router = APIRouter(prefix="/importacao", tags=["importacao"])
 
@@ -30,6 +32,9 @@ def aplicar_regras(transacao, regras):
 
 @router.post("/")
 async def importar_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    # Criar backup automático antes de processar o Excel
+    if os.path.exists(DB_PATH):
+        shutil.copy2(DB_PATH, DB_PATH + '.pre_import')
     conteudo = await file.read()
     wb = load_workbook(io.BytesIO(conteudo), read_only=True)
     ws = wb.active

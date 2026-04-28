@@ -2,10 +2,15 @@ from datetime import date
 from typing import List, Optional
 from sqlalchemy import create_engine, String, Float, Date, Boolean, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+import os
 
 # Ligação à base de dados SQLite
 DATABASE_URL = "sqlite:///./rastreio.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
+# Define o caminho absoluto para a base de dados
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, '..', 'rastreio.db')
 
 # Em 2.0, criamos uma classe que herda de DeclarativeBase
 class Base(DeclarativeBase):

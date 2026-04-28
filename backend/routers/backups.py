@@ -1,23 +1,23 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy import text
-from database import engine
+from database import DB_PATH, engine
 import shutil
 import os
 import tempfile
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'rastreio.db'))
-
 @router.get("/exportar")
-def exportar_backup():
-    # Cria ficheiro temporário para o backup
+def exportar_backup(background_tasks: BackgroundTasks):
     tmp = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
     tmp.close()
 
     with engine.connect() as conn:
         conn.execute(text(f"VACUUM INTO '{tmp.name}'"))
+
+    # Apaga o ficheiro temporário depois de enviar a resposta
+    background_tasks.add_task(os.remove, tmp.name)
 
     return FileResponse(
         path=tmp.name,
