@@ -115,3 +115,45 @@ def por_categoria(db: Session = Depends(get_db)):
         del cat["totais"]
 
     return list(por_cat.values())
+
+@router.get("/por-subcategoria")
+def por_subcategoria(db: Session = Depends(get_db)):
+    from database import Subcategoria
+
+    resultados = db.query(
+        Transacao.categoria_id,
+        Categoria.nome.label('categoria_nome'),
+        Transacao.subcategoria_id,
+        Subcategoria.nome.label('subcategoria_nome'),
+        func.sum(Transacao.valor).label('total'),
+    ).join(Categoria, Transacao.categoria_id == Categoria.id)\
+     .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
+     .filter(
+         Transacao.valor < 0,
+         Categoria.nome != 'Investimento',
+         Categoria.nome != 'Receita',
+         Transacao.categoria_id != None,
+     )\
+     .group_by(Transacao.categoria_id, Transacao.subcategoria_id)\
+     .all()
+
+    # Agrupa por categoria
+    por_cat = {}
+    for r in resultados:
+        cat_id = r.categoria_id
+        if cat_id not in por_cat:
+            por_cat[cat_id] = {
+                "categoria_id": cat_id,
+                "categoria_nome": r.categoria_nome,
+                "total": 0,
+                "subcategorias": [],
+            }
+        total = round(abs(r.total or 0), 2)
+        por_cat[cat_id]["total"] = round(por_cat[cat_id]["total"] + total, 2)
+        por_cat[cat_id]["subcategorias"].append({
+            "subcategoria_id": r.subcategoria_id,
+            "subcategoria_nome": r.subcategoria_nome or "Sem subcategoria",
+            "total": total,
+        })
+
+    return list(por_cat.values())

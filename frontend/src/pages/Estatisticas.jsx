@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { obterResumoMensal, obterPorCategoria } from '../api/estatisticas';
+import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    LineChart, Line, Legend, CartesianGrid
+    LineChart, Line, Legend, CartesianGrid, PieChart, Pie, Cell
 } from 'recharts';
 import './Estatisticas.css';
 
@@ -15,10 +15,13 @@ function labelMes(ano, mes) {
 export default function Estatisticas() {
     const [resumo, setResumo] = useState(null);
     const [porCategoria, setPorCategoria] = useState([]);
+    const [porSubcategoria, setPorSubcategoria] = useState([]);
+    const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
 
     useEffect(() => {
         obterResumoMensal().then(res => setResumo(res.data));
         obterPorCategoria().then(res => setPorCategoria(res.data));
+        obterPorSubcategoria().then(res => setPorSubcategoria(res.data));
     }, []);
 
     if (!resumo) return <p className="carregando">A carregar...</p>;
@@ -30,6 +33,11 @@ export default function Estatisticas() {
         Investimento: m.investimento,
         Saldo: m.saldo,
     }));
+
+    const CORES = [
+        '#6366f1', '#22c55e', '#ef4444', '#f59e0b', '#3b82f6',
+        '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4'
+    ];
 
     return (
         <div className="estatisticas-page">
@@ -121,6 +129,75 @@ export default function Estatisticas() {
                         ))}
                     </tbody>
                 </table>
+            </section>
+            {/* PIE CHART */}
+            <section className="secao">
+                <h2>Distribuição por categoria</h2>
+                <div className="pie-container">
+                    <div className="pie-wrapper">
+                        <p className="pie-titulo">Categorias</p>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie
+                                    data={porSubcategoria}
+                                    dataKey="total"
+                                    nameKey="categoria_nome"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={100}
+                                    onClick={d => setCategoriaSeleccionada(
+                                        categoriaSeleccionada?.categoria_id === d.categoria_id ? null : d
+                                    )}
+                                    cursor="pointer"
+                                >
+                                    {porSubcategoria.map((_, i) => (
+                                        <Cell
+                                            key={i}
+                                            fill={CORES[i % CORES.length]}
+                                            opacity={
+                                                categoriaSeleccionada === null ||
+                                                categoriaSeleccionada.categoria_id === porSubcategoria[i].categoria_id
+                                                    ? 1 : 0.3
+                                            }
+                                        />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                    formatter={(v, _, props) => [`${v.toFixed(2)} €`, props.payload.categoria_nome]}
+                                />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {categoriaSeleccionada && (
+                        <div className="pie-wrapper">
+                            <p className="pie-titulo">{categoriaSeleccionada.categoria_nome}</p>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                    <Pie
+                                        data={categoriaSeleccionada.subcategorias}
+                                        dataKey="total"
+                                        nameKey="subcategoria_nome"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={100}
+                                    >
+                                        {categoriaSeleccionada.subcategorias.map((_, i) => (
+                                            <Cell key={i} fill={CORES[i % CORES.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                        formatter={(v, _, props) => [`${v.toFixed(2)} €`, props.payload.subcategoria_nome]}
+                                    />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </div>
             </section>
         </div>
     );
