@@ -4,6 +4,7 @@ import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import TabelaTransacoes from '../components/TabelaTransacoes';
 import FiltrosTransacoes from '../components/FiltrosTransacoes';
 import { listarRegras, criarRegra } from '../api/regras';
+import { exportarBackup, importarBackup } from '../api/backups';
 import './Transacoes.css';
 
 export default function Transacoes() {
@@ -27,6 +28,22 @@ export default function Transacoes() {
     const [regras, setRegras] = useState([]);
 
     const totalPaginas = Math.ceil(total / filtros.tamanho);
+
+    const handleImportarFicheiro = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const confirmar = window.confirm("Atenção: Ao restaurar, todos os dados atuais serão substituídos pelo backup. Deseja continuar?");
+        if (!confirmar) return;
+
+        try {
+            await importarBackup(file);
+            alert("Base de dados restaurada com sucesso!");
+            window.location.reload(); // Refresh total para carregar os novos dados
+        } catch (err) {
+            alert("Erro ao importar backup: " + err.response?.data?.detail || err.message);
+        }
+    };
 
     // Carrega transações sempre que os filtros mudam
     const carregarTransacoes = useCallback(async () => {
@@ -87,14 +104,35 @@ export default function Transacoes() {
         setRegras(prev => [...prev, res.data.regra]);
     }
 
+    
+
     return (
         <div className="transacoes-page">
             <div className="transacoes-header">
                 <h1>Transações</h1>
-                <label className="btn-importar">
-                    Importar extrato
-                    <input type="file" accept=".xlsx" onChange={aoImportar} hidden />
-                </label>
+                
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    {/* Grupo de Backup */}
+                    <button onClick={exportarBackup} className="btn-secundario">
+                        Exportar DB
+                    </button>
+                    
+                    <label className="btn-secundario">
+                        Restaurar DB
+                        <input 
+                            type="file" 
+                            accept=".db" 
+                            onChange={handleImportarFicheiro} 
+                            hidden 
+                        />
+                    </label>
+
+                    {/* Botão Principal */}
+                    <label className="btn-importar">
+                        Importar extrato
+                        <input type="file" accept=".xlsx" onChange={aoImportar} hidden />
+                    </label>
+                </div>
             </div>
 
             <FiltrosTransacoes
