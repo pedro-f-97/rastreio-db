@@ -32,6 +32,7 @@ rastreio-db/
 │       ├── transacoes.py    # Listagem paginada e edição de transações
 │       ├── regras.py        # Regras de categorização automática
 │       ├── importacao.py    # Importação de extratos Excel do banco
+│       ├── backups.py       # Importação e exportação de backups da BD
 │       └── estatisticas.py  # Endpoints de estatísticas e resumos
 └── frontend/
     ├── index.html
@@ -48,6 +49,7 @@ rastreio-db/
         │   ├── transacoes.js    # Chamadas ao endpoint de transações
         │   ├── categorias.js    # Chamadas ao endpoint de categorias
         │   ├── regras.js        # Chamadas ao endpoint de regras
+        │   ├── backups.js       # Chamadas ao endpoint de backups
         │   └── estatisticas.js  # Chamadas ao endpoint de estatísticas
         ├── components/
         │   ├── TabelaTransacoes.jsx
@@ -96,6 +98,7 @@ rastreio-db/
 - Filtro rápido de transações por categorizar
 - Aplicação de regras em massa com resolução individual de conflitos
 - Estatísticas com resumo mensal, gráfico de evolução, média e mediana de despesas por categoria e distribuição por categoria com drill-down para subcategorias
+- Gestão de Backups: Exportação total da base de dados e restauro atómico com sistema de segurança (auto-backup `.anterior`)
 - Interface web com dark mode
 
 ## Estado actual
@@ -106,3 +109,4 @@ rastreio-db/
 - [x] Página de Categorias (CRUD de categorias e subcategorias)
 - [x] Página de Regras (criação, listagem, remoção e aplicação em massa de regras de categorização)
 - [x] Página de Estatísticas (resumo mensal, evolução gráfica, média e mediana por categoria, distribuição por categoria com drill-down para subcategorias)
+- [x] Sistema de Backup & Restore (exportação, importação com escrita atómica e auto-backup antes de importações de extratos)
