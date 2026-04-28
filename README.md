@@ -2,6 +2,10 @@
 
 Tracker pessoal de despesas bancárias, desenvolvido como projecto de portfolio.
 
+![Lista de Transações](docs/screenshots/list.jpg)
+![Estatísticas - Visão Geral](docs/screenshots/stats1.jpg)
+![Estatísticas - Detalhe](docs/screenshots/stats2.jpg)
+
 ## Tecnologias
 
 - **Backend:** Python 3.14 + FastAPI + SQLAlchemy + SQLite
