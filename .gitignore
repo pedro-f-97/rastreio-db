@@ -1,5 +1,7 @@
 # Base de dados
 rastreio.db
+*.db.anterior
+*.db
 
 # Ambiente virtual
 backend/venv/
