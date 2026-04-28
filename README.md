@@ -9,41 +9,55 @@ Tracker pessoal de despesas bancárias, desenvolvido como projecto de portfolio.
 - **Servidor:** Uvicorn
 
 ## Arquitectura
+
+```
 rastreio-db/
 ├── .gitignore
 ├── README.md
+├── DEV.md
 ├── backend/
 │   ├── database.py          # Modelos SQLAlchemy e ligação à BD
 │   ├── main.py              # Ponto de entrada FastAPI + CORS
+│   ├── schemas.py           # Schemas Pydantic para validação de dados
 │   ├── popular_bd.py        # Popula BD com categorias e subcategorias
 │   ├── migrar_excel.py      # Migração única de dados históricos
 │   ├── requirements.txt
 │   └── routers/
+│       ├── __init__.py
 │       ├── categorias.py    # CRUD de categorias e subcategorias
 │       ├── transacoes.py    # Listagem paginada e edição de transações
 │       ├── regras.py        # Regras de categorização automática
 │       ├── importacao.py    # Importação de extratos Excel do banco
 │       └── estatisticas.py  # Endpoints de estatísticas e resumos
 └── frontend/
-└── src/
-├── api/
-│   ├── client.js        # Cliente axios centralizado
-│   ├── transacoes.js    # Chamadas ao endpoint de transações
-│   ├── categorias.js    # Chamadas ao endpoint de categorias
-│   ├── regras.js        # Chamadas ao endpoint de regras
-│   └── estatisticas.js  # Chamadas ao endpoint de estatísticas
-├── components/
-│   ├── TabelaTransacoes.jsx
-│   └── FiltrosTransacoes.jsx
-└── pages/
-├── Transacoes.jsx
-├── Transacoes.css
-├── Categorias.jsx
-├── Categorias.css
-├── Regras.jsx
-├── Regras.css
-├── Estatisticas.jsx
-└── Estatisticas.css
+    ├── index.html
+    ├── vite.config.js
+    ├── eslint.config.js
+    ├── package.json
+    └── src/
+        ├── main.jsx
+        ├── App.jsx
+        ├── App.css
+        ├── index.css
+        ├── api/
+        │   ├── client.js        # Cliente axios centralizado
+        │   ├── transacoes.js    # Chamadas ao endpoint de transações
+        │   ├── categorias.js    # Chamadas ao endpoint de categorias
+        │   ├── regras.js        # Chamadas ao endpoint de regras
+        │   └── estatisticas.js  # Chamadas ao endpoint de estatísticas
+        ├── components/
+        │   ├── TabelaTransacoes.jsx
+        │   └── FiltrosTransacoes.jsx
+        └── pages/
+            ├── Transacoes.jsx
+            ├── Transacoes.css
+            ├── Categorias.jsx
+            ├── Categorias.css
+            ├── Regras.jsx
+            ├── Regras.css
+            ├── Estatisticas.jsx
+            └── Estatisticas.css
+```
 
 ## Modelo de dados
 
@@ -77,7 +91,7 @@ rastreio-db/
 - Paginação e filtros por ano, mês e categoria
 - Filtro rápido de transações por categorizar
 - Aplicação de regras em massa com resolução individual de conflitos
-- Estatísticas com resumo mensal, evolução gráfica e análise por categoria
+- Estatísticas com resumo mensal, gráfico de evolução, média e mediana de despesas por categoria e distribuição por categoria com drill-down para subcategorias
 - Interface web com dark mode
 
 ## Estado actual
@@ -87,4 +101,4 @@ rastreio-db/
 - [x] Página de Transações (tabela, filtros, paginação, importação, edição inline, sugestão de regras com selector de substring)
 - [x] Página de Categorias (CRUD de categorias e subcategorias)
 - [x] Página de Regras (criação, listagem, remoção e aplicação em massa de regras de categorização)
-- [x] Página de Estatísticas (resumo mensal, evolução gráfica, média e mediana por categoria)
+- [x] Página de Estatísticas (resumo mensal, evolução gráfica, média e mediana por categoria, distribuição por categoria com drill-down para subcategorias)
