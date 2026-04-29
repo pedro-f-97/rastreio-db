@@ -1,8 +1,19 @@
 # rastreio-db
 
-Tracker pessoal de despesas bancárias, desenvolvido como projecto de portfolio.
+Aplicação web para gestão e análise de despesas bancárias pessoais, com foco em categorização automática e representação fiel da realidade financeira.
 
+Permite importar extratos do banco em formato excel, categorizar automaticamente com regras personalizadas e obter estatísticas úteis para um melhor planeamento financeiro.
+
+## Motivação
+
+Este projeto surgiu da necessidade de ter um controlo financeiro fora dos limites e constrangimentos dos ficheiros Excel, mais fiel à realidade, ajustável, mais aprofundado e utilização fácil.
+
+## Preview
+
+### Lista de transações (edição inline + filtros)
 ![Lista de Transações](docs/screenshots/list.jpg)
+
+### Estatísticas (Mensais, por categoria e subcategorias)
 ![Estatísticas - Visão Geral](docs/screenshots/stats1.jpg)
 ![Estatísticas - Detalhe](docs/screenshots/stats2.jpg)
 
@@ -69,8 +80,8 @@ rastreio-db/
 
 - **Categoria** — categorias de despesa (Casa, Transporte, Saúde, etc.)
 - **Subcategoria** — subdivisão de cada categoria (Supermercado, Combustível, etc.)
-- **Transacao** — registo de cada movimento bancário, com categoria, subcategoria, flag de reembolso e notas
-- **RegraCategorizacao** — regras por palavra-chave para categorização automática na importação
+- **Transacao** — registo de cada movimento bancário, com categoria, subcategoria, flag de reembolso (tratado como ajuste de despesa em vez de receita) e notas
+- **RegraCategorizacao** — regras por palavra-chave ou expressão para categorização automática
 
 ## Categorias
 
@@ -88,18 +99,23 @@ rastreio-db/
 
 ## Funcionalidades
 
-- Importação de extratos Excel exportados do banco
-- Deteção automática de duplicados por `data + descrição + valor + saldo`
-- Categorização automática por regras de palavra-chave
-- Transações com descrição iniciada por `TRF` são sempre manuais — o contexto varia (renda, partilha de despesa, etc.) e não devem ser categorizadas automaticamente
+- Importação de extratos Excel exportados do banco com deteção automática de duplicados por `data + descrição + valor + saldo`
+- Categorização automática configurável por regras de palavra-chave, com sugestões durante o uso
 - Sugestão de criação de regra ao categorizar manualmente uma transação
-- Edição inline de categoria, subcategoria, reembolso e notas directamente na tabela
+- Edição inline de categoria, subcategoria, reembolso e notas diretamente na tabela
 - Paginação e filtros por ano, mês e categoria
 - Filtro rápido de transações por categorizar
 - Aplicação de regras em massa com resolução individual de conflitos
 - Estatísticas com resumo mensal, gráfico de evolução, média e mediana de despesas por categoria e distribuição por categoria com drill-down para subcategorias
-- Gestão de Backups: Exportação total da base de dados e restauro atómico com sistema de segurança (auto-backup `.anterior`)
-- Interface web com dark mode
+- Gestão de Backups com exportação total da base de dados e restauro com sistema de segurança (auto-backup `.anterior`)
+- Interface web focada em rapidez de edição e análise
+
+## Decisões de design
+
+- Reembolsos são tratados como redução de despesa (evita inflacionar receitas)
+- Transferências internas (ex: poupança) são excluídas de métricas de despesa real
+- Transações `TRF` (transferências) excluídas da aplicação de regras devido à ambiguidade de contexto
+- Sistema de regras baseado em substring para simplicidade e controlo do utilizador
 
 ## Estado actual
 
