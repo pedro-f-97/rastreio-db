@@ -117,6 +117,15 @@ rastreio-db/
 - Transações `TRF` (transferências) excluídas da aplicação de regras devido à ambiguidade de contexto
 - Sistema de regras baseado em substring para simplicidade e controlo do utilizador
 
+## Distribuição (em desenvolvimento, branch 'executavel')
+
+O objectivo é gerar um executável portable que não exija instalação de Python, Node ou outras dependências.
+
+- Frontend compilado e servido pelo FastAPI
+- Empacotamento com PyInstaller (`onedir`)
+- Base de dados persistente em `dados/rastreio.db` junto ao executável
+- Arranque automático com abertura no browser
+
 ## Estado actual
 
 - [x] Backend completo com todos os endpoints
@@ -126,3 +135,4 @@ rastreio-db/
 - [x] Página de Regras (criação, listagem, remoção e aplicação em massa de regras de categorização)
 - [x] Página de Estatísticas (resumo mensal, evolução gráfica, média e mediana por categoria, distribuição por categoria com drill-down para subcategorias)
 - [x] Sistema de Backup & Restore (exportação, importação com escrita atómica e auto-backup antes de importações de extratos)
+- [ ] Versão distribuível (executável portable Linux/Windows via PyInstaller)

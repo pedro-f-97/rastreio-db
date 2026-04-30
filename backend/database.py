@@ -3,15 +3,26 @@ from typing import List, Optional
 from sqlalchemy import create_engine, String, Float, Date, Boolean, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 import os
+import sys
 
-# Ligação à base de dados SQLite
-DATABASE_URL = "sqlite:///./rastreio.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Determina a pasta base conforme o contexto de execução
+if getattr(sys, 'frozen', False):
+    # A correr como executável PyInstaller
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    # Desenvolvimento normal
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Define o caminho absoluto para a base de dados
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'rastreio.db')
+# A BD fica numa pasta 'dados/' junto ao executável (ou junto ao backend/ em dev)
+PASTA_DADOS = os.path.join(BASE_DIR, "dados")
+os.makedirs(PASTA_DADOS, exist_ok=True)
+
+DB_PATH = os.path.join(PASTA_DADOS, "rastreio.db")
+DATABASE_URL = f"sqlite:///{DB_PATH}"
+
 print(f"✅ BD ativa em: {DB_PATH}")
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine)
 
 # Em 2.0, criamos uma classe que herda de DeclarativeBase
 class Base(DeclarativeBase):

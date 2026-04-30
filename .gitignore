@@ -12,3 +12,10 @@ __pycache__/
 
 # Ficheiros com dados pessoais
 *.xlsx
+
+# Dist
+dist_executavel/
+backend/frontend_dist/
+backend/build/
+backend/dist/
+backend/*.spec
