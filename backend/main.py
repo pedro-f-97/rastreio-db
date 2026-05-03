@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from database import BASE_DIR
+from database import BASE_DIR, criar_tabelas
 from routers import categorias, transacoes, regras, importacao, estatisticas, backups
 
 # Determina a pasta dos ficheiros estáticos
@@ -25,6 +25,7 @@ def abrir_browser():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    criar_tabelas()
     if getattr(sys, 'frozen', False):
         threading.Thread(target=abrir_browser, daemon=True).start()
     yield
