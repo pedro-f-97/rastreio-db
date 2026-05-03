@@ -37,11 +37,20 @@ uvicorn main:app --reload
 ## Recriar a base de dados (apaga tudo!)
 ```bash
 cd backend
-rm rastreio.db
+rm dados/rastreio.db
 python database.py
 python popular_bd.py
 python migrar_excel.py
 ```
+
+## Gerar executável
+```bash
+cd /home/pedrof/Documents/Projectos/rastreio-db
+./build.sh
+```
+- Executável gerado em: `dist_executavel/rastreio-db`
+- Base de dados em: `dist_executavel/dados/rastreio.db`
+- Para testar com BD nova: `rm dist_executavel/dados/rastreio.db`
 
 ## Git — guardar trabalho
 ```bash

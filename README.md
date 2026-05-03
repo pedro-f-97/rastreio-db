@@ -22,62 +22,61 @@ Este projeto surgiu da necessidade de ter um controlo financeiro fora dos limite
 - **Backend:** Python 3.14 + FastAPI + SQLAlchemy + SQLite
 - **Frontend:** React + Vite
 - **Servidor:** Uvicorn
+- **Distribuição:** PyInstaller
 
 ## Arquitectura
-
-```
 rastreio-db/
 ├── .gitignore
 ├── README.md
 ├── DEV.md
+├── build.sh                 # Script de build para gerar executável
 ├── backend/
 │   ├── database.py          # Modelos SQLAlchemy e ligação à BD
 │   ├── main.py              # Ponto de entrada FastAPI + CORS
 │   ├── schemas.py           # Schemas Pydantic para validação de dados
-│   ├── popular_bd.py        # Popula BD com categorias e subcategorias
+│   ├── popular_bd.py        # Categorias e subcategorias predefinidas
 │   ├── migrar_excel.py      # Migração única de dados históricos
 │   ├── requirements.txt
 │   └── routers/
-│       ├── __init__.py
+│       ├── init.py
 │       ├── categorias.py    # CRUD de categorias e subcategorias
 │       ├── transacoes.py    # Listagem paginada e edição de transações
 │       ├── regras.py        # Regras de categorização automática
 │       ├── importacao.py    # Importação de extratos Excel do banco
-│       ├── backups.py       # Importação e exportação de backups da BD
-│       ├── configuracao.py  # Endpoint para criação de categorias e subcategorias
+│       ├── backups.py       # Exportação e restauro da base de dados
+│       ├── configuracao.py  # Inicialização e estado da aplicação
 │       └── estatisticas.py  # Endpoints de estatísticas e resumos
 └── frontend/
-    ├── index.html
-    ├── vite.config.js
-    ├── eslint.config.js
-    ├── package.json
-    └── src/
-        ├── main.jsx
-        ├── App.jsx
-        ├── App.css
-        ├── index.css
-        ├── api/
-        │   ├── client.js        # Cliente axios centralizado
-        │   ├── transacoes.js    # Chamadas ao endpoint de transações
-        │   ├── categorias.js    # Chamadas ao endpoint de categorias
-        │   ├── regras.js        # Chamadas ao endpoint de regras
-        │   ├── backups.js       # Chamadas ao endpoint de backups
-        │   ├── configuracao.js  # Chamadas ao endpoint de configuracao
-        │   └── estatisticas.js  # Chamadas ao endpoint de estatísticas
-        ├── components/
-        │   ├── TabelaTransacoes.jsx
-        │   └── FiltrosTransacoes.jsx
-        └── pages/
-            ├── Transacoes.jsx
-            ├── Transacoes.css
-            ├── Categorias.jsx
-            ├── Categorias.css
-            ├── Regras.jsx
-            ├── Regras.css
-            ├── Estatisticas.jsx
-            ├── PrimeiroUso.jsx
-            └── Estatisticas.css
-```
+├── index.html
+├── vite.config.js
+├── eslint.config.js
+├── package.json
+└── src/
+├── main.jsx
+├── App.jsx
+├── App.css
+├── index.css
+├── api/
+│   ├── client.js        # Cliente axios centralizado
+│   ├── transacoes.js    # Chamadas ao endpoint de transações
+│   ├── categorias.js    # Chamadas ao endpoint de categorias
+│   ├── regras.js        # Chamadas ao endpoint de regras
+│   ├── backups.js       # Chamadas ao endpoint de backups
+│   ├── configuracao.js  # Chamadas ao endpoint de configuração
+│   └── estatisticas.js  # Chamadas ao endpoint de estatísticas
+├── components/
+│   ├── TabelaTransacoes.jsx
+│   └── FiltrosTransacoes.jsx
+└── pages/
+├── Transacoes.jsx
+├── Transacoes.css
+├── Categorias.jsx
+├── Categorias.css
+├── Regras.jsx
+├── Regras.css
+├── Estatisticas.jsx
+├── Estatisticas.css
+└── PrimeiroUso.jsx
 
 ## Modelo de dados
 
@@ -110,7 +109,8 @@ rastreio-db/
 - Filtro rápido de transações por categorizar
 - Aplicação de regras em massa com resolução individual de conflitos
 - Estatísticas com resumo mensal, gráfico de evolução, média e mediana de despesas por categoria e distribuição por categoria com drill-down para subcategorias
-- Gestão de Backups com exportação total da base de dados e restauro com sistema de segurança (auto-backup `.anterior`)
+- Gestão de backups com exportação total da base de dados e restauro com sistema de segurança (auto-backup `.anterior`)
+- Ecrã de primeiro uso com inicialização opcional de categorias predefinidas
 - Interface web focada em rapidez de edição e análise
 
 ## Decisões de design
@@ -119,15 +119,29 @@ rastreio-db/
 - Transferências internas (ex: poupança) são excluídas de métricas de despesa real
 - Transações `TRF` (transferências) excluídas da aplicação de regras devido à ambiguidade de contexto
 - Sistema de regras baseado em substring para simplicidade e controlo do utilizador
+- Base de dados persistente em `dados/rastreio.db` junto ao executável para portabilidade e visibilidade
 
-## Distribuição (em desenvolvimento, branch 'executavel')
+## Distribuição
 
-O objectivo é gerar um executável portable que não exija instalação de Python, Node ou outras dependências.
+A aplicação pode ser gerada como executável portable para Linux, sem necessidade de instalar Python, Node ou outras dependências.
 
-- Frontend compilado e servido pelo FastAPI
-- Empacotamento com PyInstaller (`onedir`)
-- Base de dados persistente em `dados/rastreio.db` junto ao executável
-- Arranque automático com abertura no browser
+### Gerar o executável
+
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+O executável é gerado em `dist_executavel/`. A base de dados fica em `dist_executavel/dados/rastreio.db` — esta pasta deve ser preservada entre actualizações.
+
+### Primeiro uso
+
+Ao abrir a aplicação pela primeira vez, é apresentado um ecrã de boas-vindas com a opção de carregar as categorias predefinidas.
+
+### Notas
+
+- O build é específico para o sistema operativo onde é executado
+- Para Windows, é necessário correr o build numa máquina Windows (suporte planeado)
 
 ## Estado actual
 
@@ -138,4 +152,5 @@ O objectivo é gerar um executável portable que não exija instalação de Pyth
 - [x] Página de Regras (criação, listagem, remoção e aplicação em massa de regras de categorização)
 - [x] Página de Estatísticas (resumo mensal, evolução gráfica, média e mediana por categoria, distribuição por categoria com drill-down para subcategorias)
 - [x] Sistema de Backup & Restore (exportação, importação com escrita atómica e auto-backup antes de importações de extratos)
-- [ ] Versão distribuível (executável portable Linux/Windows via PyInstaller)
+- [x] Versão distribuível para Linux (executável portable via PyInstaller)
+- [ ] Versão distribuível para Windows
