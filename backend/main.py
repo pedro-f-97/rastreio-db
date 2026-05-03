@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import BASE_DIR, criar_tabelas
-from routers import categorias, transacoes, regras, importacao, estatisticas, backups
+from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao
 
 # Determina a pasta dos ficheiros estáticos
 if getattr(sys, 'frozen', False):
@@ -46,6 +46,7 @@ app.include_router(regras.router, prefix="/api")
 app.include_router(importacao.router, prefix="/api")
 app.include_router(estatisticas.router, prefix="/api")
 app.include_router(backups.router, prefix="/api")
+app.include_router(configuracao.router, prefix="/api")
 
 if os.path.exists(PASTA_FRONTEND):
     app.mount("/", StaticFiles(directory=PASTA_FRONTEND, html=True), name="frontend")

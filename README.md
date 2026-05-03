@@ -44,6 +44,7 @@ rastreio-db/
 │       ├── regras.py        # Regras de categorização automática
 │       ├── importacao.py    # Importação de extratos Excel do banco
 │       ├── backups.py       # Importação e exportação de backups da BD
+│       ├── configuracao.py  # Endpoint para criação de categorias e subcategorias
 │       └── estatisticas.py  # Endpoints de estatísticas e resumos
 └── frontend/
     ├── index.html
@@ -61,6 +62,7 @@ rastreio-db/
         │   ├── categorias.js    # Chamadas ao endpoint de categorias
         │   ├── regras.js        # Chamadas ao endpoint de regras
         │   ├── backups.js       # Chamadas ao endpoint de backups
+        │   ├── configuracao.js  # Chamadas ao endpoint de configuracao
         │   └── estatisticas.js  # Chamadas ao endpoint de estatísticas
         ├── components/
         │   ├── TabelaTransacoes.jsx
@@ -73,6 +75,7 @@ rastreio-db/
             ├── Regras.jsx
             ├── Regras.css
             ├── Estatisticas.jsx
+            ├── PrimeiroUso.jsx
             └── Estatisticas.css
 ```
 
