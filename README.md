@@ -145,12 +145,26 @@ Ao abrir a aplicação pela primeira vez, é apresentado um ecrã de boas-vindas
 
 ## Estado actual
 
+### Backend
 - [x] Backend completo com todos os endpoints
 - [x] Migração de dados históricos
-- [x] Página de Transações (tabela, filtros, paginação, importação, edição inline, sugestão de regras com selector de substring)
-- [x] Página de Categorias (CRUD de categorias e subcategorias)
-- [x] Página de Regras (criação, listagem, remoção e aplicação em massa de regras de categorização)
-- [x] Página de Estatísticas (resumo mensal, evolução gráfica, média e mediana por categoria, distribuição por categoria com drill-down para subcategorias)
-- [x] Sistema de Backup & Restore (exportação, importação com escrita atómica e auto-backup antes de importações de extratos)
+
+### Páginas
+- [x] Transações (tabela, filtros, paginação, importação, edição inline, sugestão de regras com selector de substring)
+- [x] Categorias (CRUD de categorias e subcategorias)
+- [x] Regras (criação, listagem, remoção e aplicação em massa de regras de categorização)
+- [x] Estatísticas
+  - [x] Resumo mensal com evolução gráfica
+  - [x] Média e mediana por categoria
+  - [x] Distribuição por categoria com drill-down para subcategorias
+  - [ ] Substituir gráficos de distribuição (pie) por gráficos de barras
+  - [ ] Percentagem na distribuição por categoria e subcategoria
+  - [ ] Vista detalhada por mês com despesas e receitas por categoria e subcategoria
+  - [ ] Taxa de poupança por intervalo de tempo (mensal e anual)
+  - [ ] Totalizadores e estatísticas anuais
+
+### Sistema
+- [x] Backup & Restore (exportação, importação com escrita atómica e auto-backup)
 - [x] Versão distribuível para Linux (executável portable via PyInstaller)
+- [ ] Ícone na system tray para controlo do executável (Linux/Windows)
 - [ ] Versão distribuível para Windows
