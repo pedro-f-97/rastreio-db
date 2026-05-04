@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    LineChart, Line, Legend, CartesianGrid, PieChart, Pie, Cell
+    LineChart, Line, Legend, CartesianGrid, Cell
 } from 'recharts';
 import './Estatisticas.css';
 
@@ -33,6 +33,8 @@ export default function Estatisticas() {
         Investimento: m.investimento,
         Saldo: m.saldo,
     }));
+
+    const totalGeral = porSubcategoria.reduce((soma, c) => soma + c.total, 0);
 
     const CORES = [
         '#6366f1', '#22c55e', '#ef4444', '#f59e0b', '#3b82f6',
@@ -130,75 +132,82 @@ export default function Estatisticas() {
                     </tbody>
                 </table>
             </section>
-            {/* PIE CHART */}
-            <section className="secao">
-                <h2>Distribuição por categoria</h2>
-                <div className="pie-container">
-                    <div className="pie-wrapper">
-                        <p className="pie-titulo">Categorias</p>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie
-                                    data={porSubcategoria}
-                                    dataKey="total"
-                                    nameKey="categoria_nome"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={100}
-                                    onClick={d => setCategoriaSeleccionada(
-                                        categoriaSeleccionada?.categoria_id === d.categoria_id ? null : d
-                                    )}
-                                    cursor="pointer"
-                                >
-                                    {porSubcategoria.map((_, i) => (
-                                        <Cell
-                                            key={i}
-                                            fill={CORES[i % CORES.length]}
-                                            opacity={
-                                                categoriaSeleccionada === null ||
-                                                categoriaSeleccionada.categoria_id === porSubcategoria[i].categoria_id
-                                                    ? 1 : 0.3
-                                            }
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                                    formatter={(v, _, props) => [`${v.toFixed(2)} €`, props.payload.categoria_nome]}
-                                />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
+            {/* DISTRIBUIÇÃO POR CATEGORIA */}
+                <section className="secao">
+                    <h2>Distribuição por categoria</h2>
+                    <ResponsiveContainer width="100%" height={porSubcategoria.length * 48 + 40}>
+                        <BarChart
+                            data={porSubcategoria}
+                            layout="vertical"
+                            margin={{ top: 0, right: 60, left: 120, bottom: 0 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                            <XAxis
+                                type="number"
+                                tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                                tickFormatter={v => `${v.toFixed(0)} €`}
+                            />
+                            <YAxis
+                                type="category"
+                                dataKey="categoria_nome"
+                                tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                                width={115}
+                            />
+                            <Tooltip
+                                contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                formatter={(v, _, props) => {
+                                    const pct = totalGeral > 0 ? (v / totalGeral * 100).toFixed(1) : 0;
+                                    return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
+                                }}
+                            />
+                            <Bar dataKey="total" radius={[0, 4, 4, 0]} onClick={item => setCategoriaSeleccionada(
+                                categoriaSeleccionada?.categoria_id === item.categoria_id ? null : item
+                            )} style={{ cursor: 'pointer' }}>
+                                {porSubcategoria.map((_, i) => (
+                                    <Cell key={i} fill={CORES[i % CORES.length]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
 
                     {categoriaSeleccionada && (
-                        <div className="pie-wrapper">
-                            <p className="pie-titulo">{categoriaSeleccionada.categoria_nome}</p>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
-                                    <Pie
-                                        data={categoriaSeleccionada.subcategorias}
-                                        dataKey="total"
-                                        nameKey="subcategoria_nome"
-                                        cx="50%"
-                                        cy="50%"
-                                        outerRadius={100}
-                                    >
+                        <div className="subcategoria-detalhe">
+                            <h3>{categoriaSeleccionada.categoria_nome}</h3>
+                            <ResponsiveContainer width="100%" height={categoriaSeleccionada.subcategorias.length * 48 + 40}>
+                                <BarChart
+                                    data={categoriaSeleccionada.subcategorias}
+                                    layout="vertical"
+                                    margin={{ top: 0, right: 60, left: 140, bottom: 0 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                                    <XAxis
+                                        type="number"
+                                        tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                                        tickFormatter={v => `${v.toFixed(0)} €`}
+                                    />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="subcategoria_nome"
+                                        tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                                        width={135}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                        formatter={(v, _, props) => {
+                                            const pct = categoriaSeleccionada.total > 0 ? (v / categoriaSeleccionada.total * 100).toFixed(1) : 0;
+                                            return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
+                                        }}
+                                    />
+                                    <Bar dataKey="total" radius={[0, 4, 4, 0]}>
                                         {categoriaSeleccionada.subcategorias.map((_, i) => (
                                             <Cell key={i} fill={CORES[i % CORES.length]} />
                                         ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                                        formatter={(v, _, props) => [`${v.toFixed(2)} €`, props.payload.subcategoria_nome]}
-                                    />
-                                    <Legend />
-                                </PieChart>
+                                    </Bar>
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     )}
-                </div>
-            </section>
+                </section>
         </div>
     );
 }

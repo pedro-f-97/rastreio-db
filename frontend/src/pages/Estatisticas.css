@@ -92,23 +92,16 @@
     border-left: 2px solid var(--danger);
 }
 
-.pie-container {
-    display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
+.subcategoria-detalhe {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
 }
 
-.pie-wrapper {
-    flex: 1;
-    min-width: 300px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    padding: 1rem;
-}
-
-.pie-titulo {
-    font-size: 0.9rem;
+.subcategoria-detalhe h3 {
+    margin-bottom: 1rem;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-    text-align: center;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
