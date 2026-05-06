@@ -8,7 +8,7 @@ CATEGORIAS = {
     "Casa": ["Renda", "Manutenção", "Compras", "Supermercado"],
     "Aparência": ["Roupa", "Cabeleireiro"],
     "Investimento": ["ETFs", "Crypto", "Poupança"],
-    "Pontual": ["Jurídico"],
+    "Pontual": ["Jurídico", "Outros"],
     "Prendas": ["Família", "Namorada"],
 }
 
