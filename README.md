@@ -148,6 +148,7 @@ Ao abrir a aplicação pela primeira vez, é apresentado um ecrã de boas-vindas
 ### Backend
 - [x] Backend completo com todos os endpoints
 - [x] Migração de dados históricos
+- [ ] Refactor de schema: adicionar campo `tipo` a `Categoria` (valores: `despesa`, `receita`, `investimento`, `transferencia`) e substituir filtragem por `Categoria.nome` em todos os routers
 
 ### Páginas
 - [x] Transações (tabela, filtros, paginação, importação, edição inline, sugestão de regras com selector de substring)
@@ -157,9 +158,9 @@ Ao abrir a aplicação pela primeira vez, é apresentado um ecrã de boas-vindas
   - [x] Resumo mensal com evolução gráfica
   - [x] Média e mediana por categoria
   - [x] Distribuição por categoria com drill-down para subcategorias
-  - [ ] Substituir gráficos de distribuição (pie) por gráficos de barras
-  - [ ] Percentagem na distribuição por categoria e subcategoria
-  - [ ] Vista detalhada por mês com despesas e receitas por categoria e subcategoria
+  - [x] Substituir gráficos de distribuição (pie) por gráficos de barras
+  - [x] Percentagem na distribuição por categoria e subcategoria
+  - [x] Vista detalhada por mês com despesas e receitas por categoria e subcategoria
   - [ ] Taxa de poupança por intervalo de tempo (mensal e anual)
   - [ ] Totalizadores e estatísticas anuais
 
