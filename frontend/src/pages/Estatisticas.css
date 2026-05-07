@@ -138,3 +138,18 @@
 .celula-subcategoria-nome {
     padding-left: 1rem;
 }
+
+.linha-ano {
+    background: var(--bg-secondary);
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-top: 2px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.linha-ano td:first-child {
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}

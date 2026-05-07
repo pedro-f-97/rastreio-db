@@ -45,6 +45,22 @@ export default function Estatisticas() {
         ? [...taxasPoupanca].sort((a, b) => a - b)[Math.floor(taxasPoupanca.length / 2)]
         : 0;
 
+
+    const mesesPorAno = resumo.meses.reduce((acc, m) => {
+        if (!acc[m.ano]) acc[m.ano] = [];
+        acc[m.ano].push(m);
+        return acc;
+    }, {});
+
+    const totaisPorAno = Object.entries(mesesPorAno).map(([ano, meses]) => {
+        const receitas = meses.reduce((s, m) => s + m.receitas, 0);
+        const despesas = meses.reduce((s, m) => s + m.despesas, 0);
+        const investimento = meses.reduce((s, m) => s + m.investimento, 0);
+        const saldo = receitas - despesas;
+        const taxa = receitas > 0 ? parseFloat(((receitas - despesas) / receitas * 100).toFixed(1)) : 0;
+        return { ano: parseInt(ano), receitas, despesas, investimento, saldo, taxa };
+    });
+
     function toggleMes(ano, mes) {
         if (mesSeleccionado?.ano === ano && mesSeleccionado?.mes === mes) {
             setMesSeleccionado(null);
@@ -79,7 +95,7 @@ export default function Estatisticas() {
                         <span className="cartao-valor">{resumo.mediana_mensal.toFixed(2)} €</span>
                     </div>
                     <div className="cartao">
-                        <span className="cartao-label">Mediana da taxa de poupança</span>
+                        <span className="cartao-label">Mediana da taxa de poupança mensal</span>
                         <span className="cartao-valor">{medianaTaxaPoupanca.toFixed(1)}%</span>
                     </div>
                 </div>
@@ -119,50 +135,68 @@ export default function Estatisticas() {
                             <th>Despesas</th>
                             <th>Investimento</th>
                             <th>Saldo</th>
+                            <th>Poupança</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {resumo.meses.map(m => {
-                            const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
+                        {Object.keys(mesesPorAno).sort().map(ano => {
+                            const totalAno = totaisPorAno.find(t => t.ano === parseInt(ano));
                             return (
                                 <>
-                                    <tr
-                                        key={`${m.ano}-${m.mes}`}
-                                        onClick={() => toggleMes(m.ano, m.mes)}
-                                        className={`linha-mes ${seleccionado ? 'linha-mes-activa' : ''}`}
-                                    >
-                                        <td>{labelMes(m.ano, m.mes)}</td>
-                                        <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
-                                        <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
-                                        <td>{m.investimento.toFixed(2)} €</td>
-                                        <td className={m.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
-                                            {m.saldo.toFixed(2)} €
+                                    <tr key={`ano-${ano}`} className="linha-ano">
+                                        <td>{ano}</td>
+                                        <td className="valor-positivo">{totalAno.receitas.toFixed(2)} €</td>
+                                        <td className="valor-negativo">{totalAno.despesas.toFixed(2)} €</td>
+                                        <td>{totalAno.investimento.toFixed(2)} €</td>
+                                        <td className={totalAno.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
+                                            {totalAno.saldo.toFixed(2)} €
                                         </td>
+                                        <td>{totalAno.taxa}%</td>
                                     </tr>
-                                    {seleccionado && detalheMes.map(cat => {
-                                        const classe =
-                                            cat.tipo === 'receita' ? 'valor-positivo' :
-                                            cat.tipo === 'investimento' ? '' :
-                                            cat.total >= 0 ? 'valor-positivo' : 'valor-negativo';
+                                    {mesesPorAno[ano].map(m => {
+                                    const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
+                                    return (
+                                        <>
+                                            <tr
+                                                key={`${m.ano}-${m.mes}`}
+                                                onClick={() => toggleMes(m.ano, m.mes)}
+                                                className={`linha-mes ${seleccionado ? 'linha-mes-activa' : ''}`}
+                                            >
+                                                <td>{labelMes(m.ano, m.mes)}</td>
+                                                <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
+                                                <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
+                                                <td>{m.investimento.toFixed(2)} €</td>
+                                                <td className={m.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
+                                                    {m.saldo.toFixed(2)} €
+                                                </td>
+                                                <td>{m.receitas > 0 ? ((m.receitas - m.despesas) / m.receitas * 100).toFixed(1) : '—'}%</td>
+                                            </tr>
+                                            {seleccionado && detalheMes.map(cat => {
+                                                const classe =
+                                                    cat.tipo === 'receita' ? 'valor-positivo' :
+                                                    cat.tipo === 'investimento' ? '' :
+                                                    cat.total >= 0 ? 'valor-positivo' : 'valor-negativo';
 
-                                        return (
-                                            <>
-                                                <tr key={`cat-${cat.categoria_id}`} className="linha-categoria-detalhe">
-                                                    <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
-                                                    <td className={classe} colSpan={4}>{cat.total.toFixed(2)} €</td>
-                                                </tr>
-                                                {cat.subcategorias.map(sub => (
-                                                    <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
-                                                        <td className="celula-subcategoria-nome">　　{sub.subcategoria_nome}</td>
-                                                        <td className={classe} colSpan={4}>{sub.total.toFixed(2)} €</td>
-                                                    </tr>
-                                                ))}
-                                            </>
-                                        );
-                                    })}
-                                </>
-                            );
-                        })}
+                                                return (
+                                                    <>
+                                                        <tr key={`cat-${cat.categoria_id}`} className="linha-categoria-detalhe">
+                                                            <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
+                                                            <td className={classe} colSpan={4}>{cat.total.toFixed(2)} €</td>
+                                                        </tr>
+                                                        {cat.subcategorias.map(sub => (
+                                                            <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
+                                                                <td className="celula-subcategoria-nome">　　{sub.subcategoria_nome}</td>
+                                                                <td className={classe} colSpan={4}>{sub.total.toFixed(2)} €</td>
+                                                            </tr>
+                                                        ))}
+                                                    </>
+                                                );
+                                            })}
+                                        </>
+                                    );
+                                })}
+                            </>
+                        )})}
                     </tbody>
                 </table>
             </section>
