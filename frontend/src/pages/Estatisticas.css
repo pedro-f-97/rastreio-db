@@ -53,7 +53,15 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.875rem;
+    table-layout: fixed;
 }
+
+.tabela-stats th:nth-child(1) { width: 25%; }
+.tabela-stats th:nth-child(2) { width: 15%; }
+.tabela-stats th:nth-child(3) { width: 15%; }
+.tabela-stats th:nth-child(4) { width: 15%; }
+.tabela-stats th:nth-child(5) { width: 15%; }
+.tabela-stats th:nth-child(6) { width: 15%; }
 
 .tabela-stats th {
     text-align: left;
@@ -74,14 +82,40 @@
     background: var(--bg-secondary);
 }
 
+.tabela-stats td.valor-positivo {
+    color: var(--success);
+}
+
+.tabela-stats td.valor-negativo {
+    color: var(--danger);
+}
+
+.tabela-stats tr.linha-categoria-detalhe td {
+    background: var(--bg-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.tabela-stats tr.linha-categoria-detalhe td.celula-categoria-nome {
+    padding-left: 2rem;
+}
+
+.tabela-stats tr.linha-subcategoria-detalhe td {
+    background: var(--bg-primary);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.tabela-stats tr.linha-subcategoria-detalhe td.celula-subcategoria-nome {
+    padding-left: 3.5rem;
+}
+
 .valor-positivo {
     color: var(--success);
-    background: rgba(0, 200, 0, 0.08);
 }
 
 .valor-negativo {
     color: var(--danger);
-    background: rgba(255, 0, 0, 0.08);
 }
 
 .mes-positivo td {
@@ -122,34 +156,42 @@
 .linha-categoria-detalhe {
     background: var(--bg-secondary);
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .celula-categoria-nome {
-    padding-left: 1rem;
+    padding-left: 2rem;
 }
 
 .linha-subcategoria-detalhe {
     background: var(--bg-secondary);
-    font-size: 0.85rem;
-    opacity: 0.85;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
 }
 
 .celula-subcategoria-nome {
-    padding-left: 1rem;
+    padding-left: 3.5rem;
 }
 
 .linha-ano {
-    background: var(--bg-secondary);
+    background: var(--bg-tertiary);
     font-weight: 700;
-    font-size: 0.95rem;
-    border-top: 2px solid var(--border);
-    border-bottom: 1px solid var(--border);
+    font-size: 1rem;
+    border-top: 3px solid var(--border);
+    border-bottom: 2px solid var(--border);
 }
 
 .linha-ano td:first-child {
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    color: var(--text-primary);
     text-transform: uppercase;
-    font-size: 0.8rem;
+}
+
+.seta-expansao {
+    display: inline-block;
+    width: 1rem;
+    margin-right: 0.25rem;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    vertical-align: middle;
 }

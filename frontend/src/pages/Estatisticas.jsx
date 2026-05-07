@@ -162,7 +162,10 @@ export default function Estatisticas() {
                                                 onClick={() => toggleMes(m.ano, m.mes)}
                                                 className={`linha-mes ${seleccionado ? 'linha-mes-activa' : ''}`}
                                             >
-                                                <td>{labelMes(m.ano, m.mes)}</td>
+                                                <td>
+                                                    <span className="seta-expansao">{seleccionado ? '▼' : '▶'}</span>
+                                                    {labelMes(m.ano, m.mes)}
+                                                </td>
                                                 <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
                                                 <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
                                                 <td>{m.investimento.toFixed(2)} €</td>
@@ -181,12 +184,20 @@ export default function Estatisticas() {
                                                     <>
                                                         <tr key={`cat-${cat.categoria_id}`} className="linha-categoria-detalhe">
                                                             <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
-                                                            <td className={classe} colSpan={4}>{cat.total.toFixed(2)} €</td>
+                                                            <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? cat.total.toFixed(2) + ' €' : ''}</td>
+                                                            <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? cat.total.toFixed(2) + ' €' : ''}</td>
+                                                            <td>{cat.tipo === 'investimento' ? cat.total.toFixed(2) + ' €' : ''}</td>
+                                                            <td></td>
+                                                            <td></td>
                                                         </tr>
                                                         {cat.subcategorias.map(sub => (
                                                             <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
-                                                                <td className="celula-subcategoria-nome">　　{sub.subcategoria_nome}</td>
-                                                                <td className={classe} colSpan={4}>{sub.total.toFixed(2)} €</td>
+                                                                <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                                                <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? sub.total.toFixed(2) + ' €' : ''}</td>
+                                                                <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? sub.total.toFixed(2) + ' €' : ''}</td>
+                                                                <td>{cat.tipo === 'investimento' ? sub.total.toFixed(2) + ' €' : ''}</td>
+                                                                <td></td>
+                                                                <td></td>
                                                             </tr>
                                                         ))}
                                                     </>
