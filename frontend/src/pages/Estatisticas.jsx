@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria, obterDetalheMensal } from '../api/estatisticas';
 import {
-    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+    ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, Legend, CartesianGrid, Cell
 } from 'recharts';
 import './Estatisticas.css';
@@ -34,7 +34,16 @@ export default function Estatisticas() {
         Despesas: m.despesas,
         Investimento: m.investimento,
         Saldo: m.saldo,
+        Poupança: m.receitas > 0 ? parseFloat(((m.receitas - m.despesas) / m.receitas * 100).toFixed(1)) : 0,
     }));
+
+    const taxasPoupanca = dadosGrafico
+        .filter(m => m.Receitas > 0)
+        .map(m => m.Poupança);
+
+    const medianaTaxaPoupanca = taxasPoupanca.length > 0
+        ? [...taxasPoupanca].sort((a, b) => a - b)[Math.floor(taxasPoupanca.length / 2)]
+        : 0;
 
     function toggleMes(ano, mes) {
         if (mesSeleccionado?.ano === ano && mesSeleccionado?.mes === mes) {
@@ -69,6 +78,10 @@ export default function Estatisticas() {
                         <span className="cartao-label">Mediana mensal de despesas</span>
                         <span className="cartao-valor">{resumo.mediana_mensal.toFixed(2)} €</span>
                     </div>
+                    <div className="cartao">
+                        <span className="cartao-label">Mediana da taxa de poupança</span>
+                        <span className="cartao-valor">{medianaTaxaPoupanca.toFixed(1)}%</span>
+                    </div>
                 </div>
             </section>
 
@@ -76,20 +89,22 @@ export default function Estatisticas() {
             <section className="secao">
                 <h2>Evolução mensal</h2>
                 <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dadosGrafico} margin={{ top: 10, right: 20, left: 20, bottom: 60 }}>
+                    <ComposedChart data={dadosGrafico} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
-                        <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                        <YAxis yAxisId="euros" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                        <YAxis yAxisId="pct" orientation="right" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v}%`} domain={[0, 100]} />
                         <Tooltip
                             contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             labelStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v) => `${v.toFixed(2)} €`}
+                            formatter={(v, name) => name === 'Poupança' ? `${v}%` : `${v.toFixed(2)} €`}
                         />
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
-                        <Bar dataKey="Receitas" fill="var(--success)" />
-                        <Bar dataKey="Despesas" fill="var(--danger)" />
-                        <Bar dataKey="Investimento" fill="var(--accent)" />
-                    </BarChart>
+                        <Bar yAxisId="euros" dataKey="Receitas" fill="var(--success)" />
+                        <Bar yAxisId="euros" dataKey="Despesas" fill="var(--danger)" />
+                        <Bar yAxisId="euros" dataKey="Investimento" fill="var(--accent)" />
+                        <Line yAxisId="pct" dataKey="Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                    </ComposedChart>
                 </ResponsiveContainer>
             </section>
 
