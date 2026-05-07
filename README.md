@@ -25,6 +25,7 @@ Este projeto surgiu da necessidade de ter um controlo financeiro fora dos limite
 - **Distribuição:** PyInstaller
 
 ## Arquitectura
+```
 rastreio-db/
 ├── .gitignore
 ├── README.md
@@ -77,7 +78,7 @@ rastreio-db/
 ├── Estatisticas.jsx
 ├── Estatisticas.css
 └── PrimeiroUso.jsx
-
+```
 ## Modelo de dados
 
 - **Categoria** — categorias de despesa (Casa, Transporte, Saúde, etc.)

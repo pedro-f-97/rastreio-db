@@ -52,6 +52,11 @@ cd /home/pedrof/Documents/Projectos/rastreio-db
 - Base de dados em: `dist_executavel/dados/rastreio.db`
 - Para testar com BD nova: `rm dist_executavel/dados/rastreio.db`
 
+## Matar o executável em background
+```bash
+pkill -f rastreio-db
+```
+
 ## Git — guardar trabalho
 ```bash
 cd /home/pedrof/Documents/Projectos/rastreio-db
