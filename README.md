@@ -161,8 +161,8 @@ Ao abrir a aplicação pela primeira vez, é apresentado um ecrã de boas-vindas
   - [x] Substituir gráficos de distribuição (pie) por gráficos de barras
   - [x] Percentagem na distribuição por categoria e subcategoria
   - [x] Vista detalhada por mês com despesas e receitas por categoria e subcategoria
-  - [ ] Taxa de poupança por intervalo de tempo (mensal e anual)
-  - [ ] Totalizadores e estatísticas anuais
+  - [x] Taxa de poupança por intervalo de tempo (mensal e anual)
+  - [x] Totalizadores e estatísticas anuais
 
 ### Sistema
 - [x] Backup & Restore (exportação, importação com escrita atómica e auto-backup)
