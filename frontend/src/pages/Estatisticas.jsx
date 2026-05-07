@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
+import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria, obterDetalheMensal } from '../api/estatisticas';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, Legend, CartesianGrid, Cell
@@ -17,6 +17,8 @@ export default function Estatisticas() {
     const [porCategoria, setPorCategoria] = useState([]);
     const [porSubcategoria, setPorSubcategoria] = useState([]);
     const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+    const [mesSeleccionado, setMesSeleccionado] = useState(null);
+    const [detalheMes, setDetalheMes] = useState([]);
 
     useEffect(() => {
         obterResumoMensal().then(res => setResumo(res.data));
@@ -33,6 +35,16 @@ export default function Estatisticas() {
         Investimento: m.investimento,
         Saldo: m.saldo,
     }));
+
+    function toggleMes(ano, mes) {
+        if (mesSeleccionado?.ano === ano && mesSeleccionado?.mes === mes) {
+            setMesSeleccionado(null);
+            setDetalheMes([]);
+        } else {
+            setMesSeleccionado({ ano, mes });
+            obterDetalheMensal(ano, mes).then(res => setDetalheMes(res.data));
+        }
+    }
 
     const totalGeral = porSubcategoria.reduce((soma, c) => soma + c.total, 0);
 
@@ -81,7 +93,7 @@ export default function Estatisticas() {
                 </ResponsiveContainer>
             </section>
 
-                        {/* TABELA MENSAL */}
+            {/* TABELA MENSAL */}
             <section className="secao">
                 <h2>Detalhe por mês</h2>
                 <table className="tabela-stats">
@@ -95,21 +107,50 @@ export default function Estatisticas() {
                         </tr>
                     </thead>
                     <tbody>
-                        {resumo.meses.map(m => (
-                            <tr key={`${m.ano}-${m.mes}`}>
-                                <td>{labelMes(m.ano, m.mes)}</td>
-                                <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
-                                <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
-                                <td>{m.investimento.toFixed(2)} €</td>
-                                <td className={m.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
-                                    {m.saldo.toFixed(2)} €
-                                </td>
-                            </tr>
-                        ))}
+                        {resumo.meses.map(m => {
+                            const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
+                            return (
+                                <>
+                                    <tr
+                                        key={`${m.ano}-${m.mes}`}
+                                        onClick={() => toggleMes(m.ano, m.mes)}
+                                        className={`linha-mes ${seleccionado ? 'linha-mes-activa' : ''}`}
+                                    >
+                                        <td>{labelMes(m.ano, m.mes)}</td>
+                                        <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
+                                        <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
+                                        <td>{m.investimento.toFixed(2)} €</td>
+                                        <td className={m.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
+                                            {m.saldo.toFixed(2)} €
+                                        </td>
+                                    </tr>
+                                    {seleccionado && detalheMes.map(cat => {
+                                        const classe =
+                                            cat.tipo === 'receita' ? 'valor-positivo' :
+                                            cat.tipo === 'investimento' ? '' :
+                                            cat.total >= 0 ? 'valor-positivo' : 'valor-negativo';
+
+                                        return (
+                                            <>
+                                                <tr key={`cat-${cat.categoria_id}`} className="linha-categoria-detalhe">
+                                                    <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
+                                                    <td className={classe} colSpan={4}>{cat.total.toFixed(2)} €</td>
+                                                </tr>
+                                                {cat.subcategorias.map(sub => (
+                                                    <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
+                                                        <td className="celula-subcategoria-nome">　　{sub.subcategoria_nome}</td>
+                                                        <td className={classe} colSpan={4}>{sub.total.toFixed(2)} €</td>
+                                                    </tr>
+                                                ))}
+                                            </>
+                                        );
+                                    })}
+                                </>
+                            );
+                        })}
                     </tbody>
                 </table>
             </section>
-
             {/* POR CATEGORIA */}
             <section className="secao">
                 <h2>Por categoria</h2>

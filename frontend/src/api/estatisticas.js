@@ -11,3 +11,7 @@ export function obterPorCategoria() {
 export function obterPorSubcategoria() {
     return client.get('/estatisticas/por-subcategoria');
 }
+
+export function obterDetalheMensal(ano, mes) {
+    return client.get(`/estatisticas/detalhe-mensal?ano=${ano}&mes=${mes}`);
+}

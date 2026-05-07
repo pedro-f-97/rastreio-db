@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
-from database import SessionLocal, Transacao, Categoria
+from database import SessionLocal, Transacao, Categoria, Subcategoria
 from statistics import median
 
 router = APIRouter(prefix="/estatisticas", tags=["estatisticas"])
@@ -157,3 +157,97 @@ def por_subcategoria(db: Session = Depends(get_db)):
         })
 
     return list(por_cat.values())
+
+def _query_transacoes_mes(db: Session, inicio, fim):
+    return db.query(
+        Transacao.categoria_id,
+        Categoria.nome.label('categoria_nome'),
+        Transacao.subcategoria_id,
+        Subcategoria.nome.label('subcategoria_nome'),
+        Transacao.valor,
+        Transacao.reembolso,
+    ).join(Categoria, Transacao.categoria_id == Categoria.id)\
+     .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
+     .filter(
+         Transacao.data >= inicio,
+         Transacao.data <= fim,
+         Transacao.categoria_id != None,
+     )\
+     .all()
+
+
+def _agregar_por_categoria(rows):
+    por_cat = {}
+
+    for r in rows:
+        cat_id = r.categoria_id
+        if cat_id not in por_cat:
+            por_cat[cat_id] = {
+                "categoria_id": cat_id,
+                "categoria_nome": r.categoria_nome,
+                "total_centimos": 0,
+                "subcategorias": {},
+            }
+
+        sub_key = r.subcategoria_id or 0
+        if sub_key not in por_cat[cat_id]["subcategorias"]:
+            por_cat[cat_id]["subcategorias"][sub_key] = {
+                "subcategoria_nome": r.subcategoria_nome or "Sem subcategoria",
+                "total_centimos": 0,
+            }
+
+        contribuicao = round(r.valor * 100)
+        por_cat[cat_id]["total_centimos"] += contribuicao
+        por_cat[cat_id]["subcategorias"][sub_key]["total_centimos"] += contribuicao
+
+    return por_cat
+
+
+@router.get("/detalhe-mensal")
+def detalhe_mensal(ano: int, mes: int, db: Session = Depends(get_db)):
+    import calendar
+    from datetime import date
+
+    inicio = date(ano, mes, 1)
+    fim = date(ano, mes, calendar.monthrange(ano, mes)[1])
+
+    rows = _query_transacoes_mes(db, inicio, fim)
+    por_cat = _agregar_por_categoria(rows)
+
+    CATEGORIAS_TIPO = {
+        "Receita": "receita",
+        "Investimento": "investimento",
+    }
+
+    resultado_final = []
+    for cat in por_cat.values():
+        tipo = CATEGORIAS_TIPO.get(cat["categoria_nome"], "despesa")
+
+        if tipo == "investimento":
+            total_cat = abs(cat["total_centimos"]) / 100
+            subcategorias_valores = [(s, abs(s["total_centimos"]) / 100) for s in cat["subcategorias"].values()]
+        else:
+            total_cat = cat["total_centimos"] / 100
+            subcategorias_valores = [(s, s["total_centimos"] / 100) for s in cat["subcategorias"].values()]
+
+        subcategorias = sorted(
+            [
+                {
+                    "subcategoria_nome": s["subcategoria_nome"],
+                    "total": total,
+                }
+                for s, total in subcategorias_valores
+            ],
+            key=lambda s: s["total"],
+            reverse=True,
+        )
+
+        resultado_final.append({
+            "categoria_id": cat["categoria_id"],
+            "categoria_nome": cat["categoria_nome"],
+            "tipo": tipo,
+            "total": total_cat,
+            "subcategorias": subcategorias,
+        })
+
+    return sorted(resultado_final, key=lambda c: c["total"], reverse=True)

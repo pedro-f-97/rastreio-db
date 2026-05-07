@@ -105,3 +105,36 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+
+.linha-mes {
+    cursor: pointer;
+}
+
+.linha-mes:hover {
+    background: var(--bg-secondary);
+}
+
+.linha-mes-activa {
+    background: var(--bg-secondary);
+    border-left: 3px solid var(--accent);
+}
+
+.linha-categoria-detalhe {
+    background: var(--bg-secondary);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.celula-categoria-nome {
+    padding-left: 1rem;
+}
+
+.linha-subcategoria-detalhe {
+    background: var(--bg-secondary);
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+.celula-subcategoria-nome {
+    padding-left: 1rem;
+}
