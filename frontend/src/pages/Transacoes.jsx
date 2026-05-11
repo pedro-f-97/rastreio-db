@@ -100,7 +100,7 @@ export default function Transacoes() {
         if (!ficheiro) return;
         try {
             const res = await importarExtrato(ficheiro);
-            alert(`Importadas: ${res.data.importadas} | Duplicados: ${res.data.duplicados}`);
+            alert(`Importadas: ${res.data.inseridas} | Duplicadas: ${res.data.duplicadas}`);
             carregarTransacoes();
         } catch {
             alert('Erro na importação.');
