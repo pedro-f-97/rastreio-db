@@ -61,6 +61,12 @@ export default function Estatisticas() {
         return { ano: parseInt(ano), receitas, despesas, investimento, saldo, taxa };
     });
 
+    const saldosMensais = dadosGrafico.map(m => m.Saldo);
+
+    const medianaSaldo = saldosMensais.length > 0
+        ? [...saldosMensais].sort((a, b) => a - b)[Math.floor(saldosMensais.length / 2)]
+        : 0;
+
     function toggleMes(ano, mes) {
         if (mesSeleccionado?.ano === ano && mesSeleccionado?.mes === mes) {
             setMesSeleccionado(null);
@@ -86,13 +92,17 @@ export default function Estatisticas() {
             <section className="secao">
                 <h2>Resumo global</h2>
                 <div className="cartoes">
-                    <div className="cartao">
+                    {/* <div className="cartao">
                         <span className="cartao-label">Média mensal de despesas</span>
                         <span className="cartao-valor">{resumo.media_mensal.toFixed(2)} €</span>
-                    </div>
+                    </div>*/}
                     <div className="cartao">
                         <span className="cartao-label">Mediana mensal de despesas</span>
                         <span className="cartao-valor">{resumo.mediana_mensal.toFixed(2)} €</span>
+                    </div>
+                    <div className="cartao">
+                        <span className="cartao-label">Mediana mensal de poupanças</span>
+                        <span className="cartao-valor">{medianaSaldo.toFixed(2)} €</span>
                     </div>
                     <div className="cartao">
                         <span className="cartao-label">Mediana da taxa de poupança mensal</span>
@@ -224,11 +234,20 @@ export default function Estatisticas() {
                     </thead>
                     <tbody>
                         {porCategoria.map(c => (
-                            <tr key={c.categoria_id}>
-                                <td>{c.categoria_nome}</td>
-                                <td>{c.media.toFixed(2)} €</td>
-                                <td>{c.mediana.toFixed(2)} €</td>
-                            </tr>
+                            <>
+                                <tr key={c.categoria_id} className="linha-ano">
+                                    <td>{c.categoria_nome}</td>
+                                    <td>{c.media.toFixed(2)} €</td>
+                                    <td>{c.mediana.toFixed(2)} €</td>
+                                </tr>
+                                {c.subcategorias.map(sub => (
+                                    <tr key={sub.subcategoria_nome} className="linha-mes">
+                                        <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                        <td>{sub.media.toFixed(2)} €</td>
+                                        <td>{sub.mediana.toFixed(2)} €</td>
+                                    </tr>
+                                ))}
+                            </>
                         ))}
                     </tbody>
                 </table>

@@ -68,7 +68,6 @@ def resumo_mensal(db: Session = Depends(get_db)):
 
 @router.get("/por-categoria")
 def por_categoria(db: Session = Depends(get_db)):
-    # Total de meses distintos com transações
     meses_distintos = db.query(
         extract('year', Transacao.data).label('ano'),
         extract('month', Transacao.data).label('mes'),
@@ -79,15 +78,18 @@ def por_categoria(db: Session = Depends(get_db)):
         extract('month', Transacao.data).label('mes'),
         Transacao.categoria_id,
         Categoria.nome.label('categoria_nome'),
+        Transacao.subcategoria_id,
+        Subcategoria.nome.label('subcategoria_nome'),
         func.sum(Transacao.valor).label('total'),
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
-        .filter(
-            Transacao.valor < 0,
-            Categoria.tipo != TipoCategoria.investimento,
-            Categoria.tipo != TipoCategoria.receita,
-            Categoria.tipo != TipoCategoria.transferencia,
-        )\
-     .group_by('ano', 'mes', Transacao.categoria_id)\
+     .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
+     .filter(
+         Transacao.valor < 0,
+         Categoria.tipo != TipoCategoria.investimento,
+         Categoria.tipo != TipoCategoria.receita,
+         Categoria.tipo != TipoCategoria.transferencia,
+     )\
+     .group_by('ano', 'mes', Transacao.categoria_id, Transacao.subcategoria_id)\
      .order_by('ano', 'mes')\
      .all()
 
@@ -98,22 +100,34 @@ def por_categoria(db: Session = Depends(get_db)):
             por_cat[cat_id] = {
                 "categoria_id": cat_id,
                 "categoria_nome": r.categoria_nome,
-                "meses": [],
                 "totais": [],
+                "subcategorias": {},
             }
+
         total = round(abs(r.total or 0), 2)
-        por_cat[cat_id]["meses"].append({
-            "ano": int(r.ano),
-            "mes": int(r.mes),
-            "total": total,
-        })
         por_cat[cat_id]["totais"].append(total)
 
+        sub_id = r.subcategoria_id or 0
+        if sub_id not in por_cat[cat_id]["subcategorias"]:
+            por_cat[cat_id]["subcategorias"][sub_id] = {
+                "subcategoria_nome": r.subcategoria_nome or "Sem subcategoria",
+                "totais": [],
+            }
+        por_cat[cat_id]["subcategorias"][sub_id]["totais"].append(total)
+
     for cat in por_cat.values():
+        totais_completos = cat["totais"] + [0] * (meses_distintos - len(cat["totais"]))
         cat["mediana"] = round(median(cat["totais"]), 2) if cat["totais"] else 0
-        # Média real: divide pelo total de meses, não só pelos meses com despesa
-        cat["media"] = round(sum(cat["totais"]) / meses_distintos, 2) if meses_distintos else 0
+        cat["media"] = round(sum(totais_completos) / meses_distintos, 2) if meses_distintos else 0
         del cat["totais"]
+
+        for sub in cat["subcategorias"].values():
+            totais_completos = sub["totais"] + [0] * (meses_distintos - len(sub["totais"]))
+            sub["mediana"] = round(median(sub["totais"]), 2) if sub["totais"] else 0
+            sub["media"] = round(sum(totais_completos) / meses_distintos, 2) if meses_distintos else 0
+            del sub["totais"]
+
+        cat["subcategorias"] = list(cat["subcategorias"].values())
 
     return list(por_cat.values())
 
