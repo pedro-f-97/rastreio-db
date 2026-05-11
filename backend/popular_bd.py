@@ -1,7 +1,7 @@
 from database import SessionLocal, Categoria, Subcategoria, criar_tabelas, TipoCategoria
 
 CATEGORIAS = {
-    "Receita": ["Salário", "IRS", "Transferência de Poupanças"],
+    "Receita": ["Salário", "IRS"],
     "Entretenimento": ["Lazer", "Jogos", "Cinema", "Viagens", "Subscrições", "Restauração", "Hardware", "Diversos"],
     "Transporte": ["Combustível", "Portagens", "Seguro", "Manutenção", "Carro", "IUC", "Inspeção"],
     "Saúde": ["Consultas", "Farmácia", "Outros"],
@@ -10,11 +10,13 @@ CATEGORIAS = {
     "Investimento": ["ETFs", "Crypto", "Poupança"],
     "Pontual": ["Jurídico", "Outros"],
     "Prendas": ["Família", "Namorada"],
+    "Transferência": ["Poupanças"],
 }
 
 TIPOS = {
     "Receita": TipoCategoria.receita,
     "Investimento": TipoCategoria.investimento,
+    "Transferência": TipoCategoria.transferencia,
 }
 
 def popular():

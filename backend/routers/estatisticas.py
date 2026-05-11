@@ -85,6 +85,7 @@ def por_categoria(db: Session = Depends(get_db)):
             Transacao.valor < 0,
             Categoria.tipo != TipoCategoria.investimento,
             Categoria.tipo != TipoCategoria.receita,
+            Categoria.tipo != TipoCategoria.transferencia,
         )\
      .group_by('ano', 'mes', Transacao.categoria_id)\
      .order_by('ano', 'mes')\
@@ -132,6 +133,7 @@ def por_subcategoria(db: Session = Depends(get_db)):
             Transacao.valor < 0,
             Categoria.tipo != TipoCategoria.investimento,
             Categoria.tipo != TipoCategoria.receita,
+            Categoria.tipo != TipoCategoria.transferencia,
             Transacao.categoria_id != None,
         )\
      .group_by(Transacao.categoria_id, Transacao.subcategoria_id)\
