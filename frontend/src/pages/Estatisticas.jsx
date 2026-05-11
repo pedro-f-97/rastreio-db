@@ -19,6 +19,7 @@ export default function Estatisticas() {
     const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
     const [mesSeleccionado, setMesSeleccionado] = useState(null);
     const [detalheMes, setDetalheMes] = useState([]);
+    const [categoriaExpandida, setCategoriaExpandida] = useState(null);
 
     useEffect(() => {
         obterResumoMensal().then(res => setResumo(res.data));
@@ -233,20 +234,38 @@ export default function Estatisticas() {
                         </tr>
                     </thead>
                     <tbody>
-                        {porCategoria.map(c => (
+                        {[...porCategoria]
+                            .sort((a, b) => b.media - a.media)
+                            .map(c => (
                             <>
-                                <tr key={c.categoria_id} className="linha-ano">
-                                    <td>{c.categoria_nome}</td>
+                                <tr
+                                    key={c.categoria_id}
+                                    className="linha-ano"
+                                    onClick={() => setCategoriaExpandida(
+                                        categoriaExpandida === c.categoria_id ? null : c.categoria_id
+                                    )}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <td>
+                                        <span className="seta-expansao">
+                                            {categoriaExpandida === c.categoria_id ? '▼' : '▶'}
+                                        </span>
+                                        {c.categoria_nome}
+                                    </td>
                                     <td>{c.media.toFixed(2)} €</td>
                                     <td>{c.mediana.toFixed(2)} €</td>
                                 </tr>
-                                {c.subcategorias.map(sub => (
-                                    <tr key={sub.subcategoria_nome} className="linha-mes">
-                                        <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                        <td>{sub.media.toFixed(2)} €</td>
-                                        <td>{sub.mediana.toFixed(2)} €</td>
-                                    </tr>
-                                ))}
+                                {categoriaExpandida === c.categoria_id &&
+                                    [...c.subcategorias]
+                                        .sort((a, b) => b.media - a.media)
+                                        .map(sub => (
+                                        <tr key={sub.subcategoria_nome} className="linha-mes">
+                                            <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                            <td>{sub.media.toFixed(2)} €</td>
+                                            <td>{sub.mediana.toFixed(2)} €</td>
+                                        </tr>
+                                    ))
+                                }
                             </>
                         ))}
                     </tbody>

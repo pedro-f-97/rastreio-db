@@ -83,12 +83,12 @@ def por_categoria(db: Session = Depends(get_db)):
         func.sum(Transacao.valor).label('total'),
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
      .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
-     .filter(
-         Transacao.valor < 0,
-         Categoria.tipo != TipoCategoria.investimento,
-         Categoria.tipo != TipoCategoria.receita,
-         Categoria.tipo != TipoCategoria.transferencia,
-     )\
+    .filter(
+        Categoria.tipo != TipoCategoria.investimento,
+        Categoria.tipo != TipoCategoria.receita,
+        Categoria.tipo != TipoCategoria.transferencia,
+        (Transacao.valor < 0) | (Transacao.reembolso == True),
+    )\
      .group_by('ano', 'mes', Transacao.categoria_id, Transacao.subcategoria_id)\
      .order_by('ano', 'mes')\
      .all()
