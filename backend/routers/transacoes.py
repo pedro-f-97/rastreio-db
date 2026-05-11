@@ -21,6 +21,8 @@ def listar_transacoes(
     mes: Optional[int] = Query(None, ge=1, le=12),
     ano: Optional[int] = Query(None, ge=2000),
     categoria_id: Optional[int] = Query(None),
+    subcategoria_id: Optional[int] = Query(None),
+    sinal: Optional[str] = Query(None),
     por_categorizar: bool = Query(False),
     db: Session = Depends(get_db)
 ):
@@ -32,6 +34,12 @@ def listar_transacoes(
         query = query.filter(extract('month', Transacao.data) == mes)
     if categoria_id:
         query = query.filter(Transacao.categoria_id == categoria_id)
+    if subcategoria_id:
+        query = query.filter(Transacao.subcategoria_id == subcategoria_id)
+    if sinal == "negativo":
+        query = query.filter(Transacao.valor < 0)
+    elif sinal == "positivo":
+        query = query.filter(Transacao.valor > 0)
     if por_categorizar:
         query = query.filter(
             (Transacao.categoria_id == None) | (Transacao.subcategoria_id == None)

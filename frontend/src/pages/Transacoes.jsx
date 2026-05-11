@@ -15,11 +15,13 @@ export default function Transacoes() {
 
     // Filtros e paginação
     const [filtros, setFiltros] = useState({
-        pagina: 1,
-        tamanho: 50,
-        mes: null,
-        ano: new Date().getFullYear(),
-        categoria_id: null,
+    pagina: 1,
+    tamanho: 50,
+    mes: null,
+    ano: null,
+    categoria_id: null,
+    subcategoria_id: null,
+    sinal: null,
     });
 
     // Estado da UI
