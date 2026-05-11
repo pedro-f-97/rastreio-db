@@ -1,9 +1,10 @@
 from datetime import date
 from typing import List, Optional
-from sqlalchemy import create_engine, String, Float, Date, Boolean, ForeignKey
+from sqlalchemy import create_engine, String, Float, Date, Boolean, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 import os
 import sys
+import enum
 
 # Determina a pasta base conforme o contexto de execução
 if getattr(sys, 'frozen', False):
@@ -31,12 +32,18 @@ class Base(DeclarativeBase):
 # Sessão para interagir com a base de dados
 SessionLocal = sessionmaker(bind=engine)
 
+class TipoCategoria(enum.Enum):
+    despesa = "despesa"
+    receita = "receita"
+    investimento = "investimento"
+    transferencia = "transferencia"
+
 class Categoria(Base):
     __tablename__ = "categorias"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nome: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-
+    tipo: Mapped[TipoCategoria] = mapped_column(SAEnum(TipoCategoria), nullable=False)
     # Tipagem forte para as relações
     subcategorias: Mapped[List["Subcategoria"]] = relationship("Subcategoria", back_populates="categoria")
 

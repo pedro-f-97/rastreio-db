@@ -1,4 +1,4 @@
-from database import SessionLocal, Categoria, Subcategoria, criar_tabelas
+from database import SessionLocal, Categoria, Subcategoria, criar_tabelas, TipoCategoria
 
 CATEGORIAS = {
     "Receita": ["Salário", "IRS", "Transferência de Poupanças"],
@@ -12,6 +12,11 @@ CATEGORIAS = {
     "Prendas": ["Família", "Namorada"],
 }
 
+TIPOS = {
+    "Receita": TipoCategoria.receita,
+    "Investimento": TipoCategoria.investimento,
+}
+
 def popular():
     session = SessionLocal()
 
@@ -21,7 +26,7 @@ def popular():
         return
 
     for nome_cat, subcategorias in CATEGORIAS.items():
-        cat = Categoria(nome=nome_cat)
+        cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
         session.add(cat)
         session.flush()
         for nome_sub in subcategorias:

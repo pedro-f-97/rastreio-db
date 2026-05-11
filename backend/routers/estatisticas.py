@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
-from database import SessionLocal, Transacao, Categoria, Subcategoria
+from database import SessionLocal, Transacao, Categoria, Subcategoria, TipoCategoria
 from statistics import median
 
 router = APIRouter(prefix="/estatisticas", tags=["estatisticas"])
@@ -29,11 +29,11 @@ def resumo_mensal(db: Session = Depends(get_db)):
         if chave not in meses:
             meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
 
-        if t.categoria.nome == "Receita" and not t.reembolso and t.valor > 0:
+        if t.categoria.tipo == TipoCategoria.receita and not t.reembolso and t.valor > 0:
             meses[chave]["receitas"] += t.valor
-        elif t.categoria.nome == "Investimento":
+        elif t.categoria.tipo == TipoCategoria.investimento:
             meses[chave]["investimento"] += abs(t.valor)
-        elif t.valor < 0 and t.categoria.nome != "Receita":
+        elif t.valor < 0 and t.categoria.tipo != TipoCategoria.receita:
             meses[chave]["despesas"] += abs(t.valor)
         elif t.valor > 0 and t.reembolso:
             meses[chave]["despesas"] -= t.valor
@@ -81,11 +81,11 @@ def por_categoria(db: Session = Depends(get_db)):
         Categoria.nome.label('categoria_nome'),
         func.sum(Transacao.valor).label('total'),
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
-     .filter(
-         Transacao.valor < 0,
-         Categoria.nome != 'Investimento',
-         Categoria.nome != 'Receita',
-     )\
+        .filter(
+            Transacao.valor < 0,
+            Categoria.tipo != TipoCategoria.investimento,
+            Categoria.tipo != TipoCategoria.receita,
+        )\
      .group_by('ano', 'mes', Transacao.categoria_id)\
      .order_by('ano', 'mes')\
      .all()
@@ -128,12 +128,12 @@ def por_subcategoria(db: Session = Depends(get_db)):
         func.sum(Transacao.valor).label('total'),
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
      .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
-     .filter(
-         Transacao.valor < 0,
-         Categoria.nome != 'Investimento',
-         Categoria.nome != 'Receita',
-         Transacao.categoria_id != None,
-     )\
+        .filter(
+            Transacao.valor < 0,
+            Categoria.tipo != TipoCategoria.investimento,
+            Categoria.tipo != TipoCategoria.receita,
+            Transacao.categoria_id != None,
+        )\
      .group_by(Transacao.categoria_id, Transacao.subcategoria_id)\
      .all()
 
@@ -162,6 +162,7 @@ def _query_transacoes_mes(db: Session, inicio, fim):
     return db.query(
         Transacao.categoria_id,
         Categoria.nome.label('categoria_nome'),
+        Categoria.tipo.label('categoria_tipo'),
         Transacao.subcategoria_id,
         Subcategoria.nome.label('subcategoria_nome'),
         Transacao.valor,
@@ -185,6 +186,7 @@ def _agregar_por_categoria(rows):
             por_cat[cat_id] = {
                 "categoria_id": cat_id,
                 "categoria_nome": r.categoria_nome,
+                "categoria_tipo": r.categoria_tipo,
                 "total_centimos": 0,
                 "subcategorias": {},
             }
@@ -214,14 +216,10 @@ def detalhe_mensal(ano: int, mes: int, db: Session = Depends(get_db)):
     rows = _query_transacoes_mes(db, inicio, fim)
     por_cat = _agregar_por_categoria(rows)
 
-    CATEGORIAS_TIPO = {
-        "Receita": "receita",
-        "Investimento": "investimento",
-    }
 
     resultado_final = []
     for cat in por_cat.values():
-        tipo = CATEGORIAS_TIPO.get(cat["categoria_nome"], "despesa")
+        tipo = cat["categoria_tipo"].value
 
         if tipo == "investimento":
             total_cat = abs(cat["total_centimos"]) / 100

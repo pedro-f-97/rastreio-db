@@ -81,7 +81,7 @@ rastreio-db/
 ```
 ## Modelo de dados
 
-- **Categoria** — categorias de despesa (Casa, Transporte, Saúde, etc.)
+- **Categoria** — categorias de movimento bancário, com campo `tipo` (despesa, receita, investimento, transferencia)
 - **Subcategoria** — subdivisão de cada categoria (Supermercado, Combustível, etc.)
 - **Transacao** — registo de cada movimento bancário, com categoria, subcategoria, flag de reembolso (tratado como ajuste de despesa em vez de receita) e notas
 - **RegraCategorizacao** — regras por palavra-chave ou expressão para categorização automática
@@ -149,7 +149,7 @@ Ao abrir a aplicação pela primeira vez, é apresentado um ecrã de boas-vindas
 ### Backend
 - [x] Backend completo com todos os endpoints
 - [x] Migração de dados históricos
-- [ ] Refactor de schema: adicionar campo `tipo` a `Categoria` (valores: `despesa`, `receita`, `investimento`, `transferencia`) e substituir filtragem por `Categoria.nome` em todos os routers
+- [x] Refactor de schema: campo `tipo` adicionado a `Categoria` (Enum: `despesa`, `receita`, `investimento`, `transferencia`) — filtragem por `Categoria.nome` eliminada de todos os routers
 
 ### Páginas
 - [x] Transações (tabela, filtros, paginação, importação, edição inline, sugestão de regras com selector de substring)

@@ -19,6 +19,7 @@ def listar_categorias(db: Session = Depends(get_db)):
         {
             "id": cat.id,
             "nome": cat.nome,
+            "tipo": cat.tipo.value,
             "subcategorias": [
                 {"id": sub.id, "nome": sub.nome}
                 for sub in cat.subcategorias

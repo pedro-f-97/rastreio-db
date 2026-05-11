@@ -1,10 +1,12 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import date
+from database import TipoCategoria
 
 # --- SCHEMAS DE CATEGORIA ---
 class CategoriaBase(BaseModel):
     nome: str
+    tipo: TipoCategoria
 
 class CategoriaCreate(CategoriaBase):
     pass
