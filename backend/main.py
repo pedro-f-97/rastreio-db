@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi import Request
 
 from database import BASE_DIR, criar_tabelas
 from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao
@@ -47,6 +49,15 @@ app.include_router(importacao.router, prefix="/api")
 app.include_router(estatisticas.router, prefix="/api")
 app.include_router(backups.router, prefix="/api")
 app.include_router(configuracao.router, prefix="/api")
+
+@app.get("/")
+async def servir_index():
+    caminho = os.path.join(PASTA_FRONTEND, "index.html")
+    return FileResponse(caminho, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })
 
 if os.path.exists(PASTA_FRONTEND):
     app.mount("/", StaticFiles(directory=PASTA_FRONTEND, html=True), name="frontend")
