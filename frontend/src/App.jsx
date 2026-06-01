@@ -7,9 +7,17 @@ import Estatisticas from './pages/Estatisticas'
 import PrimeiroUso from './pages/PrimeiroUso'
 import { getEstado } from './api/configuracao'
 import './index.css'
+import { totalPorCategorizar } from './api/transacoes'
 
 function App() {
   const [inicializado, setInicializado] = useState(null)
+  const [porCategorizar, setPorCategorizar] = useState(0)
+
+  useEffect(() => {
+    if (inicializado) {
+        totalPorCategorizar().then(res => setPorCategorizar(res.data.total))
+    }
+  }, [inicializado])
 
   useEffect(() => {
     getEstado()
@@ -36,11 +44,11 @@ function App() {
               RASTREIO
             </div>
             {[
-              { to: '/', label: 'Transações' },
+              { to: '/', label: 'Transações', badge: porCategorizar },
               { to: '/categorias', label: 'Categorias' },
               { to: '/regras', label: 'Regras' },
               { to: '/estatisticas', label: 'Estatísticas' },
-            ].map(({ to, label }) => (
+            ].map(({ to, label, badge }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -54,7 +62,22 @@ function App() {
                   borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
                 })}
               >
-                {label}
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    {label}
+                    {badge > 0 && (
+                        <span style={{
+                            background: 'var(--danger)',
+                            color: '#fff',
+                            borderRadius: '999px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.45rem',
+                            marginLeft: '0.5rem',
+                        }}>
+                            {badge}
+                        </span>
+                    )}
+                </span>
               </NavLink>
             ))}
           </nav>

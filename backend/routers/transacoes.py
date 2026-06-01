@@ -14,6 +14,13 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/por-categorizar/total")
+def total_por_categorizar(db: Session = Depends(get_db)):
+    total = db.query(Transacao).filter(
+        (Transacao.categoria_id == None) | (Transacao.subcategoria_id == None)
+    ).count()
+    return {"total": total}
+
 @router.get("/")
 def listar_transacoes(
     pagina: int = Query(1, ge=1),

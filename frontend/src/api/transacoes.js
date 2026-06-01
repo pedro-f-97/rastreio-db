@@ -15,3 +15,7 @@ export function importarExtrato(ficheiro) {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
 }
+
+export function totalPorCategorizar() {
+    return client.get('/transacoes/por-categorizar/total');
+}
