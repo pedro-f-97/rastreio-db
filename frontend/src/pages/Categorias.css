@@ -61,6 +61,20 @@
     margin-bottom: 0.75rem;
 }
 
+/* Select de tipo no modo edição */
+.categoria-header select {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--accent);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.categoria-header select:focus {
+    outline: none;
+}
+
 .categoria-nome {
     font-size: 1rem;
     font-weight: 600;
@@ -151,4 +165,56 @@
 
 .nova-subcategoria button:hover {
     border-color: var(--accent);
+}
+
+/* Badge de tipo */
+.badge-tipo {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 0.75rem;
+}
+
+.badge-tipo-despesa {
+    background: color-mix(in srgb, var(--danger) 15%, transparent);
+    color: var(--danger);
+}
+
+.badge-tipo-receita {
+    background: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+}
+
+.badge-tipo-investimento {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+}
+
+.badge-tipo-transferencia {
+    background: color-mix(in srgb, var(--text-secondary) 15%, transparent);
+    color: var(--text-secondary);
+}
+
+/* Botões de confirmar/cancelar edição */
+.categoria-header .btn-confirmar {
+    background: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+    border: 1px solid var(--success);
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    opacity: 1;
+}
+
+.categoria-header .btn-cancelar {
+    background: color-mix(in srgb, var(--danger) 15%, transparent);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    opacity: 1;
 }

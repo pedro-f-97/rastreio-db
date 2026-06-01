@@ -8,12 +8,12 @@ export function listarSubcategorias(categoriaId) {
     return client.get(`/categorias/${categoriaId}/subcategorias`);
 }
 
-export function criarCategoria(nome) {
-    return client.post('/categorias/', { nome });
+export function criarCategoria(nome, tipo) {
+    return client.post('/categorias/', { nome, tipo });
 }
 
-export function renomearCategoria(id, nome) {
-    return client.put(`/categorias/${id}`, { nome });
+export function renomearCategoria(id, nome, tipo) {
+    return client.put(`/categorias/${id}`, { nome, tipo });
 }
 
 export function apagarCategoria(id) {

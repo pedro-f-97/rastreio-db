@@ -6,7 +6,7 @@ from database import TipoCategoria
 # --- SCHEMAS DE CATEGORIA ---
 class CategoriaBase(BaseModel):
     nome: str
-    tipo: TipoCategoria
+    tipo: TipoCategoria = TipoCategoria.despesa
 
 class CategoriaCreate(CategoriaBase):
     pass

@@ -37,7 +37,7 @@ def listar_subcategorias(categoria_id: int, db: Session = Depends(get_db)):
 
 @router.post("/")
 def criar_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
-    nova = Categoria(nome=categoria.nome)
+    nova = Categoria(nome=categoria.nome, tipo=categoria.tipo)
     db.add(nova)
     db.commit()
     db.refresh(nova)
@@ -69,6 +69,7 @@ def renomear_categoria(categoria_id: int, categoria: CategoriaCreate, db: Sessio
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     cat.nome = categoria.nome
+    cat.tipo = categoria.tipo
     db.commit()
     db.refresh(cat)
     return cat

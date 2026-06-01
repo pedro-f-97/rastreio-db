@@ -7,7 +7,7 @@ import './Categorias.css';
 
 export default function Categorias() {
     const [categorias, setCategorias] = useState([]);
-    const [novaCategoria, setNovaCategoria] = useState('');
+    const [novaCategoria, setNovaCategoria] = useState({ nome: '', tipo: 'despesa' });
     const [editando, setEditando] = useState({}); // { tipo: 'categoria'|'subcategoria', id, categoriaId, valor }
 
     useEffect(() => {
@@ -20,14 +20,14 @@ export default function Categorias() {
     }
 
     async function aoAdicionarCategoria() {
-        if (!novaCategoria.trim()) return;
-        await criarCategoria(novaCategoria.trim());
-        setNovaCategoria('');
+        if (!novaCategoria.nome.trim()) return;
+        await criarCategoria(novaCategoria.nome.trim(), novaCategoria.tipo);
+        setNovaCategoria({ nome: '', tipo: 'despesa' });
         carregar();
     }
 
-    async function aoRenomearCategoria(id, nome) {
-        await renomearCategoria(id, nome);
+    async function aoRenomearCategoria(id, nome, tipo) {
+        await renomearCategoria(id, nome, tipo);
         setEditando({});
         carregar();
     }
@@ -64,10 +64,19 @@ export default function Categorias() {
                 <input
                     type="text"
                     placeholder="Nova categoria..."
-                    value={novaCategoria}
-                    onChange={e => setNovaCategoria(e.target.value)}
+                    value={novaCategoria.nome}
+                    onChange={e => setNovaCategoria(prev => ({ ...prev, nome: e.target.value }))}
                     onKeyDown={e => e.key === 'Enter' && aoAdicionarCategoria()}
                 />
+                <select
+                    value={novaCategoria.tipo}
+                    onChange={e => setNovaCategoria(prev => ({ ...prev, tipo: e.target.value }))}
+                >
+                    <option value="despesa">Despesa</option>
+                    <option value="receita">Receita</option>
+                    <option value="investimento">Investimento</option>
+                    <option value="transferencia">Transferência</option>
+                </select>
                 <button onClick={aoAdicionarCategoria}>Adicionar</button>
             </div>
 
@@ -92,27 +101,44 @@ export default function Categorias() {
 
 function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdicionarSub, onRenomearSub, onApagarSub }) {
     const [novaSub, setNovaSub] = useState('');
-    const estaAEditar = editando.tipo === 'categoria' && editando.id === cat.id;
+    const estaAEditar = editando.tipoEdicao === 'categoria' && editando.id === cat.id;
 
     return (
         <div className="categoria-item">
             <div className="categoria-header">
                 {estaAEditar ? (
-                    <input
-                        autoFocus
-                        value={editando.valor}
-                        onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter') onRenomear(cat.id, editando.valor);
-                            if (e.key === 'Escape') setEditando({});
-                        }}
-                        onBlur={() => onRenomear(cat.id, editando.valor)}
-                    />
+                    <>
+                        <input
+                            autoFocus
+                            value={editando.valor}
+                            onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') onRenomear(cat.id, editando.valor, editando.tipoCategoria);
+                                if (e.key === 'Escape') setEditando({});
+                            }}
+                        />
+                        <select
+                            value={editando.tipoCategoria}
+                            onChange={e => setEditando(prev => ({ ...prev, tipoCategoria: e.target.value }))}
+                        >
+                            <option value="despesa">Despesa</option>
+                            <option value="receita">Receita</option>
+                            <option value="investimento">Investimento</option>
+                            <option value="transferencia">Transferência</option>
+                        </select>
+                        <button className="btn-confirmar" onClick={() => onRenomear(cat.id, editando.valor, editando.tipoCategoria)}>✓</button>
+                        <button className="btn-cancelar" onClick={() => setEditando({})}>✕</button>
+                    </>
                 ) : (
-                    <span className="categoria-nome">{cat.nome}</span>
+                    <>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <span className="categoria-nome">{cat.nome}</span>
+                            <span className={`badge-tipo badge-tipo-${cat.tipo}`}>{cat.tipo}</span>
+                        </div>
+                    </>
                 )}
                 <div className="accoes">
-                    <button onClick={() => setEditando({ tipo: 'categoria', id: cat.id, valor: cat.nome })}>✏️</button>
+                    <button onClick={() => setEditando({ tipoEdicao: 'categoria', id: cat.id, valor: cat.nome, tipoCategoria: cat.tipo })}>✏️</button>
                     <button className="btn-apagar" onClick={() => onApagar(cat.id)}>🗑</button>
                 </div>
             </div>
@@ -128,10 +154,10 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                     value={editando.valor}
                                     onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
                                     onKeyDown={e => {
-                                        if (e.key === 'Enter') onRenomearSub(cat.id, sub.id, editando.valor);
-                                        if (e.key === 'Escape') setEditando({});
-                                    }}
-                                    onBlur={() => onRenomearSub(cat.id, sub.id, editando.valor)}
+                                    if (e.key === 'Enter') onRenomear(cat.id, editando.valor, editando.tipoCategoria);
+                                    if (e.key === 'Escape') setEditando({});
+                                }}
+                                onBlur={() => onRenomear(cat.id, editando.valor, editando.tipoCategoria)}
                                 />
                             ) : (
                                 <span>{sub.nome}</span>
