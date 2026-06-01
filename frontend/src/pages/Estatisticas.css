@@ -65,11 +65,14 @@
 
 .tabela-stats th {
     text-align: left;
-    padding: 0.5rem 0.75rem;
+    padding: 0.6rem 0.75rem;
     background: var(--bg-tertiary);
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--accent);
     font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 .tabela-stats td {
@@ -144,6 +147,17 @@
     cursor: pointer;
 }
 
+
+.linha-mes td {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.linha-mes td:first-child {
+    padding-left: 1.75rem;
+    color: var(--text-primary);
+}
+
 .linha-mes:hover {
     background: var(--bg-secondary);
 }
@@ -174,24 +188,31 @@
 }
 
 .linha-ano {
-    background: var(--bg-tertiary);
-    font-weight: 700;
-    font-size: 1rem;
-    border-top: 3px solid var(--border);
-    border-bottom: 2px solid var(--border);
+    background: var(--bg-secondary);
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-top: 2px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
 }
 
+
 .linha-ano td:first-child {
-    letter-spacing: 0.06em;
     color: var(--text-primary);
-    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
+
+.linha-ano:hover td {
+    background: var(--bg-tertiary);
+}
+
 
 .seta-expansao {
     display: inline-block;
     width: 1rem;
-    margin-right: 0.25rem;
-    font-size: 0.65rem;
-    color: var(--text-secondary);
+    margin-right: 0.4rem;
+    font-size: 0.6rem;
+    color: var(--accent);
     vertical-align: middle;
+    transition: transform 0.15s;
 }
