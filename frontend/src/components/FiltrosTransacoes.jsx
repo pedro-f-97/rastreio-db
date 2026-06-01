@@ -63,6 +63,12 @@ export default function FiltrosTransacoes({ filtros, categorias, onChange }) {
                 <option value="negativo">Negativos</option>
                 <option value="positivo">Positivos</option>
             </select>
+            <input
+                type="text"
+                placeholder="Pesquisar descrição..."
+                value={filtros.descricao ?? ''}
+                onChange={e => onChange({ descricao: e.target.value || null })}
+            />
             <button
                 className={filtros.por_categorizar ? 'btn-filtro-activo' : 'btn-filtro'}
                 onClick={() => onChange({ por_categorizar: !filtros.por_categorizar, ano: null })}

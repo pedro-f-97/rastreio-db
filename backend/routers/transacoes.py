@@ -24,6 +24,7 @@ def listar_transacoes(
     subcategoria_id: Optional[int] = Query(None),
     sinal: Optional[str] = Query(None),
     por_categorizar: bool = Query(False),
+    descricao: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     query = db.query(Transacao).order_by(Transacao.data.desc())
@@ -40,6 +41,8 @@ def listar_transacoes(
         query = query.filter(Transacao.valor < 0)
     elif sinal == "positivo":
         query = query.filter(Transacao.valor > 0)
+    if descricao:
+        query = query.filter(Transacao.descricao.ilike(f"%{descricao}%"))
     if por_categorizar:
         query = query.filter(
             (Transacao.categoria_id == None) | (Transacao.subcategoria_id == None)
