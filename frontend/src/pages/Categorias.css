@@ -218,3 +218,24 @@
     font-size: 0.9rem;
     opacity: 1;
 }
+
+.tipo-info {
+    margin-left: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: default;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    width: 1.2rem;
+    height: 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+}
+
+.tipo-info:hover {
+    opacity: 1;
+    border-color: var(--accent);
+    color: var(--accent);
+}

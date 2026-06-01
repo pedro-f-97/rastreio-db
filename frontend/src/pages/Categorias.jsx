@@ -134,6 +134,7 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                             <span className="categoria-nome">{cat.nome}</span>
                             <span className={`badge-tipo badge-tipo-${cat.tipo}`}>{cat.tipo}</span>
+                            <span className="tipo-info" title={"Despesa: gastos normais (alimentação, transportes, etc.)\nReceita: entradas de dinheiro (salário, IRS, etc.)\nInvestimento: alocação de capital (ETFs, poupança, etc.)\nTransferência: movimentos internos entre contas (excluídos das métricas)"}>ℹ</span>
                         </div>
                     </>
                 )}
