@@ -1,0 +1,8 @@
+dsznajder.es7-react-js-snippets
+eamodio.gitlens
+ms-pyright.pyright
+ms-python.debugpy
+ms-python.python
+ms-python.vscode-python-envs
+qwtel.sqlite-viewer
+rangav.vscode-thunder-client
