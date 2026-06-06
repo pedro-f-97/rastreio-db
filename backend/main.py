@@ -23,7 +23,7 @@ else:
 def abrir_browser():
     import time
     time.sleep(1.5)
-    webbrowser.open("http://localhost:8000")
+    webbrowser.open("http://localhost:9742")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,7 +37,7 @@ app = FastAPI(lifespan=lifespan)
 if not getattr(sys, 'frozen', False):
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173"],
+        allow_origins=["http://localhost:9743"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -63,4 +63,4 @@ if os.path.exists(PASTA_FRONTEND):
     app.mount("/", StaticFiles(directory=PASTA_FRONTEND, html=True), name="frontend")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=9742)

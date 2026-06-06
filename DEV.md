@@ -28,7 +28,7 @@ npm run dev
 ```bash
 cd backend
 source venv/bin/activate
-uvicorn main:app --reload
+uvicorn main:app --reload --port 9742
 ```
 - API disponível em: `http://localhost:8000`
 - Documentação interativa: `http://localhost:8000/docs`
