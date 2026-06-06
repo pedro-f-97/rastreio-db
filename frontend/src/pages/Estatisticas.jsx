@@ -274,12 +274,13 @@ export default function Estatisticas() {
             {/* DISTRIBUIÇÃO POR CATEGORIA */}
                 <section className="secao">
                     <h2>Distribuição por categoria</h2>
-                    <ResponsiveContainer width="100%" height={porSubcategoria.length * 48 + 40}>
-                        <BarChart
-                            data={porSubcategoria}
-                            layout="vertical"
-                            margin={{ top: 0, right: 60, left: 120, bottom: 0 }}
-                        >
+                    <ResponsiveContainer width="100%" height={porSubcategoria.length * 32 + 40}>
+                            <BarChart
+                                data={[...porSubcategoria].sort((a, b) => b.total - a.total)}
+                                layout="vertical"
+                                background={false}
+                                margin={{ top: 0, right: 60, left: 120, bottom: 0 }}
+                            >
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                             <XAxis
                                 type="number"
@@ -294,6 +295,8 @@ export default function Estatisticas() {
                             />
                             <Tooltip
                                 contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                                itemStyle={{ color: 'var(--text-primary)' }}
                                 formatter={(v, _, props) => {
                                     const pct = totalGeral > 0 ? (v / totalGeral * 100).toFixed(1) : 0;
                                     return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
@@ -312,9 +315,9 @@ export default function Estatisticas() {
                     {categoriaSeleccionada && (
                         <div className="subcategoria-detalhe">
                             <h3>{categoriaSeleccionada.categoria_nome}</h3>
-                            <ResponsiveContainer width="100%" height={categoriaSeleccionada.subcategorias.length * 48 + 40}>
+                            <ResponsiveContainer width="100%" height={categoriaSeleccionada.subcategorias.length * 32 + 40}>
                                 <BarChart
-                                    data={categoriaSeleccionada.subcategorias}
+                                    data={[...categoriaSeleccionada.subcategorias].sort((a, b) => b.total - a.total)}
                                     layout="vertical"
                                     margin={{ top: 0, right: 60, left: 140, bottom: 0 }}
                                 >
@@ -332,8 +335,10 @@ export default function Estatisticas() {
                                     />
                                     <Tooltip
                                         contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                        labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                                        itemStyle={{ color: 'var(--text-primary)' }}
                                         formatter={(v, _, props) => {
-                                            const pct = categoriaSeleccionada.total > 0 ? (v / categoriaSeleccionada.total * 100).toFixed(1) : 0;
+                                            const pct = totalGeral > 0 ? (v / totalGeral * 100).toFixed(1) : 0;
                                             return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
                                         }}
                                     />

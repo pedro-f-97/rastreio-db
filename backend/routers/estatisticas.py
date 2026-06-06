@@ -133,27 +133,24 @@ def por_categoria(db: Session = Depends(get_db)):
 
 @router.get("/por-subcategoria")
 def por_subcategoria(db: Session = Depends(get_db)):
-    from database import Subcategoria
-
     resultados = db.query(
         Transacao.categoria_id,
         Categoria.nome.label('categoria_nome'),
         Transacao.subcategoria_id,
         Subcategoria.nome.label('subcategoria_nome'),
-        func.sum(Transacao.valor).label('total'),
+        Transacao.valor,
+        Transacao.reembolso,
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
      .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
-        .filter(
-            Transacao.valor < 0,
-            Categoria.tipo != TipoCategoria.investimento,
-            Categoria.tipo != TipoCategoria.receita,
-            Categoria.tipo != TipoCategoria.transferencia,
-            Transacao.categoria_id != None,
-        )\
-     .group_by(Transacao.categoria_id, Transacao.subcategoria_id)\
+     .filter(
+         (Transacao.valor < 0) | (Transacao.reembolso == True),
+         Categoria.tipo != TipoCategoria.investimento,
+         Categoria.tipo != TipoCategoria.receita,
+         Categoria.tipo != TipoCategoria.transferencia,
+         Transacao.categoria_id != None,
+     )\
      .all()
 
-    # Agrupa por categoria
     por_cat = {}
     for r in resultados:
         cat_id = r.categoria_id
@@ -161,18 +158,42 @@ def por_subcategoria(db: Session = Depends(get_db)):
             por_cat[cat_id] = {
                 "categoria_id": cat_id,
                 "categoria_nome": r.categoria_nome,
-                "total": 0,
-                "subcategorias": [],
+                "total_centimos": 0,
+                "subcategorias": {},
             }
-        total = round(abs(r.total or 0), 2)
-        por_cat[cat_id]["total"] = round(por_cat[cat_id]["total"] + total, 2)
-        por_cat[cat_id]["subcategorias"].append({
-            "subcategoria_id": r.subcategoria_id,
-            "subcategoria_nome": r.subcategoria_nome or "Sem subcategoria",
-            "total": total,
-        })
 
-    return list(por_cat.values())
+        sub_key = r.subcategoria_id or 0
+        if sub_key not in por_cat[cat_id]["subcategorias"]:
+            por_cat[cat_id]["subcategorias"][sub_key] = {
+                "subcategoria_nome": r.subcategoria_nome or "Sem subcategoria",
+                "total_centimos": 0,
+            }
+
+        # reembolsos (valor > 0) abtem; despesas normais (valor < 0) somam
+        contribuicao = round(r.valor * 100)
+        por_cat[cat_id]["total_centimos"] += contribuicao
+        por_cat[cat_id]["subcategorias"][sub_key]["total_centimos"] += contribuicao
+
+    resultado = []
+    for cat in por_cat.values():
+        total_cat = round(abs(cat["total_centimos"]) / 100, 2)
+        subcategorias = []
+        for sub in cat["subcategorias"].values():
+            total_sub = round(abs(sub["total_centimos"]) / 100, 2)
+            if total_sub > 0:
+                subcategorias.append({
+                    "subcategoria_nome": sub["subcategoria_nome"],
+                    "total": total_sub,
+                })
+        if total_cat > 0:
+            resultado.append({
+                "categoria_id": cat["categoria_id"],
+                "categoria_nome": cat["categoria_nome"],
+                "total": total_cat,
+                "subcategorias": subcategorias,
+            })
+
+    return resultado
 
 def _query_transacoes_mes(db: Session, inicio, fim):
     return db.query(
