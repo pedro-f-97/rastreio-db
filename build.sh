@@ -31,6 +31,7 @@ echo "  A empacotar com PyInstaller..."
 pyinstaller \
   --noconfirm \
   --onedir \
+  --windowed \
   --name rastreio-db \
   --add-data "frontend_dist:frontend_dist" \
   --add-data "routers:routers" \

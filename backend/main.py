@@ -1,7 +1,6 @@
 import os
-import threading
-import webbrowser
 import sys
+import threading
 import uvicorn
 from contextlib import asynccontextmanager
 
@@ -9,27 +8,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from fastapi import Request
 
 from database import BASE_DIR, criar_tabelas
 from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao
 
-# Determina a pasta dos ficheiros estáticos
+# --- Pasta do frontend ---
 if getattr(sys, 'frozen', False):
     PASTA_FRONTEND = os.path.join(getattr(sys, '_MEIPASS', BASE_DIR), "frontend_dist")
 else:
     PASTA_FRONTEND = os.path.join(BASE_DIR, "frontend_dist")
 
-def abrir_browser():
-    import time
-    time.sleep(1.5)
-    webbrowser.open("http://localhost:9742")
-
+# --- App FastAPI ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     criar_tabelas()
-    if getattr(sys, 'frozen', False):
-        threading.Thread(target=abrir_browser, daemon=True).start()
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -62,5 +54,31 @@ async def servir_index():
 if os.path.exists(PASTA_FRONTEND):
     app.mount("/", StaticFiles(directory=PASTA_FRONTEND, html=True), name="frontend")
 
+# --- Ponto de entrada (executável) ---
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=9742)
+    PORTA = 9742
+
+    servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=PORTA, log_level="warning"))
+
+    def iniciar_servidor():
+        import asyncio
+        asyncio.run(servidor.serve())
+
+    def parar_servidor():
+        servidor.should_exit = True
+
+    def abrir_browser():
+        import time, webbrowser
+        time.sleep(1.5)
+        webbrowser.open(f"http://localhost:{PORTA}")
+
+    # Uvicorn numa thread separada
+    t_servidor = threading.Thread(target=iniciar_servidor, daemon=True)
+    t_servidor.start()
+
+    # Browser numa thread separada
+    threading.Thread(target=abrir_browser, daemon=True).start()
+
+    # Tray na thread principal (obrigatório no Linux/Windows)
+    from tray import iniciar_tray
+    iniciar_tray(parar_servidor)
