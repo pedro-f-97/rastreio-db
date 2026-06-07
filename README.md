@@ -37,6 +37,7 @@ rastreio-db/
 │   ├── schemas.py           # Schemas Pydantic para validação de dados
 │   ├── popular_bd.py        # Categorias e subcategorias predefinidas
 │   ├── migrar_excel.py      # Migração única de dados históricos
+│   ├── tray.py              # Janela de controlo para fecho do executável
 │   ├── requirements.txt
 │   └── routers/
 │       ├── init.py
@@ -168,5 +169,5 @@ Ao abrir a aplicação pela primeira vez, é apresentado um ecrã de boas-vindas
 ### Sistema
 - [x] Backup & Restore (exportação, importação com escrita atómica e auto-backup)
 - [x] Versão distribuível para Linux (executável portable via PyInstaller)
-- [ ] Ícone na system tray para controlo do executável (Linux/Windows)
-- [ ] Versão distribuível para Windows
+- [x] Janela de controlo para fecho do executável (Linux/Windows)
+- [x] Versão distribuível para Windows (necessário correr o build numa máquina Windows)
