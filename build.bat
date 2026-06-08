@@ -1,6 +1,5 @@
 @echo off
 setlocal
-
 set RAIZ=%~dp0
 set BACKEND=%RAIZ%backend
 set FRONTEND=%RAIZ%frontend
@@ -18,35 +17,56 @@ if errorlevel 1 goto erro
 :: 2. Copiar frontend compilado para dentro do backend
 echo.
 echo A copiar frontend_dist para o backend...
+if not exist "%FRONTEND%\dist" (
+    echo ERRO: %FRONTEND%\dist nao existe!
+    goto erro
+)
 if exist "%BACKEND%\frontend_dist" rmdir /s /q "%BACKEND%\frontend_dist"
 xcopy /e /i /q "%FRONTEND%\dist" "%BACKEND%\frontend_dist"
+if errorlevel 1 goto erro
 
-:: 3. Instalar PyInstaller no venv
+:: 3. Criar venv se não existir
 cd "%BACKEND%"
-call venv\Scripts\activate.bat
-pip install pyinstaller --quiet
+if not exist "venv" (
+    echo.
+    echo Venv nao encontrado. A criar ambiente virtual...
+    python -m venv venv
+    if errorlevel 1 goto erro
+    echo Venv criado com sucesso.
+)
 
-:: 4. Executar PyInstaller
+:: 4. Instalar dependências e PyInstaller
 echo.
-echo  A empacotar com PyInstaller...
-pyinstaller ^
+echo A instalar dependencias...
+call venv\Scripts\activate.bat
+venv\Scripts\pip install -r requirements.txt --quiet
+if errorlevel 1 goto erro
+venv\Scripts\pip install pyinstaller --quiet
+if errorlevel 1 goto erro
+
+:: 5. Executar PyInstaller
+echo.
+echo A empacotar com PyInstaller...
+venv\Scripts\pyinstaller ^
   --noconfirm ^
   --onedir ^
   --name rastreio-db ^
   --add-data "frontend_dist;frontend_dist" ^
   --add-data "routers;routers" ^
+  --hidden-import tkinter ^
   main.py
 if errorlevel 1 goto erro
 
-:: 5. Organizar output final
+:: 6. Organizar output final
 echo.
 echo A organizar pasta de distribuição...
 if exist "%DIST%" rmdir /s /q "%DIST%"
 mkdir "%DIST%"
 xcopy /e /i /q "%BACKEND%\dist\rastreio-db" "%DIST%"
+if errorlevel 1 goto erro
 mkdir "%DIST%\dados"
 
-:: 6. Limpeza
+:: 7. Limpeza
 if exist "%BACKEND%\build" rmdir /s /q "%BACKEND%\build"
 if exist "%BACKEND%\dist" rmdir /s /q "%BACKEND%\dist"
 if exist "%BACKEND%\rastreio-db.spec" del "%BACKEND%\rastreio-db.spec"
