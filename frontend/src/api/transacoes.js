@@ -8,14 +8,6 @@ export function atualizarTransacao(id, dados) {
     return client.put(`/transacoes/${id}`, dados);
 }
 
-export function importarExtrato(ficheiro) {
-    const formData = new FormData();
-    formData.append('file', ficheiro);
-    return client.post('/importacao/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-    });
-}
-
 export function totalPorCategorizar() {
     return client.get('/transacoes/por-categorizar/total');
 }

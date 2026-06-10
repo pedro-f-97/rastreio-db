@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { listarTransacoes, atualizarTransacao, importarExtrato } from '../api/transacoes';
+import { listarTransacoes, atualizarTransacao } from '../api/transacoes';
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import TabelaTransacoes from '../components/TabelaTransacoes';
 import FiltrosTransacoes from '../components/FiltrosTransacoes';
@@ -96,18 +96,6 @@ export default function Transacoes() {
         );
     }
 
-    async function aoImportar(e) {
-        const ficheiro = e.target.files[0];
-        if (!ficheiro) return;
-        try {
-            const res = await importarExtrato(ficheiro);
-            alert(`Importadas: ${res.data.inseridas} | Duplicadas: ${res.data.duplicadas}`);
-            carregarTransacoes();
-        } catch {
-            alert('Erro na importação.');
-        }
-    }
-
     async function aoCriarRegra(novaRegra) {
         const res = await criarRegra(novaRegra);
         setRegras(prev => [...prev, res.data.regra]);
@@ -134,12 +122,6 @@ export default function Transacoes() {
                             onChange={handleImportarFicheiro} 
                             hidden 
                         />
-                    </label>
-
-                    {/* Botão Principal */}
-                    <label className="btn-importar">
-                        Importar extrato
-                        <input type="file" accept=".xlsx" onChange={aoImportar} hidden />
                     </label>
                 </div>
             </div>

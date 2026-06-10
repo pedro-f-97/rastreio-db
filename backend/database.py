@@ -88,6 +88,36 @@ class RegraCategorizacao(Base):
     categoria: Mapped["Categoria"] = relationship("Categoria")
     subcategoria: Mapped[Optional["Subcategoria"]] = relationship("Subcategoria")
     
+class ModoValor(enum.Enum):
+    coluna_unica = "coluna_unica"
+    duas_colunas = "duas_colunas"
+
+class TipoFicheiro(enum.Enum):
+    xlsx = "xlsx"
+    csv = "csv"
+
+class PerfilImportacao(Base):
+    __tablename__ = "perfis_importacao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    tipo_ficheiro: Mapped[TipoFicheiro] = mapped_column(SAEnum(TipoFicheiro), nullable=False, default=TipoFicheiro.xlsx)
+
+    linha_inicio_dados: Mapped[int] = mapped_column(nullable=False)
+    coluna_data: Mapped[int] = mapped_column(nullable=False)
+    formato_data: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    coluna_descricao: Mapped[int] = mapped_column(nullable=False)
+
+    modo_valor: Mapped[ModoValor] = mapped_column(SAEnum(ModoValor), nullable=False)
+    coluna_valor: Mapped[Optional[int]] = mapped_column()
+    coluna_debito: Mapped[Optional[int]] = mapped_column()
+    coluna_credito: Mapped[Optional[int]] = mapped_column()
+
+    separador_decimal: Mapped[str] = mapped_column(String(1), nullable=False, default=".")
+
+    tem_saldo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    coluna_saldo: Mapped[Optional[int]] = mapped_column()
 
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
@@ -95,3 +125,4 @@ def criar_tabelas():
 if __name__ == "__main__":
     criar_tabelas()
     print("Tabelas criadas com sucesso no novo estilo Mapped!")
+

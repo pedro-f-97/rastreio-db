@@ -8,6 +8,7 @@ import PrimeiroUso from './pages/PrimeiroUso'
 import { getEstado } from './api/configuracao'
 import './index.css'
 import { totalPorCategorizar } from './api/transacoes'
+import Importacao from './pages/Importacao'
 
 function App() {
   const [inicializado, setInicializado] = useState(null)
@@ -48,6 +49,7 @@ function App() {
               { to: '/categorias', label: 'Categorias' },
               { to: '/regras', label: 'Regras' },
               { to: '/estatisticas', label: 'Estatísticas' },
+              { to: '/importacao', label: 'Importação' },
             ].map(({ to, label, badge }) => (
               <NavLink
                 key={to}
@@ -92,6 +94,7 @@ function App() {
                   <Route path="/regras" element={<Regras />} />
                   <Route path="/estatisticas" element={<Estatisticas />} />
                   <Route path="*" element={<Navigate to="/" />} />
+                  <Route path="/importacao" element={<Importacao />} />
                 </>
             }
           </Routes>

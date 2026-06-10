@@ -61,3 +61,27 @@ class RegraCreate(RegraBase):
 class Regra(RegraBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+from database import TipoCategoria, ModoValor, TipoFicheiro
+
+class PerfilImportacaoBase(BaseModel):
+    nome: str
+    tipo_ficheiro: TipoFicheiro = TipoFicheiro.xlsx
+    linha_inicio_dados: int
+    coluna_data: int
+    formato_data: str
+    coluna_descricao: int
+    modo_valor: ModoValor
+    coluna_valor: Optional[int] = None
+    coluna_debito: Optional[int] = None
+    coluna_credito: Optional[int] = None
+    separador_decimal: str = "."
+    tem_saldo: bool = False
+    coluna_saldo: Optional[int] = None
+
+class PerfilImportacaoCreate(PerfilImportacaoBase):
+    pass
+
+class PerfilImportacao(PerfilImportacaoBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)

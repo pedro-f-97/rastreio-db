@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from database import SessionLocal, Categoria, Subcategoria
-from popular_bd import CATEGORIAS
+from database import SessionLocal, Categoria, Subcategoria, TipoCategoria
+from popular_bd import CATEGORIAS, TIPOS
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
 
@@ -21,14 +21,12 @@ def estado(db: Session = Depends(get_db)):
 def inicializar(db: Session = Depends(get_db)):
     if db.query(Categoria).count() > 0:
         return {"ok": False, "mensagem": "Base de dados já inicializada"}
-
     for nome_cat, subcategorias in CATEGORIAS.items():
-        cat = Categoria(nome=nome_cat)
+        cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
         db.add(cat)
         db.flush()
         for nome_sub in subcategorias:
             sub = Subcategoria(nome=nome_sub, categoria_id=cat.id)
             db.add(sub)
-
     db.commit()
     return {"ok": True, "mensagem": "Categorias e subcategorias criadas com sucesso"}

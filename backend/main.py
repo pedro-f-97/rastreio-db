@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from database import BASE_DIR, criar_tabelas
-from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao
+from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao, perfis_importacao
 
 # --- Pasta do frontend ---
 if getattr(sys, 'frozen', False):
@@ -41,6 +41,7 @@ app.include_router(importacao.router, prefix="/api")
 app.include_router(estatisticas.router, prefix="/api")
 app.include_router(backups.router, prefix="/api")
 app.include_router(configuracao.router, prefix="/api")
+app.include_router(perfis_importacao.router, prefix="/api")
 
 @app.get("/")
 async def servir_index():
