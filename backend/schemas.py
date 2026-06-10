@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional
 from datetime import date
 from database import TipoCategoria
@@ -78,6 +78,20 @@ class PerfilImportacaoBase(BaseModel):
     separador_decimal: str = "."
     tem_saldo: bool = False
     coluna_saldo: Optional[int] = None
+
+    @model_validator(mode='after')
+    def validar_perfil(self):
+        for campo in ['coluna_data', 'coluna_descricao', 'coluna_valor', 'coluna_debito', 'coluna_credito', 'coluna_saldo']:
+            v = getattr(self, campo)
+            if v is not None and v < 0:
+                raise ValueError(f"{campo} não pode ser negativo")
+        if self.modo_valor == ModoValor.coluna_unica and self.coluna_valor is None:
+            raise ValueError("coluna_valor obrigatória para modo coluna_unica")
+        if self.modo_valor == ModoValor.duas_colunas and (self.coluna_debito is None or self.coluna_credito is None):
+            raise ValueError("coluna_debito e coluna_credito obrigatórias para modo duas_colunas")
+        if self.tem_saldo and self.coluna_saldo is None:
+            raise ValueError("coluna_saldo obrigatória quando tem_saldo é True")
+        return self
 
 class PerfilImportacaoCreate(PerfilImportacaoBase):
     pass

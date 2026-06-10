@@ -78,6 +78,11 @@ export default function Importacao() {
 
     async function aoGuardarPerfil() {
         if (!form.nome.trim()) { alert('Nome obrigatório.'); return }
+        const camposObrigatorios = ['linha_inicio_dados', 'coluna_data', 'coluna_descricao']
+        if (camposObrigatorios.some(c => form[c] === '' || isNaN(form[c]))) {
+            alert('Preenche todos os campos numéricos obrigatórios.')
+            return
+        }
         try {
             if (perfilEmEdicao) {
                 await atualizarPerfil(perfilEmEdicao.id, form)
@@ -86,9 +91,14 @@ export default function Importacao() {
             }
             fecharModal()
             carregar()
-        } catch (err) {
-            alert(err.response?.data?.detail || 'Erro ao guardar perfil.')
-        }
+            } catch (err) {
+                const detail = err.response?.data?.detail
+                if (Array.isArray(detail)) {
+                    alert(detail.map(e => e.msg).join('\n'))
+                } else {
+                    alert(detail || 'Erro ao guardar perfil.')
+                }
+            }
     }
 
     async function aoEliminarPerfil(id) {
@@ -320,12 +330,12 @@ export default function Importacao() {
 
                                 <div className="modal-grupo">
                                     <label>Linha início de dados</label>
-                                    <input type="number" min="1" value={form.linha_inicio_dados} onChange={e => campo('linha_inicio_dados', parseInt(e.target.value))} />
+                                    <input type="number" min="1" value={form.linha_inicio_dados} onChange={e => campo('linha_inicio_dados', e.target.value === '' ? '' : parseInt(e.target.value))} />
                                 </div>
 
                                 <div className="modal-grupo">
                                     <label>Coluna data (índice)</label>
-                                    <input type="number" min="0" value={form.coluna_data} onChange={e => campo('coluna_data', parseInt(e.target.value))} />
+                                    <input type="number" min="0" value={form.coluna_data} onChange={e => campo('coluna_data', e.target.value === '' ? '' : parseInt(e.target.value))} />
                                 </div>
 
                                 <div className="modal-grupo">
@@ -335,7 +345,7 @@ export default function Importacao() {
 
                                 <div className="modal-grupo">
                                     <label>Coluna descrição (índice)</label>
-                                    <input type="number" min="0" value={form.coluna_descricao} onChange={e => campo('coluna_descricao', parseInt(e.target.value))} />
+                                    <input type="number" min="0" value={form.coluna_descricao} onChange={e => campo('coluna_descricao', e.target.value === '' ? '' : parseInt(e.target.value))} />
                                 </div>
 
                                 <div className="modal-grupo">
@@ -349,17 +359,17 @@ export default function Importacao() {
                                 {form.modo_valor === 'coluna_unica' ? (
                                     <div className="modal-grupo">
                                         <label>Coluna valor (índice)</label>
-                                        <input type="number" min="0" value={form.coluna_valor ?? ''} onChange={e => campo('coluna_valor', parseInt(e.target.value))} />
+                                        <input type="number" min="0" value={form.coluna_valor ?? ''} onChange={e => campo('coluna_valor', e.target.value === '' ? '' : parseInt(e.target.value))} />
                                     </div>
                                 ) : (
                                     <>
                                         <div className="modal-grupo">
                                             <label>Coluna débito (índice)</label>
-                                            <input type="number" min="0" value={form.coluna_debito ?? ''} onChange={e => campo('coluna_debito', parseInt(e.target.value))} />
+                                            <input type="number" min="0" value={form.coluna_debito ?? ''} onChange={e => campo('coluna_debito', e.target.value === '' ? '' : parseInt(e.target.value))} />
                                         </div>
                                         <div className="modal-grupo">
                                             <label>Coluna crédito (índice)</label>
-                                            <input type="number" min="0" value={form.coluna_credito ?? ''} onChange={e => campo('coluna_credito', parseInt(e.target.value))} />
+                                            <input type="number" min="0" value={form.coluna_credito ?? ''} onChange={e => campo('coluna_credito', e.target.value === '' ? '' : parseInt(e.target.value))} />
                                         </div>
                                     </>
                                 )}
@@ -382,7 +392,7 @@ export default function Importacao() {
                                 {form.tem_saldo && (
                                     <div className="modal-grupo">
                                         <label>Coluna saldo (índice)</label>
-                                        <input type="number" min="0" value={form.coluna_saldo ?? ''} onChange={e => campo('coluna_saldo', parseInt(e.target.value))} />
+                                        <input type="number" min="0" value={form.coluna_saldo ?? ''} onChange={e => campo('coluna_saldo', e.target.value === '' ? '' : parseInt(e.target.value))} />
                                     </div>
                                 )}
                             </div>

@@ -33,13 +33,20 @@ def criar_perfil(perfil: PerfilImportacaoCreate, db: Session = Depends(get_db)):
 @router.post("/analisar-ficheiro")
 async def analisar_ficheiro(file: UploadFile = File(...)):
     conteudo = await file.read()
-    wb = load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
-    ws = wb.active
-    if ws is None:
-        raise HTTPException(status_code=400, detail="Ficheiro Excel sem sheets activas.")
-    linhas = []
-    for row in ws.iter_rows(max_row=12, values_only=True):
-        linhas.append([str(c) if c is not None else "" for c in row])
+    nome = file.filename or ""
+    if nome.endswith(".csv"):
+        import csv
+        texto = conteudo.decode("utf-8-sig")
+        reader = csv.reader(io.StringIO(texto))
+        linhas = [[str(c) for c in row] for _, row in zip(range(12), reader)]
+    else:
+        wb = load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
+        ws = wb.active
+        if ws is None:
+            raise HTTPException(status_code=400, detail="Ficheiro Excel sem sheets activas.")
+        linhas = []
+        for row in ws.iter_rows(max_row=12, values_only=True):
+            linhas.append([str(c) if c is not None else "" for c in row])
     return {"linhas": linhas}
 
 @router.put("/{perfil_id}", response_model=PerfilImportacaoSchema)
