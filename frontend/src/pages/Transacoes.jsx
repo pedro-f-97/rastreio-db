@@ -99,6 +99,7 @@ export default function Transacoes() {
     async function aoCriarRegra(novaRegra) {
         const res = await criarRegra(novaRegra);
         setRegras(prev => [...prev, res.data.regra]);
+        await carregarTransacoes();
     }
 
     
