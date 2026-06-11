@@ -113,7 +113,6 @@ Este projeto está licenciado sob a [GNU General Public License v3.0](LICENSE).
 
 ## Roadmap
 
-- Melhorar aplicação de regras no momento em que uma regra é definida
 - Refinar estilos e consistência visual entre páginas
 - Exportação de transações para Excel/CSV
 - Exportação de relatório de estatísticas
