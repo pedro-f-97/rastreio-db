@@ -17,7 +17,7 @@ O Excel como ferramenta de controlo financeiro acumula limitações que se torna
 
 ## Funcionalidades
 
-- Importação de extratos Excel exportados do banco, com deteção automática de duplicados por `data + descrição + valor + saldo`
+- Importação de extratos bancários em Excel ou CSV, com perfis de mapeamento de colunas configuráveis por banco e deteção automática de duplicados por `data + descrição + valor + saldo`
 - Categorização automática por regras de substring, com sugestões de novas regras durante o uso
 - Edição inline de categoria, subcategoria, reembolso e notas directamente na tabela de transações
 - Filtros por ano, mês e categoria; filtro rápido de transações por categorizar
@@ -113,7 +113,11 @@ Este projeto está licenciado sob a [GNU General Public License v3.0](LICENSE).
 
 ## Roadmap
 
-- Importação compatível com múltiplos bancos, com perfis de mapeamento de colunas configuráveis pelo utilizador
+- Melhorar aplicação de regras no momento em que uma regra é definida
+- Refinar estilos e consistência visual entre páginas
+- Exportação de transações para Excel/CSV
+- Exportação de relatório de estatísticas
+- Modo de revisão de importação — confirmar/rejeitar transações individualmente antes de inserir na BD
 
 ## Arquitectura
 
@@ -121,31 +125,56 @@ Este projeto está licenciado sob a [GNU General Public License v3.0](LICENSE).
 rastreio-db/
 ├── README.md
 ├── DEV.md
-├── build.sh                 # Script de build Linux
-├── build.bat                # Script de build Windows
+├── WINDOWS.md
+├── LICENSE
+├── build.sh                        # Script de build Linux
+├── build.bat                       # Script de build Windows
+├── docs/
+│   └── screenshots/
 ├── backend/
-│   ├── database.py          # Modelos SQLAlchemy e ligação à BD
-│   ├── main.py              # Ponto de entrada FastAPI + CORS
-│   ├── schemas.py           # Schemas Pydantic para validação de dados
-│   ├── popular_bd.py        # Categorias e subcategorias predefinidas
-│   ├── tray.py              # Janela de controlo para abrir o browser e encerrar a aplicação
+│   ├── main.py                     # Ponto de entrada FastAPI + CORS
+│   ├── database.py                 # Modelos SQLAlchemy e ligação à BD
+│   ├── schemas.py                  # Schemas Pydantic para validação de dados
+│   ├── parser_importacao.py        # Parser reutilizável de ficheiros Excel e CSV
+│   ├── importador_transacoes.py    # Inserção de transações com deduplicação e regras
+│   ├── popular_bd.py               # Categorias e subcategorias predefinidas
+│   ├── tray.py                     # Janela de controlo (abrir browser / encerrar)
 │   ├── requirements.txt
 │   └── routers/
-│       ├── categorias.py    # CRUD de categorias e subcategorias
-│       ├── transacoes.py    # Listagem paginada e edição de transações
-│       ├── regras.py        # Regras de categorização automática
-│       ├── importacao.py    # Importação de extratos Excel do banco
-│       ├── backups.py       # Exportação e restauro da base de dados
-│       ├── configuracao.py  # Inicialização e estado da aplicação
-│       └── estatisticas.py  # Endpoints de estatísticas e resumos
+│       ├── categorias.py           # CRUD de categorias e subcategorias
+│       ├── transacoes.py           # Listagem paginada e edição de transações
+│       ├── regras.py               # Regras de categorização automática
+│       ├── perfis_importacao.py    # CRUD de perfis de mapeamento por banco
+│       ├── importacao.py           # Preview e importação de extratos bancários
+│       ├── estatisticas.py         # Endpoints de estatísticas e resumos
+│       ├── backups.py              # Exportação e restauro da base de dados
+│       └── configuracao.py         # Inicialização e estado da aplicação
 └── frontend/
     ├── index.html
     ├── vite.config.js
     ├── package.json
     └── src/
-        ├── api/             # Clientes axios por domínio
-        ├── components/      # Componentes reutilizáveis
-        └── pages/           # Transacoes, Categorias, Regras, Estatisticas
+        ├── index.css
+        ├── App.jsx
+        ├── api/
+        │   ├── categorias.js
+        │   ├── transacoes.js
+        │   ├── regras.js
+        │   ├── perfisImportacao.js
+        │   ├── importacao.js
+        │   ├── estatisticas.js
+        │   ├── backups.js
+        │   └── configuracao.js
+        ├── components/
+        │   ├── TabelaTransacoes.jsx
+        │   └── FiltrosTransacoes.jsx
+        └── pages/
+            ├── Transacoes.jsx
+            ├── Categorias.jsx
+            ├── Regras.jsx
+            ├── Importacao.jsx
+            ├── Estatisticas.jsx
+            └── PrimeiroUso.jsx
 ```
 
 ## Modelo de dados
@@ -154,3 +183,4 @@ rastreio-db/
 - **Subcategoria** — divisão opcional dentro de cada categoria, totalmente configurável pelo utilizador
 - **Transacao** — registo de cada movimento bancário, com categoria, subcategoria, flag de reembolso e notas livres
 - **RegraCategorizacao** — regras por substring que permitem categorizar automaticamente transações futuras com base na descrição
+- **PerfilImportacao** — configuração de mapeamento de colunas para um banco específico, permitindo importar extratos de qualquer banco sem alterações ao código
