@@ -1,17 +1,33 @@
 import { useState, useEffect, useRef } from 'react'
-import { listarPerfis, criarPerfil, atualizarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
+import { listarPerfis, criarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
 import { previewExtrato, importarExtrato } from '../api/importacao'
 import './Importacao.css'
+
+const FORMATOS_DATA = [
+    { label: '31/01/2026', valor: '%d/%m/%Y' },
+    { label: '2026-01-31', valor: '%Y-%m-%d' },
+    { label: '2026/01/31', valor: '%Y/%m/%d' },
+    { label: '31-01-2026', valor: '%d-%m-%Y' },
+]
+
+const CAMPOS_COLUNA = [
+    { chave: 'coluna_data', label: 'Coluna data' },
+    { chave: 'coluna_descricao', label: 'Coluna descrição' },
+    { chave: 'coluna_valor', label: 'Coluna valor', condicao: (f) => f.modo_valor === 'coluna_unica' },
+    { chave: 'coluna_debito', label: 'Coluna débito', condicao: (f) => f.modo_valor === 'duas_colunas' },
+    { chave: 'coluna_credito', label: 'Coluna crédito', condicao: (f) => f.modo_valor === 'duas_colunas' },
+    { chave: 'coluna_saldo', label: 'Coluna saldo', condicao: (f) => f.tem_saldo },
+]
 
 const PERFIL_VAZIO = {
     nome: '',
     tipo_ficheiro: 'xlsx',
-    linha_inicio_dados: 1,
-    coluna_data: 0,
-    formato_data: '%d/%m/%Y',
-    coluna_descricao: 1,
+    linha_inicio_dados: null,
+    coluna_data: null,
+    formato_data: '',
+    coluna_descricao: null,
     modo_valor: 'coluna_unica',
-    coluna_valor: 2,
+    coluna_valor: null,
     coluna_debito: null,
     coluna_credito: null,
     separador_decimal: '.',
@@ -19,14 +35,18 @@ const PERFIL_VAZIO = {
     coluna_saldo: null,
 }
 
+function itemChecklist(label, preenchido) {
+    return { label, preenchido }
+}
+
 export default function Importacao() {
     const [perfis, setPerfis] = useState([])
     const [modalAberto, setModalAberto] = useState(false)
-    const [perfilEmEdicao, setPerfilEmEdicao] = useState(null) // null = novo
     const [form, setForm] = useState(PERFIL_VAZIO)
     const [linhasAnalisadas, setLinhasAnalisadas] = useState(null)
+    const [campoActivo, setCampoActivo] = useState(null)
+    const [numColunas, setNumColunas] = useState(0)
 
-    // Importação
     const [perfilId, setPerfilId] = useState('')
     const [ficheiro, setFicheiro] = useState(null)
     const [preview, setPreview] = useState(null)
@@ -38,26 +58,20 @@ export default function Importacao() {
 
     async function carregar() {
         const res = await listarPerfis()
-        setPerfis(Array.isArray(res.data) ? res.data : [])
-        console.log(res.data)
+        setPerfis(res.data)
     }
 
     function abrirModalNovo() {
-        setPerfilEmEdicao(null)
         setForm(PERFIL_VAZIO)
         setLinhasAnalisadas(null)
-        setModalAberto(true)
-    }
-
-    function abrirModalEditar(perfil) {
-        setPerfilEmEdicao(perfil)
-        setForm({ ...perfil })
-        setLinhasAnalisadas(null)
+        setCampoActivo(null)
+        setNumColunas(0)
         setModalAberto(true)
     }
 
     function fecharModal() {
         setModalAberto(false)
+        setCampoActivo(null)
         setLinhasAnalisadas(null)
     }
 
@@ -71,34 +85,69 @@ export default function Importacao() {
         try {
             const res = await analisarFicheiro(file)
             setLinhasAnalisadas(res.data.linhas)
+            const maxCols = Math.max(...res.data.linhas.map(l => l.length))
+            setNumColunas(maxCols)
         } catch {
             alert('Erro ao ler ficheiro.')
         }
     }
 
+    function aoClicarLinha(numeroLinha) {
+        campo('linha_inicio_dados', numeroLinha)
+    }
+
+    function aoClicarCelula(indiceColuna) {
+        if (!campoActivo) return
+        campo(campoActivo, indiceColuna)
+        setCampoActivo(null)
+    }
+
+    function labelColuna(indice) {
+        if (indice === null || indice === undefined) return null
+        return `Coluna ${indice}`
+    }
+
+    const camposVisiveis = CAMPOS_COLUNA.filter(c => !c.condicao || c.condicao(form))
+
+    function calcularChecklist() {
+        const items = [
+            itemChecklist('Nome', !!form.nome.trim()),
+            itemChecklist('Início de dados', form.linha_inicio_dados !== null),
+            itemChecklist('Coluna data', form.coluna_data !== null),
+            itemChecklist('Coluna descrição', form.coluna_descricao !== null),
+            itemChecklist('Formato data', !!form.formato_data),
+        ]
+        if (form.modo_valor === 'coluna_unica') {
+            items.push(itemChecklist('Coluna valor', form.coluna_valor !== null))
+        } else {
+            items.push(itemChecklist('Coluna débito', form.coluna_debito !== null))
+            items.push(itemChecklist('Coluna crédito', form.coluna_credito !== null))
+        }
+        if (form.tem_saldo) {
+            items.push(itemChecklist('Coluna saldo', form.coluna_saldo !== null))
+        }
+        return items
+    }
+
     async function aoGuardarPerfil() {
-        if (!form.nome.trim()) { alert('Nome obrigatório.'); return }
-        const camposObrigatorios = ['linha_inicio_dados', 'coluna_data', 'coluna_descricao']
-        if (camposObrigatorios.some(c => form[c] === '' || isNaN(form[c]))) {
-            alert('Preenche todos os campos numéricos obrigatórios.')
+        const checklist = calcularChecklist()
+        const emFalta = checklist.filter(i => !i.preenchido).map(i => i.label)
+        if (emFalta.length > 0) {
+            alert(`Falta preencher: ${emFalta.join(', ')}`)
             return
         }
         try {
-            if (perfilEmEdicao) {
-                await atualizarPerfil(perfilEmEdicao.id, form)
-            } else {
-                await criarPerfil(form)
-            }
+            await criarPerfil(form)
             fecharModal()
             carregar()
-            } catch (err) {
-                const detail = err.response?.data?.detail
-                if (Array.isArray(detail)) {
-                    alert(detail.map(e => e.msg).join('\n'))
-                } else {
-                    alert(detail || 'Erro ao guardar perfil.')
-                }
+        } catch (err) {
+            const detail = err.response?.data?.detail
+            if (Array.isArray(detail)) {
+                alert(detail.map(e => e.msg).join('\n'))
+            } else {
+                alert(detail || 'Erro ao guardar perfil.')
             }
+        }
     }
 
     async function aoEliminarPerfil(id) {
@@ -149,6 +198,8 @@ export default function Importacao() {
         }
     }
 
+    const checklist = calcularChecklist()
+
     return (
         <div className="importacao-page">
             {/* SECÇÃO: PERFIS */}
@@ -179,7 +230,6 @@ export default function Importacao() {
                                     <td>{p.modo_valor}</td>
                                     <td>linha {p.linha_inicio_dados}</td>
                                     <td className="importacao-accoes">
-                                        <button onClick={() => abrirModalEditar(p)}>✏️</button>
                                         <button className="btn-perigo" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
                                     </td>
                                 </tr>
@@ -255,6 +305,15 @@ export default function Importacao() {
                                     </tr>
                                 ))}
                             </tbody>
+                            {preview.total_linhas > preview.linhas_preview.length && (
+                                <tfoot>
+                                    <tr>
+                                        <td colSpan={4} className="preview-mais-linhas">
+                                            + {preview.total_linhas - preview.linhas_preview.length} linhas não mostradas
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
 
                         <button
@@ -280,127 +339,168 @@ export default function Importacao() {
                 <div className="modal-overlay" onClick={fecharModal}>
                     <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>{perfilEmEdicao ? 'Editar perfil' : 'Novo perfil'}</h3>
+                            <h3>Novo perfil</h3>
                             <button className="modal-fechar" onClick={fecharModal}>✕</button>
                         </div>
 
                         <div className="modal-corpo">
-                            {/* Análise de ficheiro */}
-                            <div className="modal-grupo">
-                                <label>Ficheiro exemplo (para identificar colunas)</label>
+                            {/* Passo 1 */}
+                            <div className="modal-passo">
+                                <div className="modal-passo-titulo">1. Carrega um ficheiro exemplo</div>
                                 <input type="file" accept=".xlsx,.csv" onChange={aoAnalisarFicheiro} />
                             </div>
 
                             {linhasAnalisadas && (
-                                <div className="modal-preview-ficheiro">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                {linhasAnalisadas[0]?.map((_, i) => (
-                                                    <th key={i}>col {i}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {linhasAnalisadas.map((linha, i) => (
-                                                <tr key={i}>
-                                                    {linha.map((cel, j) => (
-                                                        <td key={j}>{cel}</td>
-                                                    ))}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <>
+                                    {/* Passo 2 */}
+                                    <div className="modal-passo">
+                                        <div className="modal-passo-titulo">
+                                            2. Clica na primeira linha com valores reais
+                                            <span className="modal-passo-ajuda"> (não a linha dos títulos das colunas)</span>
+                                        </div>
+                                        {form.linha_inicio_dados !== null && (
+                                            <div className="modal-seleccao-activa">
+                                                Início de dados: linha {form.linha_inicio_dados}
+                                            </div>
+                                        )}
+                                        <div className="modal-tabela-wrapper">
+                                            <table className="modal-tabela-analise">
+                                                <thead>
+                                                    <tr>
+                                                        <th className="numero-linha"></th>
+                                                        {Array.from({ length: numColunas }, (_, i) => (
+                                                            <th key={i} className="numero-coluna">col {i}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {linhasAnalisadas.map((linha, i) => {
+                                                        const numeroLinha = i + 1
+                                                        const eInicio = form.linha_inicio_dados === numeroLinha
+                                                        return (
+                                                            <tr
+                                                                key={i}
+                                                                className={eInicio ? 'linha-inicio' : ''}
+                                                                onClick={() => aoClicarLinha(numeroLinha)}
+                                                            >
+                                                                <td className="numero-linha">{numeroLinha}</td>
+                                                                {Array.from({ length: numColunas }, (_, j) => (
+                                                                    <td
+                                                                        key={j}
+                                                                        className={`celula-dados ${campoActivo ? 'celula-clicavel' : ''}`}
+                                                                        onClick={e => {
+                                                                            if (campoActivo) {
+                                                                                e.stopPropagation()
+                                                                                aoClicarCelula(j)
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {linha[j] ?? ''}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        )
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Passo 3 */}
+                                    <div className="modal-passo">
+                                        <div className="modal-passo-titulo">
+                                            3. Clica em cada campo e depois na coluna correspondente na tabela acima
+                                        </div>
+                                        <div className="modal-mapeamento">
+                                            {camposVisiveis.map(({ chave, label }) => {
+                                                const eActivo = campoActivo === chave
+                                                const valorActual = form[chave]
+                                                return (
+                                                    <div
+                                                        key={chave}
+                                                        className={`modal-campo-coluna ${eActivo ? 'campo-activo' : ''} ${valorActual !== null ? 'campo-preenchido' : ''}`}
+                                                        onClick={() => setCampoActivo(eActivo ? null : chave)}
+                                                    >
+                                                        <span className="campo-coluna-label">{label}</span>
+                                                        <span className="campo-coluna-valor">
+                                                            {valorActual !== null
+                                                                ? labelColuna(valorActual)
+                                                                : eActivo ? 'Clica numa coluna na tabela...' : 'Clica para seleccionar'
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
-                            <div className="modal-grelha">
-                                <div className="modal-grupo">
-                                    <label>Nome do perfil</label>
-                                    <input value={form.nome} onChange={e => campo('nome', e.target.value)} />
-                                </div>
-
-                                <div className="modal-grupo">
-                                    <label>Tipo de ficheiro</label>
-                                    <select value={form.tipo_ficheiro} onChange={e => campo('tipo_ficheiro', e.target.value)}>
-                                        <option value="xlsx">XLSX</option>
-                                        <option value="csv">CSV</option>
-                                    </select>
-                                </div>
-
-                                <div className="modal-grupo">
-                                    <label>Linha início de dados</label>
-                                    <input type="number" min="1" value={form.linha_inicio_dados} onChange={e => campo('linha_inicio_dados', e.target.value === '' ? '' : parseInt(e.target.value))} />
-                                </div>
-
-                                <div className="modal-grupo">
-                                    <label>Coluna data (índice)</label>
-                                    <input type="number" min="0" value={form.coluna_data} onChange={e => campo('coluna_data', e.target.value === '' ? '' : parseInt(e.target.value))} />
-                                </div>
-
-                                <div className="modal-grupo">
-                                    <label>Formato data</label>
-                                    <input value={form.formato_data} onChange={e => campo('formato_data', e.target.value)} placeholder="%d/%m/%Y" />
-                                </div>
-
-                                <div className="modal-grupo">
-                                    <label>Coluna descrição (índice)</label>
-                                    <input type="number" min="0" value={form.coluna_descricao} onChange={e => campo('coluna_descricao', e.target.value === '' ? '' : parseInt(e.target.value))} />
-                                </div>
-
-                                <div className="modal-grupo">
-                                    <label>Modo valor</label>
-                                    <select value={form.modo_valor} onChange={e => campo('modo_valor', e.target.value)}>
-                                        <option value="coluna_unica">Coluna única</option>
-                                        <option value="duas_colunas">Duas colunas (débito/crédito)</option>
-                                    </select>
-                                </div>
-
-                                {form.modo_valor === 'coluna_unica' ? (
+                            {/* Passo 4 */}
+                            <div className="modal-passo">
+                                <div className="modal-passo-titulo">4. Configurações adicionais</div>
+                                <div className="modal-grelha">
                                     <div className="modal-grupo">
-                                        <label>Coluna valor (índice)</label>
-                                        <input type="number" min="0" value={form.coluna_valor ?? ''} onChange={e => campo('coluna_valor', e.target.value === '' ? '' : parseInt(e.target.value))} />
+                                        <label>Nome do perfil</label>
+                                        <input value={form.nome} onChange={e => campo('nome', e.target.value)} placeholder="ex: CGD, BPI Conta Principal..." />
                                     </div>
-                                ) : (
-                                    <>
-                                        <div className="modal-grupo">
-                                            <label>Coluna débito (índice)</label>
-                                            <input type="number" min="0" value={form.coluna_debito ?? ''} onChange={e => campo('coluna_debito', e.target.value === '' ? '' : parseInt(e.target.value))} />
-                                        </div>
-                                        <div className="modal-grupo">
-                                            <label>Coluna crédito (índice)</label>
-                                            <input type="number" min="0" value={form.coluna_credito ?? ''} onChange={e => campo('coluna_credito', e.target.value === '' ? '' : parseInt(e.target.value))} />
-                                        </div>
-                                    </>
-                                )}
 
-                                <div className="modal-grupo">
-                                    <label>Separador decimal</label>
-                                    <select value={form.separador_decimal} onChange={e => campo('separador_decimal', e.target.value)}>
-                                        <option value=".">Ponto (.)</option>
-                                        <option value=",">Vírgula (,)</option>
-                                    </select>
-                                </div>
-
-                                <div className="modal-grupo modal-grupo-checkbox">
-                                    <label>
-                                        <input type="checkbox" checked={form.tem_saldo} onChange={e => campo('tem_saldo', e.target.checked)} />
-                                        Tem coluna de saldo
-                                    </label>
-                                </div>
-
-                                {form.tem_saldo && (
                                     <div className="modal-grupo">
-                                        <label>Coluna saldo (índice)</label>
-                                        <input type="number" min="0" value={form.coluna_saldo ?? ''} onChange={e => campo('coluna_saldo', e.target.value === '' ? '' : parseInt(e.target.value))} />
+                                        <label>Tipo de ficheiro</label>
+                                        <select value={form.tipo_ficheiro} onChange={e => campo('tipo_ficheiro', e.target.value)}>
+                                            <option value="xlsx">XLSX</option>
+                                            <option value="csv">CSV</option>
+                                        </select>
                                     </div>
-                                )}
+
+                                    <div className="modal-grupo">
+                                        <label>Formato da data</label>
+                                        <select value={form.formato_data} onChange={e => campo('formato_data', e.target.value)}>
+                                            <option value="">Selecionar...</option>
+                                            {FORMATOS_DATA.map(f => (
+                                                <option key={f.valor} value={f.valor}>{f.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="modal-grupo">
+                                        <label>Modo valor</label>
+                                        <select value={form.modo_valor} onChange={e => campo('modo_valor', e.target.value)}>
+                                            <option value="coluna_unica">Uma coluna (valores positivos e negativos)</option>
+                                            <option value="duas_colunas">Duas colunas (débito e crédito separados)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="modal-grupo">
+                                        <label>Separador decimal</label>
+                                        <select value={form.separador_decimal} onChange={e => campo('separador_decimal', e.target.value)}>
+                                            <option value=".">Ponto — 1234.56</option>
+                                            <option value=",">Vírgula — 1234,56</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="modal-grupo modal-grupo-checkbox">
+                                        <label>
+                                            <input type="checkbox" checked={form.tem_saldo} onChange={e => campo('tem_saldo', e.target.checked)} />
+                                            O ficheiro tem coluna de saldo
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div className="modal-footer">
-                            <button onClick={fecharModal}>Cancelar</button>
-                            <button className="btn-primario" onClick={aoGuardarPerfil}>Guardar</button>
+                            <div className="modal-checklist">
+                                {checklist.map((item, i) => (
+                                    <span key={i} className={`checklist-item ${item.preenchido ? 'checklist-ok' : 'checklist-falta'}`}>
+                                        {item.preenchido ? '✓' : '✗'} {item.label}
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="modal-footer-accoes">
+                                <button onClick={fecharModal}>Cancelar</button>
+                                <button className="btn-primario" onClick={aoGuardarPerfil}>Guardar</button>
+                            </div>
                         </div>
                     </div>
                 </div>

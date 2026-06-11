@@ -28,7 +28,7 @@ async def preview_extrato(perfil_id: int, file: UploadFile = File(...), db: Sess
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    linhas_preview = resultado["transacoes"][:20]
+    linhas_preview = resultado["transacoes"][:10]
     # Converter dates para string para serialização JSON
     for linha in linhas_preview:
         linha["data"] = str(linha["data"])

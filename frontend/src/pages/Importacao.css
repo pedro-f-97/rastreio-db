@@ -183,8 +183,8 @@
 .modal {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
-    width: 640px;
-    max-width: 95vw;
+    width: 80vw;
+    max-width: 80vw;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -196,6 +196,7 @@
     justify-content: space-between;
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -221,38 +222,149 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
 }
 
-.modal-preview-ficheiro {
+/* Passos */
+.modal-passo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.modal-passo-titulo {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-passo-ajuda {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.modal-seleccao-activa {
+    font-size: 12px;
+    color: var(--accent);
+}
+
+/* Tabela de análise */
+.modal-tabela-wrapper {
     overflow-x: auto;
     border: 1px solid var(--border);
-    max-height: 200px;
-    overflow-y: auto;
 }
 
-.modal-preview-ficheiro table {
+.modal-tabela-analise {
     border-collapse: collapse;
     font-size: 12px;
     white-space: nowrap;
+    width: 100%;
 }
 
-.modal-preview-ficheiro th {
-    padding: 4px 10px;
-    background-color: var(--bg-tertiary);
+.modal-tabela-analise thead th {
+    padding: 5px 12px;
+    background-color: var(--bg-primary);
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
     border-right: 1px solid var(--border);
+    text-align: center;
     font-weight: 500;
+    user-select: none;
 }
 
-.modal-preview-ficheiro td {
-    padding: 4px 10px;
-    border-bottom: 1px solid var(--border);
+.modal-tabela-analise tr {
+    cursor: pointer;
+}
+
+.modal-tabela-analise tr:hover td {
+    background-color: var(--bg-tertiary);
+}
+
+.modal-tabela-analise tr.linha-inicio td {
+    background-color: rgba(74, 158, 255, 0.12);
+    border-top: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+}
+
+.numero-linha {
+    padding: 5px 10px;
+    color: var(--text-secondary);
+    background-color: var(--bg-tertiary);
+    border-right: 1px solid var(--border);
+    text-align: right;
+    user-select: none;
+    min-width: 36px;
+}
+
+.numero-coluna {
+    min-width: 80px;
+}
+
+.celula-dados {
+    padding: 5px 12px;
     border-right: 1px solid var(--border);
     color: var(--text-secondary);
 }
 
+.celula-clicavel {
+    cursor: crosshair;
+}
+
+.celula-clicavel:hover {
+    background-color: rgba(74, 158, 255, 0.2) !important;
+    color: var(--text-primary);
+}
+
+/* Mapeamento de colunas */
+.modal-mapeamento {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.modal-campo-coluna {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    background-color: var(--bg-tertiary);
+    cursor: pointer;
+    min-width: 160px;
+    transition: border-color 0.15s;
+}
+
+.modal-campo-coluna:hover {
+    border-color: var(--accent);
+}
+
+.modal-campo-coluna.campo-activo {
+    border-color: var(--accent);
+    background-color: rgba(74, 158, 255, 0.08);
+}
+
+.modal-campo-coluna.campo-preenchido .campo-coluna-valor {
+    color: var(--accent);
+}
+
+.campo-coluna-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.campo-coluna-valor {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.modal-campo-coluna.campo-activo .campo-coluna-valor {
+    color: var(--accent);
+    font-style: italic;
+}
+
+/* Grelha de configurações */
 .modal-grelha {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -293,12 +405,45 @@
     padding: 0;
 }
 
+/* Footer */
 .modal-footer {
     display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 16px 20px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.modal-checklist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.checklist-item {
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 2px;
+}
+
+.checklist-ok {
+    color: var(--success);
+    background-color: rgba(74, 255, 138, 0.08);
+    border: 1px solid rgba(74, 255, 138, 0.2);
+}
+
+.checklist-falta {
+    color: var(--danger);
+    background-color: rgba(255, 74, 74, 0.08);
+    border: 1px solid rgba(255, 74, 74, 0.2);
+}
+
+.modal-footer-accoes {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .btn-primario {
@@ -311,4 +456,13 @@
 .btn-primario:hover {
     background-color: var(--accent-hover);
     border-color: var(--accent-hover);
+}
+
+.preview-mais-linhas {
+    padding: 8px 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: italic;
+    text-align: center;
+    border-top: 1px dashed var(--border);
 }
