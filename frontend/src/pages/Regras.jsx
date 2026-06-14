@@ -51,12 +51,12 @@ export default function Regras() {
                 categoria_id: Number(form.categoria_id),
                 subcategoria_id: form.subcategoria_id ? Number(form.subcategoria_id) : null,
             });
-            setFeedback(`Regra criada. ${res.data.transacoes_atualizadas} transações actualizadas.`);
+            setFeedback({ texto: `Regra criada. ${res.data.transacoes_atualizadas} transações actualizadas.`, erro: false });
             setForm({ palavra_chave: '', categoria_id: '', subcategoria_id: '' });
             setSubcategorias([]);
             carregar();
         } catch (e) {
-            setFeedback(e.response?.data?.detail ?? 'Erro ao criar regra.');
+            setFeedback({ texto: e.response?.data?.detail ?? 'Erro ao criar regra.', erro: true });
         }
     }
 
@@ -167,7 +167,11 @@ export default function Regras() {
                 <button onClick={aoSubmeter}>Adicionar</button>
             </div>
 
-            {feedback && <p className="feedback">{feedback}</p>}
+            {feedback && (
+                <p className={`feedback ${feedback.erro ? 'feedback-erro' : ''}`}>
+                    {feedback.texto}
+                </p>
+            )}
 
             <table className="tabela-regras">
                 <thead>
