@@ -114,9 +114,12 @@ Este projeto está licenciado sob a [GNU General Public License v3.0](LICENSE).
 ## Roadmap
 
 - Refinar estilos e consistência visual entre páginas
+- Botão para alternar "Modo Dark/Light"
+- Melhorar e adicionar estatísticas
 - Exportação de transações para Excel/CSV
 - Exportação de relatório de estatísticas
 - Modo de revisão de importação — confirmar/rejeitar transações individualmente antes de inserir na BD
+- Possibilidade de ligação a BD 
 
 ## Arquitectura
 
