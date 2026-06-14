@@ -24,11 +24,13 @@ function PrimeiroUso({ onInicializado }) {
       alignItems: 'center',
       justifyContent: 'center',
       height: '100vh',
-      gap: '24px',
+      gap: 'var(--space-xl)',
       backgroundColor: 'var(--bg-primary)',
       color: 'var(--text-primary)',
     }}>
-      <h1 style={{ fontSize: '24px', margin: 0 }}>Bem-vindo ao Rastreio</h1>
+      <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-weight-medium)', margin: 0 }}>
+        Bem-vindo ao Rastreio
+      </h1>
       <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
         A base de dados está vazia. Criar as categorias predefinidas?
       </p>

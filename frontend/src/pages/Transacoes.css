@@ -1,27 +1,31 @@
 .transacoes-page {
-    padding: 2rem;
+    padding: var(--space-2xl);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--space-lg);
 }
 
 .transacoes-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    margin-bottom: var(--space-sm);
 }
 
 .transacoes-header h1 {
-    font-size: 1.5rem;
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
 }
 
 .btn-importar {
     background: var(--accent);
     color: #fff;
-    padding: 0.5rem 1rem;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
 }
 
 .btn-importar:hover {
@@ -30,30 +34,32 @@
 
 .filtros {
     display: flex;
-    gap: 0.75rem;
+    gap: var(--space-sm);
 }
 
 .filtros select {
     background: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--border);
-    padding: 0.4rem 0.75rem;
-    font-size: 0.9rem;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
 }
 
 .total-info {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
 }
 
 .erro {
     color: var(--danger);
-    font-size: 0.9rem;
+    font-size: var(--text-md);
 }
 
 .carregando {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: var(--text-md);
 }
 
 /* Tabela */
@@ -65,21 +71,22 @@
 .tabela-transacoes {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: var(--text-md);
 }
 
 .tabela-transacoes th {
     text-align: left;
-    padding: 0.5rem 0.75rem;
+    padding: var(--space-sm) var(--space-md);
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border);
-    font-weight: 600;
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
     white-space: nowrap;
 }
 
 .tabela-transacoes td {
-    padding: 0.4rem 0.75rem;
+    padding: var(--space-sm) var(--space-md);
     border-bottom: 1px solid var(--border);
     color: var(--text-primary);
     vertical-align: middle;
@@ -89,20 +96,26 @@
     background: var(--bg-secondary);
 }
 
+.tabela-transacoes .valor {
+    font-family: var(--font-mono);
+}
+
 .tabela-transacoes tr.despesa .valor {
-    color: var(--danger);
+    color: var(--valor-negativo);
 }
 
 .tabela-transacoes tr.receita .valor {
-    color: var(--success);
+    color: var(--valor-positivo);
 }
 
 .tabela-transacoes select {
     background: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--border);
-    padding: 0.25rem 0.4rem;
-    font-size: 0.8rem;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
     width: 100%;
 }
 
@@ -111,9 +124,10 @@
     border: none;
     border-bottom: 1px solid transparent;
     color: var(--text-primary);
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
     width: 100%;
-    padding: 0.25rem 0;
+    padding: var(--space-xs) 0;
 }
 
 .tabela-transacoes input[type="text"]:focus {
@@ -133,8 +147,8 @@
 .paginacao {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    font-size: 0.9rem;
+    gap: var(--space-lg);
+    font-size: var(--text-sm);
     color: var(--text-secondary);
 }
 
@@ -142,9 +156,11 @@
     background: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--border);
-    padding: 0.4rem 0.75rem;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
 }
 
 .paginacao button:hover:not(:disabled) {
@@ -159,17 +175,16 @@
 .modal {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    padding: 1.5rem;
+    padding: var(--space-xl);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--space-lg);
 
     width: 500px;
     max-width: 90vw;
 
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
 }
-
 
 .modal-overlay {
     position: fixed;
@@ -187,18 +202,19 @@
     z-index: 9999;
 }
 
-
 .modal h3 {
-    font-size: 1rem;
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
 }
 
 .modal-descricao {
-    font-size: 0.9rem;
+    font-size: var(--text-md);
     line-height: 1.8;
     word-break: break-all;
     background: var(--bg-tertiary);
-    padding: 0.5rem 0.75rem;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
 }
 
 .desc-antes,
@@ -209,13 +225,14 @@
 .desc-seleccionado {
     background: var(--accent);
     color: #fff;
-    padding: 0.1rem 0;
+    padding: var(--space-xs) 0;
+    border-radius: var(--radius-sm);
 }
 
 .sliders {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--space-sm);
 }
 
 .sliders input[type="range"] {
@@ -224,20 +241,21 @@
 }
 
 .palavra-chave-preview {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
 }
 
 .palavra-chave-preview strong {
     color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
 }
 
 /* Container para alinhar os botões à direita */
 .gestao-dados {
     display: flex;
     justify-content: flex-end;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem; /* Espaço para os filtros abaixo */
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
 }
 
 /* Estilo para os botões secundários (Exportar e Restaurar) */
@@ -245,23 +263,17 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border);
-    padding: 0.5rem 1rem;
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
     display: inline-flex;
     align-items: center;
-    transition: all 0.2s;
+    transition: background-color 0.15s, border-color 0.15s;
 }
 
 .btn-secundario:hover {
     background: var(--bg-secondary);
     border-color: var(--accent);
-}
-
-/* Ajuste no header para não empurrar tudo */
-.transacoes-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
 }

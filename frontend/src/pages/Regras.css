@@ -1,18 +1,19 @@
 .regras-page {
-    padding: 2rem;
+    padding: var(--space-2xl);
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: var(--space-xl);
 }
 
 .regras-page h1 {
-    font-size: 1.5rem;
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
 }
 
 .regras-form {
     display: flex;
-    gap: 0.75rem;
+    gap: var(--space-md);
     flex-wrap: wrap;
 }
 
@@ -21,8 +22,10 @@
     background: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--border);
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
+    border-radius: var(--radius-sm);
 }
 
 .regras-form input {
@@ -44,9 +47,11 @@
     background: var(--accent);
     color: #fff;
     border: none;
-    padding: 0.5rem 1rem;
+    padding: var(--space-sm) var(--space-lg);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
+    border-radius: var(--radius-sm);
 }
 
 .regras-form button:hover {
@@ -54,27 +59,28 @@
 }
 
 .feedback {
-    font-size: 0.9rem;
+    font-size: var(--text-md);
     color: var(--success);
 }
 
 .tabela-regras {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: var(--text-md);
 }
 
 .tabela-regras th {
     text-align: left;
-    padding: 0.5rem 0.75rem;
+    padding: var(--space-sm) var(--space-md);
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border);
-    font-weight: 600;
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
 }
 
 .tabela-regras td {
-    padding: 0.4rem 0.75rem;
+    padding: var(--space-sm) var(--space-md);
     border-bottom: 1px solid var(--border);
     color: var(--text-primary);
 }
@@ -87,7 +93,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: var(--text-lg);
     opacity: 0.6;
 }
 
@@ -105,9 +111,11 @@
     background: var(--accent);
     color: #fff;
     border: none;
-    padding: 0.5rem 1rem;
+    padding: var(--space-sm) var(--space-lg);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
+    border-radius: var(--radius-sm);
 }
 
 .btn-aplicar:hover {
@@ -124,59 +132,65 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    backdrop-filter: blur(2px);
     z-index: 9999;
 }
 
 .modal {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    padding: 1.5rem;
+    padding: var(--space-xl);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--space-lg);
     width: 500px;
     max-width: 90vw;
+    border-radius: var(--radius-lg);
 }
 
 .modal h3 {
-    font-size: 1rem;
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
 }
 
 .modal-descricao {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     background: var(--bg-tertiary);
-    padding: 0.5rem 0.75rem;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
 }
 
 .conflito-detalhe {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    font-size: 0.9rem;
+    gap: var(--space-sm);
+    font-size: var(--text-md);
 }
 
 .conflito-detalhe .label {
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     display: block;
-    margin-bottom: 0.1rem;
+    margin-bottom: var(--space-xs);
 }
 
 .modal-accoes {
     display: flex;
     justify-content: flex-end;
-    gap: 0.75rem;
+    gap: var(--space-md);
 }
 
 .modal-accoes button {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border);
-    padding: 0.4rem 0.9rem;
+    padding: var(--space-sm) var(--space-lg);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
+    border-radius: var(--radius-sm);
 }
 
 .modal-accoes .btn-confirmar {
@@ -187,4 +201,13 @@
 
 .modal-accoes button:hover {
     opacity: 0.85;
+}
+
+.feedback {
+    font-size: var(--text-md);
+    color: var(--success);
+}
+
+.feedback-erro {
+    color: var(--danger);
 }

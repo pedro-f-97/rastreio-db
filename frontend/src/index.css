@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap');
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -5,23 +7,85 @@
 }
 
 :root {
+  /* Cores base */
   --bg-primary: #0f0f0f;
   --bg-secondary: #1a1a1a;
   --bg-tertiary: #252525;
   --border: #333333;
   --text-primary: #f0f0f0;
   --text-secondary: #888888;
+
+  /* Cores de acção / estado */
   --accent: #4a9eff;
   --accent-hover: #3a8eef;
   --danger: #ff4a4a;
   --success: #4aff8a;
+  /* Accent muted - usado em linhas/indicadores decorativos */
+  --accent-muted: #759abd;
+
+  /* Paleta de gráficos - tons muted, distribuídos pelo círculo cromático */
+  --chart-1: #cf9d9d;
+  --chart-2: #d4b095;
+  --chart-3: #c4d495;
+  --chart-4: #a8d49b;
+  --chart-5: #9bd4b8;
+  --chart-6: #9bd0d4;
+  --chart-7: #9bb8d4;
+  --chart-8: #a89bd4;
+  --chart-9: #c49bd4;
+  --chart-10: #d49bbc;
+
+  /* Paleta muted - tipos de transacção */
+  --type-despesa-bg: #3a2424;
+  --type-despesa-text: #d98c8c;
+  --type-receita-bg: #233a2c;
+  --type-receita-text: #8fcfa8;
+  --type-investimento-bg: #3a3221;
+  --type-investimento-text: #d9b885;
+  --type-transferencia-bg: #2a2a2a;
+  --type-transferencia-text: #aaaaaa;
+
+  /* Subcategorias - cor neutra única */
+  --subcategoria-bg: #2a2a30;
+  --subcategoria-text: #b0b0bd;
+
+  /* Valores monetários */
+  --valor-positivo: var(--type-receita-text);
+  --valor-negativo: var(--type-despesa-text);
+
+  /* Tipografia */
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+
+  /* Espaçamento */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  /* Border radius */
+  --radius-sm: 5px;
+  --radius-lg: 10px;
+  
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--text-md);
 }
 
 button {
@@ -29,26 +93,26 @@ button {
   border: 1px solid var(--border);
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
-  padding: 6px 12px;
-  border-radius: 0;
-  font-size: 14px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
 }
-
 button:hover {
   background-color: var(--accent);
   border-color: var(--accent);
 }
 
-input, select {
+input, select, textarea {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  padding: 6px 10px;
-  font-size: 14px;
-  border-radius: 0;
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  border-radius: var(--radius-sm);
   outline: none;
 }
-
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
 }

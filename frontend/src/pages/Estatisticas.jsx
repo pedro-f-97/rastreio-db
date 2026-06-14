@@ -129,7 +129,7 @@ export default function Estatisticas() {
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
                         <Bar yAxisId="euros" dataKey="Receitas" fill="var(--success)" />
                         <Bar yAxisId="euros" dataKey="Despesas" fill="var(--danger)" />
-                        <Bar yAxisId="euros" dataKey="Investimento" fill="var(--accent)" />
+                        <Bar yAxisId="euros" dataKey="Investimento" fill="var(--type-investimento-text)" />
                         <Line yAxisId="pct" dataKey="Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} />
                     </ComposedChart>
                 </ResponsiveContainer>
