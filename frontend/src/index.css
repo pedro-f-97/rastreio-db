@@ -146,3 +146,76 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
 }
+:root[data-theme="light"] {
+/* Cores base */
+--bg-primary: #eef1f4;
+--bg-secondary: #e3e6ea;
+--bg-tertiary: #d6dae0;
+--border: #c7cdd6;
+--text-primary: #2b2f36;
+--text-secondary: #5b6270;
+/* Cores de acção / estado */
+--accent: #3a86d1;
+--accent-hover: #2f74bb;
+--danger: #c5362f;
+--success: #1a7a3f;
+/* Accent muted - usado em linhas/indicadores decorativos */
+--accent-muted: #6f8fb0;
+/* Paleta de gráficos - tons muted, distribuídos pelo círculo cromático */
+--chart-1: #ab4949;
+--chart-2: #ba7c45;
+--chart-3: #a1ba45;
+--chart-4: #60b44b;
+--chart-5: #4ab583;
+--chart-6: #4ab3b5;
+--chart-7: #4a80b5;
+--chart-8: #594bb4;
+--chart-9: #944bb4;
+--chart-10: #ba4580;
+/* Paleta muted - tipos de transacção */
+--type-despesa-bg: #f9dcdc;
+--type-despesa-text: #a8403e;
+--type-receita-bg: #d7f0e0;
+--type-receita-text: #257049;
+--type-investimento-bg: #f5e6c8;
+--type-investimento-text: #8a5f1f;
+--type-transferencia-bg: #e2e2e2;
+--type-transferencia-text: #5a5a5a;
+/* Subcategorias - cor neutra única */
+--subcategoria-bg: #e4e4ec;
+--subcategoria-text: #5d5d70;
+}
+body {
+background-color: var(--bg-primary);
+color: var(--text-primary);
+font-family: var(--font-sans);
+font-weight: var(--font-weight-regular);
+font-size: var(--text-md);
+}
+button {
+cursor: pointer;
+border: 1px solid var(--border);
+background-color: var(--bg-tertiary);
+color: var(--text-primary);
+padding: var(--space-sm) var(--space-md);
+border-radius: var(--radius-sm);
+font-family: var(--font-sans);
+font-size: var(--text-md);
+}
+button:hover {
+background-color: var(--accent);
+border-color: var(--accent);
+}
+input, select, textarea {
+background-color: var(--bg-tertiary);
+color: var(--text-primary);
+border: 1px solid var(--border);
+padding: var(--space-sm) var(--space-md);
+font-family: var(--font-sans);
+font-size: var(--text-md);
+border-radius: var(--radius-sm);
+outline: none;
+}
+input:focus, select:focus, textarea:focus {
+border-color: var(--accent);
+}

@@ -9,25 +9,33 @@ import { getEstado } from './api/configuracao'
 import './index.css'
 import { totalPorCategorizar } from './api/transacoes'
 import Importacao from './pages/Importacao'
-
 function App() {
   const [inicializado, setInicializado] = useState(null)
   const [porCategorizar, setPorCategorizar] = useState(0)
+  const [tema, setTema] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark')
+
+  function alternarTema() {
+    const novoTema = tema === 'dark' ? 'light' : 'dark'
+    document.documentElement.setAttribute('data-theme', novoTema)
+    try {
+      localStorage.setItem('tema', novoTema)
+    } catch (e) {
+      // localStorage indisponível - o tema não persiste, mas continua a funcionar nesta sessão
+    }
+    setTema(novoTema)
+  }
 
   useEffect(() => {
     if (inicializado) {
-        totalPorCategorizar().then(res => setPorCategorizar(res.data.total))
+      totalPorCategorizar().then(res => setPorCategorizar(res.data.total))
     }
   }, [inicializado])
-
   useEffect(() => {
     getEstado()
       .then(res => setInicializado(res.data.inicializado))
       .catch(() => setInicializado(true)) // em caso de erro, não bloqueia
   }, [])
-
   if (inicializado === null) return null // ainda a carregar
-
   return (
     <BrowserRouter>
       <div style={{ display: 'flex', height: '100vh' }}>
@@ -64,24 +72,41 @@ function App() {
                   borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
                 })}
               >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    {label}
-                    {badge > 0 && (
-                        <span style={{
-                            background: 'var(--danger)',
-                            color: '#fff',
-                            borderRadius: '999px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            padding: '0.1rem 0.45rem',
-                            marginLeft: '0.5rem',
-                        }}>
-                            {badge}
-                        </span>
-                    )}
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  {label}
+                  {badge > 0 && (
+                    <span style={{
+                      background: 'var(--danger)',
+                      color: '#fff',
+                      borderRadius: '999px',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      padding: '0.1rem 0.45rem',
+                      marginLeft: '0.5rem',
+                    }}>
+                      {badge}
+                    </span>
+                  )}
                 </span>
               </NavLink>
             ))}
+            <button
+              onClick={alternarTema}
+              style={{
+                marginTop: 'auto',
+                marginLeft: '16px',
+                marginRight: '16px',
+                width: 'calc(100% - 32px)',
+                height: '24px',
+                padding: 0,
+                display: 'flex',
+                overflow: 'hidden',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <span style={{ flex: tema === 'dark' ? 4 : 1, backgroundColor: '#000000' }} />
+              <span style={{ flex: tema === 'dark' ? 1 : 4, backgroundColor: '#ffffff' }} />
+            </button>
           </nav>
         )}
         <main style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
@@ -89,13 +114,13 @@ function App() {
             {!inicializado
               ? <Route path="*" element={<PrimeiroUso onInicializado={() => setInicializado(true)} />} />
               : <>
-                  <Route path="/" element={<Transacoes />} />
-                  <Route path="/categorias" element={<Categorias />} />
-                  <Route path="/regras" element={<Regras />} />
-                  <Route path="/estatisticas" element={<Estatisticas />} />
-                  <Route path="*" element={<Navigate to="/" />} />
-                  <Route path="/importacao" element={<Importacao />} />
-                </>
+                <Route path="/" element={<Transacoes />} />
+                <Route path="/categorias" element={<Categorias />} />
+                <Route path="/regras" element={<Regras />} />
+                <Route path="/estatisticas" element={<Estatisticas />} />
+                <Route path="*" element={<Navigate to="/" />} />
+                <Route path="/importacao" element={<Importacao />} />
+              </>
             }
           </Routes>
         </main>
@@ -103,5 +128,4 @@ function App() {
     </BrowserRouter>
   )
 }
-
 export default App
