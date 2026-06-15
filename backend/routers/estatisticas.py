@@ -191,9 +191,6 @@ def por_subcategoria(db: Session = Depends(get_db)):
     return sorted(resultado, key=lambda c: c["total"], reverse=True)
 
 def _query_transacoes_mes(db: Session, inicio, fim):
-    """
-    Helper function to query transactions within a given date range.
-    """
     return db.query(
         Transacao.categoria_id,
         Categoria.nome.label('categoria_nome'),
@@ -208,6 +205,7 @@ def _query_transacoes_mes(db: Session, inicio, fim):
          Transacao.data >= inicio,
          Transacao.data <= fim,
          Transacao.categoria_id != None,
+         Categoria.tipo != TipoCategoria.transferencia,
      )\
      .all()
 
@@ -292,6 +290,9 @@ def _calculate_totals(transacoes):
     meses = {}
     for t in transacoes:
         if not t.categoria:
+            continue
+
+        if t.categoria.tipo == TipoCategoria.transferencia:
             continue
 
         chave = (t.data.year, t.data.month)
