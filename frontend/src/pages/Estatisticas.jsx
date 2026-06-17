@@ -121,7 +121,7 @@ export default function Estatisticas() {
         const receitas = meses.reduce((s, m) => s + m.receitas, 0);
         const despesas = meses.reduce((s, m) => s + m.despesas, 0);
         const investimento = meses.reduce((s, m) => s + m.investimento, 0);
-        const poupanca = receitas - despesas; 
+        const poupanca = receitas + despesas;
         const taxa = receitas > 0 ? parseFloat((poupanca / receitas * 100).toFixed(1)) : 0;
         return { ano: parseInt(ano), receitas, despesas, investimento, poupanca, taxa };
     });
