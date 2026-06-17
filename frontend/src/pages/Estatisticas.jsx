@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria, obterDetalheMensal } from '../api/estatisticas';
 import {
     ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -6,10 +6,36 @@ import {
 } from 'recharts';
 import './Estatisticas.css';
 
+
+
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 function labelMes(ano, mes) {
     return `${MESES[mes - 1]} ${ano}`;
+}
+
+function calcularLimiteSerie(valores, multiplicador = 4) {
+    const absolutos = valores.map(Math.abs).filter(v => v > 0);
+    if (absolutos.length < 3) {
+        return { limite: Infinity, valoresNormais: absolutos, extremos: [] };
+    }
+
+    const ordenados = [...absolutos].sort((a, b) => a - b);
+    const meio = Math.floor(ordenados.length / 2);
+    const mediana = ordenados.length % 2 === 0
+        ? (ordenados[meio - 1] + ordenados[meio]) / 2
+        : ordenados[meio];
+
+    const limite = mediana * multiplicador;
+    return {
+        limite,
+        valoresNormais: absolutos.filter(v => v <= limite),
+        extremos: absolutos.filter(v => v > limite),
+    };
+}
+
+function maiorValor(lista) {
+    return lista.length > 0 ? Math.max(...lista) : 0;
 }
 
 export default function Estatisticas() {
@@ -20,6 +46,8 @@ export default function Estatisticas() {
     const [mesSeleccionado, setMesSeleccionado] = useState(null);
     const [detalheMes, setDetalheMes] = useState([]);
     const [categoriaExpandida, setCategoriaExpandida] = useState(null);
+    const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
+    const [incluirOutliers, setIncluirOutliers] = useState(false);
 
     useEffect(() => {
         obterResumoMensal().then(res => setResumo(res.data));
@@ -27,20 +55,56 @@ export default function Estatisticas() {
         obterPorSubcategoria().then(res => setPorSubcategoria(res.data));
     }, []);
 
-    if (!resumo) return <p className="carregando">A carregar...</p>;
+    const MULTIPLICADOR_EXTREMO = 4;
 
-    const dadosGrafico = resumo.meses.map(m => ({
-        label: labelMes(m.ano, m.mes),
-        Receitas: m.receitas,
-        Despesas: m.despesas,
-        Investimento: m.investimento,
-        Saldo: m.saldo,
-        Poupança: m.receitas > 0 ? parseFloat(((m.receitas - m.despesas) / m.receitas * 100).toFixed(1)) : 0,
-    }));
+    const { dadosGrafico, dadosGraficoFiltrados, dominioValores, totalExtremos } = useMemo(() => {
+        if (!resumo) {
+            return { dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
+        }
+
+        const dadosGrafico = resumo.meses.map(m => ({
+            ano: m.ano,
+            label: labelMes(m.ano, m.mes),
+            Receitas: m.receitas,
+            Despesas: m.despesas,
+            Investimento: m.investimento,
+            Poupança: m.poupanca,
+            'Taxa de Poupança': m.receitas > 0 ? parseFloat(((m.poupanca / m.receitas) * 100).toFixed(1)) : 0,
+        }));
+
+        const filtrados = anoSeleccionado === 'todos'
+            ? dadosGrafico
+            : dadosGrafico.filter(m => m.ano === parseInt(anoSeleccionado));
+
+        const analiseReceitas = calcularLimiteSerie(filtrados.map(m => m.Receitas), MULTIPLICADOR_EXTREMO);
+        const analiseDespesas = calcularLimiteSerie(filtrados.map(m => m.Despesas), MULTIPLICADOR_EXTREMO);
+        const analiseInvestimento = calcularLimiteSerie(filtrados.map(m => m.Investimento), MULTIPLICADOR_EXTREMO);
+
+        const extremos = analiseReceitas.extremos.length + analiseDespesas.extremos.length + analiseInvestimento.extremos.length;
+
+        const maxNormal = Math.max(
+            maiorValor(analiseReceitas.valoresNormais),
+            maiorValor(analiseDespesas.valoresNormais),
+            maiorValor(analiseInvestimento.valoresNormais),
+        );
+
+        const dominio = (!incluirOutliers && extremos > 0)
+            ? [-Math.ceil(maxNormal * 1.15), Math.ceil(maxNormal * 1.15)]
+            : ['auto', 'auto'];
+
+        return {
+            dadosGrafico,
+            dadosGraficoFiltrados: filtrados,
+            dominioValores: dominio,
+            totalExtremos: extremos,
+        };
+    }, [resumo, anoSeleccionado, incluirOutliers]);
+
+    if (!resumo) return <p className="carregando">A carregar...</p>;
 
     const taxasPoupanca = dadosGrafico
         .filter(m => m.Receitas > 0)
-        .map(m => m.Poupança);
+        .map(m => m['Taxa de Poupança']);
 
     const medianaTaxaPoupanca = taxasPoupanca.length > 0
         ? [...taxasPoupanca].sort((a, b) => a - b)[Math.floor(taxasPoupanca.length / 2)]
@@ -57,16 +121,18 @@ export default function Estatisticas() {
         const receitas = meses.reduce((s, m) => s + m.receitas, 0);
         const despesas = meses.reduce((s, m) => s + m.despesas, 0);
         const investimento = meses.reduce((s, m) => s + m.investimento, 0);
-        const saldo = receitas - despesas;
-        const taxa = receitas > 0 ? parseFloat(((receitas - despesas) / receitas * 100).toFixed(1)) : 0;
-        return { ano: parseInt(ano), receitas, despesas, investimento, saldo, taxa };
+        const poupanca = receitas - despesas; 
+        const taxa = receitas > 0 ? parseFloat((poupanca / receitas * 100).toFixed(1)) : 0;
+        return { ano: parseInt(ano), receitas, despesas, investimento, poupanca, taxa };
     });
 
-    const saldosMensais = dadosGrafico.map(m => m.Saldo);
+    const poupancasMensais = dadosGrafico.map(m => m.Poupança);
 
-    const medianaSaldo = saldosMensais.length > 0
-        ? [...saldosMensais].sort((a, b) => a - b)[Math.floor(saldosMensais.length / 2)]
+    const medianaPoupanca = poupancasMensais.length > 0
+        ? [...poupancasMensais].sort((a, b) => a - b)[Math.floor(poupancasMensais.length / 2)]
         : 0;
+
+    const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
 
     function toggleMes(ano, mes) {
         if (mesSeleccionado?.ano === ano && mesSeleccionado?.mes === mes) {
@@ -78,13 +144,13 @@ export default function Estatisticas() {
         }
     }
 
-    const totalGeral = porSubcategoria.reduce((soma, c) => soma + c.total, 0);
+    const totalGeral = porSubcategoria.reduce((soma, c) => soma + Math.abs(c.total), 0);
 
     const CORES = [
         '#6366f1', '#22c55e', '#ef4444', '#f59e0b', '#3b82f6',
         '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4'
     ];
-
+    
     return (
         <div className="estatisticas-page">
             <h1>Estatísticas</h1>
@@ -99,38 +165,93 @@ export default function Estatisticas() {
                     </div>*/}
                     <div className="cartao">
                         <span className="cartao-label">Mediana mensal de despesas</span>
-                        <span className="cartao-valor">{resumo.mediana_mensal.toFixed(2)} €</span>
+                        <span className="cartao-valor valor-negativo">{resumo.mediana_mensal.toFixed(2)} €</span>
                     </div>
                     <div className="cartao">
                         <span className="cartao-label">Mediana mensal de poupanças</span>
-                        <span className="cartao-valor">{medianaSaldo.toFixed(2)} €</span>
+                        <span className={`cartao-valor ${medianaPoupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}`}>
+                            {medianaPoupanca.toFixed(2)} €
+                        </span>
                     </div>
                     <div className="cartao">
                         <span className="cartao-label">Mediana da taxa de poupança mensal</span>
-                        <span className="cartao-valor">{medianaTaxaPoupanca.toFixed(1)}%</span>
+                        <span className={`cartao-valor ${medianaTaxaPoupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}`}>
+                            {medianaTaxaPoupanca.toFixed(1)}%
+                        </span>
                     </div>
                 </div>
             </section>
 
-            {/* GRÁFICO EVOLUÇÃO */}
+            {/* GRÁFICO EVOLUÇÃO — VALORES */}
             <section className="secao">
-                <h2>Evolução mensal</h2>
-                <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={dadosGrafico} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
+                <div className="secao-cabecalho">
+                    <h2>Evolução mensal</h2>
+                    <select
+                        value={anoSeleccionado}
+                        onChange={e => setAnoSeleccionado(e.target.value)}
+                        className="filtro-ano"
+                    >
+                        <option value="todos">Todos</option>
+                        {anosDisponiveis.map(ano => (
+                            <option key={ano} value={ano}>{ano}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {totalExtremos > 0 && (
+                    <div className="aviso-outlier">
+                        <span>
+                            {incluirOutliers
+                                ? `Escala a incluir ${totalExtremos === 1 ? '1 valor extremo' : `${totalExtremos} valores extremos`}`
+                                : `Escala ajustada para ignorar ${totalExtremos === 1 ? '1 valor extremo' : `${totalExtremos} valores extremos`}`}
+                        </span>
+                        <button onClick={() => setIncluirOutliers(!incluirOutliers)}>
+                            {incluirOutliers ? 'Ignorar valores extremos' : 'Incluir valores extremos na escala'}
+                        </button>
+                    </div>
+                )}
+
+                <ResponsiveContainer width="100%" height={400}>
+                    <ComposedChart
+                        data={dadosGraficoFiltrados}
+                        margin={{ top: 10, right: 40, left: 20, bottom: 60 }}
+                    >
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
-                        <YAxis yAxisId="euros" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                        <YAxis yAxisId="pct" orientation="right" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                        <YAxis
+                            tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                            tickFormatter={v => `${v} €`}
+                            domain={dominioValores}
+                            allowDataOverflow={true}
+                        />
                         <Tooltip
                             contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             labelStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v, name) => name === 'Poupança' ? `${v}%` : `${v.toFixed(2)} €`}
+                            formatter={(v) => `${v.toFixed(2)} €`}
                         />
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
-                        <Bar yAxisId="euros" dataKey="Receitas" fill="var(--success)" />
-                        <Bar yAxisId="euros" dataKey="Despesas" fill="var(--danger)" />
-                        <Bar yAxisId="euros" dataKey="Investimento" fill="var(--type-investimento-text)" />
-                        <Line yAxisId="pct" dataKey="Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                        <Bar dataKey="Receitas" fill="var(--success)" />
+                        <Bar dataKey="Despesas" fill="var(--danger)" />
+                        <Bar dataKey="Investimento" fill="var(--type-investimento-text)" />
+                    </ComposedChart>
+                </ResponsiveContainer>
+            </section>
+
+            {/* GRÁFICO TAXA DE POUPANÇA */}
+            <section className="secao">
+                <h2>Taxa de poupança mensal</h2>
+                <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
+                        <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v}%`} />
+                        <Tooltip
+                            contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                            labelStyle={{ color: 'var(--text-primary)' }}
+                            formatter={(v) => `${v.toFixed(1)}%`}
+                        />
+                        <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
+                        <Line dataKey="Taxa de Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} />
                     </ComposedChart>
                 </ResponsiveContainer>
             </section>
@@ -145,29 +266,27 @@ export default function Estatisticas() {
                             <th>Receitas</th>
                             <th>Despesas</th>
                             <th>Investimento</th>
-                            <th>Saldo</th>
                             <th>Poupança</th>
+                            <th>Taxa</th>
                         </tr>
                     </thead>
                     <tbody>
                         {Object.keys(mesesPorAno).sort().map(ano => {
                             const totalAno = totaisPorAno.find(t => t.ano === parseInt(ano));
                             return (
-                                <>
+                                <Fragment key={`ano-${ano}`}>
                                     <tr key={`ano-${ano}`} className="linha-ano">
                                         <td>{ano}</td>
                                         <td className="valor-positivo">{totalAno.receitas.toFixed(2)} €</td>
                                         <td className="valor-negativo">{totalAno.despesas.toFixed(2)} €</td>
-                                        <td>{totalAno.investimento.toFixed(2)} €</td>
-                                        <td className={totalAno.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
-                                            {totalAno.saldo.toFixed(2)} €
-                                        </td>
+                                        <td className={totalAno.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{totalAno.investimento.toFixed(2)} €</td>
+                                        <td className={totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{totalAno.poupanca.toFixed(2)} €</td>
                                         <td>{totalAno.taxa}%</td>
                                     </tr>
                                     {mesesPorAno[ano].map(m => {
                                     const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
                                     return (
-                                        <>
+                                        <Fragment key={`${m.ano}-${m.mes}`}>
                                             <tr
                                                 key={`${m.ano}-${m.mes}`}
                                                 onClick={() => toggleMes(m.ano, m.mes)}
@@ -179,45 +298,36 @@ export default function Estatisticas() {
                                                 </td>
                                                 <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
                                                 <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
-                                                <td>{m.investimento.toFixed(2)} €</td>
-                                                <td className={m.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
-                                                    {m.saldo.toFixed(2)} €
-                                                </td>
-                                                <td>{m.receitas > 0 ? ((m.receitas - m.despesas) / m.receitas * 100).toFixed(1) : '—'}%</td>
+                                                <td className={m.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{m.investimento.toFixed(2)} €</td>
+                                                <td className={m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{m.poupanca.toFixed(2)} €</td>
+                                                <td>{m.receitas > 0 ? (m.poupanca / m.receitas * 100).toFixed(1) : '—'}%</td>
                                             </tr>
-                                            {seleccionado && detalheMes.map(cat => {
-                                                const classe =
-                                                    cat.tipo === 'receita' ? 'valor-positivo' :
-                                                    cat.tipo === 'investimento' ? '' :
-                                                    cat.total >= 0 ? 'valor-positivo' : 'valor-negativo';
-
-                                                return (
-                                                    <>
-                                                        <tr key={`cat-${cat.categoria_id}`} className="linha-categoria-detalhe">
-                                                            <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
-                                                            <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? cat.total.toFixed(2) + ' €' : ''}</td>
-                                                            <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? cat.total.toFixed(2) + ' €' : ''}</td>
-                                                            <td>{cat.tipo === 'investimento' ? cat.total.toFixed(2) + ' €' : ''}</td>
+                                            {seleccionado && detalheMes.map(cat => (
+                                                <Fragment key={`cat-${cat.categoria_id}`}>
+                                                    <tr key={`cat-${cat.categoria_id}`} className="linha-categoria-detalhe">
+                                                        <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
+                                                        <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? `${cat.total.toFixed(2)} €` : ''}</td>
+                                                        <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? `${cat.total.toFixed(2)} €` : ''}</td>
+                                                        <td className={cat.tipo === 'investimento' ? (cat.total >= 0 ? 'valor-positivo' : 'valor-negativo') : ''}>{cat.tipo === 'investimento' ? `${cat.total.toFixed(2)} €` : ''}</td>
+                                                        <td></td>
+                                                        <td></td>
+                                                    </tr>
+                                                    {cat.subcategorias.map(sub => (
+                                                        <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
+                                                            <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                                            <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? `${sub.total.toFixed(2)} €` : ''}</td>
+                                                            <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? `${sub.total.toFixed(2)} €` : ''}</td>
+                                                            <td className={cat.tipo === 'investimento' ? (sub.total >= 0 ? 'valor-positivo' : 'valor-negativo') : ''}>{cat.tipo === 'investimento' ? `${sub.total.toFixed(2)} €` : ''}</td>
                                                             <td></td>
                                                             <td></td>
                                                         </tr>
-                                                        {cat.subcategorias.map(sub => (
-                                                            <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
-                                                                <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                                <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? sub.total.toFixed(2) + ' €' : ''}</td>
-                                                                <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? sub.total.toFixed(2) + ' €' : ''}</td>
-                                                                <td>{cat.tipo === 'investimento' ? sub.total.toFixed(2) + ' €' : ''}</td>
-                                                                <td></td>
-                                                                <td></td>
-                                                            </tr>
-                                                        ))}
-                                                    </>
-                                                );
-                                            })}
-                                        </>
+                                                    ))}
+                                                </Fragment>
+                                            ))}
+                                        </Fragment>
                                     );
                                 })}
-                            </>
+                            </Fragment>
                         )})}
                     </tbody>
                 </table>
@@ -235,9 +345,9 @@ export default function Estatisticas() {
                     </thead>
                     <tbody>
                         {[...porCategoria]
-                            .sort((a, b) => b.media - a.media)
+                            .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
                             .map(c => (
-                            <>
+                            <Fragment key={c.categoria_id}>
                                 <tr
                                     key={c.categoria_id}
                                     className="linha-ano"
@@ -252,8 +362,8 @@ export default function Estatisticas() {
                                         </span>
                                         {c.categoria_nome}
                                     </td>
-                                    <td>{c.media.toFixed(2)} €</td>
-                                    <td>{c.mediana.toFixed(2)} €</td>
+                                    <td className={c.media >= 0 ? 'valor-positivo' : 'valor-negativo'}>{c.media.toFixed(2)} €</td>
+                                    <td className={c.mediana >= 0 ? 'valor-positivo' : 'valor-negativo'}>{c.mediana.toFixed(2)} €</td>
                                 </tr>
                                 {categoriaExpandida === c.categoria_id &&
                                     [...c.subcategorias]
@@ -261,12 +371,12 @@ export default function Estatisticas() {
                                         .map(sub => (
                                         <tr key={sub.subcategoria_nome} className="linha-mes">
                                             <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                            <td>{sub.media.toFixed(2)} €</td>
-                                            <td>{sub.mediana.toFixed(2)} €</td>
+                                            <td className={sub.media >= 0 ? 'valor-positivo' : 'valor-negativo'}>{sub.media.toFixed(2)} €</td>
+                                            <td className={sub.mediana >= 0 ? 'valor-positivo' : 'valor-negativo'}>{sub.mediana.toFixed(2)} €</td>
                                         </tr>
                                     ))
                                 }
-                            </>
+                            </Fragment>
                         ))}
                     </tbody>
                 </table>
@@ -276,7 +386,7 @@ export default function Estatisticas() {
                     <h2>Distribuição por categoria</h2>
                     <ResponsiveContainer width="100%" height={porSubcategoria.length * 32 + 40}>
                             <BarChart
-                                data={[...porSubcategoria].sort((a, b) => b.total - a.total)}
+                                data={[...porSubcategoria].sort((a, b) => Math.abs(b.total) - Math.abs(a.total))}
                                 layout="vertical"
                                 background={false}
                                 margin={{ top: 0, right: 60, left: 120, bottom: 0 }}

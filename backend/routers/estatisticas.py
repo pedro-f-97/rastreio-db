@@ -20,22 +20,28 @@ def get_db():
 
 @router.get("/resumo-mensal")
 def resumo_mensal(db: Session = Depends(get_db)):
-    """
-    Endpoint to get a monthly summary of transactions.
-    """
-    
     transacoes = db.query(Transacao).join(Categoria, Transacao.categoria_id == Categoria.id).all()
 
+    todos_meses = db.query(
+        extract('year', Transacao.data).label('ano'),
+        extract('month', Transacao.data).label('mes'),
+    ).distinct().all()
+
     meses = _calculate_totals(transacoes)
+
+    for m in todos_meses:
+        chave = (int(m.ano), int(m.mes))
+        if chave not in meses:
+            meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
 
     resultados = []
     totais_despesas = []
 
     for (ano, mes), v in sorted(meses.items()):
-        despesas = round(max(v["despesas"], 0), 2)
+        despesas = round(v["despesas"], 2)  # era max(v["despesas"], 0)
         receitas = round(v["receitas"], 2)
         investimento = round(v["investimento"], 2)
-        saldo = round(receitas - despesas, 2)
+        poupanca = round(receitas + despesas, 2)  # soma porque despesas já é negativo
         totais_despesas.append(despesas)
 
         resultados.append({
@@ -44,7 +50,7 @@ def resumo_mensal(db: Session = Depends(get_db)):
             "receitas": receitas,
             "despesas": despesas,
             "investimento": investimento,
-            "saldo": saldo,
+            "poupanca": poupanca,  # era "saldo"
         })
 
     media = round(sum(totais_despesas) / len(totais_despesas), 2) if totais_despesas else 0
@@ -77,12 +83,9 @@ def por_categoria(db: Session = Depends(get_db)):
         func.sum(Transacao.valor).label('total'),
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
         .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
-    .filter(
-        Categoria.tipo != TipoCategoria.investimento,
-        Categoria.tipo != TipoCategoria.receita,
-        Categoria.tipo != TipoCategoria.transferencia,
-        (Transacao.valor < 0) | (Transacao.reembolso == True),
-    )\
+        .filter(
+            Categoria.tipo != TipoCategoria.transferencia,
+        )\
         .group_by('ano', 'mes', Transacao.categoria_id, Transacao.subcategoria_id)\
         .order_by('ano', 'mes')\
         .all()
@@ -98,7 +101,7 @@ def por_categoria(db: Session = Depends(get_db)):
                 "subcategorias": {},
             }
 
-        total = round(abs(r.total or 0), 2)
+        total = round(r.total or 0, 2)  # era round(abs(r.total or 0), 2)
         por_cat[cat_id]["totais"].append(total)
 
         sub_id = r.subcategoria_id or 0
@@ -140,9 +143,6 @@ def por_subcategoria(db: Session = Depends(get_db)):
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
         .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
         .filter(
-            (Transacao.valor < 0) | (Transacao.reembolso == True),
-            Categoria.tipo != TipoCategoria.investimento,
-            Categoria.tipo != TipoCategoria.receita,
             Categoria.tipo != TipoCategoria.transferencia,
             Transacao.categoria_id != None,
         )\
@@ -172,16 +172,16 @@ def por_subcategoria(db: Session = Depends(get_db)):
 
     resultado = []
     for cat in por_cat.values():
-        total_cat = round(abs(cat["total_centimos"]) / 100, 2)
+        total_cat = cat["total_centimos"] / 100      # era abs(...) / 100
         subcategorias = []
         for sub in cat["subcategorias"].values():
-            total_sub = round(abs(sub["total_centimos"]) / 100, 2)
-            if total_sub > 0:
+            total_sub = sub["total_centimos"] / 100      # era abs(...) / 100
+            if abs(total_sub) > 0:
                 subcategorias.append({
                     "subcategoria_nome": sub["subcategoria_nome"],
                     "total": total_sub,
                 })
-        if total_cat > 0:
+        if abs(total_cat) > 0:
             resultado.append({
                 "categoria_id": cat["categoria_id"],
                 "categoria_nome": cat["categoria_nome"],
@@ -254,12 +254,8 @@ def detalhe_mensal(ano: int, mes: int, db: Session = Depends(get_db)):
     for cat in por_cat.values():
         tipo = cat["categoria_tipo"].value
 
-        if tipo == "investimento":
-            total_cat = abs(cat["total_centimos"]) / 100
-            subcategorias_valores = [(s, abs(s["total_centimos"]) / 100) for s in cat["subcategorias"].values()]
-        else:
-            total_cat = cat["total_centimos"] / 100
-            subcategorias_valores = [(s, s["total_centimos"] / 100) for s in cat["subcategorias"].values()]
+        total_cat = cat["total_centimos"] / 100
+        subcategorias_valores = [(s, s["total_centimos"] / 100) for s in cat["subcategorias"].values()]
 
         subcategorias = sorted(
             [
@@ -302,10 +298,10 @@ def _calculate_totals(transacoes):
         if t.categoria.tipo == TipoCategoria.receita and not t.reembolso and t.valor > 0:
             meses[chave]["receitas"] += t.valor
         elif t.categoria.tipo == TipoCategoria.investimento:
-            meses[chave]["investimento"] += abs(t.valor)
+            meses[chave]["investimento"] += t.valor
         elif t.valor < 0 and t.categoria.tipo != TipoCategoria.receita:
-            meses[chave]["despesas"] += abs(t.valor)
+            meses[chave]["despesas"] += t.valor  # era += abs(t.valor), agora soma o valor negativo directamente
         elif t.valor > 0 and t.reembolso:
-            meses[chave]["despesas"] -= t.valor
+            meses[chave]["despesas"] += t.valor  # era -= t.valor, agora soma o reembolso positivo directamente
 
     return meses
