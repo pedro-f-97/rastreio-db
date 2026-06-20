@@ -4,12 +4,14 @@ export function obterResumoMensal() {
     return client.get('/estatisticas/resumo-mensal');
 }
 
-export function obterPorCategoria() {
-    return client.get('/estatisticas/por-categoria');
+export function obterPorCategoria(ano) {
+    const params = ano && ano !== 'todos' ? `?ano=${ano}` : '';
+    return client.get(`/estatisticas/por-categoria${params}`);
 }
 
-export function obterPorSubcategoria() {
-    return client.get('/estatisticas/por-subcategoria');
+export function obterPorSubcategoria(ano) {
+    const params = ano && ano !== 'todos' ? `?ano=${ano}` : '';
+    return client.get(`/estatisticas/por-subcategoria${params}`);
 }
 
 export function obterDetalheMensal(ano, mes) {

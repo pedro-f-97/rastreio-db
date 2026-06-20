@@ -5,13 +5,11 @@ from database import SessionLocal, Transacao, Categoria, Subcategoria, TipoCateg
 from statistics import median
 import calendar
 from datetime import date
+from typing import Optional
 
 router = APIRouter(prefix="/estatisticas", tags=["estatisticas"])
 
 def get_db():
-    """
-    Dependency to get a database session.
-    """
     db = SessionLocal()
     try:
         yield db
@@ -38,10 +36,10 @@ def resumo_mensal(db: Session = Depends(get_db)):
     totais_despesas = []
 
     for (ano, mes), v in sorted(meses.items()):
-        despesas = round(v["despesas"], 2)  # era max(v["despesas"], 0)
+        despesas = round(v["despesas"], 2)
         receitas = round(v["receitas"], 2)
         investimento = round(v["investimento"], 2)
-        poupanca = round(receitas + despesas, 2)  # soma porque despesas já é negativo
+        poupanca = round(receitas + despesas, 2)
         totais_despesas.append(despesas)
 
         resultados.append({
@@ -50,7 +48,7 @@ def resumo_mensal(db: Session = Depends(get_db)):
             "receitas": receitas,
             "despesas": despesas,
             "investimento": investimento,
-            "poupanca": poupanca,  # era "saldo"
+            "poupanca": poupanca,
         })
 
     media = round(sum(totais_despesas) / len(totais_despesas), 2) if totais_despesas else 0
@@ -64,16 +62,16 @@ def resumo_mensal(db: Session = Depends(get_db)):
 
 
 @router.get("/por-categoria")
-def por_categoria(db: Session = Depends(get_db)):
-    """
-    Endpoint to get transaction statistics grouped by category.
-    """
-    meses_distintos = db.query(
+def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
+    q_meses = db.query(
         extract('year', Transacao.data).label('ano'),
         extract('month', Transacao.data).label('mes'),
-    ).distinct().count()
+    ).distinct()
+    if ano:
+        q_meses = q_meses.filter(extract('year', Transacao.data) == ano)
+    meses_distintos = q_meses.count()
 
-    resultados = db.query(
+    q = db.query(
         extract('year', Transacao.data).label('ano'),
         extract('month', Transacao.data).label('mes'),
         Transacao.categoria_id,
@@ -83,10 +81,12 @@ def por_categoria(db: Session = Depends(get_db)):
         func.sum(Transacao.valor).label('total'),
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
         .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
-        .filter(
-            Categoria.tipo != TipoCategoria.transferencia,
-        )\
-        .group_by('ano', 'mes', Transacao.categoria_id, Transacao.subcategoria_id)\
+        .filter(Categoria.tipo != TipoCategoria.transferencia)
+
+    if ano:
+        q = q.filter(extract('year', Transacao.data) == ano)
+
+    resultados = q.group_by('ano', 'mes', Transacao.categoria_id, Transacao.subcategoria_id)\
         .order_by('ano', 'mes')\
         .all()
 
@@ -101,7 +101,7 @@ def por_categoria(db: Session = Depends(get_db)):
                 "subcategorias": {},
             }
 
-        total = round(r.total or 0, 2)  # era round(abs(r.total or 0), 2)
+        total = round(r.total or 0, 2)
         por_cat[cat_id]["totais"].append(total)
 
         sub_id = r.subcategoria_id or 0
@@ -128,12 +128,10 @@ def por_categoria(db: Session = Depends(get_db)):
 
     return list(por_cat.values())
 
+
 @router.get("/por-subcategoria")
-def por_subcategoria(db: Session = Depends(get_db)):
-    """
-    Endpoint to get transaction statistics grouped by subcategory.
-    """
-    resultados = db.query(
+def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
+    q = db.query(
         Transacao.categoria_id,
         Categoria.nome.label('categoria_nome'),
         Transacao.subcategoria_id,
@@ -145,8 +143,12 @@ def por_subcategoria(db: Session = Depends(get_db)):
         .filter(
             Categoria.tipo != TipoCategoria.transferencia,
             Transacao.categoria_id != None,
-        )\
-        .all()
+        )
+
+    if ano:
+        q = q.filter(extract('year', Transacao.data) == ano)
+
+    resultados = q.all()
 
     por_cat = {}
     for r in resultados:
@@ -172,10 +174,10 @@ def por_subcategoria(db: Session = Depends(get_db)):
 
     resultado = []
     for cat in por_cat.values():
-        total_cat = cat["total_centimos"] / 100      # era abs(...) / 100
+        total_cat = cat["total_centimos"] / 100
         subcategorias = []
         for sub in cat["subcategorias"].values():
-            total_sub = sub["total_centimos"] / 100      # era abs(...) / 100
+            total_sub = sub["total_centimos"] / 100
             if abs(total_sub) > 0:
                 subcategorias.append({
                     "subcategoria_nome": sub["subcategoria_nome"],
@@ -189,6 +191,7 @@ def por_subcategoria(db: Session = Depends(get_db)):
                 "subcategorias": subcategorias,
             })
     return sorted(resultado, key=lambda c: c["total"], reverse=True)
+
 
 def _query_transacoes_mes(db: Session, inicio, fim):
     return db.query(
@@ -210,11 +213,7 @@ def _query_transacoes_mes(db: Session, inicio, fim):
      .all()
 
 def _agregar_por_categoria(rows):
-    """
-    Helper function to aggregate transactions by category and subcategory.
-    """
     por_cat = {}
-
     for r in rows:
         cat_id = r.categoria_id
         if cat_id not in por_cat:
@@ -241,9 +240,6 @@ def _agregar_por_categoria(rows):
 
 @router.get("/detalhe-mensal")
 def detalhe_mensal(ano: int, mes: int, db: Session = Depends(get_db)):
-    """
-    Endpoint to get detailed transaction statistics for a specific month.
-    """
     inicio = date(ano, mes, 1)
     fim = date(ano, mes, calendar.monthrange(ano, mes)[1])
 
@@ -253,16 +249,12 @@ def detalhe_mensal(ano: int, mes: int, db: Session = Depends(get_db)):
     resultado_final = []
     for cat in por_cat.values():
         tipo = cat["categoria_tipo"].value
-
         total_cat = cat["total_centimos"] / 100
         subcategorias_valores = [(s, s["total_centimos"] / 100) for s in cat["subcategorias"].values()]
 
         subcategorias = sorted(
             [
-                {
-                    "subcategoria_nome": s["subcategoria_nome"],
-                    "total": total,
-                }
+                {"subcategoria_nome": s["subcategoria_nome"], "total": total}
                 for s, total in subcategorias_valores
             ],
             key=lambda s: s["total"],
@@ -279,15 +271,12 @@ def detalhe_mensal(ano: int, mes: int, db: Session = Depends(get_db)):
 
     return sorted(resultado_final, key=lambda c: c["total"], reverse=True)
 
+
 def _calculate_totals(transacoes):
-    """
-    Helper function to calculate totals for each month.
-    """
     meses = {}
     for t in transacoes:
         if not t.categoria:
             continue
-
         if t.categoria.tipo == TipoCategoria.transferencia:
             continue
 
@@ -300,8 +289,8 @@ def _calculate_totals(transacoes):
         elif t.categoria.tipo == TipoCategoria.investimento:
             meses[chave]["investimento"] += t.valor
         elif t.valor < 0 and t.categoria.tipo != TipoCategoria.receita:
-            meses[chave]["despesas"] += t.valor  # era += abs(t.valor), agora soma o valor negativo directamente
+            meses[chave]["despesas"] += t.valor
         elif t.valor > 0 and t.reembolso:
-            meses[chave]["despesas"] += t.valor  # era -= t.valor, agora soma o reembolso positivo directamente
+            meses[chave]["despesas"] += t.valor
 
     return meses

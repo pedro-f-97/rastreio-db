@@ -17,13 +17,11 @@ function calcularLimiteSerie(valores, multiplicador = 4) {
     if (absolutos.length < 3) {
         return { limite: Infinity, valoresNormais: absolutos, extremos: [] };
     }
-
     const ordenados = [...absolutos].sort((a, b) => a - b);
     const meio = Math.floor(ordenados.length / 2);
     const mediana = ordenados.length % 2 === 0
         ? (ordenados[meio - 1] + ordenados[meio]) / 2
         : ordenados[meio];
-
     const limite = mediana * multiplicador;
     return {
         limite,
@@ -36,6 +34,25 @@ function maiorValor(lista) {
     return lista.length > 0 ? Math.max(...lista) : 0;
 }
 
+function calcularMediana(valores) {
+    if (valores.length === 0) return 0;
+    const ordenados = [...valores].sort((a, b) => a - b);
+    const meio = Math.floor(ordenados.length / 2);
+    return ordenados.length % 2 === 0
+        ? (ordenados[meio - 1] + ordenados[meio]) / 2
+        : ordenados[meio];
+}
+
+function calcularMedia(valores) {
+    if (valores.length === 0) return 0;
+    return valores.reduce((s, v) => s + v, 0) / valores.length;
+}
+
+const CORES = [
+    '#6366f1', '#22c55e', '#ef4444', '#f59e0b', '#3b82f6',
+    '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4'
+];
+
 export default function Estatisticas() {
     const [resumo, setResumo] = useState(null);
     const [porCategoria, setPorCategoria] = useState([]);
@@ -47,9 +64,14 @@ export default function Estatisticas() {
 
     useEffect(() => {
         obterResumoMensal().then(res => setResumo(res.data));
-        obterPorCategoria().then(res => setPorCategoria(res.data));
-        obterPorSubcategoria().then(res => setPorSubcategoria(res.data));
     }, []);
+
+    useEffect(() => {
+        setCategoriaSeleccionada(null);
+        setCategoriaExpandida(null);
+        obterPorCategoria(anoSeleccionado).then(res => setPorCategoria(res.data));
+        obterPorSubcategoria(anoSeleccionado).then(res => setPorSubcategoria(res.data));
+    }, [anoSeleccionado]);
 
     const MULTIPLICADOR_EXTREMO = 4;
 
@@ -65,7 +87,7 @@ export default function Estatisticas() {
             Despesas: m.despesas,
             Investimento: m.investimento,
             Poupança: m.poupanca,
-            'Taxa de Poupança': m.receitas > 0 ? parseFloat(((m.poupanca / m.receitas) * 100).toFixed(1)) : 0,
+            'Taxa de Poupança': m.receitas > 0 ? parseFloat(((m.poupanca / m.receitas) * 100).toFixed(1)) : null,
         }));
 
         const filtrados = anoSeleccionado === 'todos'
@@ -96,73 +118,117 @@ export default function Estatisticas() {
         };
     }, [resumo, anoSeleccionado, incluirOutliers]);
 
+    const { cardDespesas, cardPoupanca, cardTaxa } = useMemo(() => {
+        const despesas = dadosGraficoFiltrados.map(m => m.Despesas);
+        const poupancas = dadosGraficoFiltrados.map(m => m.Poupança);
+        const taxas = dadosGraficoFiltrados
+            .filter(m => m['Taxa de Poupança'] !== null)
+            .map(m => m['Taxa de Poupança']);
+
+        return {
+            cardDespesas: {
+                mediana: calcularMediana(despesas),
+                media: calcularMedia(despesas),
+            },
+            cardPoupanca: {
+                mediana: calcularMediana(poupancas),
+                media: calcularMedia(poupancas),
+            },
+            cardTaxa: {
+                mediana: calcularMediana(taxas),
+                media: calcularMedia(taxas),
+            },
+        };
+    }, [dadosGraficoFiltrados]);
+
     if (!resumo) return <p className="carregando">A carregar...</p>;
 
-    const taxasPoupanca = dadosGrafico
-        .filter(m => m.Receitas > 0)
-        .map(m => m['Taxa de Poupança']);
-
-    const medianaTaxaPoupanca = taxasPoupanca.length > 0
-        ? [...taxasPoupanca].sort((a, b) => a - b)[Math.floor(taxasPoupanca.length / 2)]
-        : 0;
-
-    const poupancasMensais = dadosGrafico.map(m => m.Poupança);
-
-    const medianaPoupanca = poupancasMensais.length > 0
-        ? [...poupancasMensais].sort((a, b) => a - b)[Math.floor(poupancasMensais.length / 2)]
-        : 0;
-
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
-
     const totalGeral = porSubcategoria.reduce((soma, c) => soma + Math.abs(c.total), 0);
 
-    const CORES = [
-        '#6366f1', '#22c55e', '#ef4444', '#f59e0b', '#3b82f6',
-        '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4'
-    ];
+    function classeValor(v) {
+        return v >= 0 ? 'valor-positivo' : 'valor-negativo';
+    }
 
     return (
         <div className="estatisticas-page">
-            <h1>Estatísticas</h1>
+            <div className="secao-cabecalho" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                <h1>Estatísticas</h1>
+                <select
+                    value={anoSeleccionado}
+                    onChange={e => setAnoSeleccionado(e.target.value)}
+                    className="filtro-ano"
+                >
+                    <option value="todos">Todos</option>
+                    {anosDisponiveis.map(ano => (
+                        <option key={ano} value={ano}>{ano}</option>
+                    ))}
+                </select>
+            </div>
 
             {/* RESUMO GLOBAL */}
             <section className="secao">
                 <h2>Resumo global</h2>
                 <div className="cartoes">
                     <div className="cartao">
-                        <span className="cartao-label">Mediana mensal de despesas</span>
-                        <span className="cartao-valor valor-negativo">{resumo.mediana_mensal.toFixed(2)} €</span>
+                        <span className="cartao-titulo">Despesas mensais</span>
+                        <div className="cartao-corpo">
+                            <div className="cartao-metade">
+                                <span className="cartao-metade-label">Mediana</span>
+                                <span className={`cartao-metade-valor ${classeValor(cardDespesas.mediana)}`}>
+                                    {cardDespesas.mediana.toFixed(2)} €
+                                </span>
+                            </div>
+                            <div className="cartao-metade">
+                                <span className="cartao-metade-label">Média</span>
+                                <span className={`cartao-metade-valor ${classeValor(cardDespesas.media)}`}>
+                                    {cardDespesas.media.toFixed(2)} €
+                                </span>
+                            </div>
+                        </div>
                     </div>
+
                     <div className="cartao">
-                        <span className="cartao-label">Mediana mensal de poupanças</span>
-                        <span className={`cartao-valor ${medianaPoupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}`}>
-                            {medianaPoupanca.toFixed(2)} €
-                        </span>
+                        <span className="cartao-titulo">Poupança mensal</span>
+                        <div className="cartao-corpo">
+                            <div className="cartao-metade">
+                                <span className="cartao-metade-label">Mediana</span>
+                                <span className={`cartao-metade-valor ${classeValor(cardPoupanca.mediana)}`}>
+                                    {cardPoupanca.mediana.toFixed(2)} €
+                                </span>
+                            </div>
+                            <div className="cartao-metade">
+                                <span className="cartao-metade-label">Média</span>
+                                <span className={`cartao-metade-valor ${classeValor(cardPoupanca.media)}`}>
+                                    {cardPoupanca.media.toFixed(2)} €
+                                </span>
+                            </div>
+                        </div>
                     </div>
+
                     <div className="cartao">
-                        <span className="cartao-label">Mediana da taxa de poupança mensal</span>
-                        <span className={`cartao-valor ${medianaTaxaPoupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}`}>
-                            {medianaTaxaPoupanca.toFixed(1)}%
-                        </span>
+                        <span className="cartao-titulo">Taxa de poupança mensal</span>
+                        <div className="cartao-corpo">
+                            <div className="cartao-metade">
+                                <span className="cartao-metade-label">Mediana</span>
+                                <span className={`cartao-metade-valor ${classeValor(cardTaxa.mediana)}`}>
+                                    {cardTaxa.mediana.toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className="cartao-metade">
+                                <span className="cartao-metade-label">Média</span>
+                                <span className={`cartao-metade-valor ${classeValor(cardTaxa.media)}`}>
+                                    {cardTaxa.media.toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
             {/* GRÁFICO EVOLUÇÃO — VALORES */}
             <section className="secao">
-                <div className="secao-cabecalho">
-                    <h2>Evolução mensal</h2>
-                    <select
-                        value={anoSeleccionado}
-                        onChange={e => setAnoSeleccionado(e.target.value)}
-                        className="filtro-ano"
-                    >
-                        <option value="todos">Todos</option>
-                        {anosDisponiveis.map(ano => (
-                            <option key={ano} value={ano}>{ano}</option>
-                        ))}
-                    </select>
-                </div>
+                <h2>Evolução mensal</h2>
 
                 {totalExtremos > 0 && (
                     <div className="aviso-outlier">
@@ -178,10 +244,7 @@ export default function Estatisticas() {
                 )}
 
                 <ResponsiveContainer width="100%" height={400}>
-                    <ComposedChart
-                        data={dadosGraficoFiltrados}
-                        margin={{ top: 10, right: 40, left: 20, bottom: 60 }}
-                    >
+                    <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
                         <YAxis
@@ -214,10 +277,10 @@ export default function Estatisticas() {
                         <Tooltip
                             contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             labelStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v) => `${v.toFixed(1)}%`}
+                            formatter={(v) => v !== null ? `${v.toFixed(1)}%` : '—'}
                         />
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
-                        <Line dataKey="Taxa de Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                        <Line dataKey="Taxa de Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls={false} />
                     </ComposedChart>
                 </ResponsiveContainer>
             </section>
@@ -237,36 +300,36 @@ export default function Estatisticas() {
                         {[...porCategoria]
                             .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
                             .map(c => (
-                            <Fragment key={c.categoria_id}>
-                                <tr
-                                    className="linha-ano"
-                                    onClick={() => setCategoriaExpandida(
-                                        categoriaExpandida === c.categoria_id ? null : c.categoria_id
-                                    )}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <td>
-                                        <span className="seta-expansao">
-                                            {categoriaExpandida === c.categoria_id ? '▼' : '▶'}
-                                        </span>
-                                        {c.categoria_nome}
-                                    </td>
-                                    <td className={c.media >= 0 ? 'valor-positivo' : 'valor-negativo'}>{c.media.toFixed(2)} €</td>
-                                    <td className={c.mediana >= 0 ? 'valor-positivo' : 'valor-negativo'}>{c.mediana.toFixed(2)} €</td>
-                                </tr>
-                                {categoriaExpandida === c.categoria_id &&
-                                    [...c.subcategorias]
-                                        .sort((a, b) => b.media - a.media)
-                                        .map(sub => (
-                                        <tr key={sub.subcategoria_nome} className="linha-mes">
-                                            <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                            <td className={sub.media >= 0 ? 'valor-positivo' : 'valor-negativo'}>{sub.media.toFixed(2)} €</td>
-                                            <td className={sub.mediana >= 0 ? 'valor-positivo' : 'valor-negativo'}>{sub.mediana.toFixed(2)} €</td>
-                                        </tr>
-                                    ))
-                                }
-                            </Fragment>
-                        ))}
+                                <Fragment key={c.categoria_id}>
+                                    <tr
+                                        className="linha-ano"
+                                        onClick={() => setCategoriaExpandida(
+                                            categoriaExpandida === c.categoria_id ? null : c.categoria_id
+                                        )}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <td>
+                                            <span className="seta-expansao">
+                                                {categoriaExpandida === c.categoria_id ? '▼' : '▶'}
+                                            </span>
+                                            {c.categoria_nome}
+                                        </td>
+                                        <td className={classeValor(c.media)}>{c.media.toFixed(2)} €</td>
+                                        <td className={classeValor(c.mediana)}>{c.mediana.toFixed(2)} €</td>
+                                    </tr>
+                                    {categoriaExpandida === c.categoria_id &&
+                                        [...c.subcategorias]
+                                            .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
+                                            .map(sub => (
+                                                <tr key={sub.subcategoria_nome} className="linha-mes">
+                                                    <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                                    <td className={classeValor(sub.media)}>{sub.media.toFixed(2)} €</td>
+                                                    <td className={classeValor(sub.mediana)}>{sub.mediana.toFixed(2)} €</td>
+                                                </tr>
+                                            ))
+                                    }
+                                </Fragment>
+                            ))}
                     </tbody>
                 </table>
             </section>
@@ -317,7 +380,7 @@ export default function Estatisticas() {
                         <h3>{categoriaSeleccionada.categoria_nome}</h3>
                         <ResponsiveContainer width="100%" height={categoriaSeleccionada.subcategorias.length * 32 + 40}>
                             <BarChart
-                                data={[...categoriaSeleccionada.subcategorias].sort((a, b) => b.total - a.total)}
+                                data={[...categoriaSeleccionada.subcategorias].sort((a, b) => Math.abs(b.total) - Math.abs(a.total))}
                                 layout="vertical"
                                 margin={{ top: 0, right: 60, left: 140, bottom: 0 }}
                             >
