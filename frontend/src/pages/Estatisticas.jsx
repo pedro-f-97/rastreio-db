@@ -1,12 +1,10 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria, obterDetalheMensal } from '../api/estatisticas';
+import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
 import {
     ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    LineChart, Line, Legend, CartesianGrid, Cell
+    Line, Legend, CartesianGrid, Cell
 } from 'recharts';
 import './Estatisticas.css';
-
-
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -43,8 +41,6 @@ export default function Estatisticas() {
     const [porCategoria, setPorCategoria] = useState([]);
     const [porSubcategoria, setPorSubcategoria] = useState([]);
     const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
-    const [mesSeleccionado, setMesSeleccionado] = useState(null);
-    const [detalheMes, setDetalheMes] = useState([]);
     const [categoriaExpandida, setCategoriaExpandida] = useState(null);
     const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
     const [incluirOutliers, setIncluirOutliers] = useState(false);
@@ -59,7 +55,7 @@ export default function Estatisticas() {
 
     const { dadosGrafico, dadosGraficoFiltrados, dominioValores, totalExtremos } = useMemo(() => {
         if (!resumo) {
-            return { dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
+            return { dadosGrafico: [], dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
         }
 
         const dadosGrafico = resumo.meses.map(m => ({
@@ -110,22 +106,6 @@ export default function Estatisticas() {
         ? [...taxasPoupanca].sort((a, b) => a - b)[Math.floor(taxasPoupanca.length / 2)]
         : 0;
 
-
-    const mesesPorAno = resumo.meses.reduce((acc, m) => {
-        if (!acc[m.ano]) acc[m.ano] = [];
-        acc[m.ano].push(m);
-        return acc;
-    }, {});
-
-    const totaisPorAno = Object.entries(mesesPorAno).map(([ano, meses]) => {
-        const receitas = meses.reduce((s, m) => s + m.receitas, 0);
-        const despesas = meses.reduce((s, m) => s + m.despesas, 0);
-        const investimento = meses.reduce((s, m) => s + m.investimento, 0);
-        const poupanca = receitas + despesas;
-        const taxa = receitas > 0 ? parseFloat((poupanca / receitas * 100).toFixed(1)) : 0;
-        return { ano: parseInt(ano), receitas, despesas, investimento, poupanca, taxa };
-    });
-
     const poupancasMensais = dadosGrafico.map(m => m.Poupança);
 
     const medianaPoupanca = poupancasMensais.length > 0
@@ -134,23 +114,13 @@ export default function Estatisticas() {
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
 
-    function toggleMes(ano, mes) {
-        if (mesSeleccionado?.ano === ano && mesSeleccionado?.mes === mes) {
-            setMesSeleccionado(null);
-            setDetalheMes([]);
-        } else {
-            setMesSeleccionado({ ano, mes });
-            obterDetalheMensal(ano, mes).then(res => setDetalheMes(res.data));
-        }
-    }
-
     const totalGeral = porSubcategoria.reduce((soma, c) => soma + Math.abs(c.total), 0);
 
     const CORES = [
         '#6366f1', '#22c55e', '#ef4444', '#f59e0b', '#3b82f6',
         '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4'
     ];
-    
+
     return (
         <div className="estatisticas-page">
             <h1>Estatísticas</h1>
@@ -159,10 +129,6 @@ export default function Estatisticas() {
             <section className="secao">
                 <h2>Resumo global</h2>
                 <div className="cartoes">
-                    {/* <div className="cartao">
-                        <span className="cartao-label">Média mensal de despesas</span>
-                        <span className="cartao-valor">{resumo.media_mensal.toFixed(2)} €</span>
-                    </div>*/}
                     <div className="cartao">
                         <span className="cartao-label">Mediana mensal de despesas</span>
                         <span className="cartao-valor valor-negativo">{resumo.mediana_mensal.toFixed(2)} €</span>
@@ -256,82 +222,6 @@ export default function Estatisticas() {
                 </ResponsiveContainer>
             </section>
 
-            {/* TABELA MENSAL */}
-            <section className="secao">
-                <h2>Detalhe por mês</h2>
-                <table className="tabela-stats">
-                    <thead>
-                        <tr>
-                            <th>Mês</th>
-                            <th>Receitas</th>
-                            <th>Despesas</th>
-                            <th>Investimento</th>
-                            <th>Poupança</th>
-                            <th>Taxa</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {Object.keys(mesesPorAno).sort().map(ano => {
-                            const totalAno = totaisPorAno.find(t => t.ano === parseInt(ano));
-                            return (
-                                <Fragment key={`ano-${ano}`}>
-                                    <tr key={`ano-${ano}`} className="linha-ano">
-                                        <td>{ano}</td>
-                                        <td className="valor-positivo">{totalAno.receitas.toFixed(2)} €</td>
-                                        <td className="valor-negativo">{totalAno.despesas.toFixed(2)} €</td>
-                                        <td className={totalAno.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{totalAno.investimento.toFixed(2)} €</td>
-                                        <td className={totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{totalAno.poupanca.toFixed(2)} €</td>
-                                        <td>{totalAno.taxa}%</td>
-                                    </tr>
-                                    {mesesPorAno[ano].map(m => {
-                                    const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
-                                    return (
-                                        <Fragment key={`${m.ano}-${m.mes}`}>
-                                            <tr
-                                                key={`${m.ano}-${m.mes}`}
-                                                onClick={() => toggleMes(m.ano, m.mes)}
-                                                className={`linha-mes ${seleccionado ? 'linha-mes-activa' : ''}`}
-                                            >
-                                                <td>
-                                                    <span className="seta-expansao">{seleccionado ? '▼' : '▶'}</span>
-                                                    {labelMes(m.ano, m.mes)}
-                                                </td>
-                                                <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
-                                                <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
-                                                <td className={m.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{m.investimento.toFixed(2)} €</td>
-                                                <td className={m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{m.poupanca.toFixed(2)} €</td>
-                                                <td>{m.receitas > 0 ? (m.poupanca / m.receitas * 100).toFixed(1) : '—'}%</td>
-                                            </tr>
-                                            {seleccionado && detalheMes.map(cat => (
-                                                <Fragment key={`cat-${cat.categoria_id}`}>
-                                                    <tr key={`cat-${cat.categoria_id}`} className="linha-categoria-detalhe">
-                                                        <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
-                                                        <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? `${cat.total.toFixed(2)} €` : ''}</td>
-                                                        <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? `${cat.total.toFixed(2)} €` : ''}</td>
-                                                        <td className={cat.tipo === 'investimento' ? (cat.total >= 0 ? 'valor-positivo' : 'valor-negativo') : ''}>{cat.tipo === 'investimento' ? `${cat.total.toFixed(2)} €` : ''}</td>
-                                                        <td></td>
-                                                        <td></td>
-                                                    </tr>
-                                                    {cat.subcategorias.map(sub => (
-                                                        <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
-                                                            <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                            <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? `${sub.total.toFixed(2)} €` : ''}</td>
-                                                            <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? `${sub.total.toFixed(2)} €` : ''}</td>
-                                                            <td className={cat.tipo === 'investimento' ? (sub.total >= 0 ? 'valor-positivo' : 'valor-negativo') : ''}>{cat.tipo === 'investimento' ? `${sub.total.toFixed(2)} €` : ''}</td>
-                                                            <td></td>
-                                                            <td></td>
-                                                        </tr>
-                                                    ))}
-                                                </Fragment>
-                                            ))}
-                                        </Fragment>
-                                    );
-                                })}
-                            </Fragment>
-                        )})}
-                    </tbody>
-                </table>
-            </section>
             {/* POR CATEGORIA */}
             <section className="secao">
                 <h2>Por categoria</h2>
@@ -349,7 +239,6 @@ export default function Estatisticas() {
                             .map(c => (
                             <Fragment key={c.categoria_id}>
                                 <tr
-                                    key={c.categoria_id}
                                     className="linha-ano"
                                     onClick={() => setCategoriaExpandida(
                                         categoriaExpandida === c.categoria_id ? null : c.categoria_id
@@ -381,87 +270,88 @@ export default function Estatisticas() {
                     </tbody>
                 </table>
             </section>
-            {/* DISTRIBUIÇÃO POR CATEGORIA */}
-                <section className="secao">
-                    <h2>Distribuição por categoria</h2>
-                    <ResponsiveContainer width="100%" height={porSubcategoria.length * 32 + 40}>
-                            <BarChart
-                                data={[...porSubcategoria].sort((a, b) => Math.abs(b.total) - Math.abs(a.total))}
-                                layout="vertical"
-                                background={false}
-                                margin={{ top: 0, right: 60, left: 120, bottom: 0 }}
-                            >
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                            <XAxis
-                                type="number"
-                                tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
-                                tickFormatter={v => `${v.toFixed(0)} €`}
-                            />
-                            <YAxis
-                                type="category"
-                                dataKey="categoria_nome"
-                                tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                                width={115}
-                            />
-                            <Tooltip
-                                contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                                labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
-                                itemStyle={{ color: 'var(--text-primary)' }}
-                                formatter={(v, _, props) => {
-                                    const pct = totalGeral > 0 ? (v / totalGeral * 100).toFixed(1) : 0;
-                                    return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
-                                }}
-                            />
-                            <Bar dataKey="total" radius={[0, 4, 4, 0]} onClick={item => setCategoriaSeleccionada(
-                                categoriaSeleccionada?.categoria_id === item.categoria_id ? null : item
-                            )} style={{ cursor: 'pointer' }}>
-                                {porSubcategoria.map((_, i) => (
-                                    <Cell key={i} fill={CORES[i % CORES.length]} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
 
-                    {categoriaSeleccionada && (
-                        <div className="subcategoria-detalhe">
-                            <h3>{categoriaSeleccionada.categoria_nome}</h3>
-                            <ResponsiveContainer width="100%" height={categoriaSeleccionada.subcategorias.length * 32 + 40}>
-                                <BarChart
-                                    data={[...categoriaSeleccionada.subcategorias].sort((a, b) => b.total - a.total)}
-                                    layout="vertical"
-                                    margin={{ top: 0, right: 60, left: 140, bottom: 0 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                                    <XAxis
-                                        type="number"
-                                        tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
-                                        tickFormatter={v => `${v.toFixed(0)} €`}
-                                    />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="subcategoria_nome"
-                                        tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                                        width={135}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                                        labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
-                                        itemStyle={{ color: 'var(--text-primary)' }}
-                                        formatter={(v, _, props) => {
-                                            const pct = totalGeral > 0 ? (v / totalGeral * 100).toFixed(1) : 0;
-                                            return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
-                                        }}
-                                    />
-                                    <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                                        {categoriaSeleccionada.subcategorias.map((_, i) => (
-                                            <Cell key={i} fill={CORES[i % CORES.length]} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </section>
+            {/* DISTRIBUIÇÃO POR CATEGORIA */}
+            <section className="secao">
+                <h2>Distribuição por categoria</h2>
+                <ResponsiveContainer width="100%" height={porSubcategoria.length * 32 + 40}>
+                    <BarChart
+                        data={[...porSubcategoria].sort((a, b) => Math.abs(b.total) - Math.abs(a.total))}
+                        layout="vertical"
+                        background={false}
+                        margin={{ top: 0, right: 60, left: 120, bottom: 0 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                        <XAxis
+                            type="number"
+                            tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                            tickFormatter={v => `${v.toFixed(0)} €`}
+                        />
+                        <YAxis
+                            type="category"
+                            dataKey="categoria_nome"
+                            tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                            width={115}
+                        />
+                        <Tooltip
+                            contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                            itemStyle={{ color: 'var(--text-primary)' }}
+                            formatter={(v) => {
+                                const pct = totalGeral > 0 ? (Math.abs(v) / totalGeral * 100).toFixed(1) : 0;
+                                return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
+                            }}
+                        />
+                        <Bar dataKey="total" radius={[0, 4, 4, 0]} onClick={item => setCategoriaSeleccionada(
+                            categoriaSeleccionada?.categoria_id === item.categoria_id ? null : item
+                        )} style={{ cursor: 'pointer' }}>
+                            {porSubcategoria.map((_, i) => (
+                                <Cell key={i} fill={CORES[i % CORES.length]} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+
+                {categoriaSeleccionada && (
+                    <div className="subcategoria-detalhe">
+                        <h3>{categoriaSeleccionada.categoria_nome}</h3>
+                        <ResponsiveContainer width="100%" height={categoriaSeleccionada.subcategorias.length * 32 + 40}>
+                            <BarChart
+                                data={[...categoriaSeleccionada.subcategorias].sort((a, b) => b.total - a.total)}
+                                layout="vertical"
+                                margin={{ top: 0, right: 60, left: 140, bottom: 0 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                                <XAxis
+                                    type="number"
+                                    tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                                    tickFormatter={v => `${v.toFixed(0)} €`}
+                                />
+                                <YAxis
+                                    type="category"
+                                    dataKey="subcategoria_nome"
+                                    tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                                    width={135}
+                                />
+                                <Tooltip
+                                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                    labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                                    itemStyle={{ color: 'var(--text-primary)' }}
+                                    formatter={(v) => {
+                                        const pct = totalGeral > 0 ? (Math.abs(v) / totalGeral * 100).toFixed(1) : 0;
+                                        return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
+                                    }}
+                                />
+                                <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+                                    {categoriaSeleccionada.subcategorias.map((_, i) => (
+                                        <Cell key={i} fill={CORES[i % CORES.length]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+            </section>
         </div>
     );
 }
