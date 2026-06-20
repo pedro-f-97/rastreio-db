@@ -150,16 +150,16 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                     return (
                         <div key={sub.id} className="subcategoria-item">
                             {estaAEditarSub ? (
-                                <input
-                                    autoFocus
-                                    value={editando.valor}
-                                    onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
-                                    onKeyDown={e => {
-                                    if (e.key === 'Enter') onRenomear(cat.id, editando.valor, editando.tipoCategoria);
+                            <input
+                                autoFocus
+                                value={editando.valor}
+                                onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') onRenomearSub(cat.id, sub.id, editando.valor);
                                     if (e.key === 'Escape') setEditando({});
                                 }}
-                                onBlur={() => onRenomear(cat.id, editando.valor, editando.tipoCategoria)}
-                                />
+                                onBlur={() => onRenomearSub(cat.id, sub.id, editando.valor)}
+                            />
                             ) : (
                                 <span>{sub.nome}</span>
                             )}
