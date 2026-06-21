@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional
 from datetime import date
-from database import TipoCategoria
+from database import TipoCategoria, TipoAtivo, TipoMovimento
 
 # --- SCHEMAS DE CATEGORIA ---
 class CategoriaBase(BaseModel):
@@ -98,4 +98,60 @@ class PerfilImportacaoCreate(PerfilImportacaoBase):
 
 class PerfilImportacao(PerfilImportacaoBase):
     id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- SCHEMAS DE ATIVO ---
+class AtivoBase(BaseModel):
+    nome: str
+    tipo: TipoAtivo
+    simbolo: Optional[str] = None
+    moeda: str = "EUR"
+    notas: Optional[str] = None
+
+class AtivoCreate(AtivoBase):
+    pass
+
+class Ativo(AtivoBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- SCHEMAS DE MOVIMENTO DE ATIVO ---
+class MovimentoAtivoBase(BaseModel):
+    ativo_id: int
+    transacao_id: Optional[int] = None
+    tipo_movimento: TipoMovimento
+    data: date
+    quantidade: Optional[float] = None
+    preco_unitario: Optional[float] = None
+    comissao: Optional[float] = 0
+    valor_total: float
+    notas: Optional[str] = None
+
+class MovimentoAtivoCreate(MovimentoAtivoBase):
+    pass
+
+class MovimentoAtivo(MovimentoAtivoBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- SCHEMAS DE PREÇO DE ATIVO ---
+class PrecoAtivoBase(BaseModel):
+    ativo_id: int
+    data: date
+    preco: float
+
+class PrecoAtivoCreate(PrecoAtivoBase):
+    pass
+
+class PrecoAtivo(PrecoAtivoBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- SCHEMA DE PENDENTE ---
+class TransacaoPendente(BaseModel):
+    id: int
+    data: date
+    descricao: str
+    valor: float
+    subcategoria_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
