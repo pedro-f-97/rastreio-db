@@ -10,6 +10,8 @@ import { getEstado } from './api/configuracao'
 import './index.css'
 import { totalPorCategorizar } from './api/transacoes'
 import Importacao from './pages/Importacao'
+import Patrimonio from './pages/Patrimonio'
+import { getPendentes } from './api/patrimonio'
 
 const GRUPOS_NAV = [
   {
@@ -39,6 +41,7 @@ const GRUPOS_NAV = [
 function App() {
   const [inicializado, setInicializado] = useState(null)
   const [porCategorizar, setPorCategorizar] = useState(0)
+  const [pendentesPatrimonio, setPendentesPatrimonio] = useState(0)
   const [tema, setTema] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark')
 
   function alternarTema() {
@@ -55,6 +58,7 @@ function App() {
   useEffect(() => {
     if (inicializado) {
       totalPorCategorizar().then(res => setPorCategorizar(res.data.total))
+      getPendentes().then(res => setPendentesPatrimonio(res.data.length))
     }
   }, [inicializado])
 
@@ -125,6 +129,19 @@ function App() {
                           {porCategorizar}
                         </span>
                       )}
+                      {label === 'Património' && pendentesPatrimonio > 0 && (
+                        <span style={{
+                          background: 'var(--danger)',
+                          color: '#fff',
+                          borderRadius: '999px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          padding: '0.1rem 0.45rem',
+                          marginLeft: '0.5rem',
+                        }}>
+                          {pendentesPatrimonio}
+                        </span>
+                      )}
                     </span>
                   </NavLink>
                 ))}
@@ -162,6 +179,7 @@ function App() {
                 <Route path="/estatisticas" element={<Estatisticas />} />
                 <Route path="/importacao" element={<Importacao />} />
                 <Route path="*" element={<Navigate to="/" />} />
+                <Route path="/patrimonio" element={<Patrimonio />} />
               </>
             }
           </Routes>
