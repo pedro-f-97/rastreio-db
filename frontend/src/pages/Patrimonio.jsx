@@ -183,21 +183,21 @@ export default function Patrimonio() {
     <div className="patrimonio-page">
       <div className="patrimonio-header">
         <h1>Património</h1>
-        <div className="patrimonio-totais">
-          <div className="total-item">
-            <span className="total-label">Valor actual</span>
-            <span className="total-valor col-mono">{totalPatrimonio.toFixed(2)} €</span>
-          </div>
-          <div className="total-item">
-            <span className="total-label">Custo total</span>
-            <span className="total-valor col-mono">{totalCusto.toFixed(2)} €</span>
-          </div>
-          <div className="total-item">
-            <span className="total-label">+/− valia total</span>
-            <span className={`total-valor col-mono ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
-              {totalMaisValia.toFixed(2)} €
-            </span>
-          </div>
+      </div>
+      <div className="cartoes">
+        <div className="cartao">
+          <span className="cartao-titulo">Valor actual</span>
+          <span className="cartao-valor">{totalPatrimonio.toFixed(2)} €</span>
+        </div>
+        <div className="cartao">
+          <span className="cartao-titulo">Custo total</span>
+          <span className="cartao-valor">{totalCusto.toFixed(2)} €</span>
+        </div>
+        <div className="cartao">
+          <span className="cartao-titulo">+/− valia total</span>
+          <span className={`cartao-valor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+            {totalMaisValia.toFixed(2)} €
+          </span>
         </div>
       </div>
       {/* PENDENTES */}

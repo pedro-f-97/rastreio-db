@@ -64,6 +64,34 @@
     font-weight: var(--font-weight-medium);
 }
 
+.cartoes {
+    display: flex;
+    gap: var(--space-lg);
+}
+
+.cartao {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: var(--space-lg) var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    flex: 1;
+    border-radius: var(--radius-lg);
+}
+
+.cartao-titulo {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.cartao-valor {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+}
+
 .tabela-patrimonio {
     width: 100%;
     border-collapse: collapse;
