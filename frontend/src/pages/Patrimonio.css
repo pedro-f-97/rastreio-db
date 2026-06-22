@@ -31,10 +31,44 @@
     font-family: var(--font-mono);
 }
 
+.patrimonio-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.patrimonio-header h1 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+}
+
+.patrimonio-totais {
+    display: flex;
+    gap: var(--space-2xl);
+}
+
+.total-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-xs);
+}
+
+.total-label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.total-valor {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+}
+
 .tabela-patrimonio {
     width: 100%;
     border-collapse: collapse;
     font-size: var(--text-md);
+    table-layout: fixed;
 }
 
 .tabela-patrimonio th {
@@ -46,6 +80,10 @@
     font-size: var(--text-sm);
     font-weight: var(--font-weight-medium);
     white-space: nowrap;
+}
+
+.tabela-patrimonio th.col-valor {
+    text-align: right;
 }
 
 .tabela-patrimonio td {

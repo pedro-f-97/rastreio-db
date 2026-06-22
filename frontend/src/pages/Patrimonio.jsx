@@ -169,8 +169,37 @@ export default function Patrimonio() {
     }
   }
 
+  const totalPatrimonio = Object.values(resumos).reduce((acc, r) => {
+    return acc + (r.valor_atual ?? 0);
+  }, 0);
+
+  const totalCusto = Object.values(resumos).reduce((acc, r) => {
+    return acc + (r.custo_total ?? 0);
+  }, 0);
+
+  const totalMaisValia = totalPatrimonio - totalCusto;
+
   return (
     <div className="patrimonio-page">
+      <div className="patrimonio-header">
+        <h1>Património</h1>
+        <div className="patrimonio-totais">
+          <div className="total-item">
+            <span className="total-label">Valor actual</span>
+            <span className="total-valor col-mono">{totalPatrimonio.toFixed(2)} €</span>
+          </div>
+          <div className="total-item">
+            <span className="total-label">Custo total</span>
+            <span className="total-valor col-mono">{totalCusto.toFixed(2)} €</span>
+          </div>
+          <div className="total-item">
+            <span className="total-label">+/− valia total</span>
+            <span className={`total-valor col-mono ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+              {totalMaisValia.toFixed(2)} €
+            </span>
+          </div>
+        </div>
+      </div>
       {/* PENDENTES */}
       {pendentes.length > 0 && (
         <section className="secao">
