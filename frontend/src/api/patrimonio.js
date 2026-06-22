@@ -6,6 +6,7 @@ export const getPendentes = () => client.get("/patrimonio/pendentes");
 // --- ATIVOS ---
 export const getAtivos = () => client.get("/patrimonio/ativos");
 export const criarAtivo = (payload) => client.post("/patrimonio/ativos", payload);
+export const getResumoAtivo = (ativoId) => client.get(`/patrimonio/ativos/${ativoId}/resumo`);
 
 // --- MOVIMENTOS ---
 export const criarMovimento = (payload) => client.post("/patrimonio/movimentos", payload);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getPendentes, getAtivos, criarAtivo, criarMovimento, registarPreco, getMovimentos } from "../api/patrimonio";
+import { getPendentes, getAtivos, criarAtivo, criarMovimento, registarPreco, getMovimentos, getResumoAtivo } from "../api/patrimonio";
 import "./Patrimonio.css";
 
 const TIPOS_ATIVO = ["etf", "crypto", "veiculo", "imovel", "outro"];
@@ -30,6 +30,8 @@ export default function Patrimonio() {
   const [modal, setModal] = useState(estadoModalInicial);
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
+  const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '' });
+  const [resumos, setResumos] = useState({});
 
   useEffect(() => {
     carregarDados();
@@ -39,6 +41,15 @@ export default function Patrimonio() {
     const [resPendentes, resAtivos] = await Promise.all([getPendentes(), getAtivos()]);
     setPendentes(resPendentes.data);
     setAtivos(resAtivos.data);
+
+    const resumosNovos = {};
+    await Promise.all(
+      resAtivos.data.map(async (a) => {
+        const res = await getResumoAtivo(a.id);
+        resumosNovos[a.id] = res.data;
+      })
+    );
+    setResumos(resumosNovos);
   }
 
   function abrirModal(transacao) {
@@ -130,6 +141,34 @@ export default function Patrimonio() {
     return acc;
   }, {});
 
+  function abrirModalPreco(ativo) {
+    setModalPreco({ aberto: true, ativo, data: new Date().toISOString().split('T')[0], preco: '' });
+    setErro("");
+  }
+
+  function fecharModalPreco() {
+    setModalPreco({ aberto: false, ativo: null, data: '', preco: '' });
+    setErro("");
+  }
+
+  async function submeterPreco() {
+    if (!modalPreco.preco) { setErro("Preço obrigatório."); return; }
+    setLoading(true);
+    try {
+      await registarPreco({
+        ativo_id: modalPreco.ativo.id,
+        data: modalPreco.data,
+        preco: parseFloat(modalPreco.preco),
+      });
+      fecharModalPreco();
+      await carregarDados();
+    } catch (e) {
+      setErro(e.response?.data?.detail || "Erro ao guardar preço.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="patrimonio-page">
       {/* PENDENTES */}
@@ -171,39 +210,61 @@ export default function Patrimonio() {
           <section key={tipo} className="secao-patrimonio">
             <h2 className="secao-titulo">{LABELS_TIPO[tipo]}</h2>
             <table className="tabela-patrimonio">
+              <colgroup>
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '27%' }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Nome</th>
                   <th>Símbolo</th>
-                  <th>Moeda</th>
+                  <th className="col-valor">Quantidade</th>
+                  <th className="col-valor">Custo total</th>
+                  <th className="col-valor">Valor actual</th>
+                  <th className="col-valor">+/− valia</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {lista.map((ativo) => (
-                  <>
-                    <tr key={ativo.id}>
-                      <td>{ativo.nome}</td>
-                      <td className="col-mono">{ativo.simbolo ?? "—"}</td>
-                      <td>{ativo.moeda}</td>
-                      <td>
-                        <button
-                          className="btn-ghost"
-                          onClick={() => toggleExpandido(ativo.id)}
-                        >
-                          {expandidos[ativo.id] ? "▲ Fechar" : "▼ Movimentos"}
-                        </button>
-                      </td>
-                    </tr>
-                    {expandidos[ativo.id] && (
-                      <tr key={`exp-${ativo.id}`}>
-                        <td colSpan={4}>
-                          <MovimentosAtivo ativoId={ativo.id} />
+                {lista.map((ativo) => {
+                  const r = resumos[ativo.id];
+                  return (
+                    <>
+                      <tr key={ativo.id}>
+                        <td>{ativo.nome}</td>
+                        <td className="col-mono">{ativo.simbolo ?? "—"}</td>
+                        <td className="col-valor col-mono">{r ? r.quantidade : "—"}</td>
+                        <td className="col-valor col-mono">{r ? `${r.custo_total.toFixed(2)} €` : "—"}</td>
+                        <td className="col-valor col-mono">{r?.valor_atual != null ? `${r.valor_atual.toFixed(2)} €` : "—"}</td>
+                        <td className={`col-valor col-mono ${r?.mais_menos_valia != null ? (r.mais_menos_valia >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                          {r?.mais_menos_valia != null ? `${r.mais_menos_valia.toFixed(2)} €` : "—"}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                            <button className="btn-ghost" onClick={() => toggleExpandido(ativo.id)}>
+                              {expandidos[ativo.id] ? "▲ Fechar" : "▼ Movimentos"}
+                            </button>
+                            <button className="btn-ghost" onClick={() => abrirModalPreco(ativo)}>
+                              ◎ Preço
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    )}
-                  </>
-                ))}
+                      {expandidos[ativo.id] && (
+                        <tr key={`exp-${ativo.id}`}>
+                          <td colSpan={7}>
+                            <MovimentosAtivo ativoId={ativo.id} />
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
               </tbody>
             </table>
           </section>
@@ -299,6 +360,44 @@ export default function Patrimonio() {
             )}
 
             <button className="modal-fechar" onClick={fecharModal}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {modalPreco.aberto && (
+        <div className="modal-overlay" onClick={fecharModalPreco}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-titulo">Actualizar preço</h3>
+            <p className="modal-subtitulo">{modalPreco.ativo.nome} {modalPreco.ativo.simbolo ? `· ${modalPreco.ativo.simbolo}` : ''}</p>
+
+            <label className="label">Data
+              <input
+                className="input"
+                type="date"
+                value={modalPreco.data}
+                onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))}
+              />
+            </label>
+            <label className="label">Preço actual (€)
+              <input
+                className="input"
+                type="number"
+                step="0.0001"
+                value={modalPreco.preco}
+                onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))}
+              />
+            </label>
+
+            {erro && <p className="erro">{erro}</p>}
+
+            <div className="modal-acoes">
+              <button className="btn-ghost" onClick={fecharModalPreco}>Cancelar</button>
+              <button className="btn-primario" onClick={submeterPreco} disabled={loading}>
+                {loading ? "A guardar…" : "Guardar"}
+              </button>
+            </div>
+
+            <button className="modal-fechar" onClick={fecharModalPreco}>✕</button>
           </div>
         </div>
       )}

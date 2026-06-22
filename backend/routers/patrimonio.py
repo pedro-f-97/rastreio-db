@@ -102,3 +102,51 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(preco)
     return preco
+
+@router.get("/ativos/{ativo_id}/resumo")
+def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
+    ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()
+    if not ativo:
+        raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+
+    movimentos = (
+        db.query(MovimentoAtivoModel)
+        .filter(MovimentoAtivoModel.ativo_id == ativo_id)
+        .all()
+    )
+
+    quantidade = 0.0
+    custo_total = 0.0
+    for m in movimentos:
+        if m.tipo_movimento.value == "compra":
+            quantidade += float(m.quantidade or 0)
+            custo_total += float(m.valor_total)
+        elif m.tipo_movimento.value == "venda":
+            quantidade -= float(m.quantidade or 0)
+
+    # Preço mais recente
+    preco_atual = (
+        db.query(PrecoAtivoModel)
+        .filter(PrecoAtivoModel.ativo_id == ativo_id)
+        .order_by(PrecoAtivoModel.data.desc())
+        .first()
+    )
+
+    valor_atual = None
+    mais_menos_valia = None
+    if preco_atual:
+        if quantidade > 0:
+            valor_atual = round(quantidade * float(preco_atual.preco), 2)
+        else:
+            valor_atual = float(preco_atual.preco)
+        mais_menos_valia = round(valor_atual - custo_total, 2)
+
+    return {
+        "ativo_id": ativo_id,
+        "quantidade": round(quantidade, 6),
+        "custo_total": round(custo_total, 2),
+        "preco_atual": float(preco_atual.preco) if preco_atual else None,
+        "data_preco": str(preco_atual.data) if preco_atual else None,
+        "valor_atual": valor_atual,
+        "mais_menos_valia": mais_menos_valia,
+    }
