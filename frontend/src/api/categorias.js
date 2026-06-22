@@ -24,8 +24,10 @@ export function criarSubcategoria(categoriaId, nome) {
     return client.post(`/categorias/${categoriaId}/subcategorias`, { nome });
 }
 
-export function renomearSubcategoria(categoriaId, subcategoriaId, nome) {
-    return client.put(`/categorias/${categoriaId}/subcategorias/${subcategoriaId}`, { nome });
+export function renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio = null) {
+    const payload = { nome };
+    if (trataPatrimonio !== null) payload.trata_patrimonio = trataPatrimonio;
+    return client.put(`/categorias/${categoriaId}/subcategorias/${subcategoriaId}`, payload);
 }
 
 export function apagarSubcategoria(categoriaId, subcategoriaId) {

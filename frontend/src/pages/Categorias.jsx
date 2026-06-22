@@ -44,8 +44,8 @@ export default function Categorias() {
         carregar();
     }
 
-    async function aoRenomearSubcategoria(categoriaId, subcategoriaId, nome) {
-        await renomearSubcategoria(categoriaId, subcategoriaId, nome);
+    async function aoRenomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio) {
+        await renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio);
         setEditando({});
         carregar();
     }
@@ -150,21 +150,38 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                     return (
                         <div key={sub.id} className="subcategoria-item">
                             {estaAEditarSub ? (
-                            <input
-                                autoFocus
-                                value={editando.valor}
-                                onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') onRenomearSub(cat.id, sub.id, editando.valor);
-                                    if (e.key === 'Escape') setEditando({});
-                                }}
-                                onBlur={() => onRenomearSub(cat.id, sub.id, editando.valor)}
-                            />
+                                <>
+                                    <input
+                                        autoFocus
+                                        value={editando.valor}
+                                        onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter') onRenomearSub(cat.id, sub.id, editando.valor, editando.trataPatrimonio);
+                                            if (e.key === 'Escape') setEditando({});
+                                        }}
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={!!editando.trataPatrimonio}
+                                            onChange={e => setEditando(prev => ({ ...prev, trataPatrimonio: e.target.checked }))}
+                                            style={{ width: 'auto' }}
+                                        />
+                                        Património
+                                    </label>
+                                    <button className="btn-confirmar" onClick={() => onRenomearSub(cat.id, sub.id, editando.valor, editando.trataPatrimonio)}>✓</button>
+                                    <button className="btn-cancelar" onClick={() => setEditando({})}>✕</button>
+                                </>
                             ) : (
-                                <span>{sub.nome}</span>
+                                <>
+                                    <span>{sub.nome}</span>
+                                    {sub.trata_patrimonio && (
+                                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>P</span>
+                                    )}
+                                </>
                             )}
                             <div className="accoes">
-                                <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome })}>✏️</button>
+                                <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio })}>✏️</button>
                                 <button className="btn-apagar" onClick={() => onApagarSub(cat.id, sub.id)}>🗑</button>
                             </div>
                         </div>

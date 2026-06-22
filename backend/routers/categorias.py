@@ -21,7 +21,7 @@ def listar_categorias(db: Session = Depends(get_db)):
             "nome": cat.nome,
             "tipo": cat.tipo.value,
             "subcategorias": [
-                {"id": sub.id, "nome": sub.nome}
+                {"id": sub.id, "nome": sub.nome, "trata_patrimonio": sub.trata_patrimonio}
                 for sub in cat.subcategorias
             ]
         }
@@ -80,6 +80,8 @@ def renomear_subcategoria(categoria_id: int, subcategoria_id: int, subcategoria:
     if not sub:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
     sub.nome = subcategoria.nome
+    if subcategoria.trata_patrimonio is not None:
+        sub.trata_patrimonio = subcategoria.trata_patrimonio
     db.commit()
     db.refresh(sub)
     return sub

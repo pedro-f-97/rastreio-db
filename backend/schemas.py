@@ -23,6 +23,7 @@ class SubcategoriaBase(BaseModel):
 
 class SubcategoriaCreate(BaseModel):
     nome: str
+    trata_patrimonio: Optional[bool] = None
 
 class Subcategoria(SubcategoriaBase):
     id: int
