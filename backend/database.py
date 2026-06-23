@@ -50,6 +50,18 @@ class TipoMovimento(enum.Enum):
     venda     = "venda"
     dividendo = "dividendo"
 
+class Conta(Base):
+    __tablename__ = "contas"
+
+    id:               Mapped[int] = mapped_column(primary_key=True)
+    nome:             Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    saldo_referencia: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    data_referencia:  Mapped[date] = mapped_column(Date, nullable=False)
+    ativa:            Mapped[bool] = mapped_column(Boolean, default=True)
+
+    transacoes:        Mapped[List["Transacao"]] = relationship("Transacao", back_populates="conta")
+    perfis_importacao: Mapped[List["PerfilImportacao"]] = relationship("PerfilImportacao", back_populates="conta")
+
 class Categoria(Base):
     __tablename__ = "categorias"
 
@@ -85,6 +97,9 @@ class Transacao(Base):
     
     categoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categorias.id"))
     subcategoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subcategorias.id"))
+
+    conta_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contas.id"))
+    conta:    Mapped[Optional["Conta"]] = relationship("Conta", back_populates="transacoes")
 
     categoria: Mapped[Optional["Categoria"]] = relationship("Categoria")
     subcategoria: Mapped[Optional["Subcategoria"]] = relationship("Subcategoria", back_populates="transacoes")
@@ -131,6 +146,8 @@ class PerfilImportacao(Base):
 
     tem_saldo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     coluna_saldo: Mapped[Optional[int]] = mapped_column()
+    conta_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contas.id"))
+    conta:    Mapped[Optional["Conta"]] = relationship("Conta", back_populates="perfis_importacao")
 
 class Ativo(Base):
     __tablename__ = "ativos"
