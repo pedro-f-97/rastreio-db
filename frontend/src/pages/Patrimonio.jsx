@@ -307,7 +307,7 @@ export default function Patrimonio() {
       {/* MODAL */}
       {modal.aberto && (
         <div className="modal-overlay" onClick={fecharModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal-patrimonio" onClick={(e) => e.stopPropagation()}>
             <h3 className="modal-titulo">Tratar pendente</h3>
             <p className="modal-subtitulo">{modal.transacao.descricao} · {modal.transacao.data} · {modal.transacao.valor.toFixed(2)} €</p>
 
@@ -395,7 +395,7 @@ export default function Patrimonio() {
 
       {modalPreco.aberto && (
         <div className="modal-overlay" onClick={fecharModalPreco}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal-patrimonio" onClick={(e) => e.stopPropagation()}>
             <h3 className="modal-titulo">Actualizar preço</h3>
             <p className="modal-subtitulo">{modalPreco.ativo.nome} {modalPreco.ativo.simbolo ? `· ${modalPreco.ativo.simbolo}` : ''}</p>
 

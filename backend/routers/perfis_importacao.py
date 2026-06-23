@@ -4,6 +4,7 @@ from database import SessionLocal, PerfilImportacao as PerfilImportacaoModel
 from schemas import PerfilImportacaoCreate, PerfilImportacao as PerfilImportacaoSchema
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from openpyxl import load_workbook
+import schemas
 import io
 
 router = APIRouter(prefix="/perfis-importacao", tags=["perfis-importacao"])
@@ -74,3 +75,12 @@ def eliminar_perfil(perfil_id: int, db: Session = Depends(get_db)):
     db.delete(perfil)
     db.commit()
 
+@router.patch("/{perfil_id}/conta")
+def associar_conta(perfil_id: int, dados: schemas.AssociarConta, db: Session = Depends(get_db)):
+    perfil = db.query(PerfilImportacaoModel).filter(PerfilImportacaoModel.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    perfil.conta_id = dados.conta_id
+    db.commit()
+    db.refresh(perfil)
+    return {"ok": True, "conta_id": perfil.conta_id}

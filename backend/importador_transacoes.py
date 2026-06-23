@@ -16,7 +16,7 @@ def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
                 transacao.subcategoria_id = regra.subcategoria_id
             break
 
-def importar_transacoes(transacoes_parsed: list[dict], db: Session) -> dict:
+def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: int | None = None) -> dict:
     if os.path.exists(DB_PATH):
         shutil.copy2(DB_PATH, DB_PATH + ".pre_import")
 
@@ -48,6 +48,7 @@ def importar_transacoes(transacoes_parsed: list[dict], db: Session) -> dict:
                 descricao=t["descricao"],
                 valor=t["valor"],
                 saldo=t["saldo"],
+                conta_id=conta_id,
             )
             aplicar_regras(nova, regras)
             db.add(nova)

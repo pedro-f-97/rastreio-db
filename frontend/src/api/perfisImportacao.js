@@ -11,3 +11,6 @@ export const analisarFicheiro = (file) => {
     form.append('file', file)
     return axios.post(`${BASE}/analisar-ficheiro`, form)
 }
+export function associarContaPerfil(perfilId, contaId) {
+    return axios.patch(`/api/perfis-importacao/${perfilId}/conta`, { conta_id: contaId })
+}

@@ -467,6 +467,13 @@
     flex-shrink: 0;
 }
 
+.modal-perfil {
+    width: 80vw;
+    max-width: 80vw;
+    max-height: 90vh;
+    padding: 0;
+}
+
 .btn-primario {
     background-color: var(--accent);
     border-color: var(--accent);

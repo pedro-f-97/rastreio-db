@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { listarPerfis, criarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
+import { listarPerfis, criarPerfil, eliminarPerfil, analisarFicheiro, associarContaPerfil } from '../api/perfisImportacao'
 import { previewExtrato, importarExtrato } from '../api/importacao'
+import { getContas } from '../api/contas'
 import './Importacao.css'
 
 const FORMATOS_DATA = [
@@ -33,6 +34,7 @@ const PERFIL_VAZIO = {
     separador_decimal: '.',
     tem_saldo: false,
     coluna_saldo: null,
+    conta_id: null,
 }
 
 function itemChecklist(label, preenchido) {
@@ -54,7 +56,12 @@ export default function Importacao() {
     const [resultado, setResultado] = useState(null)
     const inputFicheiroRef = useRef(null)
 
-    useEffect(() => { carregar() }, [])
+    const [contas, setContas] = useState([])
+
+    useEffect(() => {
+        carregar()
+        getContas().then(res => setContas(res.data))
+    }, [])
 
     async function carregar() {
         const res = await listarPerfis()
@@ -219,6 +226,7 @@ export default function Importacao() {
                                 <th>Ficheiro</th>
                                 <th>Modo valor</th>
                                 <th>Início dados</th>
+                                <th>Conta</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -229,6 +237,9 @@ export default function Importacao() {
                                     <td>{p.tipo_ficheiro}</td>
                                     <td>{p.modo_valor}</td>
                                     <td>linha {p.linha_inicio_dados}</td>
+                                    <td>
+                                    <td>{contas.find(c => c.id === p.conta_id)?.nome ?? '—'}</td>
+                                    </td>
                                     <td className="importacao-accoes">
                                         <button className="btn-perigo" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
                                     </td>
@@ -337,7 +348,7 @@ export default function Importacao() {
             {/* MODAL: PERFIL */}
             {modalAberto && (
                 <div className="modal-overlay" onClick={fecharModal}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
+                    <div className="modal modal-perfil" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>Novo perfil</h3>
                             <button className="modal-fechar" onClick={fecharModal}>✕</button>
@@ -484,6 +495,15 @@ export default function Importacao() {
                                             <input type="checkbox" checked={form.tem_saldo} onChange={e => campo('tem_saldo', e.target.checked)} />
                                             O ficheiro tem coluna de saldo
                                         </label>
+                                    </div>
+                                    <div className="modal-grupo">
+                                        <label>Conta bancária</label>
+                                        <select value={form.conta_id ?? ''} onChange={e => campo('conta_id', e.target.value ? parseInt(e.target.value) : null)}>
+                                            <option value="">Sem conta</option>
+                                            {contas.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nome}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             </div>

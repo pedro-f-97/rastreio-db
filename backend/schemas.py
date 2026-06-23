@@ -79,6 +79,7 @@ class PerfilImportacaoBase(BaseModel):
     separador_decimal: str = "."
     tem_saldo: bool = False
     coluna_saldo: Optional[int] = None
+    conta_id: Optional[int] = None
 
     @model_validator(mode='after')
     def validar_perfil(self):
@@ -176,3 +177,6 @@ class ContaUpdate(BaseModel):
 class Conta(ContaBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+class AssociarConta(BaseModel):
+    conta_id: Optional[int] = None
