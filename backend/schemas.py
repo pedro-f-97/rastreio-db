@@ -156,3 +156,23 @@ class TransacaoPendente(BaseModel):
     valor: float
     subcategoria_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
+
+# --- SCHEMAS DE CONTA ---
+class ContaBase(BaseModel):
+    nome: str
+    saldo_referencia: float = 0.0
+    data_referencia: date
+    ativa: bool = True
+
+class ContaCreate(ContaBase):
+    pass
+
+class ContaUpdate(BaseModel):
+    nome: Optional[str] = None
+    saldo_referencia: Optional[float] = None
+    data_referencia: Optional[date] = None
+    ativa: Optional[bool] = None
+
+class Conta(ContaBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
