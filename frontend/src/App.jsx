@@ -12,6 +12,7 @@ import { totalPorCategorizar } from './api/transacoes'
 import Importacao from './pages/Importacao'
 import Patrimonio from './pages/Patrimonio'
 import { getPendentes } from './api/patrimonio'
+import Contas from './pages/Contas'
 
 const GRUPOS_NAV = [
   {
@@ -23,11 +24,12 @@ const GRUPOS_NAV = [
     ],
   },
   {
-    label: 'Configuração',
-    items: [
-      { to: '/categorias', label: 'Categorias' },
-      { to: '/regras', label: 'Regras' },
-    ],
+      label: 'Configuração',
+      items: [
+          { to: '/categorias', label: 'Categorias' },
+          { to: '/regras', label: 'Regras' },
+          { to: '/contas', label: 'Contas' },
+      ],
   },
   {
     label: 'Análise',
@@ -180,6 +182,7 @@ function App() {
                 <Route path="/importacao" element={<Importacao />} />
                 <Route path="*" element={<Navigate to="/" />} />
                 <Route path="/patrimonio" element={<Patrimonio />} />
+                <Route path="/contas" element={<Contas />} />
               </>
             }
           </Routes>
