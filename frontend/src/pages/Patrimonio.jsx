@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getPendentes, getAtivos, criarAtivo, criarMovimento, registarPreco, getMovimentos, getResumoAtivo } from "../api/patrimonio";
+import { getContas, getSaldoConta } from "../api/contas";
 import "./Patrimonio.css";
 
 const TIPOS_ATIVO = ["etf", "crypto", "veiculo", "imovel", "outro"];
@@ -11,21 +12,20 @@ const estadoModalInicial = {
   transacao: null,
   passo: 1,
   tipoAtivo: "",
-  // campos comuns
   simbolo: "",
   nomeAtivo: "",
   tipoMovimento: "compra",
-  // ETF/Crypto
   quantidade: "",
   precoUnitario: "",
   comissao: "",
-  // Veículo/Imóvel/Outro
   valorTotal: "",
 };
 
 export default function Patrimonio() {
   const [pendentes, setPendentes] = useState([]);
   const [ativos, setAtivos] = useState([]);
+  const [contas, setContas] = useState([]); // [{ ...conta, saldo_atual }]
+  const [seccoesExpandidas, setSeccoesExpandidas] = useState({});
   const [expandidos, setExpandidos] = useState({});
   const [modal, setModal] = useState(estadoModalInicial);
   const [erro, setErro] = useState("");
@@ -38,9 +38,22 @@ export default function Patrimonio() {
   }, []);
 
   async function carregarDados() {
-    const [resPendentes, resAtivos] = await Promise.all([getPendentes(), getAtivos()]);
+    const [resPendentes, resAtivos, resContas] = await Promise.all([
+      getPendentes(),
+      getAtivos(),
+      getContas(false),
+    ]);
     setPendentes(resPendentes.data);
     setAtivos(resAtivos.data);
+
+    // Carrega saldo de cada conta
+    const contasComSaldo = await Promise.all(
+      resContas.data.map(async (c) => {
+        const res = await getSaldoConta(c.id);
+        return { ...c, saldo_atual: res.data.saldo_atual };
+      })
+    );
+    setContas(contasComSaldo);
 
     const resumosNovos = {};
     await Promise.all(
@@ -66,6 +79,10 @@ export default function Patrimonio() {
     setExpandidos((prev) => ({ ...prev, [ativoId]: !prev[ativoId] }));
   }
 
+  function toggleSeccao(tipo) {
+    setSeccoesExpandidas((prev) => ({ ...prev, [tipo]: !prev[tipo] }));
+  }
+
   async function submeterModal() {
     setErro("");
     setLoading(true);
@@ -73,13 +90,11 @@ export default function Patrimonio() {
       const { transacao, tipoAtivo, simbolo, nomeAtivo, tipoMovimento, quantidade, precoUnitario, comissao, valorTotal } = modal;
       const comUnidades = TIPOS_COM_UNIDADES.includes(tipoAtivo);
 
-      // Validação
       if (!tipoAtivo) { setErro("Selecciona o tipo de ativo."); setLoading(false); return; }
       if (!nomeAtivo.trim()) { setErro("Nome do ativo obrigatório."); setLoading(false); return; }
       if (comUnidades && (!quantidade || !precoUnitario)) { setErro("Quantidade e preço unitário obrigatórios."); setLoading(false); return; }
       if (!comUnidades && !valorTotal) { setErro("Valor total obrigatório."); setLoading(false); return; }
 
-      // Resolve ativo — procura por símbolo ou cria novo
       let ativo = null;
       if (comUnidades && simbolo.trim()) {
         ativo = ativos.find((a) => a.simbolo?.toLowerCase() === simbolo.trim().toLowerCase());
@@ -94,7 +109,6 @@ export default function Patrimonio() {
         ativo = res.data;
       }
 
-      // Calcula valor_total
       let valorFinal;
       if (comUnidades) {
         const q = parseFloat(quantidade);
@@ -105,7 +119,6 @@ export default function Patrimonio() {
         valorFinal = parseFloat(valorTotal);
       }
 
-      // Cria movimento
       await criarMovimento({
         ativo_id: ativo.id,
         transacao_id: transacao.id,
@@ -117,7 +130,6 @@ export default function Patrimonio() {
         valor_total: valorFinal,
       });
 
-      // Para veículo/imóvel/outro — regista também preço actual
       if (!comUnidades) {
         await registarPreco({
           ativo_id: ativo.id,
@@ -135,7 +147,6 @@ export default function Patrimonio() {
     }
   }
 
-  // Agrupa ativos por tipo
   const ativosPorTipo = TIPOS_ATIVO.reduce((acc, tipo) => {
     acc[tipo] = ativos.filter((a) => a.tipo === tipo);
     return acc;
@@ -169,37 +180,40 @@ export default function Patrimonio() {
     }
   }
 
-  const totalPatrimonio = Object.values(resumos).reduce((acc, r) => {
-    return acc + (r.valor_atual ?? 0);
-  }, 0);
-
-  const totalCusto = Object.values(resumos).reduce((acc, r) => {
-    return acc + (r.custo_total ?? 0);
-  }, 0);
-
-  const totalMaisValia = totalPatrimonio - totalCusto;
+  const totalInvestimentos = Object.values(resumos).reduce((acc, r) => acc + (r.valor_atual ?? 0), 0);
+  const totalLiquidez = contas.reduce((acc, c) => acc + (c.saldo_atual ?? 0), 0);
+  const totalPatrimonio = totalLiquidez + totalInvestimentos;
+  const totalCusto = Object.values(resumos).reduce((acc, r) => acc + (r.custo_total ?? 0), 0);
+  const totalMaisValia = totalInvestimentos - totalCusto;
 
   return (
     <div className="patrimonio-page">
       <div className="patrimonio-header">
         <h1>Património</h1>
       </div>
+
+      {/* CARTÕES DE TOPO */}
       <div className="cartoes">
-        <div className="cartao">
-          <span className="cartao-titulo">Valor actual</span>
-          <span className="cartao-valor">{totalPatrimonio.toFixed(2)} €</span>
+        <div className="cartao cartao-destaque">
+          <span className="cartao-titulo">Património total</span>
+          <span className="cartao-valor">{totalPatrimonio.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
         </div>
         <div className="cartao">
-          <span className="cartao-titulo">Custo total</span>
-          <span className="cartao-valor">{totalCusto.toFixed(2)} €</span>
+          <span className="cartao-titulo">Liquidez</span>
+          <span className="cartao-valor">{totalLiquidez.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
         </div>
         <div className="cartao">
-          <span className="cartao-titulo">+/− valia total</span>
+          <span className="cartao-titulo">Investimentos</span>
+          <span className="cartao-valor">{totalInvestimentos.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+        </div>
+        <div className="cartao">
+          <span className="cartao-titulo">+/− valia</span>
           <span className={`cartao-valor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
-            {totalMaisValia.toFixed(2)} €
+            {totalMaisValia.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
           </span>
         </div>
       </div>
+
       {/* PENDENTES */}
       {pendentes.length > 0 && (
         <section className="secao">
@@ -231,80 +245,107 @@ export default function Patrimonio() {
         </section>
       )}
 
+      {/* LIQUIDEZ */}
+      <section className="secao">
+        <h2 className="secao-titulo">Liquidez</h2>
+        <div className="cartoes-liquidez">
+          {contas.length === 0 && (
+            <p className="estado-vazio">Nenhuma conta activa.</p>
+          )}
+          {contas.map((c) => (
+            <div key={c.id} className="cartao-conta">
+              <span className="cartao-conta-nome">{c.nome}</span>
+              <span className="cartao-conta-saldo">
+                {c.saldo_atual.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
+              </span>
+              <span className="cartao-conta-detalhe">
+                ref. {Number(c.saldo_referencia).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} € em {c.data_referencia}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ATIVOS POR TIPO */}
       {TIPOS_ATIVO.map((tipo) => {
         const lista = ativosPorTipo[tipo];
         if (lista.length === 0) return null;
+        const expandida = seccoesExpandidas[tipo] ?? false;
         return (
           <section key={tipo} className="secao-patrimonio">
-            <h2 className="secao-titulo">{LABELS_TIPO[tipo]}</h2>
-            <table className="tabela-patrimonio">
-              <colgroup>
-                <col style={{ width: '25%' }} />
-                <col style={{ width: '8%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '27%' }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Símbolo</th>
-                  <th className="col-valor">Quantidade</th>
-                  <th className="col-valor">Custo total</th>
-                  <th className="col-valor">Valor actual</th>
-                  <th className="col-valor">+/− valia</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((ativo) => {
-                  const r = resumos[ativo.id];
-                  return (
-                    <>
-                      <tr key={ativo.id}>
-                        <td>{ativo.nome}</td>
-                        <td className="col-mono">{ativo.simbolo ?? "—"}</td>
-                        <td className="col-valor col-mono">{r ? r.quantidade : "—"}</td>
-                        <td className="col-valor col-mono">{r ? `${r.custo_total.toFixed(2)} €` : "—"}</td>
-                        <td className="col-valor col-mono">{r?.valor_atual != null ? `${r.valor_atual.toFixed(2)} €` : "—"}</td>
-                        <td className={`col-valor col-mono ${r?.mais_menos_valia != null ? (r.mais_menos_valia >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
-                          {r?.mais_menos_valia != null ? `${r.mais_menos_valia.toFixed(2)} €` : "—"}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                            <button className="btn-ghost" onClick={() => toggleExpandido(ativo.id)}>
-                              {expandidos[ativo.id] ? "▲ Fechar" : "▼ Movimentos"}
-                            </button>
-                            <button className="btn-ghost" onClick={() => abrirModalPreco(ativo)}>
-                              ◎ Preço
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {expandidos[ativo.id] && (
-                        <tr key={`exp-${ativo.id}`}>
-                          <td colSpan={7}>
-                            <MovimentosAtivo ativoId={ativo.id} />
+            <button className="secao-titulo-colapsavel" onClick={() => toggleSeccao(tipo)}>
+              <span>{LABELS_TIPO[tipo]}</span>
+              <span className="secao-chevron">{expandida ? "▲" : "▼"}</span>
+            </button>
+            {expandida && (
+              <table className="tabela-patrimonio">
+                <colgroup>
+                  <col style={{ width: '25%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '27%' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Símbolo</th>
+                    <th className="col-valor">Quantidade</th>
+                    <th className="col-valor">Custo total</th>
+                    <th className="col-valor">Valor actual</th>
+                    <th className="col-valor">+/− valia</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lista.map((ativo) => {
+                    const r = resumos[ativo.id];
+                    return (
+                      <>
+                        <tr key={ativo.id}>
+                          <td>{ativo.nome}</td>
+                          <td className="col-mono">{ativo.simbolo ?? "—"}</td>
+                          <td className="col-valor col-mono">{r ? r.quantidade : "—"}</td>
+                          <td className="col-valor col-mono">{r ? `${r.custo_total.toFixed(2)} €` : "—"}</td>
+                          <td className="col-valor col-mono">{r?.valor_atual != null ? `${r.valor_atual.toFixed(2)} €` : "—"}</td>
+                          <td className={`col-valor col-mono ${r?.mais_menos_valia != null ? (r.mais_menos_valia >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                            {r?.mais_menos_valia != null ? `${r.mais_menos_valia.toFixed(2)} €` : "—"}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                              <button className="btn-ghost" onClick={() => toggleExpandido(ativo.id)}>
+                                {expandidos[ativo.id] ? "▲ Fechar" : "▼ Movimentos"}
+                              </button>
+                              <button className="btn-ghost" onClick={() => abrirModalPreco(ativo)}>
+                                ◎ Preço
+                              </button>
+                            </div>
                           </td>
                         </tr>
-                      )}
-                    </>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {expandidos[ativo.id] && (
+                          <tr key={`exp-${ativo.id}`}>
+                            <td colSpan={7}>
+                              <MovimentosAtivo ativoId={ativo.id} />
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </section>
         );
       })}
 
-      {pendentes.length === 0 && ativos.length === 0 && (
-        <p className="estado-vazio">Sem dados de património. Marca subcategorias com "trata património" para começar.</p>
+      {pendentes.length === 0 && ativos.length === 0 && contas.length === 0 && (
+        <p className="estado-vazio">Sem dados de património.</p>
       )}
 
-      {/* MODAL */}
+      {/* MODAL TRATAR PENDENTE */}
       {modal.aberto && (
         <div className="modal-overlay" onClick={fecharModal}>
           <div className="modal modal-patrimonio" onClick={(e) => e.stopPropagation()}>
@@ -393,6 +434,7 @@ export default function Patrimonio() {
         </div>
       )}
 
+      {/* MODAL PREÇO */}
       {modalPreco.aberto && (
         <div className="modal-overlay" onClick={fecharModalPreco}>
           <div className="modal modal-patrimonio" onClick={(e) => e.stopPropagation()}>
@@ -400,21 +442,10 @@ export default function Patrimonio() {
             <p className="modal-subtitulo">{modalPreco.ativo.nome} {modalPreco.ativo.simbolo ? `· ${modalPreco.ativo.simbolo}` : ''}</p>
 
             <label className="label">Data
-              <input
-                className="input"
-                type="date"
-                value={modalPreco.data}
-                onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))}
-              />
+              <input className="input" type="date" value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
             </label>
             <label className="label">Preço actual (€)
-              <input
-                className="input"
-                type="number"
-                step="0.0001"
-                value={modalPreco.preco}
-                onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))}
-              />
+              <input className="input" type="number" step="0.0001" value={modalPreco.preco} onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))} />
             </label>
 
             {erro && <p className="erro">{erro}</p>}

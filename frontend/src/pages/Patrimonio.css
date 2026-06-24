@@ -276,3 +276,71 @@
     color: var(--danger);
     font-size: var(--text-sm);
 }
+
+/* Cartão de destaque (Património total) */
+.cartao-destaque {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary));
+}
+
+/* Secção Liquidez — cartões por conta */
+.cartoes-liquidez {
+    display: flex;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+}
+
+.cartao-conta {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: var(--space-lg) var(--space-xl);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    min-width: 200px;
+}
+
+.cartao-conta-nome {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.cartao-conta-saldo {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+}
+
+.cartao-conta-detalhe {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+/* Secções de ativos colapsáveis */
+.secao-titulo-colapsavel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: var(--space-md);
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+}
+
+.secao-titulo-colapsavel:hover {
+    color: var(--accent);
+}
+
+.secao-chevron {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
