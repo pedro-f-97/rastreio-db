@@ -79,11 +79,12 @@ class PerfilImportacaoBase(BaseModel):
     separador_decimal: str = "."
     tem_saldo: bool = False
     coluna_saldo: Optional[int] = None
+    coluna_fee: Optional[int] = None
     conta_id: Optional[int] = None
 
     @model_validator(mode='after')
     def validar_perfil(self):
-        for campo in ['coluna_data', 'coluna_descricao', 'coluna_valor', 'coluna_debito', 'coluna_credito', 'coluna_saldo']:
+        for campo in ['coluna_data', 'coluna_descricao', 'coluna_valor', 'coluna_debito', 'coluna_credito', 'coluna_saldo', 'coluna_fee']:
             v = getattr(self, campo)
             if v is not None and v < 0:
                 raise ValueError(f"{campo} não pode ser negativo")

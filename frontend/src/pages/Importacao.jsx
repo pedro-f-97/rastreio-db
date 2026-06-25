@@ -18,6 +18,7 @@ const CAMPOS_COLUNA = [
     { chave: 'coluna_debito', label: 'Coluna débito', condicao: (f) => f.modo_valor === 'duas_colunas' },
     { chave: 'coluna_credito', label: 'Coluna crédito', condicao: (f) => f.modo_valor === 'duas_colunas' },
     { chave: 'coluna_saldo', label: 'Coluna saldo', condicao: (f) => f.tem_saldo },
+    { chave: 'coluna_fee', label: 'Coluna fee', condicao: (f) => f.tem_fee },  
 ]
 
 const PERFIL_VAZIO = {
@@ -34,6 +35,8 @@ const PERFIL_VAZIO = {
     separador_decimal: '.',
     tem_saldo: false,
     coluna_saldo: null,
+    tem_fee: false,      
+    coluna_fee: null,    
     conta_id: null,
 }
 
@@ -132,6 +135,9 @@ export default function Importacao() {
         }
         if (form.tem_saldo) {
             items.push(itemChecklist('Coluna saldo', form.coluna_saldo !== null))
+        }
+        if (form.tem_fee) {
+            items.push(itemChecklist('Coluna fee', form.coluna_fee !== null))
         }
         return items
     }
@@ -494,6 +500,15 @@ export default function Importacao() {
                                         <label>
                                             <input type="checkbox" checked={form.tem_saldo} onChange={e => campo('tem_saldo', e.target.checked)} />
                                             O ficheiro tem coluna de saldo
+                                        </label>
+                                    </div>
+                                    <div className="modal-grupo modal-grupo-checkbox">
+                                        <label>
+                                            <input type="checkbox" checked={form.tem_fee} onChange={e => {
+                                                campo('tem_fee', e.target.checked)
+                                                if (!e.target.checked) campo('coluna_fee', null)
+                                            }} />
+                                            O ficheiro tem coluna de fee/comissão
                                         </label>
                                     </div>
                                     <div className="modal-grupo">

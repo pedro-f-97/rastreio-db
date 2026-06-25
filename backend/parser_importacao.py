@@ -101,6 +101,11 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
                 credito = _parse_valor(raw_credito, perfil.separador_decimal) if raw_credito not in (None, "", "None") else 0.0
                 valor = credito - debito
 
+            if perfil.coluna_fee is not None:
+                raw_fee = celula(perfil.coluna_fee)
+                if raw_fee not in (None, "", "None"):
+                    valor += _parse_valor(raw_fee, perfil.separador_decimal)
+
             saldo = None
             if perfil.tem_saldo and perfil.coluna_saldo is not None:
                 raw_saldo = celula(perfil.coluna_saldo)

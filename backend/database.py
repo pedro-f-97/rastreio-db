@@ -146,6 +146,7 @@ class PerfilImportacao(Base):
 
     tem_saldo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     coluna_saldo: Mapped[Optional[int]] = mapped_column()
+    coluna_fee: Mapped[Optional[int]] = mapped_column() 
     conta_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contas.id"))
     conta:    Mapped[Optional["Conta"]] = relationship("Conta", back_populates="perfis_importacao")
 
