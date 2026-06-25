@@ -144,6 +144,7 @@ export default function TabelaTransacoes({
                             <th>Categoria</th>
                             <th>Subcategoria</th>
                             <th>Reembolso</th>
+                            <th>Conta</th>
                             <th>Notas</th>
                         </tr>
                     </thead>
@@ -194,6 +195,8 @@ export default function TabelaTransacoes({
                                         }
                                     />
                                 </td>
+
+                                <td>{t.conta_nome ?? '—'}</td>
 
                                 <td>
                                     <input

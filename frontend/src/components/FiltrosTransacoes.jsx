@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { listarSubcategorias } from '../api/categorias';
 
-export default function FiltrosTransacoes({ filtros, categorias, onChange }) {
+export default function FiltrosTransacoes({ filtros, categorias, contas = [], onChange }) {
     const anoActual = new Date().getFullYear();
     const anos = Array.from({ length: 5 }, (_, i) => anoActual - i);
     const meses = [
@@ -54,6 +54,13 @@ export default function FiltrosTransacoes({ filtros, categorias, onChange }) {
             >
                 <option value="">Todas as subcategorias</option>
                 {subcategorias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+            <select
+                value={filtros.conta_id ?? ''}
+                onChange={e => onChange({ conta_id: e.target.value ? Number(e.target.value) : null })}
+            >
+                <option value="">Todas as contas</option>
+                {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
             <select
                 value={filtros.sinal ?? ''}

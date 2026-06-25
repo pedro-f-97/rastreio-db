@@ -29,6 +29,7 @@ def listar_transacoes(
     ano: Optional[int] = Query(None, ge=2000),
     categoria_id: Optional[int] = Query(None),
     subcategoria_id: Optional[int] = Query(None),
+    conta_id: Optional[int] = Query(None),
     sinal: Optional[str] = Query(None),
     por_categorizar: bool = Query(False),
     descricao: Optional[str] = Query(None),
@@ -50,6 +51,8 @@ def listar_transacoes(
         query = query.filter(Transacao.valor > 0)
     if descricao:
         query = query.filter(Transacao.descricao.ilike(f"%{descricao}%"))
+    if conta_id:
+        query = query.filter(Transacao.conta_id == conta_id)
     if por_categorizar:
         query = query.filter(
             (Transacao.categoria_id == None) | (Transacao.subcategoria_id == None)
@@ -75,6 +78,8 @@ def listar_transacoes(
                 "categoria_nome": t.categoria.nome if t.categoria else None,
                 "subcategoria_id": t.subcategoria_id,
                 "subcategoria_nome": t.subcategoria.nome if t.subcategoria else None,
+                "conta_id": t.conta_id,
+                "conta_nome": t.conta.nome if t.conta else None,
             }
             for t in items
         ]

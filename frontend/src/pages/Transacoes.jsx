@@ -5,6 +5,7 @@ import TabelaTransacoes from '../components/TabelaTransacoes';
 import FiltrosTransacoes from '../components/FiltrosTransacoes';
 import { listarRegras, criarRegra } from '../api/regras';
 import { exportarBackup, importarBackup } from '../api/backups';
+import { getContas } from '../api/contas';
 import './Transacoes.css';
 
 export default function Transacoes() {
@@ -12,6 +13,7 @@ export default function Transacoes() {
     const [transacoes, setTransacoes] = useState([]);
     const [categorias, setCategorias] = useState([]);
     const [total, setTotal] = useState(0);
+    const [contas, setContas] = useState([]);
 
     // Filtros e paginação
     const [filtros, setFiltros] = useState({
@@ -21,6 +23,7 @@ export default function Transacoes() {
         ano: null,
         categoria_id: null,
         subcategoria_id: null,
+        conta_id: null,       // ← linha nova
         sinal: null,
         descricao: null,
     });
@@ -81,6 +84,7 @@ export default function Transacoes() {
     useEffect(() => {
         listarCategorias().then(res => setCategorias(res.data));
         listarRegras().then(res => setRegras(res.data));
+        getContas().then(res => setContas(res.data));
     }, []);
 
     function mudarFiltro(novosFiltros) {
@@ -130,6 +134,7 @@ export default function Transacoes() {
             <FiltrosTransacoes
                 filtros={filtros}
                 categorias={categorias}
+                contas={contas}         
                 onChange={mudarFiltro}
             />
 
