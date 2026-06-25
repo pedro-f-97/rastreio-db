@@ -17,12 +17,22 @@ O Excel como ferramenta de controlo financeiro acumula limitações que se torna
 
 ## Funcionalidades
 
-- Importação de extratos bancários em Excel ou CSV, com perfis de mapeamento de colunas configuráveis por banco e deteção automática de duplicados por `data + descrição + valor + saldo`
-- Categorização automática por regras de substring, com sugestões de novas regras durante o uso
-- Edição inline de categoria, subcategoria, reembolso e notas directamente na tabela de transações
-- Filtros por ano, mês e categoria; filtro rápido de transações por categorizar
-- Aplicação de regras em massa com resolução individual de conflitos
-- Estatísticas com resumo mensal, gráfico de evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais
+### Transações
+- **Transações** — listagem paginada com edição inline de categoria, subcategoria, reembolso e notas; filtros por ano, mês e categoria; filtro rápido de transações por categorizar; categorização automática por regras de substring com sugestões de novas regras; aplicação de regras em massa com resolução individual de conflitos
+- **Histórico** — totais agregados por ano e mês, com drill-down por categoria dentro de cada mês
+- **Importação** — suporte a Excel e CSV, com perfis de mapeamento de colunas configuráveis por banco e detecção automática de duplicados por `data + descrição + valor + saldo`
+
+### Configuração
+- **Categorias** — CRUD completo com definição de tipo (`despesa`, `receita`, `investimento`, `transferencia`) e subcategorias opcionais
+- **Regras** — regras de categorização automática por correspondência de substring
+- **Contas** — CRUD de contas bancárias
+
+### Análise
+- **Estatísticas** — resumo mensal, gráfico de evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais
+- **Património** — acompanhamento de activos com movimentos, valorização ao longo do tempo e totais por tipo
+
+### Geral
+- Tema claro/escuro com persistência entre sessões
 - Backup e restauro da base de dados com auto-backup de segurança antes de cada restauro
 - Ecrã de primeiro uso com inicialização opcional de categorias predefinidas
 
@@ -113,13 +123,13 @@ Este projeto está licenciado sob a [GNU General Public License v3.0](LICENSE).
 
 ## Roadmap
 
-- Refinar estilos e consistência visual entre páginas
-- Botão para alternar "Modo Dark/Light"
-- Melhorar e adicionar estatísticas
+- Consistência visual e refinamento de estilos nas páginas de Contas e Património
 - Exportação de transações para Excel/CSV
 - Exportação de relatório de estatísticas
 - Modo de revisão de importação — confirmar/rejeitar transações individualmente antes de inserir na BD
-- Possibilidade de ligação a BD 
+- Possibilidade de ligação a BD remota
+- Integração opcional com API de preços de mercado (com toggle)
+- Vista IRS — ganhos realizados agrupados por categoria de activo
 
 ## Arquitectura
 
@@ -143,14 +153,16 @@ rastreio-db/
 │   ├── tray.py                     # Janela de controlo (abrir browser / encerrar)
 │   ├── requirements.txt
 │   └── routers/
-│       ├── categorias.py           # CRUD de categorias e subcategorias
-│       ├── transacoes.py           # Listagem paginada e edição de transações
-│       ├── regras.py               # Regras de categorização automática
-│       ├── perfis_importacao.py    # CRUD de perfis de mapeamento por banco
-│       ├── importacao.py           # Preview e importação de extratos bancários
-│       ├── estatisticas.py         # Endpoints de estatísticas e resumos
 │       ├── backups.py              # Exportação e restauro da base de dados
-│       └── configuracao.py         # Inicialização e estado da aplicação
+│       ├── categorias.py           # CRUD de categorias e subcategorias
+│       ├── configuracao.py         # Inicialização e estado da aplicação
+│       ├── contas.py               # CRUD de contas bancárias
+│       ├── estatisticas.py         # Endpoints de estatísticas e resumos
+│       ├── importacao.py           # Preview e importação de extratos bancários
+│       ├── patrimonio.py           # Gestão de activos e movimentos patrimoniais
+│       ├── perfis_importacao.py    # CRUD de perfis de mapeamento por banco
+│       ├── regras.py               # Regras de categorização automática
+│       └── transacoes.py           # Listagem paginada e edição de transações
 └── frontend/
     ├── index.html
     ├── vite.config.js
@@ -158,31 +170,42 @@ rastreio-db/
     └── src/
         ├── index.css
         ├── App.jsx
+        ├── App.css
         ├── api/
-        │   ├── categorias.js
-        │   ├── transacoes.js
-        │   ├── regras.js
-        │   ├── perfisImportacao.js
-        │   ├── importacao.js
-        │   ├── estatisticas.js
+        │   ├── client.js
         │   ├── backups.js
-        │   └── configuracao.js
+        │   ├── categorias.js
+        │   ├── configuracao.js
+        │   ├── contas.js
+        │   ├── estatisticas.js
+        │   ├── importacao.js
+        │   ├── patrimonio.js
+        │   ├── perfisImportacao.js
+        │   ├── regras.js
+        │   └── transacoes.js
         ├── components/
-        │   ├── TabelaTransacoes.jsx
-        │   └── FiltrosTransacoes.jsx
+        │   ├── FiltrosTransacoes.jsx
+        │   └── TabelaTransacoes.jsx
         └── pages/
-            ├── Transacoes.jsx
-            ├── Categorias.jsx
-            ├── Regras.jsx
-            ├── Importacao.jsx
-            ├── Estatisticas.jsx
-            └── PrimeiroUso.jsx
+            ├── Categorias.jsx + .css
+            ├── Contas.jsx + .css
+            ├── Estatisticas.jsx + .css
+            ├── Historico.jsx
+            ├── Importacao.jsx + .css
+            ├── Patrimonio.jsx + .css
+            ├── PrimeiroUso.jsx
+            ├── Regras.jsx + .css
+            └── Transacoes.jsx + .css
 ```
 
 ## Modelo de dados
 
 - **Categoria** — agrupa transações por natureza, com campo `tipo` (`despesa`, `receita`, `investimento`, `transferencia`) que controla como cada categoria é tratada nas estatísticas
-- **Subcategoria** — divisão opcional dentro de cada categoria, totalmente configurável pelo utilizador
-- **Transacao** — registo de cada movimento bancário, com categoria, subcategoria, flag de reembolso e notas livres
-- **RegraCategorizacao** — regras por substring que permitem categorizar automaticamente transações futuras com base na descrição
-- **PerfilImportacao** — configuração de mapeamento de colunas para um banco específico, permitindo importar extratos de qualquer banco sem alterações ao código
+- **Subcategoria** — divisão opcional dentro de cada categoria, com flag `trata_patrimonio` para identificar subcategorias relevantes para o módulo de Património
+- **Transacao** — registo de cada movimento bancário, com categoria, subcategoria, conta associada, flag de reembolso e notas livres
+- **RegraCategorizacao** — regras por substring que permitem categorizar automaticamente transações com base na descrição
+- **PerfilImportacao** — configuração de mapeamento de colunas para um banco específico, com suporte a coluna de valor única ou separada em débito/crédito, e associação opcional a uma conta
+- **Conta** — conta bancária com saldo e data de referência, associada a transações e perfis de importação; pode ser desactivada sem perda de dados
+- **Ativo** — activo patrimonial com tipo (`etf`, `crypto`, `veiculo`, `imovel`, `outro`), símbolo opcional e moeda
+- **MovimentoAtivo** — registo de compra, venda ou dividendo sobre um activo, com quantidade, preço unitário, comissão e ligação opcional a uma transação
+- **PrecoAtivo** — histórico de valorização de um activo, com unicidade por activo e data
