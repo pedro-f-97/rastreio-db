@@ -25,22 +25,23 @@ def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: in
     duplicadas = 0
 
     try:
-        for t in transacoes_parsed:
-            filtro_saldo = (
-                Transacao.saldo == t["saldo"]
-                if t["saldo"] is not None
-                else Transacao.saldo.is_(None)
-            )
-            existente = db.query(Transacao).filter(
-                Transacao.data == t["data"],
-                Transacao.descricao == t["descricao"],
-                Transacao.valor == t["valor"],
-                filtro_saldo,
-            ).first()
+        query_existentes = db.query(
+            Transacao.data,
+            Transacao.descricao,
+            Transacao.valor,
+            Transacao.saldo
+        ).filter(Transacao.conta_id == conta_id)
 
-            if existente:
+        existentes = set(
+            (r.data, r.descricao, r.valor, r.saldo)
+            for r in query_existentes
+        )
+
+        for t in transacoes_parsed:
+            chave = (t["data"], t["descricao"], t["valor"], t["saldo"])
+
+            if chave in existentes:
                 duplicadas += 1
-                #print(f"DUPLICADA: {t['data']} {t['descricao']} {t['valor']}")
                 continue
 
             nova = Transacao(
@@ -53,12 +54,10 @@ def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: in
             aplicar_regras(nova, regras)
             db.add(nova)
             inseridas += 1
-            #print(f"INSERIDA: {t['data']} {t['descricao']} {t['valor']}")
 
         db.commit()
     except Exception as e:
         db.rollback()
-        #print(f"ERRO: {e}")
         raise
 
     return {"inseridas": inseridas, "duplicadas": duplicadas}
