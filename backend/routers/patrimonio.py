@@ -51,6 +51,16 @@ def criar_ativo(payload: schemas.AtivoCreate, db: Session = Depends(get_db)):
     db.refresh(ativo)
     return ativo
 
+@router.delete("/ativos/{ativo_id}", status_code=204)
+def eliminar_ativo(ativo_id: int, db: Session = Depends(get_db)):
+    ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()
+    if not ativo:
+        raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    db.query(MovimentoAtivoModel).filter(MovimentoAtivoModel.ativo_id == ativo_id).delete()
+    db.query(PrecoAtivoModel).filter(PrecoAtivoModel.ativo_id == ativo_id).delete()
+    db.delete(ativo)
+    db.commit()
+
 
 # --- MOVIMENTOS ---
 
@@ -64,6 +74,14 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
     db.commit()
     db.refresh(movimento)
     return movimento
+
+@router.delete("/movimentos/{movimento_id}", status_code=204)
+def eliminar_movimento(movimento_id: int, db: Session = Depends(get_db)):
+    movimento = db.query(MovimentoAtivoModel).filter(MovimentoAtivoModel.id == movimento_id).first()
+    if not movimento:
+        raise HTTPException(status_code=404, detail="Movimento não encontrado.")
+    db.delete(movimento)
+    db.commit()
 
 
 @router.get("/ativos/{ativo_id}/movimentos", response_model=List[schemas.MovimentoAtivo])
