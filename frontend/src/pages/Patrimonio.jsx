@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getPendentes, getAtivos, criarAtivo, criarMovimento, registarPreco, getMovimentos, getResumoAtivo } from "../api/patrimonio";
+import { getPendentes, getAtivos, criarAtivo, criarMovimento, registarPreco, getMovimentos, getResumoAtivo, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
 import { getContas, getSaldoConta } from "../api/contas";
 import "./Patrimonio.css";
 
@@ -12,11 +12,11 @@ const estadoModalInicial = {
   transacao: null,
   passo: 1,
   tipoAtivo: "",
+  ativoExistenteId: "",
   simbolo: "",
   nomeAtivo: "",
   tipoMovimento: "compra",
   quantidade: "",
-  precoUnitario: "",
   comissao: "",
   valorTotal: "",
 };
@@ -66,7 +66,7 @@ export default function Patrimonio() {
   }
 
   function abrirModal(transacao) {
-    setModal({ ...estadoModalInicial, aberto: true, transacao, valorTotal: String(Math.abs(transacao.valor)) });
+    setModal({ ...estadoModalInicial, aberto: true, transacao });
     setErro("");
   }
 
@@ -91,13 +91,15 @@ export default function Patrimonio() {
       const comUnidades = TIPOS_COM_UNIDADES.includes(tipoAtivo);
 
       if (!tipoAtivo) { setErro("Selecciona o tipo de ativo."); setLoading(false); return; }
-      if (!nomeAtivo.trim()) { setErro("Nome do ativo obrigatório."); setLoading(false); return; }
-      if (comUnidades && (!quantidade || !precoUnitario)) { setErro("Quantidade e preço unitário obrigatórios."); setLoading(false); return; }
+      if (!modal.ativoExistenteId && !nomeAtivo.trim()) { setErro("Nome do ativo obrigatório."); setLoading(false); return; }
+      if (comUnidades && (!quantidade || !valorTotal)) { setErro("Quantidade e total pago obrigatórios."); setLoading(false); return; }
       if (!comUnidades && !valorTotal) { setErro("Valor total obrigatório."); setLoading(false); return; }
 
       let ativo = null;
       if (comUnidades && simbolo.trim()) {
         ativo = ativos.find((a) => a.simbolo?.toLowerCase() === simbolo.trim().toLowerCase());
+      } else if (!comUnidades && modal.ativoExistenteId) {
+        ativo = ativos.find((a) => a.id === parseInt(modal.ativoExistenteId));
       }
       if (!ativo) {
         const res = await criarAtivo({
@@ -110,13 +112,19 @@ export default function Patrimonio() {
       }
 
       let valorFinal;
+      let precoUnitarioCalculado;
+      const sinal = tipoMovimento === "compra" ? -1 : 1;
+
       if (comUnidades) {
-        const q = parseFloat(quantidade);
-        const p = parseFloat(precoUnitario);
-        const c = parseFloat(comissao || 0);
-        valorFinal = q * p + c;
+          const q = parseFloat(quantidade);
+          const totalNormalizado = sinal * Math.abs(parseFloat(valorTotal));
+          const comissaoNormalizada = -Math.abs(parseFloat(comissao || 0));
+
+          valorFinal = totalNormalizado + comissaoNormalizada;
+          precoUnitarioCalculado = Math.abs(parseFloat(valorTotal)) / q;
       } else {
-        valorFinal = parseFloat(valorTotal);
+          valorFinal = sinal * Math.abs(parseFloat(valorTotal));
+          precoUnitarioCalculado = null;
       }
 
       await criarMovimento({
@@ -125,18 +133,10 @@ export default function Patrimonio() {
         tipo_movimento: tipoMovimento,
         data: transacao.data,
         quantidade: comUnidades ? parseFloat(quantidade) : null,
-        preco_unitario: comUnidades ? parseFloat(precoUnitario) : null,
+        preco_unitario: precoUnitarioCalculado,
         comissao: comUnidades ? parseFloat(comissao || 0) : null,
         valor_total: valorFinal,
       });
-
-      if (!comUnidades) {
-        await registarPreco({
-          ativo_id: ativo.id,
-          data: transacao.data,
-          preco: valorFinal,
-        });
-      }
 
       fecharModal();
       await carregarDados();
@@ -178,6 +178,16 @@ export default function Patrimonio() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleEliminarAtivo(ativo) {
+    const temMovimentos = resumos[ativo.id]?.quantidade !== undefined &&
+      (await getMovimentos(ativo.id)).data.length > 0;
+    if (temMovimentos) {
+      if (!window.confirm(`Apagar o ativo "${ativo.nome}" vai eliminar todos os movimentos associados. Tem a certeza?`)) return;
+    }
+    await eliminarAtivo(ativo.id);
+    await carregarDados();
   }
 
   const totalInvestimentos = Object.values(resumos).reduce((acc, r) => acc + (r.valor_atual ?? 0), 0);
@@ -307,7 +317,7 @@ export default function Patrimonio() {
                         <tr key={ativo.id}>
                           <td>{ativo.nome}</td>
                           <td className="col-mono">{ativo.simbolo ?? "—"}</td>
-                          <td className="col-valor col-mono">{r ? r.quantidade : "—"}</td>
+                          <td className="col-valor col-mono">{r ? (TIPOS_COM_UNIDADES.includes(ativo.tipo) ? r.quantidade : "—") : "—"}</td>
                           <td className="col-valor col-mono">{r ? `${r.custo_total.toFixed(2)} €` : "—"}</td>
                           <td className="col-valor col-mono">{r?.valor_atual != null ? `${r.valor_atual.toFixed(2)} €` : "—"}</td>
                           <td className={`col-valor col-mono ${r?.mais_menos_valia != null ? (r.mais_menos_valia >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
@@ -321,13 +331,18 @@ export default function Patrimonio() {
                               <button className="btn-ghost" onClick={() => abrirModalPreco(ativo)}>
                                 ◎ Preço
                               </button>
+                              <button className="btn-ghost" onClick={() => handleEliminarAtivo(ativo)}>
+                                🧹
+                              </button>
                             </div>
                           </td>
                         </tr>
                         {expandidos[ativo.id] && (
                           <tr key={`exp-${ativo.id}`}>
                             <td colSpan={7}>
-                              <MovimentosAtivo ativoId={ativo.id} />
+                              <div>
+                                <MovimentosAtivo ativoId={ativo.id} onEliminar={carregarDados} />
+                              </div>
                             </td>
                           </tr>
                         )}
@@ -373,7 +388,7 @@ export default function Patrimonio() {
               <>
                 {TIPOS_COM_UNIDADES.includes(modal.tipoAtivo) ? (
                   <>
-                    <label className="label">Símbolo (ex: VWCE)
+                    <label className="label">Identificador (ex: VWCE)
                       <input className="input" value={modal.simbolo} onChange={(e) => setModal((m) => ({ ...m, simbolo: e.target.value }))} />
                     </label>
                     <label className="label">Nome do ativo
@@ -389,30 +404,40 @@ export default function Patrimonio() {
                     <label className="label">Quantidade
                       <input className="input" type="number" value={modal.quantidade} onChange={(e) => setModal((m) => ({ ...m, quantidade: e.target.value }))} />
                     </label>
-                    <label className="label">Preço unitário (€)
-                      <input className="input" type="number" value={modal.precoUnitario} onChange={(e) => setModal((m) => ({ ...m, precoUnitario: e.target.value }))} />
+                    <label className="label">Total da operação (sem comissão) (€)
+                      <input className="input" type="number" value={modal.valorTotal} onChange={(e) => setModal((m) => ({ ...m, valorTotal: e.target.value }))} />
                     </label>
                     <label className="label">Comissão (€)
                       <input className="input" type="number" value={modal.comissao} onChange={(e) => setModal((m) => ({ ...m, comissao: e.target.value }))} />
                     </label>
-                    {modal.quantidade && modal.precoUnitario && (
-                      <p className="label">
-                        Valor total: <strong>{(parseFloat(modal.quantidade) * parseFloat(modal.precoUnitario) + parseFloat(modal.comissao || 0)).toFixed(2)} €</strong>
-                      </p>
-                    )}
                   </>
                 ) : (
                   <>
-                    <label className="label">Nome do ativo
-                      <input className="input" value={modal.nomeAtivo} onChange={(e) => setModal((m) => ({ ...m, nomeAtivo: e.target.value }))} />
-                    </label>
+                    {(() => {
+                      const ativosTipo = ativos.filter((a) => a.tipo === modal.tipoAtivo);
+                      return ativosTipo.length > 0 ? (
+                        <label className="label">Ativo
+                          <select className="input" value={modal.ativoExistenteId} onChange={(e) => setModal((m) => ({ ...m, ativoExistenteId: e.target.value, nomeAtivo: "" }))}>
+                            <option value="">— Criar novo —</option>
+                            {ativosTipo.map((a) => (
+                              <option key={a.id} value={a.id}>{a.nome}</option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null;
+                    })()}
+                    {!modal.ativoExistenteId && (
+                      <label className="label">Nome do ativo
+                        <input className="input" value={modal.nomeAtivo} onChange={(e) => setModal((m) => ({ ...m, nomeAtivo: e.target.value }))} />
+                      </label>
+                    )}
                     <label className="label">Tipo de movimento
                       <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
                         <option value="compra">Compra</option>
                         <option value="venda">Venda</option>
                       </select>
                     </label>
-                    <label className="label">Valor total (€)
+                    <label className="label">Total da operação (sem comissão) (€)
                       <input className="input" type="number" value={modal.valorTotal} onChange={(e) => setModal((m) => ({ ...m, valorTotal: e.target.value }))} />
                     </label>
                   </>
@@ -465,12 +490,19 @@ export default function Patrimonio() {
   );
 }
 
-function MovimentosAtivo({ ativoId }) {
+function MovimentosAtivo({ ativoId, onEliminar }) {
   const [movimentos, setMovimentos] = useState([]);
 
   useEffect(() => {
     getMovimentos(ativoId).then((r) => setMovimentos(r.data));
   }, [ativoId]);
+
+  async function handleEliminar(movimentoId) {
+    await eliminarMovimento(movimentoId);
+    const res = await getMovimentos(ativoId);
+    setMovimentos(res.data);
+    onEliminar();
+  }
 
   if (movimentos.length === 0) return <p className="estado-vazio">Sem movimentos registados.</p>;
 
@@ -484,6 +516,7 @@ function MovimentosAtivo({ ativoId }) {
           <th>Preço unit.</th>
           <th>Comissão</th>
           <th className="col-valor">Valor total</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -495,6 +528,7 @@ function MovimentosAtivo({ ativoId }) {
             <td className="col-mono">{m.preco_unitario != null ? `${m.preco_unitario.toFixed(4)} €` : "—"}</td>
             <td className="col-mono">{m.comissao != null ? `${m.comissao.toFixed(2)} €` : "—"}</td>
             <td className="col-valor col-mono">{m.valor_total.toFixed(2)} €</td>
+            <td><button className="btn-ghost" onClick={() => handleEliminar(m.id)}>🧹</button></td>
           </tr>
         ))}
       </tbody>
