@@ -43,6 +43,11 @@ python popular_bd.py
 python migrar_excel.py
 ```
 
+## Comandos SQL
+```bash
+sqlite3 /home/pedrof/Documents/Projectos/rastreio-db/backend/dados/rastreio.db "SELECT * FROM precos_ativo;"
+```
+
 ## Gerar executável
 ```bash
 cd /home/pedrof/Documents/Projectos/rastreio-db
