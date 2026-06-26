@@ -496,6 +496,16 @@ export default function Importacao() {
                                         </select>
                                     </div>
 
+                                    <div className="modal-grupo">
+                                        <label>Conta bancária</label>
+                                        <select value={form.conta_id ?? ''} onChange={e => campo('conta_id', e.target.value ? parseInt(e.target.value) : null)}>
+                                            <option value="">Sem conta</option>
+                                            {contas.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nome}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     <div className="modal-grupo modal-grupo-checkbox">
                                         <label>
                                             <input type="checkbox" checked={form.tem_saldo} onChange={e => campo('tem_saldo', e.target.checked)} />
@@ -510,15 +520,6 @@ export default function Importacao() {
                                             }} />
                                             O ficheiro tem coluna de fee/comissão
                                         </label>
-                                    </div>
-                                    <div className="modal-grupo">
-                                        <label>Conta bancária</label>
-                                        <select value={form.conta_id ?? ''} onChange={e => campo('conta_id', e.target.value ? parseInt(e.target.value) : null)}>
-                                            <option value="">Sem conta</option>
-                                            {contas.map(c => (
-                                                <option key={c.id} value={c.id}>{c.nome}</option>
-                                            ))}
-                                        </select>
                                     </div>
                                 </div>
                             </div>
