@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional
 from datetime import date
-from database import TipoCategoria, TipoAtivo, TipoMovimento
+from database import TipoCategoria, TipoAtivo, TipoMovimento, TipoContabilizacao
 
 # --- SCHEMAS DE CATEGORIA ---
 class CategoriaBase(BaseModel):
@@ -110,6 +110,7 @@ class AtivoBase(BaseModel):
     simbolo: Optional[str] = None
     moeda: str = "EUR"
     notas: Optional[str] = None
+    contabilizacao: TipoContabilizacao
 
 class AtivoCreate(AtivoBase):
     pass

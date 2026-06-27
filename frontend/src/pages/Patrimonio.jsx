@@ -16,6 +16,7 @@ const estadoModalInicial = {
   simbolo: "",
   nomeAtivo: "",
   tipoMovimento: "compra",
+  contabilizacao: "",
   quantidade: "",
   comissao: "",
   valorTotal: "",
@@ -89,11 +90,13 @@ export default function Patrimonio() {
     try {
       const { transacao, tipoAtivo, simbolo, nomeAtivo, tipoMovimento, quantidade, precoUnitario, comissao, valorTotal } = modal;
       const comUnidades = TIPOS_COM_UNIDADES.includes(tipoAtivo);
+      const precisaContabilizacao = !modal.ativoExistenteId;
 
       if (!tipoAtivo) { setErro("Selecciona o tipo de ativo."); setLoading(false); return; }
       if (!modal.ativoExistenteId && !nomeAtivo.trim()) { setErro("Nome do ativo obrigatório."); setLoading(false); return; }
       if (comUnidades && (!quantidade || !valorTotal)) { setErro("Quantidade e total pago obrigatórios."); setLoading(false); return; }
       if (!comUnidades && !valorTotal) { setErro("Valor total obrigatório."); setLoading(false); return; }
+      if (precisaContabilizacao && !modal.contabilizacao) { setErro("Selecciona a contabilização."); setLoading(false); return; }
 
       let ativo = null;
       if (comUnidades && simbolo.trim()) {
@@ -107,6 +110,7 @@ export default function Patrimonio() {
           tipo: tipoAtivo,
           simbolo: comUnidades && simbolo.trim() ? simbolo.trim().toUpperCase() : null,
           moeda: "EUR",
+          contabilizacao: modal.contabilizacao,
         });
         ativo = res.data;
       }
@@ -190,10 +194,13 @@ export default function Patrimonio() {
     await carregarDados();
   }
 
-  const totalInvestimentos = Object.values(resumos).reduce((acc, r) => acc + (r.valor_atual ?? 0), 0);
   const totalLiquidez = contas.reduce((acc, c) => acc + (c.saldo_atual ?? 0), 0);
-  const totalPatrimonio = totalLiquidez + totalInvestimentos;
-  const totalCusto = Object.values(resumos).reduce((acc, r) => acc + (r.custo_total ?? 0), 0);
+  const totalPatrimonioAtivos = Object.values(resumos).reduce((acc, r) => acc + (r.valor_atual ?? 0), 0);
+  const totalPatrimonio = totalLiquidez + totalPatrimonioAtivos;
+
+  const ativosInvestimento = ativos.filter((a) => a.contabilizacao === "investimento");
+  const totalInvestimentos = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.valor_atual ?? 0), 0);
+  const totalCusto = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.custo_total ?? 0), 0);
   const totalMaisValia = totalInvestimentos - totalCusto;
 
   return (
@@ -442,7 +449,19 @@ export default function Patrimonio() {
                     </label>
                   </>
                 )}
-
+                {!modal.ativoExistenteId && (
+                  <label className="label">Contabilização
+                    <select
+                      className="input"
+                      value={modal.contabilizacao}
+                      onChange={(e) => setModal((m) => ({ ...m, contabilizacao: e.target.value }))}
+                    >
+                      <option value="">— Seleccionar —</option>
+                      <option value="investimento">Investimento</option>
+                      <option value="patrimonio">Património</option>
+                    </select>
+                  </label>
+                )}
                 {erro && <p className="erro">{erro}</p>}
 
                 <div className="modal-acoes">

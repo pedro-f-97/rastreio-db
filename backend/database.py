@@ -50,6 +50,10 @@ class TipoMovimento(enum.Enum):
     venda     = "venda"
     dividendo = "dividendo"
 
+class TipoContabilizacao(enum.Enum):
+    investimento = "investimento"
+    patrimonio   = "patrimonio"
+
 class Conta(Base):
     __tablename__ = "contas"
 
@@ -159,6 +163,7 @@ class Ativo(Base):
     simbolo: Mapped[Optional[str]] = mapped_column(String(20), unique=True)
     moeda:   Mapped[str] = mapped_column(String(10), default="EUR")
     notas:   Mapped[Optional[str]] = mapped_column(String(500))
+    contabilizacao: Mapped[TipoContabilizacao] = mapped_column(SAEnum(TipoContabilizacao), nullable=False)
 
     movimentos: Mapped[List["MovimentoAtivo"]] = relationship("MovimentoAtivo", back_populates="ativo")
     precos:     Mapped[List["PrecoAtivo"]] = relationship("PrecoAtivo", back_populates="ativo")
