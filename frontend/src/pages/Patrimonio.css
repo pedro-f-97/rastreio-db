@@ -21,6 +21,56 @@
     gap: var(--space-sm);
 }
 
+.secao-ativo {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color 0.15s;
+}
+
+.secao-ativo:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.secao-titulo-colapsavel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+    padding: var(--space-md) var(--space-xl);
+    margin-bottom: 0;
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    transition: background 0.15s;
+}
+
+.secao-titulo-colapsavel:hover {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    color: var(--text-primary);
+    border-color: transparent;
+}
+
+.secao-ativo-expandida .secao-titulo-colapsavel {
+    border-bottom: 1px solid var(--border);
+}
+
+.secao-chevron {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    transition: color 0.15s;
+}
+
+.secao-titulo-colapsavel:hover .secao-chevron {
+    color: var(--accent);
+}
+
 .badge-pendentes {
     background: var(--danger);
     color: #fff;
@@ -37,36 +87,12 @@
     justify-content: space-between;
 }
 
-.patrimonio-header h1 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-}
-
-.patrimonio-totais {
-    display: flex;
-    gap: var(--space-2xl);
-}
-
-.total-item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: var(--space-xs);
-}
-
-.total-label {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-}
-
-.total-valor {
-    font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-}
+/* --- CARTÕES DE TOPO --- */
 
 .cartoes {
     display: flex;
     gap: var(--space-lg);
+    align-items: stretch;
 }
 
 .cartao {
@@ -75,7 +101,7 @@
     padding: var(--space-lg) var(--space-xl);
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--space-sm);
     flex: 1;
     border-radius: var(--radius-lg);
 }
@@ -91,6 +117,53 @@
     font-family: var(--font-mono);
     color: var(--text-primary);
 }
+
+.cartao-subvalor {
+    font-size: var(--text-md);
+    font-family: var(--font-mono);
+    font-weight: var(--font-weight-medium);
+}
+
+.cartao-valor-linha {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+}
+
+/* Breakdown em segunda linha dos cartões */
+.cartao-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-top: var(--space-xs);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border);
+}
+
+.cartao-breakdown-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-sm);
+}
+
+.cartao-breakdown-label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cartao-breakdown-valor {
+    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* --- TABELA PRINCIPAL --- */
 
 .tabela-patrimonio {
     width: 100%;
@@ -125,15 +198,73 @@
     background: var(--bg-secondary);
 }
 
+/* Célula com valor + data em stack vertical */
+.celula-valor-data {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.data-preco {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+/* Tooltip no símbolo/ISIN */
+.tooltip-isin {
+    margin-left: var(--space-xs);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    cursor: default;
+}
+
+.tooltip-simbolo {
+    cursor: default;
+}
+
+/* --- TABELA ANINHADA DE MOVIMENTOS --- */
+
+.linha-movimentos-container td {
+    padding: 0;
+    background: var(--bg-primary);
+    border-bottom: 2px solid var(--border);
+}
+
+.celula-movimentos {
+    padding: var(--space-md) var(--space-xl) !important;
+    border-left: 3px solid var(--accent) !important;
+}
+
 .tabela-aninhada {
-    margin: var(--space-sm) var(--space-lg) var(--space-md);
-    width: calc(100% - var(--space-2xl));
+    width: 100%;
     table-layout: auto;
 }
 
 .tabela-aninhada th {
     background: var(--bg-primary);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-xs) var(--space-sm);
 }
+
+.tabela-aninhada td {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--text-sm);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.tabela-aninhada tr:last-child td {
+    border-bottom: none;
+}
+
+.tabela-aninhada tr:hover td {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+/* --- UTILITÁRIOS --- */
 
 .col-mono {
     font-family: var(--font-mono);
@@ -172,7 +303,44 @@
     border-color: transparent;
 }
 
-/* Modal — passo 1: grid de tipos */
+/* --- SECÇÕES COLAPSÁVEIS --- */
+
+.secao-titulo-colapsavel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    padding: var(--space-md) var(--space-xl);
+    margin-bottom: var(--space-md);
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.secao-titulo-colapsavel:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 5%, var(--bg-secondary));
+    color: var(--text-primary);
+}
+
+.secao-chevron {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    transition: color 0.15s;
+}
+
+.secao-titulo-colapsavel:hover .secao-chevron {
+    color: var(--accent);
+}
+
+/* --- MODAL --- */
+
 .grid-tipos {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -197,7 +365,6 @@
     color: #fff;
 }
 
-/* Modal — passo 2: formulário */
 .modal-subtitulo {
     font-size: var(--text-sm);
     color: var(--text-secondary);
@@ -278,19 +445,7 @@
     font-size: var(--text-sm);
 }
 
-/* Cartão de destaque (Património total) */
-.cartao-destaque {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary));
-}
-
-/* Secção Liquidez — cartões por conta */
-.cartoes-liquidez {
-    display: flex;
-    gap: var(--space-lg);
-    flex-wrap: wrap;
-}
-
+/* Cartões de conta (removidos da secção Liquidez, mantidos caso reutilizados) */
 .cartao-conta {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -318,30 +473,4 @@
     font-size: var(--text-sm);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-}
-
-/* Secções de ativos colapsáveis */
-.secao-titulo-colapsavel {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    margin-bottom: var(--space-md);
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-    font-family: var(--font-sans);
-}
-
-.secao-titulo-colapsavel:hover {
-    color: var(--accent);
-}
-
-.secao-chevron {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
 }

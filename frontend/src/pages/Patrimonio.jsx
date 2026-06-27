@@ -25,7 +25,7 @@ const estadoModalInicial = {
 export default function Patrimonio() {
   const [pendentes, setPendentes] = useState([]);
   const [ativos, setAtivos] = useState([]);
-  const [contas, setContas] = useState([]); // [{ ...conta, saldo_atual }]
+  const [contas, setContas] = useState([]);
   const [seccoesExpandidas, setSeccoesExpandidas] = useState({});
   const [expandidos, setExpandidos] = useState({});
   const [modal, setModal] = useState(estadoModalInicial);
@@ -47,7 +47,6 @@ export default function Patrimonio() {
     setPendentes(resPendentes.data);
     setAtivos(resAtivos.data);
 
-    // Carrega saldo de cada conta
     const contasComSaldo = await Promise.all(
       resContas.data.map(async (c) => {
         const res = await getSaldoConta(c.id);
@@ -88,7 +87,7 @@ export default function Patrimonio() {
     setErro("");
     setLoading(true);
     try {
-      const { transacao, tipoAtivo, simbolo, nomeAtivo, tipoMovimento, quantidade, precoUnitario, comissao, valorTotal } = modal;
+      const { transacao, tipoAtivo, simbolo, nomeAtivo, tipoMovimento, quantidade, comissao, valorTotal } = modal;
       const comUnidades = TIPOS_COM_UNIDADES.includes(tipoAtivo);
       const precisaContabilizacao = !modal.ativoExistenteId;
 
@@ -118,15 +117,14 @@ export default function Patrimonio() {
       const sinal = tipoMovimento === "compra" ? -1 : 1;
 
       if (comUnidades) {
-          const q = parseFloat(quantidade);
-          const totalNormalizado = sinal * Math.abs(parseFloat(valorTotal));
-          const comissaoNormalizada = -Math.abs(parseFloat(comissao || 0));
-
-          valorFinal = totalNormalizado + comissaoNormalizada;
-          precoUnitarioCalculado = Math.abs(parseFloat(valorTotal)) / q;
+        const q = parseFloat(quantidade);
+        const totalNormalizado = sinal * Math.abs(parseFloat(valorTotal));
+        const comissaoNormalizada = -Math.abs(parseFloat(comissao || 0));
+        valorFinal = totalNormalizado + comissaoNormalizada;
+        precoUnitarioCalculado = Math.abs(parseFloat(valorTotal)) / q;
       } else {
-          valorFinal = sinal * Math.abs(parseFloat(valorTotal));
-          precoUnitarioCalculado = null;
+        valorFinal = sinal * Math.abs(parseFloat(valorTotal));
+        precoUnitarioCalculado = null;
       }
 
       await criarMovimento({
@@ -192,6 +190,7 @@ export default function Patrimonio() {
     await carregarDados();
   }
 
+  // --- Totais ---
   const totalLiquidez = contas.reduce((acc, c) => acc + (c.saldo_atual ?? 0), 0);
   const totalPatrimonioAtivos = Object.values(resumos).reduce((acc, r) => acc + (r.valor_atual ?? 0), 0);
   const totalPatrimonio = totalLiquidez + totalPatrimonioAtivos;
@@ -203,6 +202,7 @@ export default function Patrimonio() {
   }, 0);
   const totalCusto = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.custo_total ?? 0), 0);
   const totalMaisValia = totalInvestimentos + totalCusto;
+  const pctMaisValia = totalCusto !== 0 ? (totalMaisValia / Math.abs(totalCusto)) * 100 : null;
 
   return (
     <div className="patrimonio-page">
@@ -212,24 +212,100 @@ export default function Patrimonio() {
 
       {/* CARTÕES DE TOPO */}
       <div className="cartoes">
-        <div className="cartao cartao-destaque">
+        {/* Património total */}
+        <div className="cartao">
           <span className="cartao-titulo">Património total</span>
           <span className="cartao-valor">{totalPatrimonio.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+          <div className="cartao-breakdown">
+            <div className="cartao-breakdown-linha">
+              <span className="cartao-breakdown-label">Liquidez</span>
+              <span className="cartao-breakdown-valor">{totalLiquidez.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+            </div>
+            <div className="cartao-breakdown-linha">
+              <span className="cartao-breakdown-label">Investimentos</span>
+              <span className="cartao-breakdown-valor">{totalInvestimentos.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+            </div>
+          </div>
         </div>
+
+        {/* Liquidez */}
         <div className="cartao">
           <span className="cartao-titulo">Liquidez</span>
           <span className="cartao-valor">{totalLiquidez.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+          <div className="cartao-breakdown">
+            {contas.length === 0 && (
+              <span className="cartao-breakdown-label">Nenhuma conta activa</span>
+            )}
+            {contas.map((c) => (
+              <div key={c.id} className="cartao-breakdown-linha">
+                <span className="cartao-breakdown-label">{c.nome}</span>
+                <span className="cartao-breakdown-valor">
+                  {c.saldo_atual.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Investimentos */}
         <div className="cartao">
           <span className="cartao-titulo">Investimentos</span>
           <span className="cartao-valor">{totalInvestimentos.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+          <div className="cartao-breakdown">
+            {ativosInvestimento.length === 0 && (
+              <span className="cartao-breakdown-label">Nenhum ativo</span>
+            )}
+            {ativosInvestimento.map((a) => {
+              const r = resumos[a.id];
+              const valor = r?.valor_atual ?? r?.custo_total ?? 0;
+              const pct = totalInvestimentos > 0 ? (valor / totalInvestimentos) * 100 : 0;
+              return (
+                <div key={a.id} className="cartao-breakdown-linha">
+                  <span className="cartao-breakdown-label">{a.nome}</span>
+                  <span className="cartao-breakdown-valor">{pct.toFixed(1)}%</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div className="cartao">
-          <span className="cartao-titulo">+/− valia</span>
+
+        {/* Valorização */}
+      <div className="cartao">
+        <span className="cartao-titulo">Valorização</span>
+        <div className="cartao-valor-linha">
           <span className={`cartao-valor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
             {totalMaisValia.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
           </span>
+          {pctMaisValia !== null && (
+            <span className={`cartao-subvalor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+              {pctMaisValia >= 0 ? "+" : ""}{pctMaisValia.toFixed(2)}%
+            </span>
+          )}
         </div>
+        <div className="cartao-breakdown">
+          {ativosInvestimento.length === 0 && (
+            <span className="cartao-breakdown-label">Nenhum ativo</span>
+          )}
+          {ativosInvestimento.map((a) => {
+            const r = resumos[a.id];
+            const custo = r?.custo_total ?? 0;
+            const mmv = r?.mais_menos_valia;
+            const pct = custo !== 0 && mmv != null ? (mmv / Math.abs(custo)) * 100 : null;
+            return (
+              <div key={a.id} className="cartao-breakdown-linha">
+                <span className="cartao-breakdown-label">{a.nome}</span>
+                {pct !== null ? (
+                  <span className={`cartao-breakdown-valor ${pct >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+                    {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                  </span>
+                ) : (
+                  <span className="cartao-breakdown-valor">—</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
       </div>
 
       {/* PENDENTES */}
@@ -263,34 +339,13 @@ export default function Patrimonio() {
         </section>
       )}
 
-      {/* LIQUIDEZ */}
-      <section className="secao">
-        <h2 className="secao-titulo">Liquidez</h2>
-        <div className="cartoes-liquidez">
-          {contas.length === 0 && (
-            <p className="estado-vazio">Nenhuma conta activa.</p>
-          )}
-          {contas.map((c) => (
-            <div key={c.id} className="cartao-conta">
-              <span className="cartao-conta-nome">{c.nome}</span>
-              <span className="cartao-conta-saldo">
-                {c.saldo_atual.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
-              </span>
-              <span className="cartao-conta-detalhe">
-                ref. {Number(c.saldo_referencia).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} € em {c.data_referencia}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ATIVOS POR TIPO */}
       {TIPOS_ATIVO.map((tipo) => {
         const lista = ativosPorTipo[tipo];
         if (lista.length === 0) return null;
         const expandida = seccoesExpandidas[tipo] ?? false;
         return (
-          <section key={tipo} className="secao-patrimonio">
+          <div key={tipo} className={`secao-ativo ${expandida ? "secao-ativo-expandida" : ""}`}>
             <button className="secao-titulo-colapsavel" onClick={() => toggleSeccao(tipo)}>
               <span>{LABELS_TIPO[tipo]}</span>
               <span className="secao-chevron">{expandida ? "▲" : "▼"}</span>
@@ -298,13 +353,13 @@ export default function Patrimonio() {
             {expandida && (
               <table className="tabela-patrimonio">
                 <colgroup>
-                  <col style={{ width: '25%' }} />
-                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '22%' }} />
                   <col style={{ width: '10%' }} />
                   <col style={{ width: '10%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '27%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '18%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '14%' }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -320,16 +375,52 @@ export default function Patrimonio() {
                 <tbody>
                   {lista.map((ativo) => {
                     const r = resumos[ativo.id];
+                    const mmv = r?.mais_menos_valia;
+                    const custo = r?.custo_total;
+                    const pctAtivo = custo && custo !== 0 ? (mmv / Math.abs(custo)) * 100 : null;
                     return (
                       <>
                         <tr key={ativo.id}>
-                          <td>{ativo.nome}</td>
-                          <td className="col-mono">{ativo.simbolo ?? "—"}</td>
-                          <td className="col-valor col-mono">{r ? (TIPOS_COM_UNIDADES.includes(ativo.tipo) ? r.quantidade : "—") : "—"}</td>
-                          <td className="col-valor col-mono">{r ? `${r.custo_total.toFixed(2)} €` : "—"}</td>
-                          <td className="col-valor col-mono">{r?.valor_atual != null ? `${r.valor_atual.toFixed(2)} €` : "—"}</td>
-                          <td className={`col-valor col-mono ${r?.mais_menos_valia != null ? (r.mais_menos_valia >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
-                            {r?.mais_menos_valia != null ? `${r.mais_menos_valia.toFixed(2)} €` : "—"}
+                          <td>
+                            {ativo.nome}
+                            {ativo.isin && (
+                              <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}>ⓘ</span>
+                            )}
+                          </td>
+                          <td className="col-mono">
+                            {ativo.simbolo ? (
+                              <span className="tooltip-simbolo" title={ativo.simbolo}>
+                                {ativo.simbolo}
+                              </span>
+                            ) : "—"}
+                          </td>
+                          <td className="col-valor col-mono">
+                            {r ? (TIPOS_COM_UNIDADES.includes(ativo.tipo) ? r.quantidade : "—") : "—"}
+                          </td>
+                          <td className="col-valor col-mono">
+                            {r ? `${r.custo_total.toFixed(2)} €` : "—"}
+                          </td>
+                          <td className="col-valor col-mono">
+                            {r?.valor_atual != null ? (
+                              <div className="celula-valor-data">
+                                <span>{r.valor_atual.toFixed(2)} €</span>
+                                {r.data_preco && (
+                                  <span className="data-preco">{r.data_preco}</span>
+                                )}
+                              </div>
+                            ) : "—"}
+                          </td>
+                          <td className={`col-valor col-mono ${mmv != null ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                            {mmv != null ? (
+                              <div className="celula-valor-data">
+                                <span>{mmv.toFixed(2)} €</span>
+                                {pctAtivo !== null && (
+                                  <span className="data-preco">
+                                    {pctAtivo >= 0 ? "+" : ""}{pctAtivo.toFixed(2)}%
+                                  </span>
+                                )}
+                              </div>
+                            ) : "—"}
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
@@ -346,11 +437,9 @@ export default function Patrimonio() {
                           </td>
                         </tr>
                         {expandidos[ativo.id] && (
-                          <tr key={`exp-${ativo.id}`}>
-                            <td colSpan={7}>
-                              <div>
-                                <MovimentosAtivo ativoId={ativo.id} onEliminar={carregarDados} />
-                              </div>
+                          <tr key={`exp-${ativo.id}`} className="linha-movimentos-container">
+                            <td colSpan={7} className="celula-movimentos">
+                              <MovimentosAtivo ativoId={ativo.id} onEliminar={carregarDados} />
                             </td>
                           </tr>
                         )}
@@ -360,7 +449,7 @@ export default function Patrimonio() {
                 </tbody>
               </table>
             )}
-          </section>
+          </div>
         );
       })}
 
