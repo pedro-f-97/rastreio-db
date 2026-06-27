@@ -73,6 +73,19 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
     db.add(movimento)
     db.commit()
     db.refresh(movimento)
+
+    if payload.tipo_movimento.value == "compra" and payload.preco_unitario is not None:
+        existente = (
+            db.query(PrecoAtivoModel)
+            .filter(PrecoAtivoModel.ativo_id == payload.ativo_id, PrecoAtivoModel.data == payload.data)
+            .first()
+        )
+        if existente:
+            existente.preco = payload.preco_unitario
+        else:
+            db.add(PrecoAtivoModel(ativo_id=payload.ativo_id, data=payload.data, preco=payload.preco_unitario))
+        db.commit()
+
     return movimento
 
 @router.delete("/movimentos/{movimento_id}", status_code=204)

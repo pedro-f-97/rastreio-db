@@ -99,9 +99,7 @@ export default function Patrimonio() {
       if (precisaContabilizacao && !modal.contabilizacao) { setErro("Selecciona a contabilização."); setLoading(false); return; }
 
       let ativo = null;
-      if (comUnidades && simbolo.trim()) {
-        ativo = ativos.find((a) => a.simbolo?.toLowerCase() === simbolo.trim().toLowerCase());
-      } else if (!comUnidades && modal.ativoExistenteId) {
+      if (modal.ativoExistenteId) {
         ativo = ativos.find((a) => a.id === parseInt(modal.ativoExistenteId));
       }
       if (!ativo) {
@@ -199,7 +197,10 @@ export default function Patrimonio() {
   const totalPatrimonio = totalLiquidez + totalPatrimonioAtivos;
 
   const ativosInvestimento = ativos.filter((a) => a.contabilizacao === "investimento");
-  const totalInvestimentos = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.valor_atual ?? 0), 0);
+  const totalInvestimentos = ativosInvestimento.reduce((acc, a) => {
+    const r = resumos[a.id];
+    return acc + (r?.valor_atual ?? r?.custo_total ?? 0);
+  }, 0);
   const totalCusto = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.custo_total ?? 0), 0);
   const totalMaisValia = totalInvestimentos - totalCusto;
 
@@ -395,12 +396,29 @@ export default function Patrimonio() {
               <>
                 {TIPOS_COM_UNIDADES.includes(modal.tipoAtivo) ? (
                   <>
-                    <label className="label">Identificador (ex: VWCE)
-                      <input className="input" value={modal.simbolo} onChange={(e) => setModal((m) => ({ ...m, simbolo: e.target.value }))} />
-                    </label>
-                    <label className="label">Nome do ativo
-                      <input className="input" value={modal.nomeAtivo} onChange={(e) => setModal((m) => ({ ...m, nomeAtivo: e.target.value }))} />
-                    </label>
+                    {(() => {
+                      const ativosTipo = ativos.filter((a) => a.tipo === modal.tipoAtivo);
+                      return ativosTipo.length > 0 ? (
+                        <label className="label">Ativo
+                          <select className="input" value={modal.ativoExistenteId} onChange={(e) => setModal((m) => ({ ...m, ativoExistenteId: e.target.value, nomeAtivo: "", simbolo: "" }))}>
+                            <option value="">— Criar novo —</option>
+                            {ativosTipo.map((a) => (
+                              <option key={a.id} value={a.id}>{a.nome}{a.simbolo ? ` (${a.simbolo})` : ""}</option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null;
+                    })()}
+                    {!modal.ativoExistenteId && (
+                      <>
+                        <label className="label">Identificador (ex: VWCE)
+                          <input className="input" value={modal.simbolo} onChange={(e) => setModal((m) => ({ ...m, simbolo: e.target.value }))} />
+                        </label>
+                        <label className="label">Nome do ativo
+                          <input className="input" value={modal.nomeAtivo} onChange={(e) => setModal((m) => ({ ...m, nomeAtivo: e.target.value }))} />
+                        </label>
+                      </>
+                    )}
                     <label className="label">Tipo de movimento
                       <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
                         <option value="compra">Compra</option>
