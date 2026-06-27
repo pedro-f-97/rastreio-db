@@ -202,7 +202,7 @@ export default function Patrimonio() {
     return acc + (r?.valor_atual ?? r?.custo_total ?? 0);
   }, 0);
   const totalCusto = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.custo_total ?? 0), 0);
-  const totalMaisValia = totalInvestimentos - totalCusto;
+  const totalMaisValia = totalInvestimentos + totalCusto;
 
   return (
     <div className="patrimonio-page">
@@ -506,7 +506,7 @@ export default function Patrimonio() {
             <label className="label">Data
               <input className="input" type="date" value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
             </label>
-            <label className="label">Preço actual (€)
+            <label className="label">Preço unitário (€)
               <input className="input" type="number" step="0.0001" value={modalPreco.preco} onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))} />
             </label>
 

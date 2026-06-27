@@ -170,7 +170,7 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
             valor_atual = round(quantidade * float(preco_atual.preco), 2)
         else:
             valor_atual = float(preco_atual.preco)
-        mais_menos_valia = round(valor_atual - custo_total, 2)
+        mais_menos_valia = round(valor_atual + custo_total, 2)
 
     return {
         "ativo_id": ativo_id,
