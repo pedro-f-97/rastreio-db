@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getPendentes, getAtivos, criarAtivo, criarMovimento, registarPreco, getMovimentos, getResumoAtivo, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
 import { getContas, getSaldoConta } from "../api/contas";
 import "./Patrimonio.css";
+import { formatarEuros } from '../utils/formatacao';
 
 const TIPOS_ATIVO = ["etf", "crypto", "veiculo", "imovel", "outro"];
 const LABELS_TIPO = { etf: "ETF", crypto: "Crypto", veiculo: "Veículo", imovel: "Imóvel", outro: "Outro" };
@@ -214,16 +215,16 @@ export default function Patrimonio() {
       <div className="cartoes">
         {/* Património total */}
         <div className="cartao">
-          <span className="cartao-titulo">Património total</span>
-          <span className="cartao-valor">{totalPatrimonio.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+          <span className="cartao-titulo">Património</span>
+          <span className="cartao-valor">{formatarEuros(totalPatrimonio)}</span>
           <div className="cartao-breakdown">
             <div className="cartao-breakdown-linha">
               <span className="cartao-breakdown-label">Liquidez</span>
-              <span className="cartao-breakdown-valor">{totalLiquidez.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+              <span className="cartao-breakdown-valor">{formatarEuros(totalLiquidez)}</span>
             </div>
             <div className="cartao-breakdown-linha">
               <span className="cartao-breakdown-label">Investimentos</span>
-              <span className="cartao-breakdown-valor">{totalInvestimentos.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+              <span className="cartao-breakdown-valor">{formatarEuros(totalInvestimentos)}</span>
             </div>
           </div>
         </div>
@@ -231,7 +232,7 @@ export default function Patrimonio() {
         {/* Liquidez */}
         <div className="cartao">
           <span className="cartao-titulo">Liquidez</span>
-          <span className="cartao-valor">{totalLiquidez.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+          <span className="cartao-valor">{formatarEuros(totalLiquidez)}</span>
           <div className="cartao-breakdown">
             {contas.length === 0 && (
               <span className="cartao-breakdown-label">Nenhuma conta activa</span>
@@ -240,7 +241,7 @@ export default function Patrimonio() {
               <div key={c.id} className="cartao-breakdown-linha">
                 <span className="cartao-breakdown-label">{c.nome}</span>
                 <span className="cartao-breakdown-valor">
-                  {c.saldo_atual.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
+                  {formatarEuros(c.saldo_atual)}
                 </span>
               </div>
             ))}
@@ -250,7 +251,7 @@ export default function Patrimonio() {
         {/* Investimentos */}
         <div className="cartao">
           <span className="cartao-titulo">Investimentos</span>
-          <span className="cartao-valor">{totalInvestimentos.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+          <span className="cartao-valor">{formatarEuros(totalInvestimentos)}</span>
           <div className="cartao-breakdown">
             {ativosInvestimento.length === 0 && (
               <span className="cartao-breakdown-label">Nenhum ativo</span>
@@ -271,10 +272,10 @@ export default function Patrimonio() {
 
         {/* Valorização */}
       <div className="cartao">
-        <span className="cartao-titulo">Valorização</span>
+        <span className="cartao-titulo">Resultados</span>
         <div className="cartao-valor-linha">
           <span className={`cartao-valor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
-            {totalMaisValia.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
+            {formatarEuros(totalMaisValia)}
           </span>
           {pctMaisValia !== null && (
             <span className={`cartao-subvalor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
@@ -327,7 +328,7 @@ export default function Patrimonio() {
                   <td className="col-mono">{t.data}</td>
                   <td>{t.descricao}</td>
                   <td className={`col-valor col-mono ${t.valor < 0 ? "valor-negativo" : "valor-positivo"}`}>
-                    {t.valor.toFixed(2)} €
+                    {formatarEuros(t.valor)}
                   </td>
                   <td>
                     <button className="btn-secundario" onClick={() => abrirModal(t)}>Tratar</button>
@@ -398,12 +399,12 @@ export default function Patrimonio() {
                             {r ? (TIPOS_COM_UNIDADES.includes(ativo.tipo) ? r.quantidade : "—") : "—"}
                           </td>
                           <td className="col-valor col-mono">
-                            {r ? `${r.custo_total.toFixed(2)} €` : "—"}
+                            {r ? formatarEuros(r.custo_total) : "—"}
                           </td>
                           <td className="col-valor col-mono">
                             {r?.valor_atual != null ? (
                               <div className="celula-valor-data">
-                                <span>{r.valor_atual.toFixed(2)} €</span>
+                                <span>{formatarEuros(r.valor_atual)}</span>
                                 {r.data_preco && (
                                   <span className="data-preco">{r.data_preco}</span>
                                 )}
@@ -413,7 +414,7 @@ export default function Patrimonio() {
                           <td className={`col-valor col-mono ${mmv != null ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
                             {mmv != null ? (
                               <div className="celula-valor-data">
-                                <span>{mmv.toFixed(2)} €</span>
+                                <span>{formatarEuros(mmv)}</span>
                                 {pctAtivo !== null && (
                                   <span className="data-preco">
                                     {pctAtivo >= 0 ? "+" : ""}{pctAtivo.toFixed(2)}%
@@ -425,7 +426,8 @@ export default function Patrimonio() {
                           <td>
                             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
                               <button className="btn-ghost" onClick={() => toggleExpandido(ativo.id)}>
-                                {expandidos[ativo.id] ? "▲ Fechar" : "▼ Movimentos"}
+                                <span className="seta-expansao">{expandidos[ativo.id] ? "▲" : "▼"}</span>
+                                {expandidos[ativo.id] ? " Fechar" : " Movimentos"}
                               </button>
                               <button className="btn-ghost" onClick={() => abrirModalPreco(ativo)}>
                                 ◎ Preço
@@ -462,7 +464,7 @@ export default function Patrimonio() {
         <div className="modal-overlay" onClick={fecharModal}>
           <div className="modal modal-patrimonio" onClick={(e) => e.stopPropagation()}>
             <h3 className="modal-titulo">Tratar pendente</h3>
-            <p className="modal-subtitulo">{modal.transacao.descricao} · {modal.transacao.data} · {modal.transacao.valor.toFixed(2)} €</p>
+            <p className="modal-subtitulo">{modal.transacao.descricao} · {modal.transacao.data} · {formatarEuros(modal.transacao.valor)}</p>
 
             {modal.passo === 1 && (
               <>
@@ -653,7 +655,7 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
             <td className="col-mono">{m.quantidade ?? "—"}</td>
             <td className="col-mono">{m.preco_unitario != null ? `${m.preco_unitario.toFixed(4)} €` : "—"}</td>
             <td className="col-mono">{m.comissao != null ? `${m.comissao.toFixed(2)} €` : "—"}</td>
-            <td className="col-valor col-mono">{m.valor_total.toFixed(2)} €</td>
+            <td className="col-valor col-mono">{formatarEuros(m.valor_total)}</td>
             <td><button className="btn-ghost" onClick={() => handleEliminar(m.id)}>🧹</button></td>
           </tr>
         ))}

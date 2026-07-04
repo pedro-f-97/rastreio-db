@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { obterResumoMensal, obterDetalheMensal } from '../api/estatisticas';
 import './Estatisticas.css';
+import { formatarEuros } from '../utils/formatacao';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -67,10 +68,10 @@ export default function Historico() {
                                 <Fragment key={`ano-${ano}`}>
                                     <tr className="linha-ano">
                                         <td>{ano}</td>
-                                        <td className="valor-positivo">{totalAno.receitas.toFixed(2)} €</td>
-                                        <td className="valor-negativo">{totalAno.despesas.toFixed(2)} €</td>
-                                        <td className={totalAno.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{totalAno.investimento.toFixed(2)} €</td>
-                                        <td className={totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{totalAno.poupanca.toFixed(2)} €</td>
+                                        <td className="valor-positivo">{formatarEuros(totalAno.receitas)}</td>
+                                        <td className="valor-negativo">{formatarEuros(totalAno.despesas)}</td>
+                                        <td className={totalAno.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{formatarEuros(totalAno.investimento)}</td>
+                                        <td className={totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarEuros(totalAno.poupanca)}</td>
                                         <td>{totalAno.taxa}%</td>
                                     </tr>
                                     {mesesPorAno[ano].map(m => {
@@ -85,10 +86,10 @@ export default function Historico() {
                                                         <span className="seta-expansao">{seleccionado ? '▼' : '▶'}</span>
                                                         {labelMes(m.ano, m.mes)}
                                                     </td>
-                                                    <td className="valor-positivo">{m.receitas.toFixed(2)} €</td>
-                                                    <td className="valor-negativo">{m.despesas.toFixed(2)} €</td>
-                                                    <td className={m.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{m.investimento.toFixed(2)} €</td>
-                                                    <td className={m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{m.poupanca.toFixed(2)} €</td>
+                                                    <td className="valor-positivo">{formatarEuros(m.receitas)}</td>
+                                                    <td className="valor-negativo">{formatarEuros(m.despesas)}</td>
+                                                    <td className={m.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{formatarEuros(m.investimento)}</td>
+                                                    <td className={m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarEuros(m.poupanca)}</td>
                                                     <td>{m.receitas > 0 ? (m.poupanca / m.receitas * 100).toFixed(1) : '—'}%</td>
                                                 </tr>
                                                 {seleccionado && detalheMes.map(cat => (
@@ -104,8 +105,8 @@ export default function Historico() {
                                                         {cat.subcategorias.map(sub => (
                                                             <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
                                                                 <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                                <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? `${sub.total.toFixed(2)} €` : ''}</td>
-                                                                <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? `${sub.total.toFixed(2)} €` : ''}</td>
+                                                                <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? formatarEuros(cat.total) : ''}</td>
+                                                                <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? formatarEuros(sub.total) : ''}</td>
                                                                 <td className={cat.tipo === 'investimento' ? (sub.total >= 0 ? 'valor-positivo' : 'valor-negativo') : ''}>{cat.tipo === 'investimento' ? `${sub.total.toFixed(2)} €` : ''}</td>
                                                                 <td></td>
                                                                 <td></td>

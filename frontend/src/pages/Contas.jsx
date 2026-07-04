@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getContas, criarConta, actualizarConta, apagarConta } from '../api/contas';
 import './Contas.css';
+import { formatarEuros } from '../utils/formatacao';
 
 export default function Contas() {
     const [contas, setContas] = useState([]);
@@ -142,7 +143,7 @@ export default function Contas() {
                                     <span className="conta-nome">{conta.nome}</span>
                                     {!conta.ativa && <span className="badge-inativa">inactiva</span>}
                                     <span className="conta-detalhe">
-                                        Ref. <span className="valor-mono">{Number(conta.saldo_referencia).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €</span>
+                                        Ref. <span className="valor-mono">{formatarEuros(Number(conta.saldo_referencia))}</span>
                                         {' '}em <span className="valor-mono">{conta.data_referencia}</span>
                                     </span>
                                 </div>

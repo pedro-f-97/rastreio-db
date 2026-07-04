@@ -5,6 +5,7 @@ import {
     Line, Legend, CartesianGrid, Cell
 } from 'recharts';
 import './Estatisticas.css';
+import { formatarEuros } from '../utils/formatacao';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -176,13 +177,13 @@ export default function Estatisticas() {
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Mediana</span>
                                 <span className={`cartao-metade-valor ${classeValor(cardDespesas.mediana)}`}>
-                                    {cardDespesas.mediana.toFixed(2)} €
+                                    {formatarEuros(cardDespesas.mediana)}
                                 </span>
                             </div>
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Média</span>
                                 <span className={`cartao-metade-valor ${classeValor(cardDespesas.media)}`}>
-                                    {cardDespesas.media.toFixed(2)} €
+                                    {formatarEuros(cardDespesas.media)}
                                 </span>
                             </div>
                         </div>
@@ -194,13 +195,13 @@ export default function Estatisticas() {
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Mediana</span>
                                 <span className={`cartao-metade-valor ${classeValor(cardPoupanca.mediana)}`}>
-                                    {cardPoupanca.mediana.toFixed(2)} €
+                                    {formatarEuros(cardPoupanca.mediana)}
                                 </span>
                             </div>
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Média</span>
                                 <span className={`cartao-metade-valor ${classeValor(cardPoupanca.media)}`}>
-                                    {cardPoupanca.media.toFixed(2)} €
+                                    {formatarEuros(cardPoupanca.media)}
                                 </span>
                             </div>
                         </div>
@@ -314,8 +315,8 @@ export default function Estatisticas() {
                                             </span>
                                             {c.categoria_nome}
                                         </td>
-                                        <td className={classeValor(c.media)}>{c.media.toFixed(2)} €</td>
-                                        <td className={classeValor(c.mediana)}>{c.mediana.toFixed(2)} €</td>
+                                        <td className={classeValor(c.media)}>{formatarEuros(c.media)}</td>
+                                        <td className={classeValor(c.mediana)}>{formatarEuros(c.mediana)}</td>
                                     </tr>
                                     {categoriaExpandida === c.categoria_id &&
                                         [...c.subcategorias]
@@ -323,8 +324,8 @@ export default function Estatisticas() {
                                             .map(sub => (
                                                 <tr key={sub.subcategoria_nome} className="linha-mes">
                                                     <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                    <td className={classeValor(sub.media)}>{sub.media.toFixed(2)} €</td>
-                                                    <td className={classeValor(sub.mediana)}>{sub.mediana.toFixed(2)} €</td>
+                                                    <td className={classeValor(sub.media)}>{formatarEuros(sub.media)}</td>
+                                                    <td className={classeValor(sub.mediana)}>{formatarEuros(sub.mediana)}</td>
                                                 </tr>
                                             ))
                                     }

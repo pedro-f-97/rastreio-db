@@ -21,55 +21,6 @@
     gap: var(--space-sm);
 }
 
-.secao-ativo {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    transition: border-color 0.15s;
-}
-
-.secao-ativo:hover {
-    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-
-.secao-titulo-colapsavel {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    cursor: pointer;
-    padding: var(--space-md) var(--space-xl);
-    margin-bottom: 0;
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-    font-family: var(--font-sans);
-    transition: background 0.15s;
-}
-
-.secao-titulo-colapsavel:hover {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
-    color: var(--text-primary);
-    border-color: transparent;
-}
-
-.secao-ativo-expandida .secao-titulo-colapsavel {
-    border-bottom: 1px solid var(--border);
-}
-
-.secao-chevron {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    transition: color 0.15s;
-}
-
-.secao-titulo-colapsavel:hover .secao-chevron {
-    color: var(--accent);
-}
 
 .badge-pendentes {
     background: var(--danger);
@@ -305,6 +256,22 @@
 
 /* --- SECÇÕES COLAPSÁVEIS --- */
 
+.secao-ativo {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color 0.15s;
+}
+
+.secao-ativo:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+/* Estado base: colapsado — o botão tem border e radius próprios,
+   criando uma saliência visual dentro do card que sugere interactividade.
+   Quando expandido, .secao-ativo-expandida remove esses estilos para
+   fundir o cabeçalho com a tabela abaixo. */
 .secao-titulo-colapsavel {
     display: flex;
     align-items: center;
@@ -329,9 +296,23 @@
     color: var(--text-primary);
 }
 
+.secao-ativo-expandida .secao-titulo-colapsavel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.secao-ativo-expandida .secao-titulo-colapsavel:hover {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
 .secao-chevron {
     font-size: var(--text-sm);
-    color: var(--text-secondary);
+    color: var(--accent);
     transition: color 0.15s;
 }
 
@@ -473,4 +454,10 @@
     font-size: var(--text-sm);
     color: var(--text-secondary);
     font-family: var(--font-mono);
+}
+
+.seta-expansao {
+    color: var(--accent);
+    font-size: 0.6rem;
+    vertical-align: middle;
 }

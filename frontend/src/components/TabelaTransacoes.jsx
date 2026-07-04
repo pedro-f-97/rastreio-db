@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatarEuros } from '../utils/formatacao';
 
 export default function TabelaTransacoes({
     transacoes,
@@ -154,9 +155,8 @@ export default function TabelaTransacoes({
                             <tr key={t.id} className={t.valor < 0 ? 'despesa' : 'receita'}>
                                 <td>{t.data}</td>
                                 <td>{t.descricao}</td>
-                                <td className="valor">{t.valor.toFixed(2)} €</td>
-                                <td className="valor">{t.saldo?.toFixed(2)} €</td>
-
+                                <td className="valor">{formatarEuros(t.valor)}</td>
+                                <td className="valor">{formatarEuros(t.saldo)}</td>
                                 <td>
                                     <select
                                         value={t.categoria_id ?? ''}
