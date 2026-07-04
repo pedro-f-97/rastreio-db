@@ -365,7 +365,7 @@ export default function Patrimonio() {
                 <thead>
                   <tr>
                     <th>Nome</th>
-                    <th>Símbolo</th>
+                    <th>Identificador</th>
                     <th className="col-valor">Quantidade</th>
                     <th className="col-valor">Custo total</th>
                     <th className="col-valor">Valor actual</th>
