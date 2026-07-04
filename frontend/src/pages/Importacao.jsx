@@ -243,11 +243,11 @@ export default function Importacao() {
                                     <td>{p.tipo_ficheiro}</td>
                                     <td>{p.modo_valor}</td>
                                     <td>linha {p.linha_inicio_dados}</td>
-                                    <td>
                                     <td>{contas.find(c => c.id === p.conta_id)?.nome ?? '—'}</td>
-                                    </td>
-                                    <td className="importacao-accoes">
-                                        <button className="btn-perigo" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
+                                    <td>
+                                        <div className="importacao-accoes">
+                                            <button className="btn-perigo" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
