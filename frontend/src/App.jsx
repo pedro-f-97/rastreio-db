@@ -13,6 +13,7 @@ import Importacao from './pages/Importacao'
 import Patrimonio from './pages/Patrimonio'
 import { getPendentes } from './api/patrimonio'
 import Contas from './pages/Contas'
+import logoRastreio from './assets/nariz.svg'
 
 const GRUPOS_NAV = [
   {
@@ -85,8 +86,17 @@ function App() {
             flexDirection: 'column',
             gap: '0',
           }}>
-            <div style={{ padding: '0 16px 24px', color: 'var(--text-secondary)', fontSize: '12px', letterSpacing: '1px' }}>
-              RASTREIO
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '0 16px 24px',
+              gap: '8px',
+            }}>
+              <img src={logoRastreio} alt="Rastreio" style={{ width: '40px', height: '40px' }} />
+              <span style={{ color: 'var(--text-secondary)', fontSize: '14px', letterSpacing: '1px' }}>
+                Rastreio-DB
+              </span>
             </div>
 
             {GRUPOS_NAV.map(grupo => (

@@ -54,6 +54,7 @@ venv\Scripts\pyinstaller ^
   --add-data "frontend_dist;frontend_dist" ^
   --add-data "routers;routers" ^
   --hidden-import tkinter ^
+  --icon "%FRONTEND%\public\favicon.ico" ^
   main.py
 if errorlevel 1 goto erro
 

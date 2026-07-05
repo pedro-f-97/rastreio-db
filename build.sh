@@ -39,14 +39,15 @@ pip install pyinstaller --quiet
 echo ""
 echo "A empacotar com PyInstaller..."
 pyinstaller \
-  --noconfirm \
-  --onedir \
-  --name rastreio-db \
-  --add-data "frontend_dist:frontend_dist" \
-  --add-data "routers:routers" \
-  --hidden-import tkinter \
-  --windowed
-  main.py
+--noconfirm \
+--onedir \
+--name rastreio-db \
+--add-data "frontend_dist:frontend_dist" \
+--add-data "routers:routers" \
+--hidden-import tkinter \
+--icon "$FRONTEND/public/favicon.ico" \
+--windowed \
+main.py
 
 # 6. Organizar output final
 echo ""
