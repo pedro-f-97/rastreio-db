@@ -32,6 +32,12 @@ class Base(DeclarativeBase):
 # Sessão para interagir com a base de dados
 SessionLocal = sessionmaker(bind=engine)
 
+class Configuracao(Base):
+    __tablename__ = "configuracao"
+
+    id:           Mapped[int] = mapped_column(primary_key=True)
+    inicializado: Mapped[bool] = mapped_column(Boolean, default=False)
+
 class TipoCategoria(enum.Enum):
     despesa = "despesa"
     receita = "receita"

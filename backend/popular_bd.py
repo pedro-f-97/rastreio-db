@@ -1,23 +1,68 @@
 from database import SessionLocal, Categoria, Subcategoria, criar_tabelas, TipoCategoria
 
 CATEGORIAS = {
-    "Receita": ["Salário", "IRS"],
-    "Entretenimento": ["Lazer", "Jogos", "Cinema", "Viagens", "Subscrições", "Restauração", "Hardware", "Diversos"],
-    "Transporte": ["Combustível", "Portagens", "Seguro", "Manutenção", "Carro", "IUC", "Inspeção"],
-    "Saúde": ["Consultas", "Farmácia", "Outros"],
-    "Casa": ["Renda", "Manutenção", "Compras", "Supermercado"],
-    "Aparência": ["Roupa", "Cabeleireiro"],
-    "Investimento": ["ETFs", "Crypto", "Poupança"],
-    "Pontual": ["Jurídico", "Outros"],
-    "Prendas": ["Família", "Namorada"],
-    "Transferência": ["Poupanças"],
+    "Receita": [
+        ("Salário", False),
+        ("IRS", False),
+        ("Vendas", False),
+    ],
+    "Entretenimento": [
+        ("Cinema", False),
+        ("Viagens", False),
+        ("Subscrições", False),
+        ("Restauração", False),
+        ("Diversos", False),
+    ],
+    "Transporte": [
+        ("Combustível", False),
+        ("Portagens", False),
+        ("Seguro", False),
+        ("Manutenção", False),
+        ("IUC", False),
+        ("Inspeção", False),
+    ],
+    "Saúde": [
+        ("Consultas", False),
+        ("Farmácia", False),
+        ("Outros", False),
+    ],
+    "Casa": [
+        ("Renda", False),
+        ("Manutenção", False),
+        ("Equipamentos", False),
+        ("Supermercado", False),
+        ("Luz", False),
+        ("Água", False),
+    ],
+    "Aparência": [
+        ("Roupa", False),
+        ("Cabeleireiro", False),
+    ],
+    "Investimento": [
+        ("ETFs", True),
+        ("Crypto", True),
+    ],
+    "Prendas": [
+        ("Família", False),
+        ("Amigos", False),
+    ],
+    "Transferência": [
+        ("Para Conta A", False),
+        ("Para Conta B", False),
+    ],
+    "Património": [
+        ("Automóvel", True),
+        ("Habitação", True),
+    ],
 }
 
 TIPOS = {
     "Receita": TipoCategoria.receita,
     "Investimento": TipoCategoria.investimento,
     "Transferência": TipoCategoria.transferencia,
+    "Património": TipoCategoria.despesa,
 }
+
 
 def popular():
     session = SessionLocal()
@@ -31,13 +76,14 @@ def popular():
         cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
         session.add(cat)
         session.flush()
-        for nome_sub in subcategorias:
-            sub = Subcategoria(nome=nome_sub, categoria_id=cat.id)
+        for nome_sub, trata_patrimonio in subcategorias:
+            sub = Subcategoria(nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio)
             session.add(sub)
 
     session.commit()
     session.close()
     print("Categorias e subcategorias criadas com sucesso!")
+
 
 if __name__ == "__main__":
     popular()
