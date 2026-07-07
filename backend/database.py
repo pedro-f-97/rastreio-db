@@ -37,6 +37,7 @@ class Configuracao(Base):
 
     id:           Mapped[int] = mapped_column(primary_key=True)
     inicializado: Mapped[bool] = mapped_column(Boolean, default=False)
+    tour_visto:   Mapped[bool] = mapped_column(Boolean, default=False)
 
 class TipoCategoria(enum.Enum):
     despesa = "despesa"

@@ -67,7 +67,7 @@ export default function Contas() {
         <div className="contas-page">
             <h1>Contas</h1>
 
-            <div className="nova-conta">
+            <div className="nova-conta" data-tour="contas-nova-conta">
                 <input
                     type="text"
                     placeholder="Nome da conta..."

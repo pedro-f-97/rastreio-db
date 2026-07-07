@@ -217,7 +217,7 @@ export default function Importacao() {
         <div className="importacao-page">
             {/* SECÇÃO: PERFIS */}
             <section className="importacao-secao">
-                <div className="importacao-secao-header">
+                <div className="importacao-secao-header"  data-tour="importacao-novo-perfil">
                     <h2>Perfis de banco</h2>
                     <button onClick={abrirModalNovo}>+ Novo perfil</button>
                 </div>
@@ -262,7 +262,7 @@ export default function Importacao() {
                     <h2>Importar extrato</h2>
                 </div>
 
-                <div className="importacao-controles">
+                <div className="importacao-controles" data-tour="importacao-carregar-ficheiro">
                     <select value={perfilId} onChange={aoSelecionarPerfil}>
                         <option value="">Selecionar perfil...</option>
                         {perfis.map(p => (
