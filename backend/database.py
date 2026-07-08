@@ -121,10 +121,10 @@ class RegraCategorizacao(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     palavra_chave: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias.id"), nullable=False)
+    categoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categorias.id"))
     subcategoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subcategorias.id"))
 
-    categoria: Mapped["Categoria"] = relationship("Categoria")
+    categoria: Mapped[Optional["Categoria"]] = relationship("Categoria")
     subcategoria: Mapped[Optional["Subcategoria"]] = relationship("Subcategoria")
     
 class ModoValor(enum.Enum):

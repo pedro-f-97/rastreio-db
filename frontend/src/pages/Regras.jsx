@@ -44,11 +44,11 @@ export default function Regras() {
     }
 
     async function aoSubmeter() {
-        if (!form.palavra_chave.trim() || !form.categoria_id) return;
+        if (!form.palavra_chave.trim()) return;
         try {
             const res = await criarRegra({
                 palavra_chave: form.palavra_chave.trim(),
-                categoria_id: Number(form.categoria_id),
+                categoria_id: form.categoria_id ? Number(form.categoria_id) : null,
                 subcategoria_id: form.subcategoria_id ? Number(form.subcategoria_id) : null,
             });
             setFeedback({ texto: `Regra criada. ${res.data.transacoes_atualizadas} transações actualizadas.`, erro: false });
@@ -149,7 +149,7 @@ export default function Regras() {
                     value={form.categoria_id}
                     onChange={e => aoMudarCategoria(e.target.value)}
                 >
-                    <option value="">Categoria...</option>
+                    <option value="">—</option>
                     {categorias.map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                     ))}
@@ -186,7 +186,7 @@ export default function Regras() {
                     {regras.map(r => (
                         <tr key={r.id}>
                             <td>{r.palavra_chave}</td>
-                            <td>{r.categoria_nome}</td>
+                            <td>{r.categoria_nome ?? '—'}</td>
                             <td>{r.subcategoria_nome ?? '—'}</td>
                             <td>
                                 <button className="btn-apagar" onClick={() => aoApagar(r.id)}>🗑</button>

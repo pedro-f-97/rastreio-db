@@ -41,25 +41,27 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
     db.add(nova)
     db.flush()
 
-    # Transações sem categoria
-    sem_categoria = db.query(Transacao).filter(
-        Transacao.categoria_id == None,
-        Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
-        ~Transacao.descricao.ilike("TRF%")
-    ).all()
-    for t in sem_categoria:
-        t.categoria_id = nova.categoria_id
-        t.subcategoria_id = nova.subcategoria_id
+    sem_categoria = []
+    com_categoria = []
 
-    # Transações com categoria coincidente mas sem subcategoria
-    com_categoria = db.query(Transacao).filter(
-        Transacao.categoria_id == nova.categoria_id,
-        Transacao.subcategoria_id == None,
-        Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
-        ~Transacao.descricao.ilike("TRF%")
-    ).all()
-    for t in com_categoria:
-        t.subcategoria_id = nova.subcategoria_id
+    if nova.categoria_id is not None:
+        # Transações sem categoria
+        sem_categoria = db.query(Transacao).filter(
+            Transacao.categoria_id == None,
+            Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
+        ).all()
+        for t in sem_categoria:
+            t.categoria_id = nova.categoria_id
+            t.subcategoria_id = nova.subcategoria_id
+
+        # Transações com categoria coincidente mas sem subcategoria
+        com_categoria = db.query(Transacao).filter(
+            Transacao.categoria_id == nova.categoria_id,
+            Transacao.subcategoria_id == None,
+            Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
+        ).all()
+        for t in com_categoria:
+            t.subcategoria_id = nova.subcategoria_id
 
     db.commit()
     db.refresh(nova)
@@ -81,7 +83,6 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
     regras = db.query(RegraCategorizacao).all()
     transacoes = db.query(Transacao).filter(
         Transacao.subcategoria_id.is_(None),
-        Transacao.descricao.notilike("TRF%")
     ).all()
 
     sem_conflito = []
@@ -89,6 +90,8 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
 
     for t in transacoes:
         for regra in regras:
+            if regra.categoria_id is None:
+                continue
             if regra.palavra_chave.upper() in t.descricao.upper():
                 if t.categoria_id is None or t.categoria_id == regra.categoria_id:
                     sem_conflito.append({

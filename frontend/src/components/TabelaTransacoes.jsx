@@ -89,7 +89,6 @@ export default function TabelaTransacoes({
     function verificarRegra(t, categoriaId, subcategoriaId) {
         if (!categoriaId) return;
         if (!t?.descricao) return;
-        if (t.descricao.toUpperCase().startsWith("TRF")) return;
 
         const descricao = normalizar(t.descricao);
 

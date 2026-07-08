@@ -5,9 +5,9 @@ from database import Transacao, RegraCategorizacao, DB_PATH
 from sqlalchemy import or_
 
 def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
-    if transacao.descricao.upper().startswith("TRF"):
-        return
     for regra in regras:
+        if regra.categoria_id is None:
+            continue
         if regra.palavra_chave.upper() in transacao.descricao.upper():
             if transacao.categoria_id is None:
                 transacao.categoria_id = regra.categoria_id

@@ -53,7 +53,7 @@ class Transacao(TransacaoBase):
 # --- SCHEMAS DE REGRAS ---
 class RegraBase(BaseModel):
     palavra_chave: str
-    categoria_id: int
+    categoria_id: Optional[int] = None
     subcategoria_id: Optional[int] = None
 
 class RegraCreate(RegraBase):
