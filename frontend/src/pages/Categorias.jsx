@@ -38,9 +38,9 @@ export default function Categorias() {
         carregar();
     }
 
-    async function aoAdicionarSubcategoria(categoriaId, nome) {
+    async function aoAdicionarSubcategoria(categoriaId, nome, trataPatrimonio = false) {
         if (!nome.trim()) return;
-        await criarSubcategoria(categoriaId, nome.trim());
+        await criarSubcategoria(categoriaId, nome.trim(), trataPatrimonio);
         carregar();
     }
 
@@ -100,7 +100,23 @@ export default function Categorias() {
 }
 
 function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdicionarSub, onRenomearSub, onApagarSub }) {
+    const [aCriarSub, setACriarSub] = useState(false);
     const [novaSub, setNovaSub] = useState('');
+    const [novaSubPatrimonio, setNovaSubPatrimonio] = useState(false);
+
+    function submeterNovaSub() {
+        if (!novaSub.trim()) return;
+        onAdicionarSub(cat.id, novaSub, novaSubPatrimonio);
+        setNovaSub('');
+        setNovaSubPatrimonio(false);
+        setACriarSub(false);
+    }
+
+    function cancelarNovaSub() {
+        setACriarSub(false);
+        setNovaSub('');
+        setNovaSubPatrimonio(false);
+    }
     const estaAEditar = editando.tipoEdicao === 'categoria' && editando.id === cat.id;
 
     return (
@@ -188,20 +204,34 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                     );
                 })}
 
-                <div className="nova-subcategoria">
-                    <input
-                        type="text"
-                        placeholder="Nova subcategoria..."
-                        value={novaSub}
-                        onChange={e => setNovaSub(e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key !== 'Enter') return;
-                            onAdicionarSub(cat.id, novaSub);
-                            setNovaSub('');
-                        }}
-                    />
-                    <button onClick={() => { onAdicionarSub(cat.id, novaSub); setNovaSub(''); }}>+</button>
-                </div>
+                {aCriarSub ? (
+                    <div className="nova-subcategoria">
+                        <input
+                            type="text"
+                            autoFocus
+                            placeholder="Nova subcategoria..."
+                            value={novaSub}
+                            onChange={e => setNovaSub(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') submeterNovaSub();
+                                if (e.key === 'Escape') cancelarNovaSub();
+                            }}
+                        />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                            <input
+                                type="checkbox"
+                                checked={novaSubPatrimonio}
+                                onChange={e => setNovaSubPatrimonio(e.target.checked)}
+                                style={{ width: 'auto' }}
+                            />
+                            Património
+                        </label>
+                        <button className="btn-confirmar" onClick={submeterNovaSub}>✓</button>
+                        <button className="btn-cancelar" onClick={cancelarNovaSub}>✕</button>
+                    </div>
+                ) : (
+                    <button className="btn-nova-subcategoria" onClick={() => setACriarSub(true)}>+ Nova subcategoria</button>
+                )}
             </div>
         </div>
     );

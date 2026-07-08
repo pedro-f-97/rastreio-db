@@ -48,7 +48,11 @@ def criar_subcategoria(categoria_id: int, subcategoria: SubcategoriaCreate, db: 
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    nova = Subcategoria(nome=subcategoria.nome, categoria_id=categoria_id)
+    nova = Subcategoria(
+        nome=subcategoria.nome,
+        categoria_id=categoria_id,
+        trata_patrimonio=subcategoria.trata_patrimonio or False,
+    )
     db.add(nova)
     db.commit()
     db.refresh(nova)

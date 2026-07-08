@@ -20,8 +20,8 @@ export function apagarCategoria(id) {
     return client.delete(`/categorias/${id}`);
 }
 
-export function criarSubcategoria(categoriaId, nome) {
-    return client.post(`/categorias/${categoriaId}/subcategorias`, { nome });
+export function criarSubcategoria(categoriaId, nome, trataPatrimonio = false) {
+    return client.post(`/categorias/${categoriaId}/subcategorias`, { nome, trata_patrimonio: trataPatrimonio });
 }
 
 export function renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio = null) {
