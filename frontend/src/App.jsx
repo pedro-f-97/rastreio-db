@@ -16,6 +16,7 @@ import Contas from './pages/Contas'
 import logoRastreio from './assets/nariz.svg'
 import { GuiaProvider, useGuia } from './contexts/GuiaContext'
 import GuiaDestaque from './components/GuiaDestaque'
+import Sobre from './pages/Sobre'
 
 const GRUPOS_NAV = [
   {
@@ -180,12 +181,28 @@ function App() {
                     </NavLink>
                   ))}
                 </div>
-              ))}
+                 ))}
+
+              <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+                <NavLink
+                  to="/sobre"
+                  style={({ isActive }) => ({
+                    display: 'block',
+                    padding: '8px 16px',
+                    color: isActive ? 'var(--accent)' : 'var(--text-primary)',
+                    textDecoration: 'none',
+                    backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
+                    borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                  })}
+                >
+                  Conceitos
+                </NavLink>
+              </div>
 
               <button
                 onClick={alternarTema}
                 style={{
-                  marginTop: 'auto',
+                  marginTop: '8px',
                   marginLeft: '16px',
                   marginRight: '16px',
                   width: 'calc(100% - 32px)',
@@ -215,6 +232,7 @@ function App() {
                   <Route path="*" element={<Navigate to="/" />} />
                   <Route path="/patrimonio" element={<Patrimonio />} />
                   <Route path="/contas" element={<Contas />} />
+                  <Route path="/sobre" element={<Sobre />} />
                 </>
               }
             </Routes>
