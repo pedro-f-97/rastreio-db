@@ -3,6 +3,7 @@ rastreio.db
 *.db.anterior
 *.db
 *.pre_import
+*.bak
 
 # Ambiente virtual
 backend/venv/
