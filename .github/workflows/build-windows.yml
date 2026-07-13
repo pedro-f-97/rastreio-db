@@ -34,6 +34,15 @@ jobs:
         with:
           node-version: "20"
 
+      # O build.bat assume que "npm install" já foi corrido antes (é o que
+      # normalmente acontece uma vez, localmente). Num runner limpo, a pasta
+      # node_modules não existe, por isso instala-se aqui explicitamente.
+      # "npm ci" usa o package-lock.json para instalar versões exatas.
+      - name: Instalar dependências do frontend
+        shell: cmd
+        run: npm ci
+        working-directory: frontend
+
       # Corre exatamente o mesmo script usado localmente, para não haver
       # divergência entre o build de desenvolvimento e o de CI
       - name: Executar build.bat
