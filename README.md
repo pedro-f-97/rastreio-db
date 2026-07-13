@@ -12,12 +12,35 @@ O Excel como ferramenta de controlo financeiro acumula limitações que se torna
 
 ## Preview
 
-### Lista de transações (edição inline + filtros)
-![Lista de Transações](docs/screenshots/list.jpg)
+### Transações (edição inline + filtros)
+![Transações](docs/screenshots/pag_transacoes.png)
 
-### Estatísticas (Mensais, por categoria e subcategorias)
-![Estatísticas - Visão Geral](docs/screenshots/stats1.jpg)
-![Estatísticas - Detalhe](docs/screenshots/stats2.jpg)
+### Estatísticas (evolução mensal, distribuição por categoria, taxa de poupança)
+![Estatísticas](docs/screenshots/pag_estatisticas.png)
+
+### Património (activos, valorização, FIFO)
+![Património](docs/screenshots/pag_patrimonio.png)
+![Património — tratar activo](docs/screenshots/pag_patrimonio_tratar.png)
+
+<details>
+<summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas)</summary>
+
+### Importação (mapeamento de colunas + deteção de duplicados)
+![Importação](docs/screenshots/pag_importacao.png)
+
+### Categorias
+![Categorias](docs/screenshots/pag_categorias.png)
+
+### Regras de categorização automática
+![Regras](docs/screenshots/pag_regras.png)
+
+### Histórico (totais por ano/mês, drill-down por categoria)
+![Histórico](docs/screenshots/pag_historico.png)
+
+### Contas
+![Contas](docs/screenshots/pag_contas.png)
+
+</details>
 
 ## Funcionalidades
 
@@ -38,7 +61,8 @@ O Excel como ferramenta de controlo financeiro acumula limitações que se torna
 ### Geral
 - Tema claro/escuro com persistência entre sessões
 - Backup e restauro da base de dados com auto-backup de segurança antes de cada restauro
-- Ecrã de primeiro uso com inicialização opcional de categorias predefinidas
+- Ecrã de primeiro uso com inicialização opcional de categorias predefinidas, seguido de tour guiado interativo pela interface
+- Página de Conceitos — explicação das principais áreas da aplicação (Contas/Importação/Transações, Categorias, Regras, Património), com opção de reiniciar o tour guiado
 
 ## Tecnologias
 
@@ -65,6 +89,7 @@ Na primeira utilização, é possível carregar um conjunto de categorias predef
 - Reembolsos são tratados como redução de despesa, não como receita (evita inflacionar o total de entradas)
 - Transferências internas são excluídas de todas as métricas para não distorcer os dados reais
 - O sistema de regras usa correspondência por substring — simples e previsível para o utilizador
+- Regras de categorização sem categoria definida são válidas — funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada
 - A base de dados fica em `dados/rastreio.db`, junto ao executável, para portabilidade e visibilidade directa do ficheiro
 
 ## Distribuição
@@ -127,7 +152,6 @@ Este projeto está licenciado sob a [GNU General Public License v3.0](LICENSE).
 
 ## Roadmap
 
-- Consistência visual e refinamento de estilos nas páginas de Contas e Património
 - Exportação de transações para Excel/CSV
 - Exportação de relatório de estatísticas
 - Modo de revisão de importação — confirmar/rejeitar transações individualmente antes de inserir na BD
@@ -161,6 +185,7 @@ rastreio-db/
     │   ├── migrar_excel.py
     │   ├── migrar_fee.py
     │   ├── migrar_patrimonio.py
+    │   ├── migrar_regras_categoria_opcional.py
     │   ├── migrar_tipo_categoria.py
     │   └── routers/
     │       ├── __init__.py
@@ -191,6 +216,8 @@ rastreio-db/
             │   └── fonts/
             ├── utils/
             │   └── formatacao.js
+            ├── contexts/
+            │   └── GuiaContext.jsx      # Estado do tour guiado (iniciar/avançar/sair/reiniciar)
             ├── api/
             │   ├── client.js
             │   ├── backups.js
@@ -205,7 +232,8 @@ rastreio-db/
             │   └── transacoes.js
             ├── components/
             │   ├── FiltrosTransacoes.jsx
-            │   └── TabelaTransacoes.jsx
+            │   ├── TabelaTransacoes.jsx
+            │   └── GuiaDestaque.jsx + .css   # Highlight de elementos durante o tour guiado
             └── pages/
                 ├── Categorias.jsx + .css
                 ├── Contas.jsx + .css
@@ -215,6 +243,7 @@ rastreio-db/
                 ├── Patrimonio.jsx + .css
                 ├── PrimeiroUso.jsx
                 ├── Regras.jsx + .css
+                ├── Sobre.jsx + .css        # Página "Conceitos" — explicação das áreas da app
                 └── Transacoes.jsx + .css
 ```
 
@@ -226,6 +255,6 @@ rastreio-db/
 - **RegraCategorizacao** — regras por substring que permitem categorizar automaticamente transações com base na descrição
 - **PerfilImportacao** — configuração de mapeamento de colunas para um banco específico, com suporte a coluna de valor única ou separada em débito/crédito, e associação opcional a uma conta
 - **Conta** — conta bancária com saldo e data de referência, associada a transações e perfis de importação; pode ser desactivada sem perda de dados
-- **Ativo** — activo patrimonial com tipo (`etf`, `crypto`, `veiculo`, `imovel`, `outro`), símbolo opcional e moeda
+- **Ativo** — activo patrimonial com tipo (`etf`, `crypto`, `veiculo`, `imovel`, `outro`), símbolo opcional, moeda e campo `contabilizacao` (`investimento` ou `patrimonio`) que determina se entra no cálculo FIFO de investimento ou é tratado como património puro
 - **MovimentoAtivo** — registo de compra, venda ou dividendo sobre um activo, com quantidade, preço unitário, comissão e ligação opcional a uma transação
 - **PrecoAtivo** — histórico de valorização de um activo, com unicidade por activo e data
