@@ -2,7 +2,7 @@
   <img src="frontend/src/assets/nariz.svg" width="120" alt="Rastreio-DB" />
 </p>
 
-# Rastreio-DB
+<h1 align="center">Rastreio-DB</h1>
 
 <p align="center">
   <a href="https://github.com/pedro-f-97/rastreio-db/releases/latest">⬇️ Download da versão mais recente</a>
