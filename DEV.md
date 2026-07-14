@@ -22,7 +22,8 @@ O prompt passa a mostrar `(venv)` quando está ativo.
 cd frontend
 npm run dev
 ```
-- Frontend disponível em: `http://localhost:5173`
+- Frontend disponível em: `http://localhost:9743`
+- Proxy para `/api` configurado no Vite, aponta para o backend em `9742`
 
 ## Arrancar o servidor
 ```bash
@@ -30,8 +31,8 @@ cd backend
 source venv/bin/activate
 uvicorn main:app --reload --port 9742
 ```
-- API disponível em: `http://localhost:8000`
-- Documentação interativa: `http://localhost:8000/docs`
+- API disponível em: `http://localhost:9742`
+- Documentação interativa: `http://localhost:9742/docs`
 - O `--reload` reinicia automaticamente quando guardas ficheiros
 
 ## Recriar a base de dados (apaga tudo!)
@@ -40,8 +41,29 @@ cd backend
 rm dados/rastreio.db
 python database.py
 python popular_bd.py
-python migrar_excel.py
 ```
+`popular_bd.py` semeia apenas a estrutura de categorias/subcategorias — não é ponto de partida para dados de transações.
+
+Se necessário, corre também as migrações relevantes (ver lista abaixo) ou usa `dados_demo.py` para gerar ficheiros xlsx de dados fictícios para importar via UI.
+
+## Scripts de migração disponíveis
+```bash
+python migrar_adicionar_transferencia.py
+python migrar_contas.py
+python migrar_excel.py
+python migrar_fee.py
+python migrar_patrimonio.py
+python migrar_regras_categoria_opcional.py
+python migrar_tipo_categoria.py
+```
+Cada script cobre uma alteração específica de esquema — correr apenas os que se aplicam ao estado atual da BD. `create_all()` não altera tabelas já existentes.
+
+## Gerar dados fictícios para demonstração
+```bash
+cd backend
+python dados_demo.py
+```
+Gera ficheiros xlsx (não escreve diretamente na BD) com 12 meses de histórico, 2 contas, e movimentos de ativos para testar FIFO. Importar depois via UI.
 
 ## Comandos SQL
 ```bash
@@ -49,13 +71,24 @@ sqlite3 /home/pedrof/Documents/Projectos/rastreio-db/backend/dados/rastreio.db "
 ```
 
 ## Gerar executável
+
+### Linux
 ```bash
 cd /home/pedrof/Documents/Projectos/rastreio-db
 ./build.sh
 ```
-- Executável gerado em: `dist_executavel/rastreio-db`
+
+### Windows
+```bat
+cd C:\caminho\para\rastreio-db
+build.bat
+```
+
+- Executável gerado em: `dist_executavel/rastreio-db` (Linux) ou `dist_executavel\rastreio-db.exe` (Windows)
 - Base de dados em: `dist_executavel/dados/rastreio.db`
 - Para testar com BD nova: `rm dist_executavel/dados/rastreio.db`
+- O ícone da janela tkinter (`tray.py`) é carregado a partir de `backend/assets/icon.ico` / `icon.png`, incluídos no executável via `--add-data`
+- No Windows, o build usa `--windowed`, o que esconde a consola cmd mas também suprime qualquer `print()` — não usar para debug de arranque no Windows
 
 ## Matar o executável em background
 ```bash

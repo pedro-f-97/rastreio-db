@@ -44,6 +44,7 @@ pyinstaller \
 --name rastreio-db \
 --add-data "frontend_dist:frontend_dist" \
 --add-data "routers:routers" \
+--add-data "assets:assets" \
 --hidden-import tkinter \
 --icon "$FRONTEND/public/favicon.ico" \
 --windowed \
