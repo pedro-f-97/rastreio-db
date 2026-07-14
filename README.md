@@ -2,11 +2,15 @@
   <img src="frontend/src/assets/nariz.svg" width="120" alt="Rastreio-DB" />
 </p>
 
-<p align="center">[⬇️ Download da versão mais recente](https://github.com/pedro-f-97/rastreio-db/releases/latest)</p>
-
-<p align="center">**Python • FastAPI • React • SQLite • SQLAlchemy • PyInstaller**</p>
-
 # Rastreio-DB
+
+<p align="center">
+  <a href="https://github.com/pedro-f-97/rastreio-db/releases/latest">⬇️ Download da versão mais recente</a>
+</p>
+
+<p align="center">
+  <strong>Python • FastAPI • React • SQLite • SQLAlchemy • PyInstaller</strong>
+</p>
 
 Aplicação web para gestão e análise de despesas bancárias pessoais. Permite importar extratos bancários em Excel, categorizar transações automaticamente com regras configuráveis e acompanhar a evolução financeira através de estatísticas detalhadas — com detalhes por categoria, taxa de poupança e totalizadores anuais e absolutos.
 

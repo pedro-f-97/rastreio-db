@@ -1,0 +1,43 @@
+build-linux:
+    needs: build-windows
+    runs-on: ubuntu-latest
+
+    steps:
+      # Descarrega o código do repositório para o runner
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      # Instala o Python na versão que o projeto usa
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      # Instala o Node.js, necessário para compilar o frontend (npm run build)
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Mesmo motivo do job Windows: node_modules não existe num runner limpo
+      - name: Instalar dependências do frontend
+        run: npm ci
+        working-directory: frontend
+
+      # Corre exatamente o mesmo script usado localmente, para não haver
+      # divergência entre o build de desenvolvimento e o de CI
+      - name: Executar build.sh
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      # Mesma lógica do Windows: --onedir produz uma pasta, compacta-se
+      # para anexar à Release. tar.gz é o formato habitual no Linux.
+      - name: Compactar dist_executavel
+        run: tar -czf rastreio-db-linux.tar.gz -C dist_executavel .
+
+      # Cria/atualiza a Release associada à tag e anexa o .tar.gz
+      - name: Criar Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: rastreio-db-linux.tar.gz
