@@ -46,4 +46,4 @@ Em ambos os casos, o executável é gerado em `dist_executavel/`.
 
 ### Primeiro arranque do executável
 
-A aplicação abre automaticamente no browser em `http://localhost:8000`. Uma pequena janela de controlo (`tray.py`, tkinter) permite reabrir o browser ou encerrar a aplicação.
+A aplicação abre automaticamente no browser em `http://localhost:9743`. Uma pequena janela de controlo (`tray.py`, tkinter) permite reabrir o browser ou encerrar a aplicação.

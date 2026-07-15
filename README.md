@@ -100,7 +100,7 @@ Na primeira utilização, é possível carregar um conjunto de categorias predef
 
 ## Documentação adicional
 
-- [Arquitetura do projeto](docs/arquitetura.md)
+- [Arquitetura do projeto](docs/arquitectura.md)
 - [Modelo de dados](docs/modelo-dados.md)
 - [Guia de desenvolvimento](docs/desenvolvimento.md)
 
