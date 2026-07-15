@@ -12,6 +12,11 @@ from fastapi.responses import FileResponse
 from database import BASE_DIR, criar_tabelas
 from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao, perfis_importacao, patrimonio, contas
 
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
 # --- Pasta do frontend ---
 if getattr(sys, 'frozen', False):
     PASTA_FRONTEND = os.path.join(getattr(sys, '_MEIPASS', BASE_DIR), "frontend_dist")
@@ -61,7 +66,9 @@ if os.path.exists(PASTA_FRONTEND):
 if __name__ == "__main__":
     PORTA = 9742
 
-    servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=PORTA, log_level="warning"))
+    servidor = uvicorn.Server(uvicorn.Config(
+        app, host="127.0.0.1", port=PORTA, log_level="warning", log_config=None
+    ))
 
     def iniciar_servidor():
         import asyncio
