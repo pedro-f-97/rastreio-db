@@ -6,13 +6,14 @@ import subprocess
 def iniciar_tray(parar_servidor_fn):
     import tkinter as tk
 
-    if getattr(sys, "frozen", False):
-        BASE_DIR = os.path.dirname(sys.executable)
+    if getattr(sys, 'frozen', False):
+        BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
     else:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
     ICON_ICO = os.path.join(BASE_DIR, "assets", "icon.ico")
-    ICON_PNG = os.path.join(BASE_DIR, "assets", "icon.png")
+    ICON_SIZES = [16, 32, 48, 128, 256]
+    ICON_PNGS = [os.path.join(BASE_DIR, "assets", f"icon-{s}.png") for s in ICON_SIZES]
 
     def ao_abrir():
         url = "http://localhost:9742"
@@ -50,9 +51,11 @@ def iniciar_tray(parar_servidor_fn):
     try:
         if sys.platform.startswith("win") and os.path.exists(ICON_ICO):
             root.iconbitmap(ICON_ICO)
-        elif os.path.exists(ICON_PNG):
-            icone = tk.PhotoImage(file=ICON_PNG)
-            root.iconphoto(True, icone)
+        else:
+            icones = [tk.PhotoImage(file=p) for p in ICON_PNGS if os.path.exists(p)]
+            # print(f"Ícones carregados: {len(icones)}")
+            if icones:
+                root.iconphoto(True, *icones)
     except tk.TclError:
         pass
 
