@@ -11,15 +11,18 @@ from fastapi.responses import FileResponse
 
 from database import BASE_DIR, criar_tabelas
 from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao, perfis_importacao, patrimonio, contas
+from tray import iniciar_tray
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
 if sys.stderr is None:
     sys.stderr = open(os.devnull, "w")
 
+IS_FROZEN = getattr(sys, "frozen", False)
+
 # --- Pasta do frontend ---
-if getattr(sys, 'frozen', False):
-    PASTA_FRONTEND = os.path.join(getattr(sys, '_MEIPASS', BASE_DIR), "frontend_dist")
+if IS_FROZEN:
+    PASTA_FRONTEND = os.path.join(getattr(sys, "_MEIPASS", BASE_DIR), "frontend_dist")
 else:
     PASTA_FRONTEND = os.path.join(BASE_DIR, "frontend_dist")
 
@@ -31,7 +34,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-if not getattr(sys, 'frozen', False):
+if not IS_FROZEN:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:9743"],
@@ -39,16 +42,21 @@ if not getattr(sys, 'frozen', False):
         allow_headers=["*"],
     )
 
-app.include_router(categorias.router, prefix="/api")
-app.include_router(transacoes.router, prefix="/api")
-app.include_router(regras.router, prefix="/api")
-app.include_router(importacao.router, prefix="/api")
-app.include_router(estatisticas.router, prefix="/api")
-app.include_router(backups.router, prefix="/api")
-app.include_router(configuracao.router, prefix="/api")
-app.include_router(perfis_importacao.router, prefix="/api")
-app.include_router(patrimonio.router, prefix="/api")
-app.include_router(contas.router, prefix="/api")
+ROUTERS = (
+    categorias.router,
+    transacoes.router,
+    regras.router,
+    importacao.router,
+    estatisticas.router,
+    backups.router,
+    configuracao.router,
+    perfis_importacao.router,
+    patrimonio.router,
+    contas.router,
+)
+
+for router in ROUTERS:
+    app.include_router(router, prefix="/api")
 
 @app.get("/")
 async def servir_index():
@@ -90,5 +98,4 @@ if __name__ == "__main__":
     threading.Thread(target=abrir_browser, daemon=True).start()
 
     # Tray na thread principal (obrigatório no Linux/Windows)
-    from tray import iniciar_tray
     iniciar_tray(parar_servidor)
