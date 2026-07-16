@@ -27,9 +27,9 @@ const PASSOS = [
     dataTour: 'importacao-carregar-ficheiro',
     texto: 'Com um perfil pronto, já podes importar o extracto do banco. Se ainda não tiveres nenhum perfil, cria um primeiro.',
   },
-  {
+{
     id: 'final',
-    rota: '/',
+    rota: '/sobre',
     dataTour: null,
     texto: 'Já tens o essencial configurado. Explora as Estatísticas, as Regras, ou revê estes conceitos a qualquer momento em "Sobre".',
   },
