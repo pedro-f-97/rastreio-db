@@ -14,9 +14,32 @@
 
 Aplicação web para gestão e análise de despesas bancárias pessoais. Permite importar extratos bancários em Excel, categorizar transações automaticamente com regras configuráveis e acompanhar a evolução financeira através de estatísticas detalhadas — com detalhes por categoria, taxa de poupança e totalizadores anuais e absolutos.
 
-## Motivação
+## O que é o Rastreio-DB
 
-O Excel como ferramenta de controlo financeiro acumula limitações que se tornam progressivamente mais frustrantes, este projeto nasceu da necessidade de algo mais robusto e adequado ao problema.
+Aplicação de gestão financeira pessoal, local e sem dependência de serviços externos. Nasceu da necessidade de algo mais robusto do que uma folha de Excel para acompanhar despesas, categorizá-las automaticamente e perceber a evolução financeira ao longo do tempo.
+
+### Transações
+- Listagem paginada com edição inline de categoria, subcategoria, reembolso e notas
+- Filtros por ano, mês e categoria, incluindo filtro rápido de transações por categorizar
+- Categorização automática por regras de substring, com sugestões de novas regras
+- Aplicação de regras em massa, com resolução individual de conflitos
+- Importação de Excel e CSV, com perfis de mapeamento de colunas por banco e deteção automática de duplicados (`data + descrição + valor + saldo`)
+
+### Análise
+- Estatísticas mensais: evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais
+- Histórico com totais por ano/mês e drill-down por categoria
+- Património: acompanhamento de activos, valorização ao longo do tempo e totais por tipo
+
+### Configuração
+- Categorias e subcategorias totalmente configuráveis, com tipo (`despesa`, `receita`, `investimento`, `transferencia`)
+- Regras de categorização automática
+- Gestão de contas bancárias
+
+### Geral
+- Tema claro/escuro com persistência entre sessões
+- Backup e restauro da base de dados, com auto-backup de segurança antes de cada restauro
+- Ecrã de primeiro uso com categorias predefinidas opcionais, seguido de tour guiado interativo
+- Página de Conceitos com explicação das principais áreas da aplicação
 
 ## Preview
 
@@ -49,28 +72,6 @@ O Excel como ferramenta de controlo financeiro acumula limitações que se torna
 ![Contas](docs/screenshots/pag_contas.png)
 
 </details>
-
-## Funcionalidades
-
-### Transações
-- **Transações** — listagem paginada com edição inline de categoria, subcategoria, reembolso e notas; filtros por ano, mês e categoria; filtro rápido de transações por categorizar; categorização automática por regras de substring com sugestões de novas regras; aplicação de regras em massa com resolução individual de conflitos
-- **Histórico** — totais agregados por ano e mês, com drill-down por categoria dentro de cada mês
-- **Importação** — suporte a Excel e CSV, com perfis de mapeamento de colunas configuráveis por banco e detecção automática de duplicados por `data + descrição + valor + saldo`
-
-### Configuração
-- **Categorias** — CRUD completo com definição de tipo (`despesa`, `receita`, `investimento`, `transferencia`) e subcategorias opcionais
-- **Regras** — regras de categorização automática por correspondência de substring
-- **Contas** — CRUD de contas bancárias
-
-### Análise
-- **Estatísticas** — resumo mensal, gráfico de evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais
-- **Património** — acompanhamento de activos com movimentos, valorização ao longo do tempo e totais por tipo
-
-### Geral
-- Tema claro/escuro com persistência entre sessões
-- Backup e restauro da base de dados com auto-backup de segurança antes de cada restauro
-- Ecrã de primeiro uso com inicialização opcional de categorias predefinidas, seguido de tour guiado interativo pela interface
-- Página de Conceitos — explicação das principais áreas da aplicação (Contas/Importação/Transações, Categorias, Regras, Património), com opção de reiniciar o tour guiado
 
 ## Categorias
 
@@ -107,12 +108,3 @@ Na primeira utilização, é possível carregar um conjunto de categorias predef
 ## Licença
 
 Este projeto está licenciado sob a [GNU General Public License v3.0](LICENSE).
-
-## Roadmap
-
-- Exportação de transações para Excel/CSV
-- Exportação de relatório de estatísticas
-- Modo de revisão de importação — confirmar/rejeitar transações individualmente antes de inserir na BD
-- Possibilidade de ligação a BD remota
-- Integração opcional com API de preços de mercado (com toggle)
-- Vista IRS — ganhos realizados agrupados por categoria de activo
