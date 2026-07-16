@@ -46,25 +46,6 @@ python popular_bd.py
 
 Se necessário, corre também as migrações relevantes (ver lista abaixo) ou usa `dados_demo.py` para gerar ficheiros xlsx de dados fictícios para importar via UI.
 
-## Scripts de migração disponíveis
-```bash
-python migrar_adicionar_transferencia.py
-python migrar_contas.py
-python migrar_excel.py
-python migrar_fee.py
-python migrar_patrimonio.py
-python migrar_regras_categoria_opcional.py
-python migrar_tipo_categoria.py
-```
-Cada script cobre uma alteração específica de esquema — correr apenas os que se aplicam ao estado atual da BD. `create_all()` não altera tabelas já existentes.
-
-## Gerar dados fictícios para demonstração
-```bash
-cd backend
-python dados_demo.py
-```
-Gera ficheiros xlsx (não escreve diretamente na BD) com 12 meses de histórico, 2 contas, e movimentos de ativos para testar FIFO. Importar depois via UI.
-
 ## Comandos SQL
 ```bash
 sqlite3 /home/pedrof/Documents/Projectos/rastreio-db/backend/dados/rastreio.db "SELECT * FROM precos_ativo;"
@@ -95,9 +76,15 @@ build.bat
 pkill -f rastreio-db
 ```
 
-## Git — guardar trabalho
+## Git
+Dar commit de alterações
 ```bash
 cd /home/pedrof/Documents/Projectos/rastreio-db
 git add backend/ficheiro.py
 git commit -m "descrição do que fizeste"
+```
+Marcar para release (gera executáveis)
+```bash
+git tag v0.2.2
+git push origin v0.2.2
 ```
