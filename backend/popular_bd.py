@@ -1,58 +1,131 @@
+from enum import Enum
 from database import SessionLocal, Categoria, Subcategoria, criar_tabelas, TipoCategoria
 
-CATEGORIAS = {
+
+class PerfilCategorias(str, Enum):
+    minimalista = "minimalista"
+    completo = "completo"
+
+
+CATEGORIAS_MINIMALISTA = {
     "Receita": [
         ("Salário", False),
-        ("IRS", False),
-        ("Vendas", False),
+        ("Reembolso", False),
+        ("Venda", False),
+        ("Outros", False),
     ],
-    "Entretenimento": [
-        ("Cinema", False),
-        ("Viagens", False),
-        ("Subscrições", False),
-        ("Restauração", False),
-        ("Diversos", False),
+    "Casa": [
+        ("Prestação", True),
+        ("Renda", False),
+        ("Condomínio", False),
+        ("Outros", False),
     ],
     "Transporte": [
         ("Combustível", False),
+        ("Outros", False),
+    ],
+    "Saúde": [
+        ("Outros", False),
+    ],
+    "Lazer": [
+        ("Outros", False),
+    ],
+    "Investimento": [
+        ("Outros", True),
+    ],
+    "Transferência": [
+        ("Conta Principal → Poupanças", False),
+        ("Poupanças → Conta Principal", False),
+    ],
+    "Diversos": [
+        ("Outros", False),
+    ],
+}
+
+CATEGORIAS_COMPLETO = {
+    "Receita": [
+        ("Salário", False),
+        ("Reembolso", False),
+        ("Venda", False),
+        ("Outros", False),
+    ],
+    "Casa": [
+        ("Renda", False),
+        ("Prestação", True),
+        ("Condomínio", False),
+        ("Manutenção", True),
+        ("Equipamentos", False),
+        ("Supermercado", False),
+        ("Luz", False),
+        ("Água", False),
+        ("Outros", False),
+    ],
+    "Transporte": [
+        ("Combustível", False),
+        ("Transportes públicos", False),
         ("Portagens", False),
         ("Seguro", False),
         ("Manutenção", False),
         ("IUC", False),
         ("Inspeção", False),
+        ("Outros", False),
     ],
     "Saúde": [
+        ("Seguro de saúde", False),
         ("Consultas", False),
         ("Farmácia", False),
         ("Outros", False),
     ],
-    "Casa": [
-        ("Renda", False),
-        ("Manutenção", False),
-        ("Equipamentos", False),
-        ("Supermercado", False),
-        ("Luz", False),
-        ("Água", False),
-    ],
-    "Aparência": [
+    "Cuidados Pessoais": [
         ("Roupa", False),
         ("Cabeleireiro", False),
+        ("Outros", False),
+    ],
+    "Lazer": [
+        ("Cinema", False),
+        ("Viagens", False),
+        ("Subscrições", False),
+        ("Restauração", False),
+        ("Outros", False),
     ],
     "Investimento": [
+        ("Ações", True),
         ("ETFs", True),
-        ("Crypto", True),
+        ("Obrigações", True),
+        ("Fundos", True),
+        ("Criptoativos", True),
+        ("Outros", True),
     ],
     "Prendas": [
         ("Família", False),
         ("Amigos", False),
     ],
     "Transferência": [
-        ("Para Conta A", False),
-        ("Para Conta B", False),
+        ("Conta Principal → Poupanças", False),
+        ("Poupanças → Conta Principal", False),
     ],
     "Património": [
-        ("Automóvel", True),
-        ("Habitação", True),
+        ("Imóveis", True),
+        ("Veículos", True),
+        ("Outros ativos", True),
+    ],
+    "Educação": [
+        ("Livros", False),
+        ("Cursos", False),
+    ],
+    "Serviços": [
+        ("Internet", False),
+        ("Streaming", False),
+        ("Outros", False),
+    ],
+    "Animais": [
+        ("Outros", False),
+    ],
+    "Taxas e Impostos": [
+        ("Outros", False),
+    ],
+    "Diversos": [
+        ("Outros", False),
     ],
 }
 
@@ -64,7 +137,11 @@ TIPOS = {
 }
 
 
-def popular():
+def popular(perfil: PerfilCategorias = PerfilCategorias.completo):
+    categorias = (
+        CATEGORIAS_MINIMALISTA if perfil == PerfilCategorias.minimalista else CATEGORIAS_COMPLETO
+    )
+
     session = SessionLocal()
 
     if session.query(Categoria).count() > 0:
@@ -72,7 +149,7 @@ def popular():
         session.close()
         return
 
-    for nome_cat, subcategorias in CATEGORIAS.items():
+    for nome_cat, subcategorias in categorias.items():
         cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
         session.add(cat)
         session.flush()
@@ -82,8 +159,15 @@ def popular():
 
     session.commit()
     session.close()
-    print("Categorias e subcategorias criadas com sucesso!")
+    print(f"Categorias e subcategorias criadas com sucesso! (perfil: {perfil.value})")
+
+
+def _perfil_via_input() -> PerfilCategorias:
+    resposta = input("Perfil de categorias [minimalista/completo] (default: completo): ").strip().lower()
+    if resposta == "minimalista":
+        return PerfilCategorias.minimalista
+    return PerfilCategorias.completo
 
 
 if __name__ == "__main__":
-    popular()
+    popular(_perfil_via_input())

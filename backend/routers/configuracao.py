@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import SessionLocal, Categoria, Subcategoria, Configuracao, TipoCategoria
-from popular_bd import CATEGORIAS, TIPOS
+from popular_bd import CATEGORIAS_MINIMALISTA, CATEGORIAS_COMPLETO, TIPOS, PerfilCategorias
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
 
@@ -20,13 +20,20 @@ def estado(db: Session = Depends(get_db)):
     return {"inicializado": inicializado, "tour_visto": tour_visto}
 
 @router.post("/inicializar")
-def inicializar(com_categorias: bool = True, db: Session = Depends(get_db)):
+def inicializar(
+    com_categorias: bool = True,
+    perfil: PerfilCategorias = PerfilCategorias.completo,
+    db: Session = Depends(get_db),
+):
     config = db.query(Configuracao).first()
     if config and config.inicializado:
         return {"ok": False, "mensagem": "Base de dados já inicializada"}
 
     if com_categorias:
-        for nome_cat, subcategorias in CATEGORIAS.items():
+        categorias = (
+            CATEGORIAS_MINIMALISTA if perfil == PerfilCategorias.minimalista else CATEGORIAS_COMPLETO
+        )
+        for nome_cat, subcategorias in categorias.items():
             cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
             db.add(cat)
             db.flush()
