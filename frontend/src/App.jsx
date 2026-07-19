@@ -17,6 +17,7 @@ import logoRastreio from './assets/nariz.svg'
 import { GuiaProvider, useGuia } from './contexts/GuiaContext'
 import GuiaDestaque from './components/GuiaDestaque'
 import Sobre from './pages/Sobre'
+import TiposAtivo from './pages/TiposAtivo'
 
 const GRUPOS_NAV = [
   {
@@ -33,6 +34,7 @@ const GRUPOS_NAV = [
           { to: '/categorias', label: 'Categorias' },
           { to: '/regras', label: 'Regras' },
           { to: '/contas', label: 'Contas' },
+          { to: '/tipos-ativo', label: 'Tipos de Ativo' },
       ],
   },
   {
@@ -233,6 +235,7 @@ function App() {
                   <Route path="/patrimonio" element={<Patrimonio />} />
                   <Route path="/contas" element={<Contas />} />
                   <Route path="/sobre" element={<Sobre />} />
+                  <Route path="/tipos-ativo" element={<TiposAtivo />} />
                 </>
               }
             </Routes>

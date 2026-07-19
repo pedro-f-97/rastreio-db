@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from database import BASE_DIR, criar_tabelas
-from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao, perfis_importacao, patrimonio, contas
+from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao, perfis_importacao, patrimonio, contas, tipos_ativo
 from tray import iniciar_tray
 
 if sys.stdout is None:
@@ -53,6 +53,7 @@ ROUTERS = (
     perfis_importacao.router,
     patrimonio.router,
     contas.router,
+    tipos_ativo.router
 )
 
 for router in ROUTERS:

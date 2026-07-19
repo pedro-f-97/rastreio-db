@@ -35,7 +35,7 @@ def listar_pendentes(db: Session = Depends(get_db)):
 
 @router.get("/ativos", response_model=List[schemas.Ativo])
 def listar_ativos(db: Session = Depends(get_db)):
-    return db.query(AtivoModel).order_by(AtivoModel.tipo, AtivoModel.nome).all()
+    return db.query(AtivoModel).order_by(AtivoModel.tipo_id, AtivoModel.nome).all()
 
 
 @router.post("/ativos", response_model=schemas.Ativo)

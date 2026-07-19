@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional
 from datetime import date
-from database import TipoCategoria, TipoAtivo, TipoMovimento, TipoContabilizacao
+from database import TipoCategoria, TipoMovimento, TipoContabilizacao
 
 # --- SCHEMAS DE CATEGORIA ---
 class CategoriaBase(BaseModel):
@@ -104,9 +104,20 @@ class PerfilImportacao(PerfilImportacaoBase):
     model_config = ConfigDict(from_attributes=True)
 
 # --- SCHEMAS DE ATIVO ---
+class TipoAtivoBase(BaseModel):
+    nome: str
+    tem_unidades: bool = False
+
+class TipoAtivoCreate(TipoAtivoBase):
+    pass
+
+class TipoAtivo(TipoAtivoBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
 class AtivoBase(BaseModel):
     nome: str
-    tipo: TipoAtivo
+    tipo_id: int
     simbolo: Optional[str] = None
     moeda: str = "EUR"
     notas: Optional[str] = None
@@ -117,6 +128,7 @@ class AtivoCreate(AtivoBase):
 
 class Ativo(AtivoBase):
     id: int
+    tipo: TipoAtivo
     model_config = ConfigDict(from_attributes=True)
 
 # --- SCHEMAS DE MOVIMENTO DE ATIVO ---

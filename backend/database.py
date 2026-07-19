@@ -45,12 +45,14 @@ class TipoCategoria(enum.Enum):
     investimento = "investimento"
     transferencia = "transferencia"
 
-class TipoAtivo(enum.Enum):
-    etf      = "etf"
-    crypto   = "crypto"
-    veiculo  = "veiculo"
-    imovel   = "imovel"
-    outro    = "outro"
+class TipoAtivo(Base):
+    __tablename__ = "tipos_ativo"
+
+    id:           Mapped[int] = mapped_column(primary_key=True)
+    nome:         Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    tem_unidades: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    ativos: Mapped[List["Ativo"]] = relationship("Ativo", back_populates="tipo")
 
 class TipoMovimento(enum.Enum):
     compra    = "compra"
@@ -166,12 +168,13 @@ class Ativo(Base):
 
     id:      Mapped[int] = mapped_column(primary_key=True)
     nome:    Mapped[str] = mapped_column(String(100), nullable=False)
-    tipo:    Mapped[TipoAtivo] = mapped_column(SAEnum(TipoAtivo), nullable=False)
+    tipo_id: Mapped[int] = mapped_column(ForeignKey("tipos_ativo.id"), nullable=False)
     simbolo: Mapped[Optional[str]] = mapped_column(String(20), unique=True)
     moeda:   Mapped[str] = mapped_column(String(10), default="EUR")
     notas:   Mapped[Optional[str]] = mapped_column(String(500))
     contabilizacao: Mapped[TipoContabilizacao] = mapped_column(SAEnum(TipoContabilizacao), nullable=False)
 
+    tipo:       Mapped["TipoAtivo"] = relationship("TipoAtivo", back_populates="ativos")
     movimentos: Mapped[List["MovimentoAtivo"]] = relationship("MovimentoAtivo", back_populates="ativo")
     precos:     Mapped[List["PrecoAtivo"]] = relationship("PrecoAtivo", back_populates="ativo")
 

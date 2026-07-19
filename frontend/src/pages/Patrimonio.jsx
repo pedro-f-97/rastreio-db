@@ -1,12 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { getPendentes, getAtivos, criarAtivo, criarMovimento, registarPreco, getMovimentos, getResumoAtivo, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
 import { getContas, getSaldoConta } from "../api/contas";
+import { listarTiposAtivo } from "../api/tiposAtivo";
 import "./Patrimonio.css";
 import { formatarEuros } from '../utils/formatacao';
-
-const TIPOS_ATIVO = ["etf", "crypto", "veiculo", "imovel", "outro"];
-const LABELS_TIPO = { etf: "ETF", crypto: "Crypto", veiculo: "Veículo", imovel: "Imóvel", outro: "Outro" };
-const TIPOS_COM_UNIDADES = ["etf", "crypto"];
 
 const estadoModalInicial = {
   aberto: false,
@@ -34,19 +31,22 @@ export default function Patrimonio() {
   const [loading, setLoading] = useState(false);
   const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '' });
   const [resumos, setResumos] = useState({});
+  const [tiposAtivo, setTiposAtivo] = useState([]);
 
   useEffect(() => {
     carregarDados();
   }, []);
 
   async function carregarDados() {
-    const [resPendentes, resAtivos, resContas] = await Promise.all([
-      getPendentes(),
-      getAtivos(),
-      getContas(false),
-    ]);
-    setPendentes(resPendentes.data);
-    setAtivos(resAtivos.data);
+      const [resPendentes, resAtivos, resContas, resTipos] = await Promise.all([
+        getPendentes(),
+        getAtivos(),
+        getContas(false),
+        listarTiposAtivo(),
+      ]);
+      setPendentes(resPendentes.data);
+      setAtivos(resAtivos.data);
+      setTiposAtivo(resTipos.data);
 
     const contasComSaldo = await Promise.all(
       resContas.data.map(async (c) => {
@@ -89,7 +89,8 @@ export default function Patrimonio() {
     setLoading(true);
     try {
       const { transacao, tipoAtivo, simbolo, nomeAtivo, tipoMovimento, quantidade, comissao, valorTotal } = modal;
-      const comUnidades = TIPOS_COM_UNIDADES.includes(tipoAtivo);
+      const tipoSelecionado = tiposAtivo.find((t) => t.id === tipoAtivo);
+      const comUnidades = tipoSelecionado?.tem_unidades ?? false;
       const precisaContabilizacao = !modal.ativoExistenteId;
 
       if (!tipoAtivo) { setErro("Selecciona o tipo de ativo."); setLoading(false); return; }
@@ -105,7 +106,7 @@ export default function Patrimonio() {
       if (!ativo) {
         const res = await criarAtivo({
           nome: nomeAtivo.trim(),
-          tipo: tipoAtivo,
+          tipo_id: tipoAtivo,
           simbolo: comUnidades && simbolo.trim() ? simbolo.trim().toUpperCase() : null,
           moeda: "EUR",
           contabilizacao: modal.contabilizacao,
@@ -148,8 +149,8 @@ export default function Patrimonio() {
     }
   }
 
-  const ativosPorTipo = TIPOS_ATIVO.reduce((acc, tipo) => {
-    acc[tipo] = ativos.filter((a) => a.tipo === tipo);
+  const ativosPorTipo = tiposAtivo.reduce((acc, tipo) => {
+    acc[tipo.id] = ativos.filter((a) => a.tipo.id === tipo.id);
     return acc;
   }, {});
 
@@ -341,14 +342,14 @@ export default function Patrimonio() {
       )}
 
       {/* ATIVOS POR TIPO */}
-      {TIPOS_ATIVO.map((tipo) => {
-        const lista = ativosPorTipo[tipo];
+      {tiposAtivo.map((tipo) => {
+        const lista = ativosPorTipo[tipo.id] || [];
         if (lista.length === 0) return null;
-        const expandida = seccoesExpandidas[tipo] ?? false;
+        const expandida = seccoesExpandidas[tipo.id] ?? false;
         return (
-          <div key={tipo} className={`secao-ativo ${expandida ? "secao-ativo-expandida" : ""}`}>
-            <button className="secao-titulo-colapsavel" onClick={() => toggleSeccao(tipo)}>
-              <span>{LABELS_TIPO[tipo]}</span>
+          <div key={tipo.id} className={`secao-ativo ${expandida ? "secao-ativo-expandida" : ""}`}>
+            <button className="secao-titulo-colapsavel" onClick={() => toggleSeccao(tipo.id)}>
+              <span>{tipo.nome}</span>
               <span className="secao-chevron">{expandida ? "▲" : "▼"}</span>
             </button>
             {expandida && (
@@ -380,8 +381,7 @@ export default function Patrimonio() {
                     const custo = r?.custo_total;
                     const pctAtivo = custo && custo !== 0 ? (mmv / Math.abs(custo)) * 100 : null;
                     return (
-                      <>
-                        <tr key={ativo.id}>
+                      <Fragment key={ativo.id}>
                           <td>
                             {ativo.nome}
                             {ativo.isin && (
@@ -396,7 +396,7 @@ export default function Patrimonio() {
                             ) : "—"}
                           </td>
                           <td className="col-valor col-mono">
-                            {r ? (TIPOS_COM_UNIDADES.includes(ativo.tipo) ? r.quantidade : "—") : "—"}
+                              {r ? (ativo.tipo.tem_unidades ? r.quantidade : "—") : "—"}
                           </td>
                           <td className="col-valor col-mono">
                             {r ? formatarEuros(r.custo_total) : "—"}
@@ -437,7 +437,6 @@ export default function Patrimonio() {
                               </button>
                             </div>
                           </td>
-                        </tr>
                         {expandidos[ativo.id] && (
                           <tr key={`exp-${ativo.id}`} className="linha-movimentos-container">
                             <td colSpan={7} className="celula-movimentos">
@@ -445,7 +444,7 @@ export default function Patrimonio() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -470,13 +469,13 @@ export default function Patrimonio() {
               <>
                 <p className="label">Tipo de ativo</p>
                 <div className="grid-tipos">
-                  {TIPOS_ATIVO.map((t) => (
+                  {tiposAtivo.map((t) => (
                     <button
-                      key={t}
-                      className={`btn-tipo ${modal.tipoAtivo === t ? "ativo" : ""}`}
-                      onClick={() => setModal((m) => ({ ...m, tipoAtivo: t, passo: 2 }))}
+                      key={t.id}
+                      className={`btn-tipo ${modal.tipoAtivo === t.id ? "ativo" : ""}`}
+                      onClick={() => setModal((m) => ({ ...m, tipoAtivo: t.id, passo: 2 }))}
                     >
-                      {LABELS_TIPO[t]}
+                      {t.nome}
                     </button>
                   ))}
                 </div>
@@ -485,10 +484,10 @@ export default function Patrimonio() {
 
             {modal.passo === 2 && (
               <>
-                {TIPOS_COM_UNIDADES.includes(modal.tipoAtivo) ? (
+                {tiposAtivo.find((t) => t.id === modal.tipoAtivo)?.tem_unidades ? (
                   <>
                     {(() => {
-                      const ativosTipo = ativos.filter((a) => a.tipo === modal.tipoAtivo);
+                      const ativosTipo = ativos.filter((a) => a.tipo.id === modal.tipoAtivo);
                       return ativosTipo.length > 0 ? (
                         <label className="label">Ativo
                           <select className="input" value={modal.ativoExistenteId} onChange={(e) => setModal((m) => ({ ...m, ativoExistenteId: e.target.value, nomeAtivo: "", simbolo: "" }))}>
@@ -530,7 +529,7 @@ export default function Patrimonio() {
                 ) : (
                   <>
                     {(() => {
-                      const ativosTipo = ativos.filter((a) => a.tipo === modal.tipoAtivo);
+                      const ativosTipo = ativos.filter((a) => a.tipo.id === modal.tipoAtivo);
                       return ativosTipo.length > 0 ? (
                         <label className="label">Ativo
                           <select className="input" value={modal.ativoExistenteId} onChange={(e) => setModal((m) => ({ ...m, ativoExistenteId: e.target.value, nomeAtivo: "" }))}>
