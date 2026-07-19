@@ -52,22 +52,6 @@
     background-color: var(--bg-secondary);
 }
 
-.importacao-accoes {
-    display: flex;
-    gap: var(--space-xs);
-    justify-content: flex-end;
-}
-
-.importacao-accoes button {
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--text-sm);
-}
-
-.btn-perigo:hover {
-    background-color: var(--danger);
-    border-color: var(--danger);
-}
-
 .importacao-controles {
     display: flex;
     gap: var(--space-md);
@@ -494,4 +478,8 @@
     font-style: italic;
     text-align: center;
     border-top: 1px dashed var(--border);
+}
+
+.importacao-page .item-cabecalho {
+    margin-bottom: 0;
 }

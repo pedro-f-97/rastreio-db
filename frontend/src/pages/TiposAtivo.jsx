@@ -80,12 +80,12 @@ export default function TiposAtivo() {
 
             {erro && <p className="erro">{erro}</p>}
 
-            <div className="lista-categorias">
+            <div className="lista-itens">
                 {tipos.map(tipo => {
                     const estaAEditar = editando.id === tipo.id;
                     return (
-                        <div key={tipo.id} className="categoria-item">
-                            <div className="categoria-header">
+                        <div key={tipo.id} className="item-lista">
+                            <div className="item-cabecalho">
                                 {estaAEditar ? (
                                     <>
                                         <input
@@ -111,7 +111,7 @@ export default function TiposAtivo() {
                                     </>
                                 ) : (
                                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                                        <span className="categoria-nome">{tipo.nome}</span>
+                                        <span className="item-nome">{tipo.nome}</span>
                                         {tipo.tem_unidades && (
                                             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginLeft: 'var(--space-sm)' }}>
                                                 unidades

@@ -81,7 +81,7 @@ export default function Categorias() {
                 <button onClick={aoAdicionarCategoria}>Adicionar</button>
             </div>
 
-            <div className="lista-categorias">
+            <div className="lista-itens">
                 {categorias.map(cat => (
                     <CategoriaItem
                         key={cat.id}
@@ -121,8 +121,8 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
     const estaAEditar = editando.tipoEdicao === 'categoria' && editando.id === cat.id;
 
     return (
-        <div className="categoria-item">
-            <div className="categoria-header">
+        <div className="item-lista">
+            <div className="item-cabecalho">
                 {estaAEditar ? (
                     <>
                         <input
@@ -149,7 +149,7 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                 ) : (
                     <>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <span className="categoria-nome">{cat.nome}</span>
+                            <span className="item-nome">{cat.nome}</span>
                             <span className={`badge-tipo badge-tipo-${cat.tipo}`}>{cat.tipo}</span>
                             <span className="tipo-info" title={"Despesa: gastos normais (alimentação, transportes, etc.)\nReceita: entradas de dinheiro (salário, vendas, etc.)\nInvestimento: alocação de capital (ETFs, poupança, etc.)\nTransferência: movimentos internos entre contas (excluídos das métricas)"}>ℹ</span>
                         </div>

@@ -15,3 +15,73 @@
 .accoes button:hover {
     opacity: 1;
 }
+
+.lista-itens {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.item-lista {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: var(--space-lg);
+    border-radius: var(--radius-lg);
+}
+
+.item-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+}
+
+.item-cabecalho select {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--accent);
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--text-md);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.item-cabecalho select:focus {
+    outline: none;
+}
+
+.item-cabecalho input {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--accent);
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+}
+
+.item-nome {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+.item-cabecalho .btn-confirmar {
+    background: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+    border: 1px solid var(--success);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+    font-size: var(--text-md);
+    opacity: 1;
+}
+
+.item-cabecalho .btn-cancelar {
+    background: color-mix(in srgb, var(--danger) 15%, transparent);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+    font-size: var(--text-md);
+    opacity: 1;
+}

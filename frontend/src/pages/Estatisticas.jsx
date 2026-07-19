@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
+import { obterResumoMensal, obterPorCategoria } from '../api/estatisticas';
 import {
-    ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    Line, Legend, CartesianGrid, Cell
+    ComposedChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+    Line, Legend, CartesianGrid
 } from 'recharts';
 import './Estatisticas.css';
 import { formatarEuros } from '../utils/formatacao';
@@ -49,16 +49,9 @@ function calcularMedia(valores) {
     return valores.reduce((s, v) => s + v, 0) / valores.length;
 }
 
-const CORES = [
-    '#6366f1', '#22c55e', '#ef4444', '#f59e0b', '#3b82f6',
-    '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4'
-];
-
 export default function Estatisticas() {
     const [resumo, setResumo] = useState(null);
     const [porCategoria, setPorCategoria] = useState([]);
-    const [porSubcategoria, setPorSubcategoria] = useState([]);
-    const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
     const [categoriaExpandida, setCategoriaExpandida] = useState(null);
     const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
     const [incluirOutliers, setIncluirOutliers] = useState(false);
@@ -68,10 +61,8 @@ export default function Estatisticas() {
     }, []);
 
     useEffect(() => {
-        setCategoriaSeleccionada(null);
         setCategoriaExpandida(null);
         obterPorCategoria(anoSeleccionado).then(res => setPorCategoria(res.data));
-        obterPorSubcategoria(anoSeleccionado).then(res => setPorSubcategoria(res.data));
     }, [anoSeleccionado]);
 
     const MULTIPLICADOR_EXTREMO = 4;
@@ -145,7 +136,6 @@ export default function Estatisticas() {
     if (!resumo) return <p className="carregando">A carregar...</p>;
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
-    const totalGeral = porSubcategoria.reduce((soma, c) => soma + Math.abs(c.total), 0);
 
     function classeValor(v) {
         return v >= 0 ? 'valor-positivo' : 'valor-negativo';
@@ -333,88 +323,6 @@ export default function Estatisticas() {
                             ))}
                     </tbody>
                 </table>
-            </section>
-
-            {/* DISTRIBUIÇÃO POR CATEGORIA */}
-            <section className="secao">
-                <h2>Distribuição por categoria</h2>
-                <ResponsiveContainer width="100%" height={porSubcategoria.length * 32 + 40}>
-                    <BarChart
-                        data={[...porSubcategoria].sort((a, b) => Math.abs(b.total) - Math.abs(a.total))}
-                        layout="vertical"
-                        background={false}
-                        margin={{ top: 0, right: 60, left: 120, bottom: 0 }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                        <XAxis
-                            type="number"
-                            tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
-                            tickFormatter={v => `${v.toFixed(0)} €`}
-                        />
-                        <YAxis
-                            type="category"
-                            dataKey="categoria_nome"
-                            tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                            width={115}
-                        />
-                        <Tooltip
-                            contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
-                            itemStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v) => {
-                                const pct = totalGeral > 0 ? (Math.abs(v) / totalGeral * 100).toFixed(1) : 0;
-                                return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
-                            }}
-                        />
-                        <Bar dataKey="total" radius={[0, 4, 4, 0]} onClick={item => setCategoriaSeleccionada(
-                            categoriaSeleccionada?.categoria_id === item.categoria_id ? null : item
-                        )} style={{ cursor: 'pointer' }}>
-                            {porSubcategoria.map((_, i) => (
-                                <Cell key={i} fill={CORES[i % CORES.length]} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-
-                {categoriaSeleccionada && (
-                    <div className="subcategoria-detalhe">
-                        <h3>{categoriaSeleccionada.categoria_nome}</h3>
-                        <ResponsiveContainer width="100%" height={categoriaSeleccionada.subcategorias.length * 32 + 40}>
-                            <BarChart
-                                data={[...categoriaSeleccionada.subcategorias].sort((a, b) => Math.abs(b.total) - Math.abs(a.total))}
-                                layout="vertical"
-                                margin={{ top: 0, right: 60, left: 140, bottom: 0 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                                <XAxis
-                                    type="number"
-                                    tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
-                                    tickFormatter={v => `${v.toFixed(0)} €`}
-                                />
-                                <YAxis
-                                    type="category"
-                                    dataKey="subcategoria_nome"
-                                    tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                                    width={135}
-                                />
-                                <Tooltip
-                                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                                    labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
-                                    itemStyle={{ color: 'var(--text-primary)' }}
-                                    formatter={(v) => {
-                                        const pct = totalGeral > 0 ? (Math.abs(v) / totalGeral * 100).toFixed(1) : 0;
-                                        return [`${v.toFixed(2)} € (${pct}%)`, 'Total'];
-                                    }}
-                                />
-                                <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                                    {categoriaSeleccionada.subcategorias.map((_, i) => (
-                                        <Cell key={i} fill={CORES[i % CORES.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                )}
             </section>
         </div>
     );

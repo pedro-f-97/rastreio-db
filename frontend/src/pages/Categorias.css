@@ -44,47 +44,6 @@
     opacity: 0.85;
 }
 
-.lista-categorias {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-}
-
-.categoria-item {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    padding: var(--space-lg);
-    border-radius: var(--radius-lg);
-}
-
-.categoria-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-md);
-}
-
-/* Select de tipo no modo edição */
-.categoria-header select {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--accent);
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--text-md);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-}
-
-.categoria-header select:focus {
-    outline: none;
-}
-
-.categoria-nome {
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-}
-
 .categoria-header input {
     background: var(--bg-tertiary);
     color: var(--text-primary);
@@ -191,27 +150,6 @@
 .badge-tipo-transferencia {
     background: var(--type-transferencia-bg);
     color: var(--type-transferencia-text);
-}
-
-/* Botões de confirmar/cancelar edição */
-.categoria-header .btn-confirmar {
-    background: color-mix(in srgb, var(--success) 15%, transparent);
-    color: var(--success);
-    border: 1px solid var(--success);
-    padding: var(--space-xs) var(--space-sm);
-    cursor: pointer;
-    font-size: var(--text-md);
-    opacity: 1;
-}
-
-.categoria-header .btn-cancelar {
-    background: color-mix(in srgb, var(--danger) 15%, transparent);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    padding: var(--space-xs) var(--space-sm);
-    cursor: pointer;
-    font-size: var(--text-md);
-    opacity: 1;
 }
 
 .tipo-info {

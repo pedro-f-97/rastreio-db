@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { listarPerfis, criarPerfil, eliminarPerfil, analisarFicheiro, associarContaPerfil } from '../api/perfisImportacao'
 import { previewExtrato, importarExtrato } from '../api/importacao'
 import { getContas } from '../api/contas'
+import '../componentes.css'
 import './Importacao.css'
 
 const FORMATOS_DATA = [
@@ -225,34 +226,23 @@ export default function Importacao() {
                 {perfis.length === 0 ? (
                     <p className="importacao-vazio">Nenhum perfil configurado.</p>
                 ) : (
-                    <table className="importacao-tabela">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Ficheiro</th>
-                                <th>Modo valor</th>
-                                <th>Início dados</th>
-                                <th>Conta</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {perfis.map(p => (
-                                <tr key={p.id}>
-                                    <td>{p.nome}</td>
-                                    <td>{p.tipo_ficheiro}</td>
-                                    <td>{p.modo_valor}</td>
-                                    <td>linha {p.linha_inicio_dados}</td>
-                                    <td>{contas.find(c => c.id === p.conta_id)?.nome ?? '—'}</td>
-                                    <td>
-                                        <div className="importacao-accoes">
-                                            <button className="btn-perigo" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <div className="lista-itens">
+                        {perfis.map(p => (
+                            <div key={p.id} className="item-lista">
+                                <div className="item-cabecalho">
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                        <span className="item-nome">{p.nome}</span>
+                                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginLeft: 'var(--space-sm)' }}>
+                                            {contas.find(c => c.id === p.conta_id)?.nome ?? '—'}
+                                        </span>
+                                    </div>
+                                    <div className="accoes">
+                                        <button className="btn-apagar" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </section>
 

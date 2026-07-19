@@ -232,7 +232,7 @@ export default function Ativos() {
                     <th className="col-valor">Quantidade</th>
                     <th className="col-valor">Custo total</th>
                     <th className="col-valor">Valor actual</th>
-                    <th className="col-valor">+/− valia</th>
+                    <th className="col-valor">Resultado actual</th>
                     <th></th>
                   </tr>
                 </thead>
