@@ -1,0 +1,17 @@
+.accoes {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.accoes button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--text-lg);
+    padding: var(--space-xs);
+    opacity: 0.6;
+}
+
+.accoes button:hover {
+    opacity: 1;
+}

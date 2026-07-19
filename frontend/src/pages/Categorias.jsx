@@ -3,6 +3,7 @@ import {
     listarCategorias, criarCategoria, renomearCategoria, apagarCategoria,
     criarSubcategoria, renomearSubcategoria, apagarSubcategoria
 } from '../api/categorias';
+import '../componentes.css';
 import './Categorias.css';
 
 export default function Categorias() {

@@ -11,6 +11,7 @@ import './index.css'
 import { totalPorCategorizar } from './api/transacoes'
 import Importacao from './pages/Importacao'
 import Patrimonio from './pages/Patrimonio'
+import Ativos from './pages/Ativos'
 import { getPendentes } from './api/patrimonio'
 import Contas from './pages/Contas'
 import logoRastreio from './assets/nariz.svg'
@@ -41,6 +42,7 @@ const GRUPOS_NAV = [
     label: 'Análise',
     items: [
       { to: '/estatisticas', label: 'Estatísticas' },
+      { to: '/ativos', label: 'Ativos' },
       { to: '/patrimonio', label: 'Património' },
     ],
   },
@@ -63,7 +65,7 @@ function App() {
   const [inicializado, setInicializado] = useState(null)
   const [tourVisto, setTourVisto] = useState(true)
   const [porCategorizar, setPorCategorizar] = useState(0)
-  const [pendentesPatrimonio, setPendentesPatrimonio] = useState(0)
+  const [pendentesAtivos, setPendentesAtivos] = useState(0)
   const [tema, setTema] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark')
 
   function alternarTema() {
@@ -80,7 +82,7 @@ function App() {
   useEffect(() => {
     if (inicializado) {
       totalPorCategorizar().then(res => setPorCategorizar(res.data.total))
-      getPendentes().then(res => setPendentesPatrimonio(res.data.length))
+      getPendentes().then(res => setPendentesAtivos(res.data.length))
     }
   }, [inicializado])
 
@@ -166,7 +168,7 @@ function App() {
                             {porCategorizar}
                           </span>
                         )}
-                        {label === 'Património' && pendentesPatrimonio > 0 && (
+                        {label === 'Ativos' && pendentesAtivos > 0 && (
                           <span style={{
                             background: 'var(--danger)',
                             color: '#fff',
@@ -176,7 +178,7 @@ function App() {
                             padding: '0.1rem 0.45rem',
                             marginLeft: '0.5rem',
                           }}>
-                            {pendentesPatrimonio}
+                            {pendentesAtivos}
                           </span>
                         )}
                       </span>
@@ -236,6 +238,7 @@ function App() {
                   <Route path="/contas" element={<Contas />} />
                   <Route path="/sobre" element={<Sobre />} />
                   <Route path="/tipos-ativo" element={<TiposAtivo />} />
+                  <Route path="/ativos" element={<Ativos />} />
                 </>
               }
             </Routes>
