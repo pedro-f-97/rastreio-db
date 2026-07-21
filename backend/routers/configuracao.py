@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from database import SessionLocal, Categoria, Subcategoria, Configuracao, TipoCategoria
-from popular_bd import CATEGORIAS_MINIMALISTA, CATEGORIAS_COMPLETO, TIPOS, PerfilCategorias
+from database import SessionLocal, Categoria, Subcategoria, Configuracao, TipoCategoria, TipoAtivo
+from popular_bd import CATEGORIAS_MINIMALISTA, CATEGORIAS_COMPLETO, TIPOS, PerfilCategorias, SEED_TIPOS_ATIVO
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
 
@@ -40,6 +40,10 @@ def inicializar(
             for nome_sub, trata_patrimonio in subcategorias:
                 sub = Subcategoria(nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio)
                 db.add(sub)
+
+    if db.query(TipoAtivo).count() == 0:
+        for nome, tem_unidades in SEED_TIPOS_ATIVO:
+            db.add(TipoAtivo(nome=nome, tem_unidades=tem_unidades))
 
     if config:
         config.inicializado = True

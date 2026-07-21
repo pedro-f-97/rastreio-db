@@ -136,6 +136,17 @@ TIPOS = {
     "Património": TipoCategoria.despesa,
 }
 
+SEED_TIPOS_ATIVO = [
+    ("ETF", True),
+    ("Ações", True),
+    ("Crypto", True),
+    ("Ouro", True),
+    ("Obrigações", True),
+    ("Certificados de Aforro", False),
+    ("Veículo", False),
+    ("Imóvel", False),
+    ("Outro", False),
+]
 
 def popular(perfil: PerfilCategorias = PerfilCategorias.completo):
     categorias = (
