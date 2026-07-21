@@ -430,7 +430,7 @@ export default function Ativos() {
                     >
                       <option value="">— Seleccionar —</option>
                       <option value="investimento">Investimento</option>
-                      <option value="patrimonio">Património</option>
+                      <option value="patrimonio">Bens</option>
                     </select>
                   </label>
                 )}

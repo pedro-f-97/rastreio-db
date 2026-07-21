@@ -29,9 +29,14 @@ export default function Patrimonio() {
   const totalPatrimonio = totalLiquidez + totalPatrimonioAtivos;
 
   const ativosInvestimento = ativos.filter((a) => a.contabilizacao === "investimento");
+  const ativosBens = ativos.filter((a) => a.contabilizacao === "patrimonio");
   const totalInvestimentos = ativosInvestimento.reduce((acc, a) => {
     const r = resumos[a.id];
     return acc + (r?.valor_atual ?? r?.custo_total ?? 0);
+  }, 0);
+  const totalBens = ativosBens.reduce((acc, a) => {
+    const r = resumos[a.id];
+    return acc + (r?.valor_atual ?? 0);
   }, 0);
   const totalCusto = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.custo_total ?? 0), 0);
   const totalMaisValia = totalInvestimentos + totalCusto;
@@ -50,14 +55,18 @@ export default function Patrimonio() {
           <span className="cartao-titulo">Património</span>
           <span className="cartao-valor">{formatarEuros(totalPatrimonio)}</span>
           <div className="cartao-breakdown">
-            <div className="cartao-breakdown-linha">
-              <span className="cartao-breakdown-label">Liquidez</span>
-              <span className="cartao-breakdown-valor">{formatarEuros(totalLiquidez)}</span>
-            </div>
-            <div className="cartao-breakdown-linha">
-              <span className="cartao-breakdown-label">Investimentos</span>
-              <span className="cartao-breakdown-valor">{formatarEuros(totalInvestimentos)}</span>
-            </div>
+              <div className="cartao-breakdown-linha">
+                  <span className="cartao-breakdown-label">Liquidez</span>
+                  <span className="cartao-breakdown-valor">{formatarEuros(totalLiquidez)}</span>
+              </div>
+              <div className="cartao-breakdown-linha">
+                  <span className="cartao-breakdown-label">Investimentos</span>
+                  <span className="cartao-breakdown-valor">{formatarEuros(totalInvestimentos)}</span>
+              </div>
+              <div className="cartao-breakdown-linha">
+                  <span className="cartao-breakdown-label">Bens</span>
+                  <span className="cartao-breakdown-valor">{formatarEuros(totalBens)}</span>
+              </div>
           </div>
         </div>
 
