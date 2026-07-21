@@ -3,11 +3,11 @@ import sys
 import threading
 import uvicorn
 from contextlib import asynccontextmanager
-
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from database import BASE_DIR, criar_tabelas
 from routers import categorias, transacoes, regras, importacao, estatisticas, backups, configuracao, perfis_importacao, patrimonio, contas, tipos_ativo
@@ -33,6 +33,32 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+@app.exception_handler(StarletteHTTPException)
+async def spa_fallback(request, exc):
+    # Se o pedido resultou num 404 e não é um endpoint da API,
+    # devolve o index.html da SPA para que o React Router trate da rota.
+    if (
+        exc.status_code == 404
+        and not request.url.path.startswith("/api")
+    ):
+        return FileResponse(
+            os.path.join(PASTA_FRONTEND, "index.html"),
+            headers={
+                # Impede o browser de manter o index.html em cache,
+                # garantindo que novas versões da aplicação são carregadas.
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+    # Para todos os restantes erros HTTP (404 da API, 403, 405, etc.),
+    # mantém o comportamento normal do FastAPI.
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
 
 if not IS_FROZEN:
     app.add_middleware(
