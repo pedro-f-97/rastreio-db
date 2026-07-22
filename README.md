@@ -12,7 +12,7 @@
   <strong>Python • FastAPI • React • SQLite • SQLAlchemy • PyInstaller</strong>
 </p>
 
-Aplicação web local e portable para gestão e análise de extratos bancários, sem dependência de serviços externos. Nasceu da necessidade de algo mais robusto do que a típica folha de Excel. Permite importar extratos em Excel (.xlsx, .csv), com perfis configuráveis por banco e conta, categorizar transações automaticamente com regras dinâmicas, manter registo de ativos e bens, e acompanhar a evolução financeira através de estatísticas detalhadas.
+Aplicação web local e portable para gestão e análise de extratos bancários, sem dependência de serviços externos. Nasceu da necessidade de algo mais robusto do que a típica folha de Excel. Permite importar extratos em Excel (.xlsx, .csv), com perfis configuráveis por banco e conta, categorizar transações automaticamente com regras dinâmicas, marcar transações como património para registo de bens ou investimentos, e acompanhar a evolução financeira através de estatísticas detalhadas.
 
 ### Transações
 - Listagem paginada com edição inline de categoria, subcategoria, reembolso, conta e notas
@@ -24,7 +24,7 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 
 ### Análise
 - Estatísticas mensais: evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais
-- Ativos: acompanhamento de ativos, investimentos ou bens, registar compras e vendas, actualizar preços 
+- Ativos: registo de investimentos (ex. ETFs, ações, cripto) e bens (ex. imóveis, viaturas), com histórico de compras, vendas e atualização de preços
 - Património: acompanhamento de liquidez, ativos, bens, valorização ao longo do tempo e totais por tipo
 
 ### Configuração
@@ -73,7 +73,7 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 
 ## Categorias
 
-As categorias e subcategorias são totalmente configuráveis. Cada categoria tem um `tipo` que determina o seu papel nas estatísticas e cada subcategoria tem um indicador que define se as respectivas transações representam património (bens ou ativos):
+As categorias e subcategorias são totalmente configuráveis. Cada categoria tem um `tipo` que determina o seu papel nas estatísticas e cada subcategoria tem um indicador que define se as respectivas transações representam património:
 
 | Tipo | Papel nas estatísticas |
 |---|---|
@@ -83,6 +83,15 @@ As categorias e subcategorias são totalmente configuráveis. Cada categoria tem
 | `transferencia` | Excluída de todas as métricas (movimentos internos entre contas) |
 
 Na primeira utilização, é possível carregar um conjunto de categorias predefinidas como ponto de partida, ou começar do zero.
+
+## Património
+
+Transações de subcategorias marcadas com o indicador de património alimentam o módulo de Património. Cada ativo é classificado como:
+
+| Classificação | Papel |
+|---|---|
+| Investimento | Património com retorno expectável (ex. ETFs, ações, cripto) — conta para o cartão de Investimentos |
+| Bem | Património sem retorno expectável (ex. imóvel, viatura) — conta apenas para o total de património |
 
 ## Decisões de design
 
