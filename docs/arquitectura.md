@@ -1,87 +1,46 @@
 # Arquitetura
 
+## Stack
+
+- **Backend**: Python 3.14, FastAPI, SQLAlchemy, SQLite
+- **Frontend**: React + Vite, Recharts para gráficos
+- **Distribuição**: PyInstaller (Windows + Linux), CI/CD via GitHub Actions
+
+## Estrutura geral
+
 ```
-rastreio-db/
-    ├── README.md
-    ├── DEV.md
-    ├── WINDOWS.md
-    ├── LICENSE
-    ├── build.sh                        # Script de build Linux
-    ├── build.bat                       # Script de build Windows
-    ├── docs/
-    │   └── screenshots/
-    ├── backend/
-    │   ├── main.py                     # Ponto de entrada FastAPI + CORS
-    │   ├── database.py                 # Modelos SQLAlchemy e ligação à BD
-    │   ├── schemas.py                  # Schemas Pydantic para validação de dados
-    │   ├── parser_importacao.py        # Parser reutilizável de ficheiros Excel e CSV
-    │   ├── importador_transacoes.py    # Inserção de transações com deduplicação e regras
-    │   ├── popular_bd.py               # Categorias e subcategorias predefinidas
-    │   ├── tray.py                     # Janela de controlo (abrir browser / encerrar)
-    │   ├── requirements.txt
-    │   ├── migrar_adicionar_transferencia.py
-    │   ├── migrar_contas.py
-    │   ├── migrar_excel.py
-    │   ├── migrar_fee.py
-    │   ├── migrar_patrimonio.py
-    │   ├── migrar_regras_categoria_opcional.py
-    │   ├── migrar_tipo_categoria.py
-    │   └── routers/
-    │       ├── __init__.py
-    │       ├── backups.py              # Exportação e restauro da base de dados
-    │       ├── categorias.py           # CRUD de categorias e subcategorias
-    │       ├── configuracao.py         # Inicialização e estado da aplicação
-    │       ├── contas.py               # CRUD de contas bancárias
-    │       ├── estatisticas.py         # Endpoints de estatísticas e resumos
-    │       ├── importacao.py           # Preview e importação de extratos bancários
-    │       ├── patrimonio.py           # Gestão de activos e movimentos patrimoniais
-    │       ├── perfis_importacao.py    # CRUD de perfis de mapeamento por banco
-    │       ├── regras.py               # Regras de categorização automática
-    │       └── transacoes.py           # Listagem paginada e edição de transações
-    └── frontend/
-        ├── index.html
-        ├── vite.config.js
-        ├── package.json
-        ├── eslint.config.js
-        ├── public/
-        │   └── favicon.ico             # Ícone para o projecto
-        └── src/
-            ├── index.css
-            ├── main.jsx
-            ├── App.jsx
-            ├── App.css
-            ├── assets/
-            │   ├── nariz.svg            # Logótipo do projecto
-            │   └── fonts/
-            ├── utils/
-            │   └── formatacao.js
-            ├── contexts/
-            │   └── GuiaContext.jsx      # Estado do tour guiado (iniciar/avançar/sair/reiniciar)
-            ├── api/
-            │   ├── client.js
-            │   ├── backups.js
-            │   ├── categorias.js
-            │   ├── configuracao.js
-            │   ├── contas.js
-            │   ├── estatisticas.js
-            │   ├── importacao.js
-            │   ├── patrimonio.js
-            │   ├── perfisImportacao.js
-            │   ├── regras.js
-            │   └── transacoes.js
-            ├── components/
-            │   ├── FiltrosTransacoes.jsx
-            │   ├── TabelaTransacoes.jsx
-            │   └── GuiaDestaque.jsx + .css   # Highlight de elementos durante o tour guiado
-            └── pages/
-                ├── Categorias.jsx + .css
-                ├── Contas.jsx + .css
-                ├── Estatisticas.jsx + .css
-                ├── Historico.jsx
-                ├── Importacao.jsx + .css
-                ├── Patrimonio.jsx + .css
-                ├── PrimeiroUso.jsx
-                ├── Regras.jsx + .css
-                ├── Sobre.jsx + .css        # Página "Conceitos" — explicação das áreas da app
-                └── Transacoes.jsx + .css
+backend/    # API FastAPI + modelos SQLAlchemy + lógica de negócio
+frontend/   # SPA React
+docs/       # Documentação (este ficheiro, modelo de dados, guia de desenvolvimento)
 ```
+
+## Backend
+
+- **`main.py`**: ponto de entrada, configuração de CORS, montagem dos routers
+- **`database.py`**: modelos SQLAlchemy e ligação à BD. Caminho da BD resolvido via `dirname(sys.executable)` quando empacotado, para manter `dados/rastreio.db` junto ao executável
+- **`schemas.py`**: schemas Pydantic para validação de entrada/saída da API
+- **`routers/`**: um ficheiro por domínio (categorias, contas, transações, património, etc.). Cada novo domínio funcional ganha o seu próprio router, montado em `main.py`
+- **Migrações**: alterações de schema não-triviais (ex. coluna não-nula, recriação de tabela) são feitas via scripts manuais `migrar_*.py` na raiz do backend, usando recriação de tabela para preservar IDs e FKs. Scripts já aplicados são arquivados em `backend/old/`
+- **Seeding/dados predefinidos**: lógica de inicialização (categorias, tipos de ativo, etc.) fica nos endpoints de `/configuracao`, com guardas de idempotência (`if count() == 0`)
+
+## Frontend
+
+- **`pages/`**: uma página por rota principal, agrupadas na navegação (`GRUPOS_NAV` em `App.jsx`) em Transações, Configuração e Análise
+- **`api/`**: um ficheiro por domínio, espelhando os routers do backend; todos usam a instância partilhada `client.js` (nunca `axios` diretamente) para garantir base URL correta em dev vs. `.exe`
+- **`components/`**: componentes verdadeiramente reutilizáveis entre páginas (ex. highlight do tour guiado). Sub-componentes específicos de uma página ficam inline no próprio ficheiro da página — não há padrão de extração automática
+- **`contexts/`**: estado partilhado entre componentes (ex. `GuiaContext` para o tour guiado)
+- **`utils/`**: helpers puros (ex. `formatacao.js` para formatação monetária `pt-PT`)
+- **Estilo**: CSS por página (`Pagina.jsx` + `Pagina.css`), com `componentes.css` para classes genéricas partilhadas (`.accoes`, `.lista-itens`).
+
+## CI/CD
+
+- `.github/workflows/build.yml`: build automático (Windows + Linux) disparado por tags de versão, publica executáveis como GitHub Release
+
+## Convenção para novas funcionalidades
+
+Uma feature nova tipicamente atravessa, por esta ordem:
+1. Modelo em `database.py` (+ migração manual, se aplicável)
+2. Schema Pydantic em `schemas.py`
+3. Router novo ou endpoint num router existente
+4. Ficheiro de API no frontend (`api/dominio.js`)
+5. Página ou secção de página que consome a API
