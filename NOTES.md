@@ -85,6 +85,6 @@ git commit -m "descrição do que fizeste"
 ```
 Marcar para release (gera executáveis)
 ```bash
-git tag v0.2.2
+git tag -a v0.2.7 -m "v0.2.7: Novo gráfico de evolução do património. Melhorias na interface da página Ativos. Ajustes visuais e de consistência entre páginas."
 git push origin v0.2.2
 ```
