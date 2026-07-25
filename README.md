@@ -41,33 +41,47 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 
 ## Preview
 
-### Transações (edição inline + filtros)
-![Transações](docs/screenshots/pag_transacoes.png)
+### Transações (edição inline, filtros e categorização)
+![Transações](docs/screenshots/transacoes.png)
 
-### Estatísticas (evolução mensal, distribuição por categoria, taxa de poupança)
-![Estatísticas](docs/screenshots/pag_estatisticas.png)
+### Estatísticas (evolução mensal, distribuição por categoria e taxa de poupança)
+![Estatísticas](docs/screenshots/estatisticas.png)
 
-### Património (activos, valorização, FIFO)
-![Património](docs/screenshots/pag_patrimonio.png)
-![Património — tratar activo](docs/screenshots/pag_patrimonio_tratar.png)
+### Património (visão global dos ativos e desempenho)
+![Património](docs/screenshots/patrimonio.png)
 
 <details>
-<summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas)</summary>
+<summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas e Configuração)</summary>
 
-### Importação (mapeamento de colunas + deteção de duplicados)
-![Importação](docs/screenshots/pag_importacao.png)
+### Importação
+![Importação](docs/screenshots/importacao.png)
+
+### Menu de importação
+![Menu de importação](docs/screenshots/importacaomenu.png)
 
 ### Categorias
-![Categorias](docs/screenshots/pag_categorias.png)
+![Categorias](docs/screenshots/categorias.png)
 
 ### Regras de categorização automática
-![Regras](docs/screenshots/pag_regras.png)
+![Regras](docs/screenshots/regras.png)
 
-### Histórico (totais por ano/mês, drill-down por categoria)
-![Histórico](docs/screenshots/pag_historico.png)
+### Histórico
+![Histórico](docs/screenshots/historico.png)
 
 ### Contas
-![Contas](docs/screenshots/pag_contas.png)
+![Contas](docs/screenshots/contas.png)
+
+### Ativos
+![Ativos](docs/screenshots/ativos.png)
+
+### Tipos de ativo
+![Tipos de ativo](docs/screenshots/tiposdeativo.png)
+
+### Tratar ativo (contabilização FIFO)
+![Tratar ativo](docs/screenshots/ativostratar.png)
+
+### Conceitos
+![Conceitos](docs/screenshots/conceitos.png)
 
 </details>
 
