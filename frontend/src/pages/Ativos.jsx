@@ -29,10 +29,22 @@ export default function Ativos() {
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
   const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '' });
+  const [menuAbertoId, setMenuAbertoId] = useState(null);
 
   useEffect(() => {
     carregarPendentes();
   }, []);
+
+  useEffect(() => {
+    if (menuAbertoId === null) return;
+    function fecharAoClicarFora(e) {
+      if (!e.target.closest(".menu-acoes")) {
+        setMenuAbertoId(null);
+      }
+    }
+    document.addEventListener("mousedown", fecharAoClicarFora);
+    return () => document.removeEventListener("mousedown", fecharAoClicarFora);
+  }, [menuAbertoId]);
 
   async function carregarPendentes() {
     const res = await getPendentes();
@@ -290,7 +302,10 @@ export default function Ativos() {
                     const pctAtivo = custo && custo !== 0 ? (mmv / Math.abs(custo)) * 100 : null;
                     return (
                       <Fragment key={ativo.id}>
-                        <tr>
+                        <tr
+                            className="linha-clicavel"
+                            onClick={() => toggleExpandido(ativo.id)}
+                        >
                           <td>
                             {ativo.nome}
                             {ativo.isin && (
@@ -332,18 +347,54 @@ export default function Ativos() {
                           <td className="col-valor col-mono">
                             {r ? (ativo.tipo.tem_unidades ? r.quantidade : "—") : "—"}
                           </td>
-                          <td>
+                          <td onClick={(e) => e.stopPropagation()}>
                             <div className="accoes">
-                              <button className="btn-ghost" onClick={() => toggleExpandido(ativo.id)}>
-                                <span className="seta-expansao">{expandidos[ativo.id] ? "▲" : "▼"}</span>
-                                {expandidos[ativo.id] ? " Fechar" : " Movimentos"}
+                              <button
+                                className="btn-seta"
+                                title={expandidos[ativo.id] ? "Fechar movimentos" : "Ver movimentos"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpandido(ativo.id);
+                                }}
+                              >
+                                {expandidos[ativo.id] ? "▼" : "▲"}
                               </button>
-                              <button title="Atualizar preço" onClick={() => abrirModalPreco(ativo)}>
-                                ✏️
-                              </button>
-                              <button title="Eliminar registos" onClick={() => handleEliminarAtivo(ativo)}>
-                                🗑
-                              </button>
+
+                              <div className="menu-acoes">
+                                <button
+                                  className="btn-menu"
+                                  title="Mais ações"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuAbertoId(menuAbertoId === ativo.id ? null : ativo.id);
+                                  }}
+                                >
+                                  ⋮
+                                </button>
+
+                                {menuAbertoId === ativo.id && (
+                                  <div className="menu-dropdown">
+                                    <button
+                                      onClick={() => {
+                                        abrirModalPreco(ativo);
+                                        setMenuAbertoId(null);
+                                      }}
+                                    >
+                                      Atualizar preço
+                                    </button>
+
+                                    <button
+                                      className="menu-item-perigo"
+                                      onClick={() => {
+                                        handleEliminarAtivo(ativo);
+                                        setMenuAbertoId(null);
+                                      }}
+                                    >
+                                      Eliminar ativo
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>
