@@ -349,17 +349,7 @@ export default function Ativos() {
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div className="accoes">
-                              <button
-                                className="btn-seta"
-                                title={expandidos[ativo.id] ? "Fechar movimentos" : "Ver movimentos"}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleExpandido(ativo.id);
-                                }}
-                              >
-                                {expandidos[ativo.id] ? "▼" : "▲"}
-                              </button>
-
+                              <span className="secao-chevron">{expandidos[ativo.id] ? "▼" : "▲"}</span>
                               <div className="menu-acoes">
                                 <button
                                   className="btn-menu"
