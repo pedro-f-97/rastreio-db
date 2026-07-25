@@ -3,6 +3,10 @@ import { getContas, getSaldoConta } from "../api/contas";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
 import { formatarEuros } from '../utils/formatacao';
+import { obterEvolucao } from "../api/patrimonio";
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
+} from "recharts";
 
 export default function Patrimonio() {
   const { ativos, resumos } = useAtivos();
@@ -10,6 +14,12 @@ export default function Patrimonio() {
 
   useEffect(() => {
     carregarContas();
+  }, []);
+
+  const [evolucao, setEvolucao] = useState([]);
+
+  useEffect(() => {
+    obterEvolucao().then(res => setEvolucao(res.data));
   }, []);
 
   async function carregarContas() {
@@ -41,6 +51,18 @@ export default function Patrimonio() {
   const totalCusto = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.custo_total ?? 0), 0);
   const totalMaisValia = totalInvestimentos + totalCusto;
   const pctMaisValia = totalCusto !== 0 ? (totalMaisValia / Math.abs(totalCusto)) * 100 : null;
+
+  const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+  function labelMesEvolucao(dataISO) {
+    const [ano, mes] = dataISO.split('-');
+    return `${MESES[parseInt(mes) - 1]} ${ano}`;
+  }
+
+  const dadosEvolucao = evolucao.map(p => ({
+    ...p,
+    label: labelMesEvolucao(p.data),
+  }));
 
   return (
     <div className="patrimonio-page">
@@ -149,6 +171,27 @@ export default function Patrimonio() {
           </div>
         </div>
       </div>
+      {/* EVOLUÇÃO DO PATRIMÓNIO */}
+      <section className="secao">
+        <h2>Evolução do património</h2>
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={dadosEvolucao} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
+            <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v} €`} />
+            <Tooltip
+              contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+              labelStyle={{ color: 'var(--text-primary)' }}
+              formatter={(v) => formatarEuros(v)}
+            />
+            <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
+            <Line dataKey="total" name="Total" type="monotone" stroke="var(--text-primary)" strokeWidth={2} dot={false} />
+            <Line dataKey="liquidez" name="Liquidez" type="monotone" stroke="var(--accent)" strokeWidth={2} dot={false} />
+            <Line dataKey="investimentos" name="Investimentos" type="monotone" stroke="var(--success)" strokeWidth={2} dot={false} />
+            <Line dataKey="ativos_fisicos" name="Ativos físicos" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </section>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
+from datetime import date
+from servicos.patrimonio_serv import gerar_evolucao
 from typing import List
-from database import SessionLocal, Ativo as AtivoModel, MovimentoAtivo as MovimentoAtivoModel, PrecoAtivo as PrecoAtivoModel
+from database import SessionLocal, Ativo as AtivoModel, MovimentoAtivo as MovimentoAtivoModel, PrecoAtivo as PrecoAtivoModel, Transacao as TransacaoModel
 import schemas
 
 router = APIRouter(prefix="/patrimonio", tags=["patrimonio"])
@@ -181,3 +183,21 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
         "valor_atual": valor_atual,
         "mais_menos_valia": mais_menos_valia,
     }
+
+@router.get("/evolucao")
+def evolucao_patrimonio(
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    db: Session = Depends(get_db),
+):
+    if data_fim is None:
+        data_fim = date.today()
+
+    if data_inicio is None:
+        primeira = db.query(func.min(TransacaoModel.data)).scalar()
+        data_inicio = primeira or data_fim
+
+    assert data_inicio is not None
+    assert data_fim is not None
+
+    return gerar_evolucao(db, data_inicio, data_fim)

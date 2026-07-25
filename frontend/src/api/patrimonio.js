@@ -16,3 +16,7 @@ export const eliminarMovimento = (id) => client.delete(`/patrimonio/movimentos/$
 
 // --- PREÇOS ---
 export const registarPreco = (payload) => client.post("/patrimonio/precos", payload);
+
+// --- EVOLUÇÃO ---
+export const obterEvolucao = (dataInicio, dataFim) =>
+    client.get("/patrimonio/evolucao", { params: { data_inicio: dataInicio, data_fim: dataFim } });
