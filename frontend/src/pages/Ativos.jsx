@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from "react";
 import { getPendentes, criarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
-import "./Patrimonio.css";
+import "./Ativos.css";
 import { formatarEuros } from '../utils/formatacao';
 import "../componentes.css";
 
@@ -128,6 +128,37 @@ export default function Ativos() {
     return acc;
   }, {});
 
+  function calcularResumoTipo(listaAtivos, resumos) {
+    let custoTotal = 0;
+    let valorAtualTotal = 0;
+    let resultadoTotal = 0;
+    let custoConsiderado = 0;
+    let temValorAtual = false;
+
+    listaAtivos.forEach((ativo) => {
+      const r = resumos[ativo.id];
+      const custo = r?.custo_total ?? 0;
+      custoTotal += custo;
+      if (r?.valor_atual != null) {
+        valorAtualTotal += r.valor_atual;
+        resultadoTotal += r.mais_menos_valia ?? 0;
+        custoConsiderado += custo;
+        temValorAtual = true;
+      }
+    });
+
+    const pct = temValorAtual && custoConsiderado !== 0
+      ? (resultadoTotal / Math.abs(custoConsiderado)) * 100
+      : null;
+
+    return {
+      custoTotal,
+      valorAtualTotal: temValorAtual ? valorAtualTotal : null,
+      resultadoTotal: temValorAtual ? resultadoTotal : null,
+      pct,
+    };
+  }
+
   function abrirModalPreco(ativo) {
     setModalPreco({ aberto: true, ativo, data: new Date().toISOString().split('T')[0], preco: '' });
     setErro("");
@@ -205,34 +236,49 @@ export default function Ativos() {
 
       {/* ATIVOS POR TIPO */}
       {tiposAtivo.map((tipo) => {
-        const lista = ativosPorTipo[tipo.id] || [];
-        if (lista.length === 0) return null;
-        const expandida = seccoesExpandidas[tipo.id] ?? false;
-        return (
-          <div key={tipo.id} className={`secao-ativo ${expandida ? "secao-ativo-expandida" : ""}`}>
-            <button className="secao-titulo-colapsavel" onClick={() => toggleSeccao(tipo.id)}>
-              <span>{tipo.nome}</span>
-              <span className="secao-chevron">{expandida ? "▲" : "▼"}</span>
-            </button>
+          const lista = ativosPorTipo[tipo.id] || [];
+          if (lista.length === 0) return null;
+          const expandida = seccoesExpandidas[tipo.id] ?? false;
+          const resumoTipo = calcularResumoTipo(lista, resumos);
+          return (
+            <div key={tipo.id} className={`secao-ativo ${expandida ? "secao-ativo-expandida" : ""}`}>
+              <button className="secao-titulo-colapsavel" onClick={() => toggleSeccao(tipo.id)}>
+                <div className="secao-titulo-grupo">
+                  <span className="secao-titulo-nome">{tipo.nome}</span>
+                  <span className="secao-resumo">
+                    {resumoTipo.valorAtualTotal != null && (
+                      <span className="secao-resumo">
+                        {formatarEuros(resumoTipo.valorAtualTotal)}
+                        {" · "}
+                        <span className={resumoTipo.resultadoTotal >= 0 ? "valor-positivo" : "valor-negativo"}>
+                          {resumoTipo.resultadoTotal >= 0 ? "+" : ""}{formatarEuros(resumoTipo.resultadoTotal)}
+                          {resumoTipo.pct != null && ` (${resumoTipo.pct >= 0 ? "+" : ""}${resumoTipo.pct.toFixed(2)}%)`}
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <span className="secao-chevron">{expandida ? "▲" : "▼"}</span>
+              </button>
             {expandida && (
               <table className="tabela-patrimonio">
                 <colgroup>
-                  <col style={{ width: '22%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '13%' }} />
-                  <col style={{ width: '18%' }} />
-                  <col style={{ width: '13%' }} />
-                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '22%' }} />  {/* Nome */}
+                  <col style={{ width: '10%' }} />  {/* Identificador */}
+                  <col style={{ width: '13%' }} />  {/* Custo total */}
+                  <col style={{ width: '18%' }} />  {/* Valor atual */}
+                  <col style={{ width: '13%' }} />  {/* Resultado atual */}
+                  <col style={{ width: '10%' }} />  {/* Quantidade */}
+                  <col style={{ width: '14%' }} />  {/* Ações */}
                 </colgroup>
                 <thead>
                   <tr>
                     <th>Nome</th>
                     <th>Identificador</th>
-                    <th className="col-valor">Quantidade</th>
                     <th className="col-valor">Custo total</th>
                     <th className="col-valor">Valor actual</th>
                     <th className="col-valor">Resultado actual</th>
+                    <th className="col-valor">Quantidade</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -243,73 +289,73 @@ export default function Ativos() {
                     const custo = r?.custo_total;
                     const pctAtivo = custo && custo !== 0 ? (mmv / Math.abs(custo)) * 100 : null;
                     return (
-                        <Fragment key={ativo.id}>
-                            <tr>
-                            <td>
-                                {ativo.nome}
-                                {ativo.isin && (
-                                <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}>ⓘ</span>
-                                )}
-                            </td>
-                            <td className="col-mono">
-                                {ativo.simbolo ? (
-                                <span className="tooltip-simbolo" title={ativo.simbolo}>
-                                    {ativo.simbolo}
-                                </span>
-                                ) : "—"}
-                            </td>
-                            <td className="col-valor col-mono">
-                                {r ? (ativo.tipo.tem_unidades ? r.quantidade : "—") : "—"}
-                            </td>
-                            <td className="col-valor col-mono">
-                                {r ? formatarEuros(r.custo_total) : "—"}
-                            </td>
-                            <td className="col-valor col-mono">
-                                {r?.valor_atual != null ? (
-                                <div className="celula-valor-data">
-                                    <span>{formatarEuros(r.valor_atual)}</span>
-                                    {r.data_preco && (
-                                    <span className="data-preco">{r.data_preco}</span>
-                                    )}
-                                </div>
-                                ) : "—"}
-                            </td>
-                            <td className={`col-valor col-mono ${mmv != null ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
-                                {mmv != null ? (
-                                <div className="celula-valor-data">
-                                    <span>{formatarEuros(mmv)}</span>
-                                    {pctAtivo !== null && (
-                                    <span className="data-preco">
-                                        {pctAtivo >= 0 ? "+" : ""}{pctAtivo.toFixed(2)}%
-                                    </span>
-                                    )}
-                                </div>
-                                ) : "—"}
-                            </td>
-                            <td>
-                                <div className="accoes">
-                                    <button className="btn-ghost" onClick={() => toggleExpandido(ativo.id)}>
-                                        <span className="seta-expansao">{expandidos[ativo.id] ? "▲" : "▼"}</span>
-                                        {expandidos[ativo.id] ? " Fechar" : " Movimentos"}
-                                    </button>
-                                    <button title="Atualizar preço" onClick={() => abrirModalPreco(ativo)}>
-                                        ✏️
-                                    </button>
-                                    <button title="Eliminar registos" onClick={() => handleEliminarAtivo(ativo)}>
-                                        🗑
-                                    </button>
-                                </div>
-                            </td>
-                            </tr>
-                            {expandidos[ativo.id] && (
-                            <tr key={`exp-${ativo.id}`} className="linha-movimentos-container">
-                                <td colSpan={7} className="celula-movimentos">
-                                <MovimentosAtivo ativoId={ativo.id} onEliminar={recarregar} />
-                                </td>
-                            </tr>
+                      <Fragment key={ativo.id}>
+                        <tr>
+                          <td>
+                            {ativo.nome}
+                            {ativo.isin && (
+                              <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}>ⓘ</span>
                             )}
-                        </Fragment>
-                        );
+                          </td>
+                          <td className="col-mono">
+                            {ativo.simbolo ? (
+                              <span className="tooltip-simbolo" title={ativo.simbolo}>
+                                {ativo.simbolo}
+                              </span>
+                            ) : "—"}
+                          </td>
+                          <td className="col-valor col-mono">
+                            {r ? formatarEuros(r.custo_total) : "—"}
+                          </td>
+                          <td className="col-valor col-mono">
+                            {r?.valor_atual != null ? (
+                              <div className="celula-valor-data">
+                                <span>{formatarEuros(r.valor_atual)}</span>
+                                {r.data_preco && (
+                                  <span className="data-preco">{r.data_preco}</span>
+                                )}
+                              </div>
+                            ) : "—"}
+                          </td>
+                          <td className={`col-valor col-mono ${mmv != null ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                            {mmv != null ? (
+                              <div className="celula-valor-data">
+                                <span>{formatarEuros(mmv)}</span>
+                                {pctAtivo !== null && (
+                                  <span className="data-preco">
+                                    {pctAtivo >= 0 ? "+" : ""}{pctAtivo.toFixed(2)}%
+                                  </span>
+                                )}
+                              </div>
+                            ) : "—"}
+                          </td>
+                          <td className="col-valor col-mono">
+                            {r ? (ativo.tipo.tem_unidades ? r.quantidade : "—") : "—"}
+                          </td>
+                          <td>
+                            <div className="accoes">
+                              <button className="btn-ghost" onClick={() => toggleExpandido(ativo.id)}>
+                                <span className="seta-expansao">{expandidos[ativo.id] ? "▲" : "▼"}</span>
+                                {expandidos[ativo.id] ? " Fechar" : " Movimentos"}
+                              </button>
+                              <button title="Atualizar preço" onClick={() => abrirModalPreco(ativo)}>
+                                ✏️
+                              </button>
+                              <button title="Eliminar registos" onClick={() => handleEliminarAtivo(ativo)}>
+                                🗑
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandidos[ativo.id] && (
+                          <tr key={`exp-${ativo.id}`} className="linha-movimentos-container">
+                            <td colSpan={7} className="celula-movimentos">
+                              <MovimentosAtivo ativoId={ativo.id} onEliminar={recarregar} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
                   })}
                 </tbody>
               </table>

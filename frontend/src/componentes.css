@@ -85,3 +85,104 @@
     font-size: var(--text-md);
     opacity: 1;
 }
+
+/* --- Layout genérico de página --- */
+.patrimonio-page {
+    padding: var(--space-2xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
+.patrimonio-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.patrimonio-header h1 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+.secao h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+/* --- Valores monetários (fix: especificidade garantida) --- */
+.valor-positivo {
+    color: var(--valor-positivo);
+}
+
+.valor-negativo {
+    color: var(--valor-negativo);
+}
+
+/* --- Botão primário (aproveita base de `button` do index.css) --- */
+.btn-primario {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+}
+
+.btn-primario:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.btn-primario:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* --- Formulários e modais --- */
+.label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.label strong {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+}
+
+.erro {
+    color: var(--danger);
+    font-size: var(--text-sm);
+}
+
+.modal-subtitulo {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+.modal-acoes {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-sm);
+}
+
+.modal-fechar {
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--text-lg);
+    cursor: pointer;
+    padding: var(--space-xs);
+}
+
+.modal-fechar:hover {
+    color: var(--text-primary);
+    background: transparent;
+    border-color: transparent;
+}
