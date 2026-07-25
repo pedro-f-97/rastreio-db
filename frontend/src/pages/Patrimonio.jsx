@@ -185,10 +185,10 @@ export default function Patrimonio() {
               formatter={(v) => formatarEuros(v)}
             />
             <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
-            <Line dataKey="total" name="Total" type="monotone" stroke="var(--text-primary)" strokeWidth={2} dot={false} />
-            <Line dataKey="liquidez" name="Liquidez" type="monotone" stroke="var(--accent)" strokeWidth={2} dot={false} />
-            <Line dataKey="investimentos" name="Investimentos" type="monotone" stroke="var(--success)" strokeWidth={2} dot={false} />
-            <Line dataKey="ativos_fisicos" name="Ativos físicos" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} />
+            <Line dataKey="total" name="Total" type="monotone" stroke="var(--accent)" strokeWidth={2} dot={false} />
+            <Line dataKey="liquidez" name="Liquidez" type="monotone" stroke="var(--success)" strokeWidth={2} dot={false} />
+            <Line dataKey="investimentos" name="Investimentos" type="monotone" stroke="var(--type-investimento-text)" strokeWidth={2} dot={false} />
+            <Line dataKey="ativos_fisicos" name="Bens" type="monotone" stroke="var(--text-primary)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </section>
