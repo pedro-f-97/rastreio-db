@@ -8,6 +8,8 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
 } from "recharts";
 
+
+
 export default function Patrimonio() {
   const { ativos, resumos } = useAtivos();
   const [contas, setContas] = useState([]);
@@ -54,6 +56,8 @@ export default function Patrimonio() {
 
   const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
+  const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
+
   function labelMesEvolucao(dataISO) {
     const [ano, mes] = dataISO.split('-');
     return `${MESES[parseInt(mes) - 1]} ${ano}`;
@@ -61,8 +65,15 @@ export default function Patrimonio() {
 
   const dadosEvolucao = evolucao.map(p => ({
     ...p,
+    ano: parseInt(p.data.split('-')[0]),
     label: labelMesEvolucao(p.data),
   }));
+
+  const anosDisponiveis = [...new Set(dadosEvolucao.map(p => p.ano))].sort();
+
+  const dadosEvolucaoFiltrados = anoSeleccionado === 'todos'
+    ? dadosEvolucao
+    : dadosEvolucao.filter(p => p.ano === parseInt(anoSeleccionado));
 
   return (
     <div className="patrimonio-page">
@@ -173,9 +184,21 @@ export default function Patrimonio() {
       </div>
       {/* EVOLUÇÃO DO PATRIMÓNIO */}
       <section className="secao">
-        <h2>Evolução do património</h2>
+        <div className="secao-cabecalho" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+          <h2>Evolução do património</h2>
+          <select
+            value={anoSeleccionado}
+            onChange={e => setAnoSeleccionado(e.target.value)}
+            className="filtro-ano"
+          >
+            <option value="todos">Todos</option>
+            {anosDisponiveis.map(ano => (
+              <option key={ano} value={ano}>{ano}</option>
+            ))}
+          </select>
+        </div>
         <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={dadosEvolucao} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
+          <LineChart data={dadosEvolucaoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
             <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v} €`} />
