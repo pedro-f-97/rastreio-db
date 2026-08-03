@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { getPendentes, criarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
+import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
 import { formatarEuros } from '../utils/formatacao';
@@ -30,6 +30,7 @@ export default function Ativos() {
   const [loading, setLoading] = useState(false);
   const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '' });
   const [menuAbertoId, setMenuAbertoId] = useState(null);
+  const [editando, setEditando] = useState({}); // { id, nome, simbolo }
 
   useEffect(() => {
     carregarPendentes();
@@ -67,6 +68,34 @@ export default function Ativos() {
 
   function toggleSeccao(tipo) {
     setSeccoesExpandidas((prev) => ({ ...prev, [tipo]: !prev[tipo] }));
+  }
+
+  function iniciarEdicao(ativo, e) {
+    e.stopPropagation();
+    setEditando({ id: ativo.id, nome: ativo.nome, simbolo: ativo.simbolo || "" });
+    setMenuAbertoId(null);
+  }
+
+  function cancelarEdicao(e) {
+    e.stopPropagation();
+    setEditando({});
+    setErro("");
+  }
+
+  async function confirmarEdicao(e) {
+    e.stopPropagation();
+    if (!editando.nome.trim()) { setErro("Nome obrigatório."); return; }
+    setErro("");
+    try {
+      await editarAtivo(editando.id, {
+        nome: editando.nome.trim(),
+        simbolo: editando.simbolo.trim() ? editando.simbolo.trim().toUpperCase() : null,
+      });
+      setEditando({});
+      await recarregar();
+    } catch (err) {
+      setErro(err.response?.data?.detail || "Erro ao editar ativo.");
+    }
   }
 
   async function submeterModal() {
@@ -307,16 +336,41 @@ export default function Ativos() {
                             onClick={() => toggleExpandido(ativo.id)}
                         >
                           <td>
-                            {ativo.nome}
-                            {ativo.isin && (
-                              <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}>ⓘ</span>
+                            {editando.id === ativo.id ? (
+                              <input
+                                className="input-inline"
+                                autoFocus
+                                value={editando.nome}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setEditando((ed) => ({ ...ed, nome: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") confirmarEdicao(e);
+                                  if (e.key === "Escape") cancelarEdicao(e);
+                                }}
+                              />
+                            ) : (
+                              <>
+                                {ativo.nome}
+                                {ativo.isin && (
+                                  <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}>ⓘ</span>
+                                )}
+                              </>
                             )}
                           </td>
                           <td className="col-mono">
-                            {ativo.simbolo ? (
-                              <span className="tooltip-simbolo" title={ativo.simbolo}>
-                                {ativo.simbolo}
-                              </span>
+                            {editando.id === ativo.id ? (
+                              <input
+                                className="input-inline"
+                                value={editando.simbolo}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setEditando((ed) => ({ ...ed, simbolo: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") confirmarEdicao(e);
+                                  if (e.key === "Escape") cancelarEdicao(e);
+                                }}
+                              />
+                            ) : ativo.simbolo ? (
+                              <span className="tooltip-simbolo" title={ativo.simbolo}>{ativo.simbolo}</span>
                             ) : "—"}
                           </td>
                           <td className="col-valor col-mono">
@@ -349,42 +403,53 @@ export default function Ativos() {
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div className="accoes">
-                              <span className="secao-chevron">{expandidos[ativo.id] ? "▼" : "▲"}</span>
-                              <div className="menu-acoes">
-                                <button
-                                  className="btn-menu"
-                                  title="Mais ações"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setMenuAbertoId(menuAbertoId === ativo.id ? null : ativo.id);
-                                  }}
-                                >
-                                  ⋮
-                                </button>
-
-                                {menuAbertoId === ativo.id && (
-                                  <div className="menu-dropdown">
+                              {editando.id === ativo.id ? (
+                                <>
+                                  <button className="btn-confirmar" onClick={confirmarEdicao}>✓</button>
+                                  <button className="btn-cancelar" onClick={cancelarEdicao}>✕</button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="secao-chevron">{expandidos[ativo.id] ? "▼" : "▲"}</span>
+                                  <div className="menu-acoes">
                                     <button
-                                      onClick={() => {
-                                        abrirModalPreco(ativo);
-                                        setMenuAbertoId(null);
+                                      className="btn-menu"
+                                      title="Mais ações"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMenuAbertoId(menuAbertoId === ativo.id ? null : ativo.id);
                                       }}
                                     >
-                                      Atualizar preço
+                                      ⋮
                                     </button>
 
-                                    <button
-                                      className="menu-item-perigo"
-                                      onClick={() => {
-                                        handleEliminarAtivo(ativo);
-                                        setMenuAbertoId(null);
-                                      }}
-                                    >
-                                      Eliminar ativo
-                                    </button>
+                                    {menuAbertoId === ativo.id && (
+                                      <div className="menu-dropdown">
+                                        <button onClick={(e) => iniciarEdicao(ativo, e)}>
+                                          Editar
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            abrirModalPreco(ativo);
+                                            setMenuAbertoId(null);
+                                          }}
+                                        >
+                                          Atualizar preço
+                                        </button>
+                                        <button
+                                          className="menu-item-perigo"
+                                          onClick={() => {
+                                            handleEliminarAtivo(ativo);
+                                            setMenuAbertoId(null);
+                                          }}
+                                        >
+                                          Eliminar ativo
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

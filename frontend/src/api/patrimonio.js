@@ -8,6 +8,7 @@ export const getAtivos = () => client.get("/patrimonio/ativos");
 export const criarAtivo = (payload) => client.post("/patrimonio/ativos", payload);
 export const getResumoAtivo = (ativoId) => client.get(`/patrimonio/ativos/${ativoId}/resumo`);
 export const eliminarAtivo = (id) => client.delete(`/patrimonio/ativos/${id}`);
+export const editarAtivo = (id, payload) => client.put(`/patrimonio/ativos/${id}`, payload);
 
 // --- MOVIMENTOS ---
 export const criarMovimento = (payload) => client.post("/patrimonio/movimentos", payload);

@@ -53,6 +53,27 @@ def criar_ativo(payload: schemas.AtivoCreate, db: Session = Depends(get_db)):
     db.refresh(ativo)
     return ativo
 
+@router.put("/ativos/{ativo_id}", response_model=schemas.Ativo)
+def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depends(get_db)):
+    ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()
+    if not ativo:
+        raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    if payload.simbolo:
+        existente = (
+            db.query(AtivoModel)
+            .filter(AtivoModel.simbolo == payload.simbolo, AtivoModel.id != ativo_id)
+            .first()
+        )
+        if existente:
+            raise HTTPException(status_code=409, detail="Já existe um ativo com este símbolo.")
+    if payload.nome is not None:
+        ativo.nome = payload.nome
+    if payload.simbolo is not None:
+        ativo.simbolo = payload.simbolo
+    db.commit()
+    db.refresh(ativo)
+    return ativo
+
 @router.delete("/ativos/{ativo_id}", status_code=204)
 def eliminar_ativo(ativo_id: int, db: Session = Depends(get_db)):
     ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()

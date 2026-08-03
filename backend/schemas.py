@@ -131,6 +131,10 @@ class Ativo(AtivoBase):
     tipo: TipoAtivo
     model_config = ConfigDict(from_attributes=True)
 
+class AtivoUpdate(BaseModel):
+    nome: Optional[str] = None
+    simbolo: Optional[str] = None
+
 # --- SCHEMAS DE MOVIMENTO DE ATIVO ---
 class MovimentoAtivoBase(BaseModel):
     ativo_id: int
