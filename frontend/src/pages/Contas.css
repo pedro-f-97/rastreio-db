@@ -125,24 +125,6 @@
     color: var(--text-primary);
 }
 
-.accoes {
-    display: flex;
-    gap: var(--space-sm);
-}
-
-.accoes button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: var(--text-lg);
-    padding: var(--space-xs);
-    opacity: 0.6;
-}
-
-.accoes button:hover {
-    opacity: 1;
-}
-
 .btn-reativar {
     background: none !important;
     border: 1px solid var(--accent) !important;
@@ -200,28 +182,6 @@
 
 .campo-referencia input:focus {
     outline: none;
-}
-
-.btn-confirmar {
-    background: color-mix(in srgb, var(--success) 15%, transparent) !important;
-    color: var(--success) !important;
-    border: 1px solid var(--success) !important;
-    padding: var(--space-xs) var(--space-sm) !important;
-    cursor: pointer;
-    font-size: var(--text-md) !important;
-    opacity: 1 !important;
-    border-radius: var(--radius-sm);
-}
-
-.btn-cancelar {
-    background: color-mix(in srgb, var(--danger) 15%, transparent) !important;
-    color: var(--danger) !important;
-    border: 1px solid var(--danger) !important;
-    padding: var(--space-xs) var(--space-sm) !important;
-    cursor: pointer;
-    font-size: var(--text-md) !important;
-    opacity: 1 !important;
-    border-radius: var(--radius-sm);
 }
 
 .sem-contas {

@@ -203,11 +203,6 @@
     opacity: 0.85;
 }
 
-.feedback {
-    font-size: var(--text-md);
-    color: var(--success);
-}
-
 .feedback-erro {
     color: var(--danger);
 }

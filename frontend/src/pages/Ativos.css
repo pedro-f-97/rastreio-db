@@ -324,15 +324,6 @@
     color: #fff;
 }
 
-.label strong {
-    color: var(--text-primary);
-    font-weight: var(--font-weight-medium);
-}
-
-.input {
-    width: 100%;
-}
-
 .modal-patrimonio {
     width: 500px;
     max-width: 90vw;

@@ -117,21 +117,6 @@
     color: var(--danger);
 }
 
-.valor-negativo {
-    color: var(--valor-negativo);
-    font-family: var(--font-mono);
-}
-
-.valor-positivo {
-    color: var(--valor-positivo);
-    font-family: var(--font-mono);
-}
-
-.importacao-preview .importacao-tabela tbody td:first-child,
-.importacao-preview .importacao-tabela tbody td:last-child {
-    font-family: var(--font-mono);
-}
-
 .btn-importar {
     align-self: flex-start;
     background-color: var(--accent);
@@ -456,19 +441,6 @@
     max-width: 80vw;
     max-height: 90vh;
     padding: 0;
-}
-
-.btn-primario {
-    background-color: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-    font-weight: var(--font-weight-medium);
-    border-radius: var(--radius-sm);
-}
-
-.btn-primario:hover {
-    background-color: var(--accent-hover);
-    border-color: var(--accent-hover);
 }
 
 .preview-mais-linhas {

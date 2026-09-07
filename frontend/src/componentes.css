@@ -86,6 +86,27 @@
     opacity: 1;
 }
 
+/* --- Botões genéricos de confirmação / cancelação --- */
+.btn-confirmar {
+    background: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+    border: 1px solid var(--success);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+    font-size: var(--text-md);
+    opacity: 1;
+}
+
+.btn-cancelar {
+    background: color-mix(in srgb, var(--danger) 15%, transparent);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+    font-size: var(--text-md);
+    opacity: 1;
+}
+
 /* --- Layout genérico de página --- */
 .patrimonio-page {
     padding: var(--space-2xl);
