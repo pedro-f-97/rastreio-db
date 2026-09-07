@@ -171,6 +171,10 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
 
     quantidade = 0.0
     custo_total = 0.0
+    # Convenção de sinal: valor_total de uma "compra" chega já negativo do frontend
+    # (saída de dinheiro, tal como uma despesa). Por isso custo_total acumula negativo,
+    # e mais_menos_valia = valor_atual + custo_total já é a subtracção correta.
+    # Não trocar o "+" por "-" sem confirmar o sinal de valor_total.
     for m in movimentos:
         if m.tipo_movimento.value == "compra":
             quantidade += float(m.quantidade or 0)
@@ -193,7 +197,7 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
             valor_atual = round(quantidade * float(preco_atual.preco), 2)
         else:
             valor_atual = float(preco_atual.preco)
-        mais_menos_valia = round(valor_atual + custo_total, 2)
+        mais_menos_valia = round(valor_atual + custo_total, 2)  # custo_total já é negativo — ver nota acima
 
     return {
         "ativo_id": ativo_id,
