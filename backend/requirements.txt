@@ -1,8 +1,6 @@
-altgraph==0.17.5
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
-asarPy==1.0.1
 click==8.3.2
 et_xmlfile==2.0.0
 fastapi==0.135.3
@@ -10,7 +8,6 @@ greenlet==3.3.2
 h11==0.16.0
 idna==3.11
 openpyxl==3.1.5
-packaging==26.2
 pydantic==2.12.5
 pydantic_core==2.41.5
 pyinstaller==6.20.0
