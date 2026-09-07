@@ -39,7 +39,11 @@ export default function Transacoes() {
         const file = e.target.files[0];
         if (!file) return;
 
-        const confirmar = window.confirm("Atenção: Ao restaurar, todos os dados atuais serão substituídos pelo backup. Deseja continuar?");
+        const confirmar = window.confirm(
+            "⚠️ ATENÇÃO: Restaurar um backup vai apagar TODOS os dados atuais da base de dados de forma IRREVERSÍVEL.\n\n" +
+            "Tudo o que não estiver no ficheiro de backup será perdido para sempre.\n\n" +
+            "Tem a certeza que deseja continuar?"
+        );
         if (!confirmar) return;
 
         try {
