@@ -3,6 +3,14 @@ from database import Transacao, RegraCategorizacao, DB_PATH
 from sqlalchemy import or_
 
 def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
+    # Fase 1: verificar regras de exclusão (categoria_id = None)
+    for regra in regras:
+        if regra.categoria_id is not None:
+            continue
+        if regra.palavra_chave.upper() in transacao.descricao.upper():
+            return                          # ← transação fica sem categoria
+
+    # Fase 2: aplicar primeira regra de categorização que corresponde
     for regra in regras:
         if regra.categoria_id is None:
             continue

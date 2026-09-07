@@ -82,6 +82,19 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
     com_conflito = []
 
     for t in transacoes:
+        # Fase 1: verificar se alguma regra de exclusão corresponde
+        ignorada = False
+        for regra in regras:
+            if regra.categoria_id is not None:
+                continue
+            if regra.palavra_chave.upper() in t.descricao.upper():
+                ignorada = True
+                break
+
+        if ignorada:
+            continue                              # ← transação fica sem categoria, não aparece no preview
+
+        # Fase 2: procurar regras de categorização
         for regra in regras:
             if regra.categoria_id is None:
                 continue
