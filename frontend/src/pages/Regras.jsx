@@ -130,9 +130,9 @@ export default function Regras() {
     const conflitoActual = comConflito[indiceConflito];
 
     return (
-        <div className="regras-page">
+        <div className="pagina-container">
             <div className="regras-header">
-                <h1>Regras de categorização</h1>
+                <h1 className="titulo-pagina">Regras de categorização</h1>
                 <button className="btn-aplicar" onClick={aoAbrirModal}>
                     Aplicar regras às transações
                 </button>

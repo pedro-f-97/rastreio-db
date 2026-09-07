@@ -55,7 +55,7 @@ export default function TiposAtivo() {
     }
 
     return (
-        <div className="categorias-page tipos-ativo-page">
+        <div className="pagina-container tipos-ativo-page">
             <h1>Tipos de Ativo</h1>
 
             <div className="nova-categoria">

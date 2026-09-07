@@ -58,8 +58,8 @@ export default function Categorias() {
     }
 
     return (
-        <div className="categorias-page">
-            <h1>Categorias</h1>
+        <div className="pagina-container">
+            <h1 className="titulo-pagina">Categorias</h1>
 
             <div className="nova-categoria" data-tour="categorias-nova-categoria">
                 <input

@@ -144,7 +144,7 @@ export default function Estatisticas() {
     return (
         <div className="estatisticas-page">
             <div className="secao-cabecalho" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-                <h1>Estatísticas</h1>
+                <h1 className="titulo-pagina">Estatísticas</h1>
                 <select
                     value={anoSeleccionado}
                     onChange={e => setAnoSeleccionado(e.target.value)}

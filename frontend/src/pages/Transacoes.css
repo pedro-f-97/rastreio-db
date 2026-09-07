@@ -12,12 +12,6 @@
     margin-bottom: var(--space-sm);
 }
 
-.transacoes-header h1 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-}
-
 .btn-importar {
     background: var(--accent);
     color: #fff;
@@ -52,7 +46,7 @@
     color: var(--text-secondary);
 }
 
-.erro {
+.erro-grande {
     color: var(--danger);
     font-size: var(--text-md);
 }

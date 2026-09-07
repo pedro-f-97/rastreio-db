@@ -115,7 +115,7 @@ export default function Transacoes() {
     return (
         <div className="transacoes-page">
             <div className="transacoes-header">
-                <h1>Transações</h1>
+                <h1 className="titulo-pagina">Transações</h1>
                 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                     {/* Grupo de Backup */}
@@ -142,7 +142,7 @@ export default function Transacoes() {
                 onChange={mudarFiltro}
             />
 
-            {erro && <p className="erro">{erro}</p>}
+            {erro && <p className="erro-grande">{erro}</p>}
             {carregando ? (
                 <p className="carregando">A carregar...</p>
             ) : (

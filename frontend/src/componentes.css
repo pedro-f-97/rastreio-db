@@ -133,6 +133,21 @@
     color: var(--text-primary);
 }
 
+/* --- Títulos de página --- */
+.titulo-pagina {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+/* --- Layout genérico de página --- */
+.pagina-container {
+    padding: var(--space-2xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
 /* --- Valores monetários (fix: especificidade garantida) --- */
 .valor-positivo {
     color: var(--valor-positivo);
