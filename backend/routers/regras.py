@@ -1,16 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, RegraCategorizacao, Transacao
+from database import get_db, RegraCategorizacao, Transacao
 from schemas import RegraCreate
 
 router = APIRouter(prefix="/regras", tags=["regras"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/")
 def listar_regras(db: Session = Depends(get_db)):

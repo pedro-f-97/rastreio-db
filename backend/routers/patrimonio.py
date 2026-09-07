@@ -4,18 +4,10 @@ from sqlalchemy import text, func
 from datetime import date
 from servicos.patrimonio_serv import gerar_evolucao
 from typing import List
-from database import SessionLocal, Ativo as AtivoModel, MovimentoAtivo as MovimentoAtivoModel, PrecoAtivo as PrecoAtivoModel, Transacao as TransacaoModel
+from database import get_db, Ativo as AtivoModel, MovimentoAtivo as MovimentoAtivoModel, PrecoAtivo as PrecoAtivoModel, Transacao as TransacaoModel
 import schemas
 
 router = APIRouter(prefix="/patrimonio", tags=["patrimonio"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 # --- PENDENTES ---
 

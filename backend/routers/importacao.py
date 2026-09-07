@@ -1,17 +1,10 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, PerfilImportacao as PerfilImportacaoModel
+from database import get_db, PerfilImportacao as PerfilImportacaoModel
 from parser_importacao import parse_ficheiro
 from importador_transacoes import importar_transacoes
 
 router = APIRouter(prefix="/importacao", tags=["importacao"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 def _obter_perfil(perfil_id: int, db: Session) -> PerfilImportacaoModel:
     perfil = db.query(PerfilImportacaoModel).filter(PerfilImportacaoModel.id == perfil_id).first()

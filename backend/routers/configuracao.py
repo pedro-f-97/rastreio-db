@@ -1,16 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from database import SessionLocal, Categoria, Subcategoria, Configuracao, TipoCategoria, TipoAtivo
+from database import get_db, Categoria, Subcategoria, Configuracao, TipoCategoria, TipoAtivo
 from popular_bd import CATEGORIAS_MINIMALISTA, CATEGORIAS_COMPLETO, TIPOS, PerfilCategorias, SEED_TIPOS_ATIVO
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/estado")
 def estado(db: Session = Depends(get_db)):

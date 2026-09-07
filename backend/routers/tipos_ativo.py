@@ -1,16 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, TipoAtivo
+from database import get_db, TipoAtivo
 from schemas import TipoAtivoCreate
 
 router = APIRouter(prefix="/tipos-ativo", tags=["tipos-ativo"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/")
 def listar_tipos_ativo(db: Session = Depends(get_db)):

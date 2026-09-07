@@ -2,17 +2,10 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
 from typing import Optional
-from database import SessionLocal, Transacao
+from database import get_db, Transacao
 from schemas import TransacaoUpdate
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/por-categorizar/total")
 def total_por_categorizar(db: Session = Depends(get_db)):

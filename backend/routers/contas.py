@@ -2,17 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
-from database import SessionLocal, Conta as ContaModel, Transacao as TransacaoModel
+from database import get_db, Conta as ContaModel, Transacao as TransacaoModel
 import schemas
 
 router = APIRouter(prefix="/contas", tags=["contas"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/", response_model=List[schemas.Conta])
 def listar_contas(incluir_inativas: bool = Query(False), db: Session = Depends(get_db)):

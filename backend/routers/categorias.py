@@ -1,16 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, Categoria, Subcategoria
+from database import get_db, Categoria, Subcategoria
 from schemas import CategoriaCreate, SubcategoriaCreate
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/")
 def listar_categorias(db: Session = Depends(get_db)):

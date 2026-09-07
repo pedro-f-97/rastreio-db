@@ -32,6 +32,16 @@ class Base(DeclarativeBase):
 # Sessão para interagir com a base de dados
 SessionLocal = sessionmaker(bind=engine)
 
+
+def get_db():
+    """Gerador de dependência FastAPI para sessões de base de dados."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 class Configuracao(Base):
     __tablename__ = "configuracao"
 

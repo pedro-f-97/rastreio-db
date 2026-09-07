@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, PerfilImportacao as PerfilImportacaoModel
+from database import get_db, PerfilImportacao as PerfilImportacaoModel
 from schemas import PerfilImportacaoCreate, PerfilImportacao as PerfilImportacaoSchema
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from openpyxl import load_workbook
@@ -8,13 +8,6 @@ import schemas
 import io
 
 router = APIRouter(prefix="/perfis-importacao", tags=["perfis-importacao"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/", response_model=list[PerfilImportacaoSchema])
 def listar_perfis(db: Session = Depends(get_db)):

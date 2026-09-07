@@ -1,20 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
-from database import SessionLocal, Transacao, Categoria, Subcategoria, TipoCategoria
+from database import get_db, Transacao, Categoria, Subcategoria, TipoCategoria
 from statistics import median
 import calendar
 from datetime import date
 from typing import Optional
 
 router = APIRouter(prefix="/estatisticas", tags=["estatisticas"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/resumo-mensal")
 def resumo_mensal(db: Session = Depends(get_db)):
