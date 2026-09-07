@@ -7,6 +7,7 @@ import { listarRegras, criarRegra } from '../api/regras';
 import { exportarBackup, importarBackup } from '../api/backups';
 import { getContas } from '../api/contas';
 import './Transacoes.css';
+import '../componentes.css';
 
 export default function Transacoes() {
     // Dados

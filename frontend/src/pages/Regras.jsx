@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { listarRegras, criarRegra, apagarRegra, preVisualizarRegras, aplicarEmMassa } from '../api/regras';
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import './Regras.css';
+import '../componentes.css';
 
 export default function Regras() {
     const [regras, setRegras] = useState([]);
@@ -173,7 +174,7 @@ export default function Regras() {
                 </p>
             )}
 
-            <table className="tabela-regras">
+            <table className="tabela-base tabela-regras">
                 <thead>
                     <tr>
                         <th>Palavra-chave</th>

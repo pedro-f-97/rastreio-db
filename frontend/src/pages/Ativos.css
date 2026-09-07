@@ -21,37 +21,20 @@
 }
 
 /* --- TABELA PRINCIPAL --- */
-
 .tabela-patrimonio {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-md);
     table-layout: fixed;
 }
 
 .tabela-patrimonio th {
-    text-align: left;
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
-    font-size: var(--text-sm);
-    font-weight: var(--font-weight-medium);
     white-space: nowrap;
+}
+
+.tabela-patrimonio td {
+    vertical-align: middle;
 }
 
 .tabela-patrimonio th.col-valor {
     text-align: right;
-}
-
-.tabela-patrimonio td {
-    padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-}
-
-.tabela-patrimonio tr:hover td {
-    background: var(--bg-secondary);
 }
 
 .celula-valor-data {

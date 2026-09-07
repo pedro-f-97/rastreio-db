@@ -179,6 +179,72 @@
     color: var(--text-primary);
 }
 
+/* --- Modal descrição --- */
+.modal-descricao {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+}
+
+/* --- Cartão genérico (título/valor) --- */
+.cartao-titulo {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.cartao-valor {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-mono);
+}
+
+/* --- Tabela base genérica --- */
+.tabela-base {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-md);
+}
+
+.tabela-base th {
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.tabela-base td {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.tabela-base tr:hover td {
+    background: var(--bg-secondary);
+}
+
+/* --- Botão secundário (exportar/restaurar) --- */
+.btn-secundario {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-md);
+    font-family: var(--font-sans);
+    display: inline-flex;
+}
+
+.btn-secundario:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent);
+}
+
 /* --- Modal largo (tabelas/visualização) --- */
 .modal-larga {
     width: 80vw;

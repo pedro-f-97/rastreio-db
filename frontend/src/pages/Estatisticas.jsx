@@ -5,6 +5,7 @@ import {
     Line, Legend, CartesianGrid
 } from 'recharts';
 import './Estatisticas.css';
+import '../componentes.css';
 import { formatarEuros } from '../utils/formatacao';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -279,7 +280,7 @@ export default function Estatisticas() {
             {/* POR CATEGORIA */}
             <section className="secao">
                 <h2>Por categoria</h2>
-                <table className="tabela-stats">
+                <table className="tabela-base tabela-stats">
                     <thead>
                         <tr>
                             <th>Categoria</th>

@@ -134,7 +134,7 @@ export default function TabelaTransacoes({
     return (
         <>
             <div className="tabela-wrapper">
-                <table className="tabela-transacoes">
+                <table className="tabela-base tabela-transacoes">
                     <thead>
                         <tr>
                             <th>Data</th>

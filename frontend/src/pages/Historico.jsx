@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { obterResumoMensal, obterDetalheMensal } from '../api/estatisticas';
 import './Estatisticas.css';
+import '../componentes.css';
 import { formatarEuros } from '../utils/formatacao';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -50,7 +51,7 @@ export default function Historico() {
             <h1>Histórico</h1>
 
             <section className="secao">
-                <table className="tabela-stats">
+                <table className="tabela-base tabela-stats">
                     <thead>
                         <tr>
                             <th>Mês</th>

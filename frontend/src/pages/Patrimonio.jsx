@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getContas, getSaldoConta } from "../api/contas";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
+import '../componentes.css';
 import { formatarEuros } from '../utils/formatacao';
 import { obterEvolucao } from "../api/patrimonio";
 import {

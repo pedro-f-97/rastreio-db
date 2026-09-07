@@ -62,10 +62,12 @@
     overflow-x: auto;
 }
 
-.tabela-transacoes {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-md);
+.tabela-transacoes th {
+    white-space: nowrap;
+}
+
+.tabela-transacoes td {
+    vertical-align: middle;
 }
 
 .tabela-transacoes th:nth-child(3),
@@ -74,28 +76,6 @@
 .tabela-transacoes td:nth-child(4) {
     width: 110px;
     white-space: nowrap;
-}
-
-.tabela-transacoes th {
-    text-align: left;
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
-    font-size: var(--text-sm);
-    font-weight: var(--font-weight-medium);
-    white-space: nowrap;
-}
-
-.tabela-transacoes td {
-    padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--border);
-    color: var(--text-primary);
-    vertical-align: middle;
-}
-
-.tabela-transacoes tr:hover td {
-    background: var(--bg-secondary);
 }
 
 .tabela-transacoes .valor {
@@ -222,24 +202,4 @@
     justify-content: flex-end;
     gap: var(--space-sm);
     margin-bottom: var(--space-sm);
-}
-
-/* Estilo para os botões secundários (Exportar e Restaurar) */
-.btn-secundario {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    padding: var(--space-sm) var(--space-lg);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: var(--text-md);
-    font-family: var(--font-sans);
-    display: inline-flex;
-    align-items: center;
-    transition: background-color 0.15s, border-color 0.15s;
-}
-
-.btn-secundario:hover {
-    background: var(--bg-secondary);
-    border-color: var(--accent);
 }

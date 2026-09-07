@@ -248,7 +248,7 @@ export default function Ativos() {
       {pendentes.length > 0 && (
         <section className="secao">
           <h2 className="secao-titulo">Pendentes <span className="badge-pendentes">{pendentes.length}</span></h2>
-          <table className="tabela-patrimonio">
+          <table className="tabela-base tabela-patrimonio">
             <thead>
               <tr>
                 <th>Data</th>
@@ -302,7 +302,7 @@ export default function Ativos() {
                 <span className="secao-chevron">{expandida ? "▲" : "▼"}</span>
               </button>
             {expandida && (
-              <table className="tabela-patrimonio">
+              <table className="tabela-base tabela-patrimonio">
                 <colgroup>
                   <col style={{ width: '22%' }} />  {/* Nome */}
                   <col style={{ width: '10%' }} />  {/* Identificador */}
@@ -650,7 +650,7 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
   if (movimentos.length === 0) return <p className="estado-vazio">Sem movimentos registados.</p>;
 
   return (
-    <table className="tabela-patrimonio tabela-aninhada">
+    <table className="tabela-base tabela-patrimonio tabela-aninhada">
       <thead>
         <tr>
           <th>Data</th>

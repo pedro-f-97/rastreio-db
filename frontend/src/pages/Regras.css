@@ -50,32 +50,6 @@
     color: var(--success);
 }
 
-.tabela-regras {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-md);
-}
-
-.tabela-regras th {
-    text-align: left;
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
-    font-size: var(--text-sm);
-    font-weight: var(--font-weight-medium);
-}
-
-.tabela-regras td {
-    padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--border);
-    color: var(--text-primary);
-}
-
-.tabela-regras tr:hover td {
-    background: var(--bg-secondary);
-}
-
 .btn-apagar {
     background: none;
     border: none;
