@@ -154,29 +154,6 @@
 }
 
 /* Modal */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(2px);
-    z-index: 100;
-}
-
-.modal {
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border);
-    width: 80vw;
-    max-width: 80vw;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-}
-
 .modal-header {
     display: flex;
     align-items: center;
@@ -184,12 +161,6 @@
     padding: var(--space-lg) var(--space-xl);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
-}
-
-.modal-header h3 {
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
 }
 
 .modal-fechar {

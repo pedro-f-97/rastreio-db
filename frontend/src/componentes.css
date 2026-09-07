@@ -148,6 +148,47 @@
     gap: var(--space-xl);
 }
 
+/* --- Modal overlay genérico --- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+    z-index: 9999;
+}
+
+/* --- Modal genérico --- */
+.modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    width: 500px;
+    max-width: 90vw;
+    border-radius: var(--radius-lg);
+}
+
+.modal h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+/* --- Modal largo (tabelas/visualização) --- */
+.modal-larga {
+    width: 80vw;
+    max-width: 80vw;
+    max-height: 90vh;
+    overflow: hidden;
+    padding: 0;
+    gap: 0;
+}
+
 /* --- Valores monetários (fix: especificidade garantida) --- */
 .valor-positivo {
     color: var(--valor-positivo);
