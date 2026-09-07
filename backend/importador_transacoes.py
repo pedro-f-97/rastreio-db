@@ -1,5 +1,3 @@
-import os
-import shutil
 from sqlalchemy.orm import Session
 from database import Transacao, RegraCategorizacao, DB_PATH
 from sqlalchemy import or_
@@ -17,9 +15,6 @@ def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
             break
 
 def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: int | None = None) -> dict:
-    if os.path.exists(DB_PATH):
-        shutil.copy2(DB_PATH, DB_PATH + ".pre_import")
-
     regras = db.query(RegraCategorizacao).all()
     inseridas = 0
     duplicadas = 0

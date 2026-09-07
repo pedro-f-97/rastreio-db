@@ -27,6 +27,11 @@ async def importar_backup(file: UploadFile = File(...)):
 
     engine.dispose()
 
+    # ← NOVO: limpar ficheiros temporários de restores falhados
+    for extra in [DB_PATH + ".tmp"]:
+        if os.path.exists(extra):
+            os.remove(extra)
+
     try:
         # Criar backup de segurança dentro de backend/
         if os.path.exists(DB_PATH):
@@ -48,9 +53,14 @@ async def importar_backup(file: UploadFile = File(...)):
 
         os.replace(temp_path, DB_PATH)
         
+        # ← NOVO: limpar backup de segurança após sucesso
+        if os.path.exists(DB_PATH + '.anterior'):
+            os.remove(DB_PATH + '.anterior')
+        
         return {"ok": True, "mensagem": "Base de dados restaurada"}
     
     except Exception as e:
         if os.path.exists(DB_PATH + '.anterior'):
             shutil.copy2(DB_PATH + '.anterior', DB_PATH)
+            os.remove(DB_PATH + '.anterior')
         raise HTTPException(status_code=500, detail=str(e))
