@@ -89,7 +89,7 @@ export default function Contas() {
                 />
                 <button onClick={aoAdicionarConta}>Adicionar</button>
             </div>
-            {erro && <p className="erro-conta">{erro}</p>}
+            {erro && <p className="erro">{erro}</p>}
 
             <label className="toggle-inativas">
                 <input

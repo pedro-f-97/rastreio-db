@@ -41,12 +41,6 @@
     opacity: 0.85;
 }
 
-.erro-conta {
-    color: var(--danger);
-    font-size: var(--text-sm);
-    margin: 0;
-}
-
 .toggle-inativas {
     display: flex;
     align-items: center;
