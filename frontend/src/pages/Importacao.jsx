@@ -344,7 +344,7 @@ export default function Importacao() {
             {/* MODAL: PERFIL */}
             {modalAberto && (
                 <div className="modal-overlay" onClick={fecharModal}>
-                    <div className="modal modal-larga modal-perfil" onClick={e => e.stopPropagation()}>
+                    <div className="modal modal-larga" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>Novo perfil</h3>
                             <button className="modal-fechar" onClick={fecharModal}>✕</button>

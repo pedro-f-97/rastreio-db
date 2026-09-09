@@ -377,13 +377,6 @@
     flex-shrink: 0;
 }
 
-.modal-perfil {
-    width: 80vw;
-    max-width: 80vw;
-    max-height: 90vh;
-    padding: 0;
-}
-
 .preview-mais-linhas {
     padding: var(--space-sm) var(--space-md);
     color: var(--text-secondary);
