@@ -12,20 +12,6 @@
     margin-bottom: var(--space-sm);
 }
 
-.btn-importar {
-    background: var(--accent);
-    color: #fff;
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: var(--text-md);
-    font-family: var(--font-sans);
-}
-
-.btn-importar:hover {
-    opacity: 0.85;
-}
-
 .filtros {
     display: flex;
     gap: var(--space-sm);
