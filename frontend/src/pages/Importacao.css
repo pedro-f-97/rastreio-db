@@ -27,31 +27,6 @@
     font-size: var(--text-sm);
 }
 
-.importacao-tabela {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-md);
-    font-family: var(--font-sans);
-}
-
-.importacao-tabela th {
-    text-align: left;
-    padding: var(--space-sm) var(--space-md);
-    color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
-    font-size: var(--text-sm);
-    font-weight: var(--font-weight-medium);
-}
-
-.importacao-tabela td {
-    padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--border);
-}
-
-.importacao-tabela tr:hover td {
-    background-color: var(--bg-secondary);
-}
-
 .importacao-controles {
     display: flex;
     gap: var(--space-md);

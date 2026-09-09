@@ -291,7 +291,7 @@ export default function Importacao() {
                             </ul>
                         )}
 
-                        <table className="importacao-tabela">
+                        <table className="tabela-base">
                             <thead>
                                 <tr>
                                     <th>Data</th>
