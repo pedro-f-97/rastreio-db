@@ -401,6 +401,12 @@
     transition: transform 0.15s;
 }
 
+.flex-row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
 .item-cabecalho-limpo {
     margin-bottom: 0;
 }

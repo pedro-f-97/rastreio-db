@@ -132,7 +132,7 @@ export default function Regras() {
 
     return (
         <div className="pagina-container">
-            <div className="regras-header">
+            <div className="flex-row-between">
                 <h1 className="titulo-pagina">Regras de categorização</h1>
                 <button className="btn-aplicar" onClick={aoAbrirModal}>
                     Aplicar regras às transações

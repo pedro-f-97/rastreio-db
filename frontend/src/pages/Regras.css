@@ -50,12 +50,6 @@
     color: var(--success);
 }
 
-.regras-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
 .btn-aplicar {
     background: var(--accent);
     color: #fff;
