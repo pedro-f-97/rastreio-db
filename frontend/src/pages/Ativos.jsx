@@ -229,8 +229,7 @@ export default function Ativos() {
   }
 
   async function handleEliminarAtivo(ativo) {
-    const temMovimentos = resumos[ativo.id]?.quantidade !== undefined &&
-      (await getMovimentos(ativo.id)).data.length > 0;
+    const temMovimentos = (await getMovimentos(ativo.id)).data.length > 0;
     if (temMovimentos) {
       if (!window.confirm(`Apagar o ativo "${ativo.nome}" vai eliminar todos os movimentos associados. Tem a certeza?`)) return;
     }
