@@ -164,8 +164,3 @@
 .campo-referencia input:focus {
     outline: none;
 }
-
-.sem-contas {
-    color: var(--text-secondary);
-    font-size: var(--text-md);
-}

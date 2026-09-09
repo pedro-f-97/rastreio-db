@@ -111,12 +111,6 @@
     text-align: right;
 }
 
-.estado-vazio {
-    color: var(--text-secondary);
-    font-size: var(--text-md);
-    padding: var(--space-lg) 0;
-}
-
 /* Adicionar: */
 .linha-clicavel {
     cursor: pointer;

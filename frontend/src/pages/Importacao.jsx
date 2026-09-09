@@ -224,7 +224,7 @@ export default function Importacao() {
                 </div>
 
                 {perfis.length === 0 ? (
-                    <p className="importacao-vazio">Nenhum perfil configurado.</p>
+                    <p className="estado-vazio-sm">Nenhum perfil configurado.</p>
                 ) : (
                     <div className="lista-itens">
                         {perfis.map(p => (

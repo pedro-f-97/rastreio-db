@@ -384,3 +384,13 @@
     vertical-align: middle;
     transition: transform 0.15s;
 }
+
+.estado-vazio {
+    color: var(--text-secondary);
+    font-size: var(--text-md);
+}
+
+.estado-vazio-sm {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}

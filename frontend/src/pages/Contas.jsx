@@ -167,7 +167,7 @@ export default function Contas() {
                     </div>
                 ))}
                 {contas.length === 0 && (
-                    <p className="sem-contas">Nenhuma conta encontrada.</p>
+                    <p className="estado-vazio">Nenhuma conta encontrada.</p>
                 )}
             </div>
         </div>

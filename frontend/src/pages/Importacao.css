@@ -22,11 +22,6 @@
     color: var(--text-primary);
 }
 
-.importacao-vazio {
-    color: var(--text-secondary);
-    font-size: var(--text-sm);
-}
-
 .importacao-controles {
     display: flex;
     gap: var(--space-md);
