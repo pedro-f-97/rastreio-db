@@ -9,7 +9,7 @@ import { getContas } from '../api/contas';
 import './Transacoes.css';
 import '../componentes.css';
 
-export default function Transacoes() {
+export default function Transacoes({ onDadosAlterados }) {
     // Dados
     const [transacoes, setTransacoes] = useState([]);
     const [categorias, setCategorias] = useState([]);
@@ -103,12 +103,15 @@ export default function Transacoes() {
         setTransacoes(prev =>
             prev.map(t => t.id === id ? { ...t, [campo]: valor } : t)
         );
+        // A categorização afeta o contador "por categorizar" da sidebar
+        if (campo === 'categoria_id') onDadosAlterados?.();
     }
 
     async function aoCriarRegra(novaRegra) {
         const res = await criarRegra(novaRegra);
         setRegras(prev => [...prev, res.data.regra]);
         await carregarTransacoes();
+        onDadosAlterados?.();
     }
 
     

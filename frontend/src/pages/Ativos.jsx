@@ -20,7 +20,7 @@ const estadoModalInicial = {
   valorTotal: "",
 };
 
-export default function Ativos() {
+export default function Ativos({ onDadosAlterados }) {
   const { ativos, resumos, tiposAtivo, recarregar } = useAtivos();
   const [pendentes, setPendentes] = useState([]);
   const [seccoesExpandidas, setSeccoesExpandidas] = useState({});
@@ -157,6 +157,7 @@ export default function Ativos() {
       fecharModal();
       await carregarPendentes();
       await recarregar();
+      onDadosAlterados?.();
     } catch (e) {
       setErro(e.response?.data?.detail || "Erro ao guardar.");
     } finally {

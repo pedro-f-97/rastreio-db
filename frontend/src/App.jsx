@@ -79,10 +79,14 @@ function App() {
     setTema(novoTema)
   }
 
+  function carregarTotaisBadges() {
+    totalPorCategorizar().then(res => setPorCategorizar(res.data.total))
+    getPendentes().then(res => setPendentesAtivos(res.data.length))
+  }
+
   useEffect(() => {
     if (inicializado) {
-      totalPorCategorizar().then(res => setPorCategorizar(res.data.total))
-      getPendentes().then(res => setPendentesAtivos(res.data.length))
+      carregarTotaisBadges()
     }
   }, [inicializado])
 
@@ -227,7 +231,8 @@ function App() {
               {!inicializado
                 ? <Route path="*" element={<PrimeiroUso onInicializado={() => setInicializado(true)} />} />
                 : <>
-                  <Route path="/" element={<Transacoes />} />
+                  {/* ALTERAÇÃO #6: onDadosAlterados passado a Transações e Ativos */}
+                  <Route path="/" element={<Transacoes onDadosAlterados={carregarTotaisBadges} />} />
                   <Route path="/historico" element={<Historico />} />
                   <Route path="/categorias" element={<Categorias />} />
                   <Route path="/regras" element={<Regras />} />
@@ -238,7 +243,7 @@ function App() {
                   <Route path="/contas" element={<Contas />} />
                   <Route path="/sobre" element={<Sobre />} />
                   <Route path="/tipos-ativo" element={<TiposAtivo />} />
-                  <Route path="/ativos" element={<Ativos />} />
+                  <Route path="/ativos" element={<Ativos onDadosAlterados={carregarTotaisBadges} />} />
                 </>
               }
             </Routes>
