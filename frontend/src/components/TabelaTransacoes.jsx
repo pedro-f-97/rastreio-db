@@ -266,7 +266,7 @@ export default function TabelaTransacoes({
                             </strong>
                         </p>
 
-                        <div className="modal-accoes">
+                        <div className="modal-acoes">
                             <button onClick={() => setModalRegra(null)}>
                                 Ignorar
                             </button>

@@ -85,13 +85,13 @@
     margin-bottom: var(--space-xs);
 }
 
-.modal-accoes {
+.modal-acoes {
     display: flex;
     justify-content: flex-end;
     gap: var(--space-md);
 }
 
-.modal-accoes button {
+.modal-acoes button {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border);
@@ -102,13 +102,13 @@
     border-radius: var(--radius-sm);
 }
 
-.modal-accoes .btn-confirmar {
+.modal-acoes .btn-confirmar {
     background: var(--accent);
     color: #fff;
     border-color: var(--accent);
 }
 
-.modal-accoes button:hover {
+.modal-acoes button:hover {
     opacity: 0.85;
 }
 
