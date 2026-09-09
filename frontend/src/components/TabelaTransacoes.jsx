@@ -218,7 +218,7 @@ export default function TabelaTransacoes({
                     <div className="modal">
                         <h3>Criar regra de categorização?</h3>
 
-                        <p className="modal-descricao">
+                        <p className="modal-descricao-expandida">
                             <span>
                                 {modalRegra.descricao.slice(0, modalRegra.inicio)}
                             </span>

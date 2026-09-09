@@ -71,14 +71,6 @@
     opacity: 0.85;
 }
 
-.modal-descricao {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    background: var(--bg-tertiary);
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-sm);
-}
-
 .conflito-detalhe {
     display: flex;
     flex-direction: column;

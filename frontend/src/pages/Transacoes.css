@@ -154,7 +154,7 @@
     cursor: default;
 }
 
-.modal-descricao {
+.modal-descricao-expandida {
     font-size: var(--text-md);
     line-height: 1.8;
     word-break: break-all;
