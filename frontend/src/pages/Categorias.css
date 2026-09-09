@@ -2,16 +2,6 @@
     width: 300px;
 }
 
-.categoria-header input {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--accent);
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    border-radius: var(--radius-sm);
-}
-
 .subcategorias {
     display: flex;
     flex-direction: column;
