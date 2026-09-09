@@ -85,7 +85,7 @@ export default function TiposAtivo() {
                     const estaAEditar = editando.id === tipo.id;
                     return (
                         <div key={tipo.id} className="item-lista">
-                            <div className="item-cabecalho">
+                            <div className="item-cabecalho item-cabecalho-limpo">
                                 {estaAEditar ? (
                                     <>
                                         <input

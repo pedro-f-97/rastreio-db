@@ -401,6 +401,10 @@
     transition: transform 0.15s;
 }
 
+.item-cabecalho-limpo {
+    margin-bottom: 0;
+}
+
 .estado-vazio {
     color: var(--text-secondary);
     font-size: var(--text-md);

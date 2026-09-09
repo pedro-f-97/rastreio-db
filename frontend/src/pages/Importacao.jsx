@@ -229,7 +229,7 @@ export default function Importacao() {
                     <div className="lista-itens">
                         {perfis.map(p => (
                             <div key={p.id} className="item-lista">
-                                <div className="item-cabecalho">
+                                <div className="item-cabecalho item-cabecalho-limpo">
                                     <div style={{ display: 'flex', alignItems: 'center' }}>
                                         <span className="item-nome">{p.nome}</span>
                                         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginLeft: 'var(--space-sm)' }}>
