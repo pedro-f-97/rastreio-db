@@ -121,7 +121,7 @@ export default function TiposAtivo() {
                                 )}
                                 <div className="accoes">
                                     <button onClick={() => setEditando({ id: tipo.id, valor: tipo.nome, temUnidades: tipo.tem_unidades })}>✏️</button>
-                                    <button className="btn-apagar" onClick={() => aoApagar(tipo.id)}>🗑</button>
+                                    <button className="btn-ghost" onClick={() => aoApagar(tipo.id)}>🗑</button>
                                 </div>
                             </div>
                         </div>

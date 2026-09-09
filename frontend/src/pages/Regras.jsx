@@ -190,7 +190,7 @@ export default function Regras() {
                             <td>{r.categoria_nome ?? '—'}</td>
                             <td>{r.subcategoria_nome ?? '—'}</td>
                             <td>
-                                <button className="btn-apagar" onClick={() => aoApagar(r.id)}>🗑</button>
+                                <button className="btn-ghost" onClick={() => aoApagar(r.id)}>🗑</button>
                             </td>
                         </tr>
                     ))}

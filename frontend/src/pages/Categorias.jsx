@@ -157,7 +157,7 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                 )}
                 <div className="accoes">
                     <button onClick={() => setEditando({ tipoEdicao: 'categoria', id: cat.id, valor: cat.nome, tipoCategoria: cat.tipo })}>✏️</button>
-                    <button className="btn-apagar" onClick={() => onApagar(cat.id)}>🗑</button>
+                    <button className="btn-ghost" onClick={() => onApagar(cat.id)}>🗑</button>
                 </div>
             </div>
 
@@ -199,7 +199,7 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                             )}
                             <div className="accoes">
                                 <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio })}>✏️</button>
-                                <button className="btn-apagar" onClick={() => onApagarSub(cat.id, sub.id)}>🗑</button>
+                                <button className="btn-ghost" onClick={() => onApagarSub(cat.id, sub.id)}>🗑</button>
                             </div>
                         </div>
                     );

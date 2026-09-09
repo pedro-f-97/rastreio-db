@@ -237,7 +237,7 @@ export default function Importacao() {
                                         </span>
                                     </div>
                                     <div className="accoes">
-                                        <button className="btn-apagar" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
+                                        <button className="btn-ghost" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
                                     </div>
                                 </div>
                             </div>
