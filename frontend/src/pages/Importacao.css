@@ -199,7 +199,7 @@
 }
 
 .modal-tabela-analise tr.linha-inicio td {
-    background-color: rgba(74, 158, 255, 0.12);
+    background-color: color-mix(in srgb, var(--accent) 12%, transparent);
     border-top: 2px solid var(--accent);
     border-bottom: 2px solid var(--accent);
 }
@@ -229,7 +229,7 @@
 }
 
 .celula-clicavel:hover {
-    background-color: rgba(74, 158, 255, 0.2) !important;
+    background-color: color-mix(in srgb, var(--accent) 20%, transparent) !important;
     color: var(--text-primary);
 }
 
@@ -259,7 +259,7 @@
 
 .modal-campo-coluna.campo-activo {
     border-color: var(--accent);
-    background-color: rgba(74, 158, 255, 0.08);
+    background-color: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .modal-campo-coluna.campo-preenchido .campo-coluna-valor {
@@ -349,14 +349,14 @@
 
 .checklist-ok {
     color: var(--success);
-    background-color: rgba(74, 255, 138, 0.08);
-    border: 1px solid rgba(74, 255, 138, 0.2);
+    background-color: color-mix(in srgb, var(--success) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--success) 20%, transparent);
 }
 
 .checklist-falta {
     color: var(--danger);
-    background-color: rgba(255, 74, 74, 0.08);
-    border: 1px solid rgba(255, 74, 74, 0.2);
+    background-color: color-mix(in srgb, var(--danger) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
 }
 
 .modal-footer-accoes {
@@ -373,4 +373,3 @@
     text-align: center;
     border-top: 1px dashed var(--border);
 }
-
