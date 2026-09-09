@@ -122,14 +122,6 @@
     cursor: pointer;
 }
 
-.seta-expansao-linha {
-    color: var(--accent);
-    font-size: 0.7rem;
-    display: inline-block;
-    width: 1.2em;
-    text-align: center;
-}
-
 .menu-acoes {
     position: relative;
     display: inline-block;

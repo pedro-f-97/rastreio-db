@@ -374,3 +374,13 @@
     background: transparent;
     border-color: transparent;
 }
+
+.seta-expansao {
+    display: inline-block;
+    width: var(--space-lg);
+    margin-right: var(--space-xs);
+    font-size: 0.6rem;
+    color: var(--accent);
+    vertical-align: middle;
+    transition: transform 0.15s;
+}
