@@ -159,7 +159,7 @@ export default function TabelaTransacoes({
                                 <td>
                                     <select
                                         value={t.categoria_id ?? ''}
-                                        onChange={e => aoMudarCategoria(t, e.target.value || null)}
+                                        onChange={e => aoMudarCategoria(e.target.value ? Number(e.target.value) : null)}
                                     >
                                         <option value="">—</option>
                                         {categorias.map(c => (
