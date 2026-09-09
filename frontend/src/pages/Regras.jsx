@@ -139,7 +139,7 @@ export default function Regras() {
                 </button>
             </div>
 
-            <div className="regras-form">
+            <div className="form-linha regras-form">
                 <input
                     type="text"
                     placeholder="Palavra-chave..."

@@ -1,34 +1,5 @@
-.nova-categoria {
-    display: flex;
-    gap: var(--space-md);
-}
-
 .nova-categoria input {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    padding: var(--space-sm) var(--space-md);
-    font-size: var(--text-md);
-    border-radius: var(--radius-sm);
     width: 300px;
-}
-
-.nova-categoria input:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
-.nova-categoria button {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: var(--space-sm) var(--space-lg);
-    cursor: pointer;
-    font-size: var(--text-md);
-}
-
-.nova-categoria button:hover {
-    opacity: 0.85;
 }
 
 .categoria-header input {

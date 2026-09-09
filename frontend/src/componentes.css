@@ -302,6 +302,43 @@
 }
 
 /* --- Formulários e modais --- */
+
+/* Linha de formulário (input + botão) */
+.form-linha {
+    display: flex;
+    gap: var(--space-md);
+}
+
+.form-linha input,
+.form-linha select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-md);
+    border-radius: var(--radius-sm);
+}
+
+.form-linha input:focus,
+.form-linha select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-linha button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: var(--space-sm) var(--space-lg);
+    cursor: pointer;
+    font-size: var(--text-md);
+    border-radius: var(--radius-sm);
+}
+
+.form-linha button:hover {
+    opacity: 0.85;
+}
+
 .label {
     display: flex;
     flex-direction: column;

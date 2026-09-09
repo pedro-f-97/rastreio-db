@@ -61,7 +61,7 @@ export default function Categorias() {
         <div className="pagina-container">
             <h1 className="titulo-pagina">Categorias</h1>
 
-            <div className="nova-categoria" data-tour="categorias-nova-categoria">
+            <div className="form-linha nova-categoria" data-tour="categorias-nova-categoria">
                 <input
                     type="text"
                     placeholder="Nova categoria..."

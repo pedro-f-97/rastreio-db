@@ -1,48 +1,19 @@
 .regras-form {
-    display: flex;
-    gap: var(--space-md);
     flex-wrap: wrap;
 }
 
 .regras-form input,
 .regras-form select {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    padding: var(--space-sm) var(--space-md);
-    font-size: var(--text-md);
     font-family: var(--font-sans);
-    border-radius: var(--radius-sm);
 }
 
 .regras-form input {
     width: 200px;
 }
 
-.regras-form input:focus,
-.regras-form select:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
 .regras-form select:disabled {
     opacity: 0.4;
     cursor: default;
-}
-
-.regras-form button {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: var(--space-sm) var(--space-lg);
-    cursor: pointer;
-    font-size: var(--text-md);
-    font-family: var(--font-sans);
-    border-radius: var(--radius-sm);
-}
-
-.regras-form button:hover {
-    opacity: 0.85;
 }
 
 .feedback {

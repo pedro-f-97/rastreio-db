@@ -1,8 +1,6 @@
 .nova-conta {
-    display: flex;
-    gap: var(--space-md);
-    align-items: center;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .nova-conta input[type="text"] {
@@ -11,34 +9,6 @@
 
 .nova-conta input[type="number"] {
     width: 160px;
-}
-
-.nova-conta input {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    padding: var(--space-sm) var(--space-md);
-    font-size: var(--text-md);
-    border-radius: var(--radius-sm);
-}
-
-.nova-conta input:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
-.nova-conta button {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: var(--space-sm) var(--space-lg);
-    cursor: pointer;
-    font-size: var(--text-md);
-    border-radius: var(--radius-sm);
-}
-
-.nova-conta button:hover {
-    opacity: 0.85;
 }
 
 .toggle-inativas {
