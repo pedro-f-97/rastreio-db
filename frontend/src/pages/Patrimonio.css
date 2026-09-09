@@ -1,20 +1,3 @@
-.cartoes {
-    display: flex;
-    gap: var(--space-lg);
-    align-items: stretch;
-}
-
-.cartao {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    padding: var(--space-lg) var(--space-xl);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-    flex: 1;
-    border-radius: var(--radius-lg);
-}
-
 .cartao-subvalor {
     font-size: var(--text-md);
     font-family: var(--font-mono);

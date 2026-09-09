@@ -19,22 +19,6 @@
     padding-bottom: var(--space-sm);
 }
 
-.cartoes {
-    display: flex;
-    gap: var(--space-lg);
-}
-
-.cartao {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    padding: var(--space-lg) var(--space-xl);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-    flex: 1;
-    border-radius: var(--radius-lg);
-}
-
 .cartao-corpo {
     display: flex;
     gap: 0;
