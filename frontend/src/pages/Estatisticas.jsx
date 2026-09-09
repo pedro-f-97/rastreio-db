@@ -160,7 +160,7 @@ export default function Estatisticas() {
 
             {/* RESUMO GLOBAL */}
             <section className="secao">
-                <h2>Resumo global</h2>
+                <h2 className="titulo-secao">Resumo global</h2>
                 <div className="cartoes">
                     <div className="cartao">
                         <span className="cartao-titulo">Despesas mensais</span>
@@ -220,7 +220,7 @@ export default function Estatisticas() {
 
             {/* GRÁFICO EVOLUÇÃO — VALORES */}
             <section className="secao">
-                <h2>Evolução mensal</h2>
+                <h2 className="titulo-secao">Evolução mensal</h2>
 
                 {totalExtremos > 0 && (
                     <div className="aviso-outlier">
@@ -260,7 +260,7 @@ export default function Estatisticas() {
 
             {/* GRÁFICO TAXA DE POUPANÇA */}
             <section className="secao">
-                <h2>Taxa de poupança mensal</h2>
+                <h2 className="titulo-secao">Taxa de poupança mensal</h2>
                 <ResponsiveContainer width="100%" height={300}>
                     <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -279,7 +279,7 @@ export default function Estatisticas() {
 
             {/* POR CATEGORIA */}
             <section className="secao">
-                <h2>Por categoria</h2>
+                <h2 className="titulo-secao">Por categoria</h2>
                 <table className="tabela-base tabela-stats">
                     <thead>
                         <tr>

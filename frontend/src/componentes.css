@@ -127,10 +127,13 @@
     color: var(--text-primary);
 }
 
-.secao h2 {
-    font-size: var(--text-xl);
+.titulo-secao {
+    font-size: var(--text-lg);
     font-weight: var(--font-weight-medium);
     color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--space-sm);
+    margin-bottom: var(--space-md);
 }
 
 /* --- Títulos de página --- */
