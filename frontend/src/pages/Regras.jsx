@@ -211,11 +211,11 @@ export default function Regras() {
                                 <div className="modal-acoes">
                                     <button onClick={fecharModal}>Cancelar</button>
                                     {comConflito.length > 0 ? (
-                                        <button className="btn-confirmar" onClick={() => setFase('conflitos')}>
+                                        <button className="btn-primario" onClick={() => setFase('conflitos')}>
                                             Analisar conflitos →
                                         </button>
                                     ) : (
-                                        <button className="btn-confirmar" onClick={() => aplicarComAprovados([])}>
+                                        <button className="btn-primario" onClick={() => aplicarComAprovados([])}>
                                             Aplicar
                                         </button>
                                     )}
@@ -239,7 +239,7 @@ export default function Regras() {
                                 </div>
                                 <div className="modal-acoes">
                                     <button onClick={avancarConflito}>Ignorar</button>
-                                    <button className="btn-confirmar" onClick={() => aoAprovarConflito(conflitoActual)}>
+                                    <button className="btn-primario" onClick={() => aoAprovarConflito(conflitoActual)}>
                                         Aplicar regra
                                     </button>
                                 </div>
@@ -251,7 +251,7 @@ export default function Regras() {
                                 <h3>Concluído</h3>
                                 <p>{resultado?.aplicadas} transações actualizadas.</p>
                                 <div className="modal-acoes">
-                                    <button className="btn-confirmar" onClick={fecharModal}>Fechar</button>
+                                    <button className="btn-primario" onClick={fecharModal}>Fechar</button>
                                 </div>
                             </>
                         )}

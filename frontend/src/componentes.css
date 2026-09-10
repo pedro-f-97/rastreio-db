@@ -371,6 +371,10 @@
     margin-top: var(--space-sm);
 }
 
+.modal-acoes > button:only-child {
+    margin-left: auto;
+}
+
 .modal-fechar {
     position: absolute;
     top: var(--space-md);
