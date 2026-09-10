@@ -375,6 +375,16 @@
     margin-left: auto;
 }
 
+.badge-contador {
+    background: var(--danger);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 0.1rem 0.45rem;
+}
+
 .modal-fechar {
     position: absolute;
     top: var(--space-md);

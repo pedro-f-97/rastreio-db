@@ -1,0 +1,105 @@
+/* Layout principal da app (App.jsx).
+   Nota: este ficheiro foi recriado do zero — o antigo App.css era resto
+   do scaffold do Vite (nunca importado) e foi removido. */
+
+.app-layout {
+    display: flex;
+    height: 100vh;
+}
+
+.app-main {
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+}
+
+/* Sidebar de navegação */
+
+.sidebar {
+    width: 200px;
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 16px 24px;
+    gap: 8px;
+}
+
+.sidebar-logo img {
+    width: 40px;
+    height: 40px;
+}
+
+.sidebar-logo span {
+    color: var(--text-secondary);
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.sidebar-grupo {
+    margin-bottom: 16px;
+}
+
+.sidebar-grupo-titulo {
+    padding: 0 16px 6px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    text-transform: uppercase;
+}
+
+.sidebar-link {
+    display: block;
+    padding: 8px 16px;
+    color: var(--text-primary);
+    text-decoration: none;
+    background-color: transparent;
+    border-left: 2px solid transparent;
+}
+
+.sidebar-link.activo {
+    color: var(--accent);
+    background-color: var(--bg-tertiary);
+    border-left-color: var(--accent);
+}
+
+.sidebar-link-conteudo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sidebar-rodape {
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+
+/* Toggle de tema (interruptor claro/escuro) */
+
+.sidebar-toggle-tema {
+    margin: 8px 16px 0;
+    width: calc(100% - 32px);
+    height: 24px;
+    padding: 0;
+    display: flex;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.sidebar-toggle-tema-metade-escura {
+    background-color: #000000;
+}
+
+.sidebar-toggle-tema-metade-clara {
+    background-color: #ffffff;
+}

@@ -8,6 +8,7 @@ import Estatisticas from './pages/Estatisticas'
 import PrimeiroUso from './pages/PrimeiroUso'
 import { getEstado } from './api/configuracao'
 import './index.css'
+import './App.css'
 import { totalPorCategorizar } from './api/transacoes'
 import Importacao from './pages/Importacao'
 import Patrimonio from './pages/Patrimonio'
@@ -106,41 +107,17 @@ function App() {
       <GuiaProvider>
         <DisparoAutomaticoGuia inicializado={inicializado} tourVisto={tourVisto} />
         <GuiaDestaque />
-        <div style={{ display: 'flex', height: '100vh' }}>
+        <div className="app-layout">
           {inicializado && (
-            <nav style={{
-              width: '200px',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRight: '1px solid var(--border)',
-              padding: '24px 0',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0',
-            }}>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                padding: '0 16px 24px',
-                gap: '8px',
-              }}>
-                <img src={logoRastreio} alt="Rastreio" style={{ width: '40px', height: '40px' }} />
-                <span style={{ color: 'var(--text-secondary)', fontSize: '14px', letterSpacing: '1px' }}>
-                  Rastreio-DB
-                </span>
+            <nav className="sidebar">
+              <div className="sidebar-logo">
+                <img src={logoRastreio} alt="Rastreio" />
+                <span>Rastreio-DB</span>
               </div>
 
               {GRUPOS_NAV.map(grupo => (
-                <div key={grupo.label} style={{ marginBottom: '16px' }}>
-                  <div style={{
-                    padding: '0 16px 6px',
-                    fontSize: '10px',
-                    fontWeight: 500,
-                    letterSpacing: '0.08em',
-                    color: 'var(--text-secondary)',
-                    opacity: 0.6,
-                    textTransform: 'uppercase',
-                  }}>
+                <div key={grupo.label} className="sidebar-grupo">
+                  <div className="sidebar-grupo-titulo">
                     {grupo.label}
                   </div>
                   {grupo.items.map(({ to, label, end }) => (
@@ -148,42 +125,15 @@ function App() {
                       key={to}
                       to={to}
                       end={end}
-                      style={({ isActive }) => ({
-                        display: 'block',
-                        padding: '8px 16px',
-                        color: isActive ? 'var(--accent)' : 'var(--text-primary)',
-                        textDecoration: 'none',
-                        backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
-                        borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
-                      })}
+                      className={({ isActive }) => `sidebar-link${isActive ? ' activo' : ''}`}
                     >
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className="sidebar-link-conteudo">
                         {label}
                         {label === 'Transações' && porCategorizar > 0 && (
-                          <span style={{
-                            background: 'var(--danger)',
-                            color: '#fff',
-                            borderRadius: '999px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            padding: '0.1rem 0.45rem',
-                            marginLeft: '0.5rem',
-                          }}>
-                            {porCategorizar}
-                          </span>
+                          <span className="badge-contador">{porCategorizar}</span>
                         )}
                         {label === 'Ativos' && pendentesAtivos > 0 && (
-                          <span style={{
-                            background: 'var(--danger)',
-                            color: '#fff',
-                            borderRadius: '999px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            padding: '0.1rem 0.45rem',
-                            marginLeft: '0.5rem',
-                          }}>
-                            {pendentesAtivos}
-                          </span>
+                          <span className="badge-contador">{pendentesAtivos}</span>
                         )}
                       </span>
                     </NavLink>
@@ -191,42 +141,28 @@ function App() {
                 </div>
                  ))}
 
-              <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+              <div className="sidebar-rodape">
                 <NavLink
                   to="/sobre"
-                  style={({ isActive }) => ({
-                    display: 'block',
-                    padding: '8px 16px',
-                    color: isActive ? 'var(--accent)' : 'var(--text-primary)',
-                    textDecoration: 'none',
-                    backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
-                    borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
-                  })}
+                  className={({ isActive }) => `sidebar-link${isActive ? ' activo' : ''}`}
                 >
                   Conceitos
                 </NavLink>
               </div>
 
-              <button
-                onClick={alternarTema}
-                style={{
-                  marginTop: '8px',
-                  marginLeft: '16px',
-                  marginRight: '16px',
-                  width: 'calc(100% - 32px)',
-                  height: '24px',
-                  padding: 0,
-                  display: 'flex',
-                  overflow: 'hidden',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                <span style={{ flex: tema === 'dark' ? 4 : 1, backgroundColor: '#000000' }} />
-                <span style={{ flex: tema === 'dark' ? 1 : 4, backgroundColor: '#ffffff' }} />
+              <button onClick={alternarTema} className="sidebar-toggle-tema">
+                <span
+                  className="sidebar-toggle-tema-metade-escura"
+                  style={{ flex: tema === 'dark' ? 4 : 1 }}
+                />
+                <span
+                  className="sidebar-toggle-tema-metade-clara"
+                  style={{ flex: tema === 'dark' ? 1 : 4 }}
+                />
               </button>
             </nav>
           )}
-          <main style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+          <main className="app-main">
             <Routes>
               {!inicializado
                 ? <Route path="*" element={<PrimeiroUso onInicializado={() => setInicializado(true)} />} />
