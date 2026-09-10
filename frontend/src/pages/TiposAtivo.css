@@ -1,0 +1,6 @@
+.nova-categoria {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    align-items: center;
+}
