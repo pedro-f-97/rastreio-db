@@ -205,6 +205,7 @@ export default function Importacao() {
             setPreview(null)
             setFicheiro(null)
             if (inputFicheiroRef.current) inputFicheiroRef.current.value = ''
+            onDadosAlterados?.()
         } catch (err) {
             alert(err.response?.data?.detail || 'Erro na importação.')
         } finally {

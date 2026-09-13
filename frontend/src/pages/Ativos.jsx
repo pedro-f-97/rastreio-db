@@ -236,6 +236,13 @@ export default function Ativos({ onDadosAlterados }) {
     }
     await eliminarAtivo(ativo.id);
     await recarregar();
+    onDadosAlterados?.();
+  }
+
+  async function aoEliminarMovimento() {
+    await carregarPendentes();
+    await recarregar();
+    onDadosAlterados?.();
   }
 
   return (
@@ -456,7 +463,7 @@ export default function Ativos({ onDadosAlterados }) {
                         {expandidos[ativo.id] && (
                           <tr key={`exp-${ativo.id}`} className="linha-movimentos-container">
                             <td colSpan={7} className="celula-movimentos">
-                              <MovimentosAtivo ativoId={ativo.id} onEliminar={recarregar} />
+                              <MovimentosAtivo ativoId={ativo.id} onEliminar={aoEliminarMovimento} />
                             </td>
                           </tr>
                         )}

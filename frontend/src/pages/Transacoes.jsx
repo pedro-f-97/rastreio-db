@@ -104,7 +104,7 @@ export default function Transacoes({ onDadosAlterados }) {
             prev.map(t => t.id === id ? { ...t, [campo]: valor } : t)
         );
         // A categorização afeta o contador "por categorizar" da sidebar
-        if (campo === 'categoria_id') onDadosAlterados?.();
+        if (campo === 'categoria_id' || campo === 'subcategoria_id') onDadosAlterados?.();
     }
 
     async function aoCriarRegra(novaRegra) {

@@ -173,7 +173,7 @@ function App() {
                   <Route path="/categorias" element={<Categorias />} />
                   <Route path="/regras" element={<Regras />} />
                   <Route path="/estatisticas" element={<Estatisticas />} />
-                  <Route path="/importacao" element={<Importacao />} />
+                  <Route path="/importacao" element={<Importacao onDadosAlterados={carregarTotaisBadges} />} />
                   <Route path="*" element={<Navigate to="/" />} />
                   <Route path="/patrimonio" element={<Patrimonio />} />
                   <Route path="/contas" element={<Contas />} />
