@@ -1,7 +1,17 @@
+from database import (
+    Categoria,
+    RegraCategorizacao,
+    Subcategoria,
+    Transacao,
+    get_db,
+)
 from fastapi import APIRouter, Depends, HTTPException
+from schemas import (
+    AplicarEmMassaPayload,
+    AplicarEmMassaResultado,
+    RegraCreate,
+)
 from sqlalchemy.orm import Session
-from database import get_db, RegraCategorizacao, Transacao
-from schemas import RegraCreate
 
 router = APIRouter(prefix="/regras", tags=["regras"])
 
@@ -128,18 +138,58 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
     return {"sem_conflito": sem_conflito, "com_conflito": com_conflito}
 
 
-@router.post("/aplicar-em-massa")
-def aplicar_em_massa(dados: dict, db: Session = Depends(get_db)):
-    items = dados.get("ids", [])
-    aplicadas = 0
+@router.post("/aplicar-em-massa", response_model=AplicarEmMassaResultado)
+def aplicar_em_massa(
+    dados: AplicarEmMassaPayload,
+    db: Session = Depends(get_db),
+):
+    if not dados.ids:
+        return {"aplicadas": 0, "ignoradas": [], "invalidas": []}
 
-    for item in items:
-        t = db.query(Transacao).filter(Transacao.id == item["id"]).first()
-        if not t:
+    ids_pedidos = [item.id for item in dados.ids]
+
+    # Batch query — evita N+1
+    transacoes = {
+        t.id: t
+        for t in db.query(Transacao).filter(Transacao.id.in_(ids_pedidos)).all()
+    }
+
+    # Validar que todas as categorias/subcategorias referidas existem
+    cat_ids = {item.categoria_id for item in dados.ids}
+    sub_ids = {item.subcategoria_id for item in dados.ids if item.subcategoria_id is not None}
+
+    cats_ok = {
+        c.id
+        for c in db.query(Categoria).filter(Categoria.id.in_(cat_ids)).all()
+    }
+    subs_ok = {
+        s.id: s
+        for s in db.query(Subcategoria).filter(Subcategoria.id.in_(sub_ids)).all()
+    } if sub_ids else {}
+
+    aplicadas = 0
+    ignoradas: list[int] = []
+    invalidas: list[int] = []
+
+    for item in dados.ids:
+        t = transacoes.get(item.id)
+        if t is None:
+            ignoradas.append(item.id)
             continue
-        t.categoria_id = item["categoria_id"]
-        t.subcategoria_id = item["subcategoria_id"]
+
+        if item.categoria_id not in cats_ok:
+            invalidas.append(item.id)
+            continue
+
+        if item.subcategoria_id is not None:
+            sub = subs_ok.get(item.subcategoria_id)
+            if sub is None or sub.categoria_id != item.categoria_id:
+                invalidas.append(item.id)
+                continue
+
+        t.categoria_id = item.categoria_id
+        t.subcategoria_id = item.subcategoria_id
         aplicadas += 1
 
     db.commit()
-    return {"aplicadas": aplicadas}
+    return {"aplicadas": aplicadas, "ignoradas": ignoradas, "invalidas": invalidas}
