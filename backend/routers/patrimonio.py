@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import text, func
 from datetime import date
-from servicos.patrimonio_serv import gerar_evolucao
 from typing import List
-from database import get_db, Ativo as AtivoModel, MovimentoAtivo as MovimentoAtivoModel, PrecoAtivo as PrecoAtivoModel, Transacao as TransacaoModel
+
 import schemas
+from database import Ativo as AtivoModel
+from database import MovimentoAtivo as MovimentoAtivoModel
+from database import PrecoAtivo as PrecoAtivoModel
+from database import Transacao as TransacaoModel
+from database import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from servicos.patrimonio_serv import gerar_evolucao
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/patrimonio", tags=["patrimonio"])
 
@@ -155,26 +160,50 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
     if not ativo:
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
 
+    # Ordem determinística — o custo médio ponderado depende dela
+    # quando há vendas antes de compras suficientes (dados importados).
     movimentos = (
         db.query(MovimentoAtivoModel)
         .filter(MovimentoAtivoModel.ativo_id == ativo_id)
+        .order_by(MovimentoAtivoModel.data, MovimentoAtivoModel.id)
         .all()
     )
 
+    # Convenção de sinais (mantida):
+    #   - valor_total de "compra" chega NEGATIVO (saída de dinheiro).
+    #   - valor_total de "venda" chega POSITIVO (entrada de dinheiro).
+    # Internamente usamos abs() para o custo; o campo 'custo_total' do
+    # retorno volta a ficar NEGATIVO para não partir o frontend.
     quantidade = 0.0
-    custo_total = 0.0
-    # Convenção de sinal: valor_total de uma "compra" chega já negativo do frontend
-    # (saída de dinheiro, tal como uma despesa). Por isso custo_total acumula negativo,
-    # e mais_menos_valia = valor_atual + custo_total já é a subtracção correta.
-    # Não trocar o "+" por "-" sem confirmar o sinal de valor_total.
-    for m in movimentos:
-        if m.tipo_movimento.value == "compra":
-            quantidade += float(m.quantidade or 0)
-            custo_total += float(m.valor_total)
-        elif m.tipo_movimento.value == "venda":
-            quantidade -= float(m.quantidade or 0)
+    custo_base = 0.0      # positivo por dentro: custo das unidades detidas
+    realizado = 0.0       # mais/menos-valia já concretizada (vendas)
 
-    # Preço mais recente
+    for m in movimentos:
+        q = float(m.quantidade or 0)
+        valor = abs(float(m.valor_total or 0))
+
+        if m.tipo_movimento.value == "compra":
+            quantidade += q
+            custo_base += valor
+
+        elif m.tipo_movimento.value == "venda":
+            if quantidade <= 0:
+                # Venda sem posição: dados inconsistentes. Ignorar é mais
+                # seguro do que propagar quantidades negativas silenciosas.
+                continue
+
+            q_efetiva = min(q, quantidade)
+            custo_medio = custo_base / quantidade
+            custo_vendido = custo_medio * q_efetiva
+
+            # Se q > quantidade, proporcionaliza o encaixe ao que foi
+            # efetivamente vendido (evita realizado inflacionado).
+            valor_efetivo = valor * (q_efetiva / q) if q > 0 else 0.0
+
+            realizado += valor_efetivo - custo_vendido
+            custo_base -= custo_vendido
+            quantidade -= q_efetiva
+
     preco_atual = (
         db.query(PrecoAtivoModel)
         .filter(PrecoAtivoModel.ativo_id == ativo_id)
@@ -182,22 +211,30 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
         .first()
     )
 
-    valor_atual = None
-    mais_menos_valia = None
     if preco_atual:
-        if quantidade > 0:
-            valor_atual = round(quantidade * float(preco_atual.preco), 2)
-        else:
-            valor_atual = float(preco_atual.preco)
-        mais_menos_valia = round(valor_atual + custo_total, 2)  # custo_total já é negativo — ver nota acima
+        valor_atual = round(quantidade * float(preco_atual.preco), 2)
+        latente = round(valor_atual - custo_base, 2)
+    else:
+        valor_atual = None
+        latente = None
+
+    realizado = round(realizado, 2)
+
+    # (= valor_atual + custo_total, com custo_total negativo); agora é
+    # realizado + latente. É a correção pedida — sem isto, o número
+    # continua errado sempre que exista uma venda.
+    mais_menos_valia = round(realizado + (latente or 0.0), 2)
 
     return {
         "ativo_id": ativo_id,
         "quantidade": round(quantidade, 6),
-        "custo_total": round(custo_total, 2),
+        # Negativo, como antes — o frontend não precisa de mexer.
+        "custo_total": round(-custo_base, 2),
         "preco_atual": float(preco_atual.preco) if preco_atual else None,
         "data_preco": str(preco_atual.data) if preco_atual else None,
         "valor_atual": valor_atual,
+        "realizado": realizado,
+        "latente": latente,
         "mais_menos_valia": mais_menos_valia,
     }
 
