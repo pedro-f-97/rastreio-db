@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
 from typing import Optional
-from database import get_db, Transacao
+from database import get_db, Transacao, Subcategoria
 from schemas import TransacaoUpdate
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
@@ -91,6 +91,30 @@ def atualizar_transacao(
             status_code=404,
             detail="Transação não encontrada"
         )
+
+    # Calcular alvos (o que fica se não vier no payload)
+    categoria_alvo = (
+        dados.categoria_id
+        if "categoria_id" in dados.model_fields_set
+        else t.categoria_id
+    )
+    subcategoria_alvo = (
+        dados.subcategoria_id
+        if "subcategoria_id" in dados.model_fields_set
+        else t.subcategoria_id
+    )
+
+    # Validar invariante: subcategoria pertence à categoria
+    if subcategoria_alvo is not None:
+        sub = db.query(Subcategoria).filter(
+            Subcategoria.id == subcategoria_alvo
+        ).first()
+        if sub is None:
+            raise HTTPException(400, "Subcategoria não encontrada.")
+        if sub.categoria_id != categoria_alvo:
+            raise HTTPException(
+                400, "A subcategoria não pertence à categoria selecionada."
+            )
 
     if "categoria_id" in dados.model_fields_set:
         t.categoria_id = dados.categoria_id
