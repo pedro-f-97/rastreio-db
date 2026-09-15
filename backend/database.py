@@ -1,36 +1,102 @@
-from datetime import date
-from typing import List, Optional
-from sqlalchemy import create_engine, String, Float, Date, Boolean, UniqueConstraint, ForeignKey, Enum as SAEnum
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+import enum
 import os
 import sys
-import enum
+from datetime import date
+from typing import List, Optional
 
-# Determina a pasta base conforme o contexto de execução
-if getattr(sys, 'frozen', False):
-    # A correr como executável PyInstaller
-    BASE_DIR = os.path.dirname(sys.executable)
-else:
-    # Desenvolvimento normal
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from sqlalchemy import (
+    Boolean,
+    Date,
+    Float,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+    create_engine,
+)
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
 
-# A BD fica numa pasta 'dados/' junto ao executável (ou junto ao backend/ em dev)
+
+def _resolver_base_dir() -> str:
+    """Pasta a partir da qual 'dados/' é resolvida.
+
+    - PyInstaller: pasta do executável.
+    - Dev: pasta do backend/.
+    - Override: RASTREIO_DB_DIR (usado para instalações sem permissões de escrita,
+      ex. C:\\Program Files ou /opt).
+    """
+    env = os.environ.get("RASTREIO_DB_DIR")
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+BASE_DIR = _resolver_base_dir()
 PASTA_DADOS = os.path.join(BASE_DIR, "dados")
-os.makedirs(PASTA_DADOS, exist_ok=True)
-
 DB_PATH = os.path.join(PASTA_DADOS, "rastreio.db")
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-print(f"✅ BD ativa em: {DB_PATH}")
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=engine)
 
-# Em 2.0, criamos uma classe que herda de DeclarativeBase
+def garantir_pasta_dados() -> None:
+    """Cria a pasta de dados. Idempotente.
+
+    NÃO é chamado no import — o main.py chama-o no arranque, dentro de um
+    try/except, para que um PermissionError produza uma mensagem útil em vez
+    de um traceback cru (ver B4).
+    """
+    try:
+        os.makedirs(PASTA_DADOS, exist_ok=True)
+    except PermissionError as e:
+        raise RuntimeError(
+            f"Sem permissões para criar a pasta de dados em:\n  {PASTA_DADOS}\n\n"
+            "Soluções:\n"
+            "  1. Move a aplicação para uma pasta onde tenhas permissões de escrita\n"
+            "     (ex.: Documentos).\n"
+            "  2. Ou define a variável de ambiente RASTREIO_DB_DIR para uma pasta\n"
+            "     com permissões de escrita, por exemplo:\n"
+            "       set RASTREIO_DB_DIR=%LOCALAPPDATA%\\rastreio-db\n\n"
+            f"Detalhe: {e}"
+        ) from e
+    except OSError as e:
+        raise RuntimeError(
+            f"Não foi possível preparar a pasta de dados em:\n  {PASTA_DADOS}\n\n"
+            f"Confirma que o caminho é válido. Detalhe: {e}"
+        ) from e
+
+
+# database.py — substituir o bloco `_mensagem_arranque = ... / try: print(...)`
+# por isto:
+
+def anunciar_bd_ativa() -> None:
+    """Imprime o caminho da BD. Chamado pelo main.py DEPOIS de
+    garantir_pasta_dados(), para a mensagem só aparecer quando é verdade."""
+    msg = f"✅ BD ativa em: {DB_PATH}"
+    try:
+        print(msg, flush=True)
+    except (AttributeError, OSError):
+        try:
+            print(msg, file=sys.stderr, flush=True)
+        except Exception:
+            pass
+
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
 class Base(DeclarativeBase):
     pass
 
-# Sessão para interagir com a base de dados
-SessionLocal = sessionmaker(bind=engine)
+
+# SessionLocal definido UMA vez (antes estava duplicado — a segunda
+# declaração tornava a primeira inútil e é armadilha para quem mexer aqui).
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 def get_db():
@@ -222,9 +288,14 @@ class PrecoAtivo(Base):
     )
 
 def criar_tabelas():
+    garantir_pasta_dados()
     Base.metadata.create_all(bind=engine)
 
-if __name__ == "__main__":
-    criar_tabelas()
-    print("Tabelas criadas com sucesso no novo estilo Mapped!")
 
+if __name__ == "__main__":
+    try:
+        criar_tabelas()
+    except RuntimeError as e:
+        print(f"\n{e}\n", file=sys.stderr)
+        sys.exit(2)
+    print("Tabelas criadas com sucesso no novo estilo Mapped!")
