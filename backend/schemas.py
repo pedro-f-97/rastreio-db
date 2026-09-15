@@ -65,7 +65,8 @@ class Regra(RegraBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
-from database import TipoCategoria, ModoValor, TipoFicheiro
+from database import ModoValor, TipoFicheiro
+
 
 class PerfilImportacaoBase(BaseModel):
     nome: str
@@ -207,7 +208,7 @@ class AplicarEmMassaItem(BaseModel):
     subcategoria_id: int | None = None
 
 class AplicarEmMassaPayload(BaseModel):
-    ids: list[AplicarEmMassaItem]
+    itens: list[AplicarEmMassaItem]
 
 class AplicarEmMassaResultado(BaseModel):
     aplicadas: int

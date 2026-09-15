@@ -72,9 +72,6 @@ def garantir_pasta_dados() -> None:
         ) from e
 
 
-# database.py — substituir o bloco `_mensagem_arranque = ... / try: print(...)`
-# por isto:
-
 def anunciar_bd_ativa() -> None:
     """Imprime o caminho da BD. Chamado pelo main.py DEPOIS de
     garantir_pasta_dados(), para a mensagem só aparecer quando é verdade."""

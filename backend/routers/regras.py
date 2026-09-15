@@ -143,20 +143,20 @@ def aplicar_em_massa(
     dados: AplicarEmMassaPayload,
     db: Session = Depends(get_db),
 ):
-    if not dados.ids:
+    if not dados.itens:
         return {"aplicadas": 0, "ignoradas": [], "invalidas": []}
 
-    ids_pedidos = [item.id for item in dados.ids]
+    itens_pedidos = [item.id for item in dados.itens]
 
     # Batch query — evita N+1
     transacoes = {
         t.id: t
-        for t in db.query(Transacao).filter(Transacao.id.in_(ids_pedidos)).all()
+        for t in db.query(Transacao).filter(Transacao.id.in_(itens_pedidos)).all()
     }
 
     # Validar que todas as categorias/subcategorias referidas existem
-    cat_ids = {item.categoria_id for item in dados.ids}
-    sub_ids = {item.subcategoria_id for item in dados.ids if item.subcategoria_id is not None}
+    cat_ids = {item.categoria_id for item in dados.itens}
+    sub_ids = {item.subcategoria_id for item in dados.itens if item.subcategoria_id is not None}
 
     cats_ok = {
         c.id
@@ -171,7 +171,7 @@ def aplicar_em_massa(
     ignoradas: list[int] = []
     invalidas: list[int] = []
 
-    for item in dados.ids:
+    for item in dados.itens:
         t = transacoes.get(item.id)
         if t is None:
             ignoradas.append(item.id)
