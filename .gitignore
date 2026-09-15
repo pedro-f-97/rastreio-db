@@ -21,3 +21,5 @@ backend/frontend_dist/
 backend/build/
 backend/dist/
 backend/*.spec
+
+.opencode
