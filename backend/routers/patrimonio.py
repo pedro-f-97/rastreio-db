@@ -8,7 +8,7 @@ from database import PrecoAtivo as PrecoAtivoModel
 from database import Transacao as TransacaoModel
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException
-from servicos.patrimonio_serv import gerar_evolucao
+from servicos.patrimonio_serv import gerar_evolucao, _resumo_valor_ativo
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -160,49 +160,12 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
     if not ativo:
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
 
-    # Ordem determinística — o custo médio ponderado depende dela
-    # quando há vendas antes de compras suficientes (dados importados).
     movimentos = (
         db.query(MovimentoAtivoModel)
         .filter(MovimentoAtivoModel.ativo_id == ativo_id)
         .order_by(MovimentoAtivoModel.data, MovimentoAtivoModel.id)
         .all()
     )
-
-    # Convenção de sinais (mantida):
-    #   - valor_total de "compra" chega NEGATIVO (saída de dinheiro).
-    #   - valor_total de "venda" chega POSITIVO (entrada de dinheiro).
-    # Internamente usamos abs() para o custo; o campo 'custo_total' do
-    # retorno volta a ficar NEGATIVO para não partir o frontend.
-    quantidade = 0.0
-    custo_base = 0.0      # positivo por dentro: custo das unidades detidas
-    realizado = 0.0       # mais/menos-valia já concretizada (vendas)
-
-    for m in movimentos:
-        q = float(m.quantidade or 0)
-        valor = abs(float(m.valor_total or 0))
-
-        if m.tipo_movimento.value == "compra":
-            quantidade += q
-            custo_base += valor
-
-        elif m.tipo_movimento.value == "venda":
-            if quantidade <= 0:
-                # Venda sem posição: dados inconsistentes. Ignorar é mais
-                # seguro do que propagar quantidades negativas silenciosas.
-                continue
-
-            q_efetiva = min(q, quantidade)
-            custo_medio = custo_base / quantidade
-            custo_vendido = custo_medio * q_efetiva
-
-            # Se q > quantidade, proporcionaliza o encaixe ao que foi
-            # efetivamente vendido (evita realizado inflacionado).
-            valor_efetivo = valor * (q_efetiva / q) if q > 0 else 0.0
-
-            realizado += valor_efetivo - custo_vendido
-            custo_base -= custo_vendido
-            quantidade -= q_efetiva
 
     preco_atual = (
         db.query(PrecoAtivoModel)
@@ -211,24 +174,27 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
         .first()
     )
 
-    if preco_atual:
-        valor_atual = round(quantidade * float(preco_atual.preco), 2)
+    # Chama a função partilhada — zero duplicação de FIFO
+    resultado = _resumo_valor_ativo(ativo, movimentos, preco_atual)
+
+    realizado = round(resultado["realizado"], 2)
+    valor_atual = resultado["valor"]
+    custo_base = resultado["custo_base"]
+
+    if preco_atual and valor_atual is not None:
         latente = round(valor_atual - custo_base, 2)
     else:
-        valor_atual = None
         latente = None
 
-    realizado = round(realizado, 2)
-
-    # (= valor_atual + custo_total, com custo_total negativo); agora é
-    # realizado + latente. É a correção pedida — sem isto, o número
-    # continua errado sempre que exista uma venda.
+    # mais_menos_valia = realizado + latente
+    # (o antigo era valor_atual + custo_total, onde custo_total era negativo).
+    # Esta fórmula mantém a invariante: valor total do ativo =
+    #   realizado (vendas concretizadas) + latente (valorização não realizada).
     mais_menos_valia = round(realizado + (latente or 0.0), 2)
 
     return {
         "ativo_id": ativo_id,
-        "quantidade": round(quantidade, 6),
-        # Negativo, como antes — o frontend não precisa de mexer.
+        "quantidade": round(resultado["quantidade"], 6),
         "custo_total": round(-custo_base, 2),
         "preco_atual": float(preco_atual.preco) if preco_atual else None,
         "data_preco": str(preco_atual.data) if preco_atual else None,
