@@ -13,6 +13,18 @@ router = APIRouter(prefix="/backups", tags=["backups"])
 TABELAS_ESPERADAS = {"transacoes", "categorias", "contas"}
 
 
+def _limpar_wal_shm(db_path: str) -> None:
+    """Remove ficheiros WAL/SHM do DB e do .tmp, se existirem."""
+    for extra in (
+        db_path + "-wal",
+        db_path + "-shm",
+        db_path + ".tmp-shm",
+        db_path + ".tmp-wal",
+    ):
+        if os.path.exists(extra):
+            os.remove(extra)
+
+
 @router.get("/exportar")
 def exportar_backup():
     with engine.connect() as conn:
@@ -91,11 +103,8 @@ async def importar_backup(file: UploadFile = File(...)):
         if os.path.exists(DB_PATH):
             shutil.copy2(DB_PATH, anterior_path)
 
-        # WAL/SHM pertencem ao DB antigo — têm de sair antes do replace
-        for extra in (DB_PATH + "-wal", DB_PATH + "-shm"):
-            if os.path.exists(extra):
-                os.remove(extra)
-
+        # Limpar WAL/SHM antes de mover
+        _limpar_wal_shm(DB_PATH)
         os.replace(temp_path, DB_PATH)
 
         # 3) Verificação pós-swap: reabrir e fazer SELECTs reais
@@ -110,12 +119,11 @@ async def importar_backup(file: UploadFile = File(...)):
             if os.path.exists(anterior_path):
                 shutil.copy2(anterior_path, DB_PATH)
                 os.remove(anterior_path)
-            for extra in (DB_PATH + "-wal", DB_PATH + "-shm"):
-                if os.path.exists(extra):
-                    os.remove(extra)
+            _limpar_wal_shm(DB_PATH)
         except Exception:
             # rollback também falhou — pelo menos não esconder o erro original
             pass
+        _limpar_wal_shm(DB_PATH)
         raise HTTPException(status_code=500, detail=f"Falha ao restaurar: {e}")
 
     # 4) Só depois de tudo confirmado é que apagamos o .anterior
