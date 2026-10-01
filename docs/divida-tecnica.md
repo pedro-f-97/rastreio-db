@@ -417,6 +417,100 @@ a página.
 É correcção de uma linha em qualquer um dos dois lados — receber a prop no
 componente, ou remover a chamada.
 
+## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado
+
+`backend/servicos/patrimonio_serv.py:78-91` — o ciclo FIFO consome o que
+houver em lotes e pára quando a lista esgota. O que sobra de `por_consumir` não
+é medido, rejeitado, nem registado em lado nenhum:
+
+```python
+por_consumir = q                                    # 78
+while por_consumir > 1e-9 and lotes:                 # 80
+    ...
+q_efetiva = q - por_consumir                        # 89
+valor_efetivo = valor_m * (q_efetiva / q)           # 90
+```
+
+O `while` termina porque `lotes` esgota, não porque a quantidade bata certo, e o
+encaixe é reescalado na proporção do que foi mesmo consumido. Vender 15 unidades
+com 10 em carteira é, no resultado, indistinguível de ter vendido 10 por
+200,00: as 5 unidades que não existiam e a parte do encaixe que lhes
+corresponde desaparecem sem erro. A quantidade registada no movimento continua a
+ser a que o utilizador escreveu, e não há validação que a confronte com a
+posição.
+
+**Decisão pendente (Pedro):** avisar no momento de registar a venda, ou recusar
+a operação. As duas são defensáveis e divergem no que fica gravado, por isso não
+se decide aqui. O teste `test_sobre_venda_escala_o_encaixe_e_nunca_avisa` fixa o
+comportamento **actual**, não o desejado.
+
+## ⚪ D16 — Bem sem unidades e sem preço desaparece do património
+
+`backend/servicos/patrimonio_serv.py:56` — no ramo dos bens, o valor actual vem
+do preço registado e não do custo:
+
+```python
+valor = round(float(preco.preco), 2) if preco else 0.0
+```
+
+Um bem com `tem_unidades=False`, com compras registadas e nenhuma linha em
+`precos_ativo`, fica com `custo_base` > 0 e `valor` = 0. Continua a aparecer no
+`custo_total` que o endpoint devolve, mas contribui 0 para `ativos_fisicos` e
+para o `total` de `calcular_patrimonio_em`. O preço de um bem é um valor total
+opcional, e nada obriga a registá-lo: o resultado é um activo que consta como
+comprado e não conta para o património. Coberto por
+`test_bem_sem_unidades_e_sem_preco_desaparece_do_patrimonio`.
+
+## ⚪ D17 — Venda parcial de um bem sem unidades tratada como venda total
+
+`backend/servicos/patrimonio_serv.py:43-47` — no ramo dos bens, qualquer
+movimento do tipo `venda` desconta o custo acumulado inteiro e zera-o, sem
+qualquer proporcionalidade:
+
+```python
+elif m.tipo_movimento.value == "venda":
+    realizado += valor_m - custo_base
+    custo_base = 0.0
+    vendido = True
+```
+
+Duas compras de 10 000,00 e 5 000,00 dão `custo_base` = 15 000,00. Uma venda de
+20 000,00 produz `realizado` = +5 000,00, `custo_base` = 0,0 e, por `vendido`,
+`valor` = 0,0. O que se perde é a noção de que a venda foi parcial: o ramo dos
+bens não tem quantidades, por isso qualquer `venda` descarrega o custo acumulado
+inteiro e zera o valor. A parte do bem que ficou com o utilizador sai assim do
+património com custo zero e valor zero, e o ganho foi reconhecido sobre todo o
+custo e não sobre a parte vendida.
+
+**Teórico:** este cenário não existe nos dados actuais, foi construído para o
+teste. Fica registado porque o mesmo código trata a venda total e a parcial sem
+distinção alguma, e o ramo não tem forma de representar uma posição parcial. É o
+cenário 13 de `test_patrimonio_fifo.py`, que ficou sem etiqueta à espera de
+decisão. **Decisão pendente (Pedro):** se é erro a corrigir ou convenção a
+documentar.
+
+## ⚪ D18 — Os dois pontos de entrada do cálculo escolhem preços diferentes
+
+O mesmo activo é avaliado em dois sítios, e a escolha do preço não é a mesma:
+
+- `backend/routers/patrimonio.py:170-175` (`resumo_ativo`) — filtra apenas por
+  `ativo_id`, ordena por `data` descendente e toma o primeiro. **Não há
+  limite de data**: é o preço mais recente que existir, mesmo que seja
+  posterior a qualquer `data_alvo`.
+- `backend/servicos/patrimonio_serv.py:133-141` (`calcular_patrimonio_em`) — o
+  mesmo `order_by`, mas com `PrecoAtivoModel.data <= data_alvo`.
+
+Para um `data_alvo` no passado, `/api/patrimonio/evolucao` usa o preço
+histórico e `/api/patrimonio/ativos/{id}/resumo` mostra o de hoje. Divergem
+sempre que exista um preço registado depois de `data_alvo`, e nada no endpoint
+avisa que o preço é posterior ao período que o resto do ecrã representa. O
+`data_preco` devolvido na linha 200 é a forma de o detectar, mas a aplicação
+não o compara com nada.
+
+Ao contrário de D3, aqui a divergência não é de *boundary* (`>` contra `>=`): um
+dos lados não tem comparação nenhuma. Registado sem teste — fixá-lo exigiria
+caracterizar o `/evolucao`, que está fora do âmbito desta suite.
+
 ---
 
 ## Regra a seguir
