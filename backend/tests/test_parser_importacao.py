@@ -43,9 +43,8 @@ Convenções que estes testes fixam
 * `openpyxl` é uma dependência de produção, não de teste: está em
   `backend/requirements.txt`. Estes testes geram um `.xlsx` verdadeiro com ele.
 
-Nota sobre `DEVIDA-TECNICA: D19` — o ficheiro `docs/divida-tecnica.md` ainda não
-tem entrada para o caso do CSV delimitado por ponto-e-vírgula; a entrada fica
-escrita a seguir, com o número que lhe couber.
+Nota sobre `DEVIDA-TECNICA: D19` — o caso do CSV delimitado por ponto-e-vírgula
+está registado em `docs/divida-tecnica.md`.
 """
 
 from datetime import date, datetime
