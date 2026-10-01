@@ -27,6 +27,11 @@ O que a aplicação grava e o que a aplicação devolve não são a mesma coisa:
 Os valores esperados são calculados à mão e escritos como constantes; o cálculo
 está no comentário de cada teste. Entra-se pelo endpoint real, e não pela função
 interna, para que a convenção de sinais fique fixada também.
+
+Há uma excepção, no cenário 18: chama a função interna de propósito. A
+tolerância de `1e-9` que esgota os lotes vive dentro dela, e o router arredonda
+`quantidade` a 6 casas e `custo_base` a 2, o que oculta esse efeito. Um teste
+pelo endpoint não a conseguiria ver.
 """
 
 from datetime import date
@@ -39,6 +44,7 @@ from database import (
     TipoContabilizacao,
     TipoMovimento,
 )
+from servicos.patrimonio_serv import _resumo_valor_ativo
 
 # Preço transversal à maioria dos cenários: 20,00 por unidade.
 PRECO_UNITARIO = 20.00
@@ -849,3 +855,130 @@ def test_bem_sem_unidades_e_sem_preco_desaparece_do_patrimonio(client, session):
         mais_menos_valia=0.0,
     )
     assert resumo["preco_atual"] is None
+
+
+# ---------------------------------------------------------------------------
+# 18. Fracções: a tolerância tem de esgotar os lotes até zero
+# ---------------------------------------------------------------------------
+
+def test_fraccoes_esgotam_os_lotes_sem_deixar_residuo(session):
+    """0,1 + 0,2 vendidas em 0,3: não pode ficar resíduo de nenhuma das duas.
+
+    Este é o único teste do ficheiro que não entra pelo endpoint. A razão está
+    no arredondamento: o router devolve `round(quantidade, 6)` e
+    `round(-custo_base, 2)` (`routers/patrimonio.py:197-198`), e o resíduo que
+    fica quando a tolerância é removida é de 2,78e-17. Qualquer arredondamento
+    o transforma em 0,0, pelo que pelo endpoint o comportamento errado e o certo
+    são indistinguíveis. Afirma-se o valor bruto da função.
+
+    Cálculo à mão (ramo das unidades, `patrimonio_serv.py:60-100`):
+      compras: abs(-1,00) / 0,1 = 10,00 e abs(-4,00) / 0,2 = 20,00 por unidade
+      venda de 0,3 consome 0,1 do primeiro lote e 0,2 do segundo
+        0,1 - 0,1 = 0,0  -> lote esgotado e removido
+        0,2 - 0,2 = 0,0  -> lote esgotado e removido
+      em vírgula flutuante a subtração acima dá 2,78e-17, e a tolerância de 1e-9
+      das linhas 80 e 86 é a que a deita fora
+      custo vendido = 0,1 x 10,00 + 0,2 x 20,00 = 5,00
+      valor efetivo  = abs(6,00) x (0,3 / 0,3)   = 6,00
+      realizado      = 6,00 - 5,00 = +1,00
+      sem lotes, a soma das quantidades e a soma dos custos dão 0
+        quantidade = 0  e  custo_base = 0
+
+    Note-se que `quantidade` e `custo_base` são somas de uma lista vazia, e por
+    isso vêm como o inteiro 0. `0 == 0.0` é verdadeiro, por isso as constantes
+    estão escritas como 0.0 e a comparação é a mesma que se fizesse com o
+    inteiro.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acoes Fraccionadas", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-1.00, quantidade=0.1)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
+                     valor_total=-4.00, quantidade=0.2)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 10),
+                     valor_total=6.00, quantidade=0.3)
+    preco = semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
+
+    movimentos = (
+        session.query(MovimentoAtivo)
+        .filter(MovimentoAtivo.ativo_id == ativo.id)
+        .order_by(MovimentoAtivo.data, MovimentoAtivo.id)
+        .all()
+    )
+
+    resultado = _resumo_valor_ativo(ativo, movimentos, preco)
+
+    assert resultado["quantidade"] == 0.0, (
+        f"quantidade: esperado 0,0, veio {resultado['quantidade']!r}"
+    )
+    assert resultado["custo_base"] == 0.0, (
+        f"custo_base: esperado 0,0, veio {resultado['custo_base']!r}"
+    )
+    assert resultado["realizado"] == 1.0, (
+        f"realizado: esperado 1,0, veio {resultado['realizado']!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 19. Três lotes: a ordem de consumo não se deduz do mais/menos-valia
+# ---------------------------------------------------------------------------
+
+def test_tres_lotes_consomem_do_mais_antigo_para_o_mais_recente(client, session):
+    """Vender 15 unidades com três lotes em carteira, a saída depende da ordem.
+
+    Cálculo à mão (ramo das unidades, `patrimonio_serv.py:60-100`), por FIFO:
+      compras: abs(-100,00) / 10 = 10,00
+               abs(-200,00) / 10 = 20,00
+               abs(-300,00) / 10 = 30,00
+      venda de 15 por 450 consome o lote mais antigo primeiro
+        primeiro lote: 10 x 10,00 = 100,00  e fica a 0
+        segundo lote:  5 x 20,00 = 100,00  e sobram 5
+        custo vendido = 100,00 + 100,00 = 200,00
+        q_efetiva = 15, logo valor efetivo = 450,00
+        realizado = 450,00 - 200,00 = +250,00
+      posição que fica
+        quantidade = 5 + 10 = 15
+        custo_base = 5 x 20,00 + 10 x 30,00 = 100,00 + 300,00 = 400,00
+        custo_total = -400,00  (negativo, D12a)
+        valor_atual = round(15 x 20,00, 2) = 300,00
+        latente = 300,00 - 400,00 = -100,00
+        mais_menos_valia = 250,00 - 100,00 = +150,00
+
+    Por que este cenário e não um de dois lotes: com dois lotes e uma venda que os
+    atravessa a ambos, o mais/menos-valia dá o mesmo nos dois sentidos, porque a
+    soma de dois produtos comutativos é a mesma. Invertendo a ordem, o mesmo
+    conjunto de números produziria
+
+        custo vendido = 10 x 30,00 + 5 x 20,00 = 400,00
+        realizado     = 450,00 - 400,00 = +50,00
+        posição       = 10 x 10,00 + 5 x 20,00 = 200,00  -> custo_total = -200,00
+        latente       = 300,00 - 200,00 = +100,00
+        mais_menos_valia = 50,00 + 100,00 = +150,00
+
+    O mais/menos-valia é +150,00 nos dois casos, por isso não serve para
+    distinguir. É o `realizado` e o `custo_total` que distinguem: +250,00 contra
+    +50,00, e -400,00 contra -200,00. São eles que fixam a ordem de consumo.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acoes Tres Lotes", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.00, quantidade=10)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
+                     valor_total=-200.00, quantidade=10)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 3, 10),
+                     valor_total=-300.00, quantidade=10)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 10),
+                     valor_total=450.00, quantidade=15)
+    semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
+
+    resumo = pedir_resumo(client, ativo)
+
+    confirmar_resumo(
+        resumo,
+        quantidade=15.0,
+        custo_total=-400.00,
+        valor_atual=300.00,
+        realizado=250.00,
+        latente=-100.00,
+        mais_menos_valia=150.00,
+    )
