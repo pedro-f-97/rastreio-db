@@ -1,0 +1,13 @@
+# Dependências só de desenvolvimento (testes).
+#
+# NÃO entra no requirements.txt: build.sh / build.bat instalam esse ficheiro
+# antes do PyInstaller, e o executável não deve embarcar pytest nem httpx.
+#
+# Instalar com:
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+
+pytest==9.0.1
+# O TestClient do Starlette 1.0 assenta em httpx; sem isto os testes de API
+# não correm.
+httpx==0.28.1
