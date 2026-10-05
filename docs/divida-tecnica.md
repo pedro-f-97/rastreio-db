@@ -165,14 +165,17 @@ escolhido um dos dois e propagado.
 `backend/routers/estatisticas.py:268-289` (`_calculate_totals`):
 
 ```python
-if t.categoria.tipo == receita and not t.reembolso and t.valor > 0:  # 281
+if t.categoria.tipo == receita and not t.reembolso and t.valor > 0:  # 280
 elif t.categoria.tipo == investimento:                              # 282
 elif t.valor < 0 and t.categoria.tipo != receita:                   # 284
 elif t.valor > 0 and t.reembolso:                                   # 286
 ```
 
+Os números são das linhas da condição; a soma correspondente está logo a seguir,
+nas linhas 281, 283, 285 e 287.
+
 Uma transação de categoria `receita` com `valor` negativo (estorno, devolução
-de receita recebida) não satisfaz a linha 281 (`valor > 0` falha), nem a 284
+de receita recebida) não satisfaz a linha 280 (`valor > 0` falha), nem a 284
 (exclui explicitamente receitas). Não cai em nenhuma branch: **desaparece sem
 ser somada a nada**, e o mês fecha sem esse valor.
 
@@ -427,6 +430,43 @@ componente, ou remover a chamada.
   em `backend/tests/test_parser_importacao.py`. Não decidido o curso de acção (se
   detectar automaticamente, permitir configuração do delimitador, ou documentar o
   requisito). ⚪
+
+## 🟡 D20 — Despesa positiva sem a marca de reembolso desaparece dos totais
+
+`backend/routers/estatisticas.py:268-289` (`_calculate_totals`), pelo outro lado
+da D4:
+
+```python
+elif t.valor < 0 and t.categoria.tipo != receita:   # 284
+    meses[chave]["despesas"] += t.valor           # 285
+elif t.valor > 0 and t.reembolso:                   # 286
+    meses[chave]["despesas"] += t.valor            # 287
+```
+
+Uma transação de categoria `despesa` com `valor` positivo e **sem** a marca de
+reembolso não satisfaz a linha 284 (`valor < 0` falha), nem a 286 (exige a
+marca), nem as duas que ficam acima (não é receita nem é investimento).
+**Desaparece sem ser somada a nada** — mesma raiz da D4: nenhum ramo apanha o
+caso.
+
+Exemplo: `-45,50` seguido de `+30,00` sem marca fecham o mês com despesas
+`-45,5` em vez de `-15,5`. A diferença na poupança é de 30,00, e a despesa
+recuperada nunca chega a aparecer em lado nenhum.
+
+**Comportamento esperado (decisão do Pedro):** o correcto é uma despesa positiva
+estar marcada como reembolso; mas, como os valores seguem o sinal, a conta fica
+certa mesmo sem a marca — somar `+30,00` às despesas de `-45,50` dá `-15,5`, que
+é o valor certo. Por isso o valor **não pode ser ignorado**. Correcção: contar o
+valor em despesas sempre que não case noutro ramo, o que se faz fechando a
+cadeia com um ramo final em vez de a deixar terminar sem efeito.
+
+**Por verificar (Pedro):** se existem despesas com valor positivo sem a marca nos
+dados reais. Não foi consultado nenhum registo — o cenário é teórico e ficou
+construído para o teste.
+
+Fixo por `test_despesa_positiva_sem_marca_de_reembolso_desaparece` em
+`backend/tests/test_estatisticas_totais.py`, que fixa o comportamento **actual**
+(não o desejado), pelo que a correcção o faz falhar de propósito.
 
 ## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado
 
