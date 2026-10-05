@@ -333,8 +333,13 @@ isoladamente.
   (`"1.234,56 €"`), que falham com `ErroParsing` — pelo menos esse caso é
   visível.
 - **D12e** — `parser_importacao.py:107` — `fee` é somado com o sinal tal como
-  vem (`valor += _parse_valor(raw_fee, ...)`). O comportamento real é o seguinte
-  (lido do código): a comissão soma-se tal como está no CSV. comissão exportada NEGATIVA aumenta a saída; POSITIVA reduz (-50,00 + 1,50 = -48,50); convenção não fixada; "Por verificar (Pedro): sinal da comissão no CSV real do Trade Republic". Não há decisão de severidade final. **Relevante para os testes:**
+  vem (`valor += _parse_valor(raw_fee, ...)`). **Confirmado pelo Pedro:** no
+  extracto do Trade Republic a comissão vem NEGATIVA (por exemplo `-1`). Para
+  esse banco o comportamento actual é o correcto: `-50,00 + -1,00 = -51,00`, a
+  comissão aumenta a saída, como deve ser. A convenção de sinal em geral continua
+  por fixar — isto só seria bug com um banco que exportasse a comissão positiva,
+  caso em que a comissão reduziria a saída. Não há decisão de severidade final.
+  **Relevante para os testes:**
   é uma linha, e o comportamento propaga-se a `transacoes.valor` e a tudo o que
   deriva dele — taxa de poupança, estatísticas, património.
 - **D12f** — `popular_bd.py:145` — `"Certificados de Aforro"` está marcado
@@ -570,15 +575,3 @@ Ao corrigir qualquer item, actualizar o número aqui e o teste de
 caracterização correspondente passa a falhar de propósito — é o ponto. Só
 depois se muda o teste para o comportamento novo, no mesmo commit. Assim a
 mudança fica explícita no histórico em vez de ser um efeito colateral.
-
-## ⚪ D19 — Leitura de CSV com delimitador diferente de vírgula
-
-- **D19** — `parser_importacao.py:_ler_linhas_csv` (aprox. linha 48) usa
-  `csv.reader` sem `delimiter` (o valor por omissão é a vírgula). Num CSV
-  delimitado por `;` (exportação típica do Excel em português), todo o conteúdo
-  fica numa única coluna e todas as linhas que tenham dados são rejeitadas por
-  `data inválida` — a falha é visível, não silenciosa. Esta situação está
-  coberta pelo teste `test_csv_delimitado_por_ponto_e_virgula_e_lido_como_uma_coluna`
-  em `backend/tests/test_parser_importacao.py`. Não decidido o curso de acção (se
-  detectar automaticamente, permitir configuração do delimitador, ou documentar o
-  requisito). ⚪
