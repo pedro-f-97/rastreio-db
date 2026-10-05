@@ -246,6 +246,18 @@ ciclo e nenhuma regra posterior é avaliada. Uma transação que já estava
 categorizada fica sem a subcategoria que a segunda regra lhe traria, sem erro
 nem registo.
 
+Os dois lados do `break` estão fixados por dois testes em
+`backend/tests/test_importador_regras.py`:
+`test_break_impede_a_segunda_regra_de_atribuir_a_subcategoria`, em que a 1.ª
+regra atribui a categoria e deixa a subcategoria a `None` e a 2.ª seria a que a
+preenchia, e `test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria`,
+em que a 1.ª regra casa com outra categoria e consome o ciclo sem atribuir nada.
+É este último que observa o caso "consumida sem atribuir" numa transação que o
+utilizador já tinha em `(5, None)`: a 1.ª regra casa com a categoria 2, `5 == 2`
+é falso, e a 2.ª regra — que traria a subcategoria 50 — nunca é avaliada. Nos
+dois testes a ausência do `break` mudaria o resultado: `(1, 20)` em vez de
+`(1, None)`, e `(5, 50)` em vez de `(5, None)`.
+
 ## 🟡 D8 — Motor de regras duplicado com semântica divergente
 
 A mesma lógica de duas fases existe em três sítios:
@@ -261,6 +273,12 @@ contagens não batem; (b) `ilike` não casa acentos, `upper()` casa — uma regr
 com "ç" funciona na importação e não no backfill; (c) `palavra_chave` com `%`
 ou `_` é injectado como wildcard no `ilike` (linha 54) e casa muito mais do
 que o pretendido.
+
+Os limites 4a e 4b — o `upper()` que casa o acento e a letra base que deixa de
+casar com o acento — estão fixados por `test_regra_com_acento_casa_descricao_maiuscula`
+e `test_regra_sem_acento_nao_casa_descricao_com_acento` em
+`backend/tests/test_importador_regras.py`, ambos calculados à mão e com os
+valores esperados escritos como constantes.
 
 ## ⚪ D9 — `detalhe-mensal` devolve HTTP 500 em mês inválido
 
@@ -566,6 +584,42 @@ não o compara com nada.
 Ao contrário de D3, aqui a divergência não é de *boundary* (`>` contra `>=`): um
 dos lados não tem comparação nenhuma. Registado sem teste — fixá-lo exigiria
 caracterizar o `/evolucao`, que está fora do âmbito desta suite.
+
+## ⚪ D21 — `palavra_chave` vazia ou só com espaços não é validada no servidor
+
+A palavra-chave de uma regra de categorização pode ser vazia, ou só espaços, e
+nada no servidor o impede. Nenhuma das três camadas valida:
+
+- `backend/schemas.py:57` — `palavra_chave: str`, sem `min_length`, sem
+  `strip_whitespace` e sem `field_validator`;
+- `backend/database.py:198` — `String(100)`, `nullable=False`, `unique=True`.
+  `nullable=False` não impede `""` e `unique=True` só impede o **segundo** `""`;
+- `backend/routers/regras.py:35` — a única coisa que recusa é o duplicado
+  (`filter_by(palavra_chave=...)`), e só quando a palavra-chave **já** existe.
+  `routers/regras.py:40-43` grava o valor tal e qual, sem cortar nem validar.
+
+A única barreira está no formulário: `frontend/src/pages/Regras.jsx:48` faz
+`if (!form.palavra_chave.trim()) return;` e a linha 51 envia o resultado de
+`trim()`. É contornável com uma chamada directa à API, e o servidor não replica
+a regra.
+
+O efeito no motor é grande, porque `""` em qualquer cadeia é verdadeiro pela
+definição de `in`: uma regra com palavra-chave vazia casa em **todas** as
+transações e passa a categorizá-las todas com a sua categoria. Uma palavra-chave
+só com espaços é mais discreta e mais difícil de notar, porque `"   "` não casa
+em `""` mas casa em qualquer descrição que tenha três espaços seguidos.
+
+**Decisão pendente (Pedro):** validar no schema, no motor, ou nos dois. As três
+são defensáveis e não são equivalentes — no schema fecha-se a entrada pela API e
+ficam de fora as linhas `importador_transacoes.py:10` e `:17`; no motor trata-se
+de uma guarda nas duas fases; nos dois, a palavra-chave vazia deixa de ser um
+caso limite com significância. **Não decidido aqui.**
+
+Fixo por `test_palavra_chave_vazia_casa_em_tudo` em
+`backend/tests/test_importador_regras.py`, que fixa o comportamento **actual**
+(não o desejado): uma regra vazia com `categoria_id` 1 transforma
+`"TRANSFERENCIA PARA O TB"` em `(1, 10)`. Se a D21 for decidida no sentido de
+validar `palavra_chave`, o teste passa a falhar de propósito.
 
 ---
 
