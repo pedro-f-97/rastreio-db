@@ -982,3 +982,103 @@ def test_tres_lotes_consomem_do_mais_antigo_para_o_mais_recente(client, session)
         latente=-100.00,
         mais_menos_valia=150.00,
     )
+
+
+# ---------------------------------------------------------------------------
+# 20. Sem unidades, detido e com preço acima do custo
+# ---------------------------------------------------------------------------
+
+def test_bem_sem_unidades_detido_valoriza_acima_do_custo(client, session):
+    """Um bem sem unidades detido, com o preço registado acima do que custou.
+
+    Cálculo à mão (ramo dos bens, `patrimonio_serv.py:36-56`):
+      custo_base = abs(-200000,00) = 200 000,00  (a compra soma o valor todo)
+      só houve compra, por isso `vendido` fica falso
+      `vendido` é falso e `custo_base` é maior que zero, logo o preço conta:
+        valor_atual = round(250000,00, 2) = 250 000,00  (o preço, não um unitário)
+      custo_total = round(-200 000,00, 2) = -200 000,00  (negativo, D12a)
+      latente = valor_atual - custo_base = 250 000,00 - 200 000,00 = +50 000,00
+      realizado = 0,00  (nada foi vendido)
+      mais_menos_valia = realizado + latente = 0,00 + 50 000,00 = +50 000,00
+      quantidade = 0,0 sempre: este ramo não conta unidades
+
+    Neste cenário `mais_menos_valia` dá o mesmo pela fórmula antiga
+    (`valor_atual + custo_total`, com o custo já negativo): 250 000,00 +
+    (-200 000,00) = +50 000,00. É coincidência de não haver venda: quando há
+    realizado, a fórmula correcta é `realizado + latente` (ver o cenário 21).
+    """
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Moradia", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-200000.00)
+    semear_preco(session, ativo, DATA_PRECO, 250000.00)
+
+    resumo = pedir_resumo(client, ativo)
+
+    confirmar_resumo(
+        resumo,
+        quantidade=0.0,
+        custo_total=-200000.00,
+        valor_atual=250000.00,
+        realizado=0.0,
+        latente=50000.00,
+        mais_menos_valia=50000.00,
+    )
+    assert resumo["preco_atual"] == 250000.00
+    assert resumo["data_preco"] == "2025-06-01"
+
+
+# ---------------------------------------------------------------------------
+# 21. Sem unidades, vendido e com preço registado depois da venda
+# ---------------------------------------------------------------------------
+
+def test_bem_sem_unidades_vendido_ignora_preco_posterior(client, session):
+    """Vendido a perda, e um preço registado depois da venda não ressuscita o bem.
+
+    Cálculo à mão (ramo dos bens, `patrimonio_serv.py:43-56`):
+      custo_base = abs(-20000,00) = 20 000,00
+      a venda desconta o custo acumulado inteiro e zera-o:
+        realizado = 12 000,00 - 20 000,00 = -8 000,00  (perda)
+        custo_base = 0,0  e  `vendido` passa a verdadeiro
+      a linha 53 dá `valor = 0,0` porque `vendido` é verdadeiro, e o preço
+        registado nunca é lido — é a primeira condição do `if`, e chega antes
+        da do `custo_base <= 0`
+      custo_total = round(-0,0, 2) = -0,0, que compara igual a 0,0
+      latente = valor_atual - custo_base = 0,0 - 0,0 = 0,0  (há preço, por isso
+        não é nulo)
+      mais_menos_valia = realizado + latente = -8 000,00 + 0,0 = -8 000,00
+      quantidade = 0,0
+
+    A diferença para a fórmula antiga (`valor_atual + custo_total`) está no
+    menos/menos-valia: aqui dariam 0,0 + (-0,0) = 0,0, e a perda de 8 000,00
+    desapareceria do resumo. O que o router calcula é `realizado + latente`, e é
+    por isso que a perda sobrevive mesmo com o valor a zero.
+
+    O preço foi registado a 2025-07-01, depois da venda, e é o mais recente: o
+    endpoint devolve-o em `preco_atual` e `data_preco` mesmo assim. Ou seja, o
+    resumo anuncia um preço de 99 999,00 ao lado de um valor atual de 0,0 — e é
+    essa incoerência de apresentação que este teste fixa. O cenário 12 tem
+    preço, mas registado antes da venda e igual ao valor da venda, pelo que a
+    incoerência não aparece.
+    """
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Armazem", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-20000.00)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 15),
+                     valor_total=12000.00)
+    semear_preco(session, ativo, date(2025, 7, 1), 99999.00)
+
+    resumo = pedir_resumo(client, ativo)
+
+    confirmar_resumo(
+        resumo,
+        quantidade=0.0,
+        custo_total=0.0,
+        valor_atual=0.0,
+        realizado=-8000.00,
+        latente=0.0,
+        mais_menos_valia=-8000.00,
+    )
+    assert resumo["preco_atual"] == 99999.00
+    assert resumo["data_preco"] == "2025-07-01"
