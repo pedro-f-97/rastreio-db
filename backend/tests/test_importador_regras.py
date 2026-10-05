@@ -214,6 +214,42 @@ def test_a_primeira_regra_que_casa_ganha():
     assert (t.categoria_id, t.subcategoria_id) == (1, 10)
 
 
+def test_break_impede_a_segunda_regra_de_atribuir_a_subcategoria():
+    """Regra 1.ª sem subcategoria: a 2.ª traria a subcategoria, o break não deixa.
+
+    # DEVIDA-TECNICA: D7 (o `break` da fase 2) — este teste só passa porque o
+    `break` da linha 23 existe. A 2.ª regra também casa, e entraria pelo ramo da
+    linha 21, que é exactamente o ramo que escreve a subcategoria; é o `break` que
+    impede a escrita. É o par com
+    `test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria`, que
+    fixa o mesmo `break` pelo lado da transação já categorizada.
+
+    Cálculo à mão, com a lista tal e qual:
+      descricao "MERCADO CENTRAL LISBOA"
+      fase 1: as duas regras têm categoria_id (1 e 1), logo ambas são saltadas
+              (linhas 8-9); a fase 1 não escreve nada
+      fase 2, regra 1 "mercado" (categoria_id=1, subcategoria_id=None):
+        linha 17: "MERCADO" em "MERCADO CENTRAL LISBOA" -> casa na posição 0
+        linha 18: transacao.categoria_id é None -> verdadeiro
+        linha 19: categoria_id = 1
+        linha 20: subcategoria_id = None, porque a regra 1 não tem subcategoria
+        linha 23: break
+      a regra 2 "mercado central" (categoria_id=1, subcategoria_id=20) nunca é
+      avaliada. E se fosse, casaria: "MERCADO CENTRAL" em "MERCADO CENTRAL
+      LISBOA" -> casa na posição 0. Entraria pelo ramo da linha 21 com
+      1 == 1 verdadeiro e subcategoria_id ainda None -> escreveria 20.
+      esperado: (1, None)
+      sem o break da linha 23 o resultado seria (1, 20)
+    """
+    t = transacao("MERCADO CENTRAL LISBOA")
+    aplicar_regras(t, [
+        regra("mercado", 1, None),
+        regra("mercado central", 1, 20),
+    ])
+
+    assert (t.categoria_id, t.subcategoria_id) == (1, None)
+
+
 # ---------------------------------------------------------------------------
 # Fase 2 — a transação já vem categorizada
 # ---------------------------------------------------------------------------
@@ -273,6 +309,42 @@ def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
     aplicar_regras(t, [
         regra("metro", 2, 20),
         regra("lisboa", 2, 21),
+    ])
+
+    assert (t.categoria_id, t.subcategoria_id) == (5, None)
+
+
+def test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria():
+    """A 1.ª regra casa com outra categoria e consome o ciclo; a 2.ª traria a sub.
+
+    # DEVIDA-TECNICA: D7 (regra consumida sem atribuir) — este teste fixa o caso
+    em que a consequência é visível numa transação que o utilizador já tinha
+    classificado à mão: ela fica com categoria mas sem subcategoria, e a 2.ª regra
+    —que era exactamente a que lhe servia— nunca chega a ser avaliada. Sem o
+    `break` da linha 23 a subcategoria 50 era escrita.
+
+    Cálculo à mão, com a lista tal e qual:
+      descricao "METRO LISBOA"; a transação já vem com categoria_id=5 e
+      subcategoria_id=None
+      fase 1: as duas regras têm categoria_id (2 e 5), logo ambas são saltadas
+              (linhas 8-9); a fase 1 não escreve nada
+      fase 2, regra 1 "metro" (categoria_id=2, subcategoria_id=20):
+        linha 17: "METRO" em "METRO LISBOA" -> casa na posição 0
+        linha 18: a categoria é 5, não None -> falso
+        linha 21: 5 == 2 -> falso, logo o elif não entra
+        nada escrito — a regra "casou" mas não atribuiu
+        linha 23: break
+      a regra 2 "lisboa" (categoria_id=5, subcategoria_id=50) nunca é avaliada. E
+      se fosse, casaria: "LISBOA" em "METRO LISBOA" -> casa na posição 6.
+      Entraria pelo ramo da linha 21 com 5 == 5 verdadeiro e subcategoria_id
+      None -> escreveria 50.
+      esperado: (5, None) — a categoria que já lá estava é a que fica
+      sem o break da linha 23 o resultado seria (5, 50)
+    """
+    t = transacao("METRO LISBOA", categoria_id=5)
+    aplicar_regras(t, [
+        regra("metro", 2, 20),
+        regra("lisboa", 5, 50),
     ])
 
     assert (t.categoria_id, t.subcategoria_id) == (5, None)
@@ -358,8 +430,18 @@ def test_lista_de_regras_vazia_nao_faz_nada():
 def test_palavra_chave_vazia_casa_em_tudo():
     """Uma regra com palavra-chave vazia casa em qualquer descrição.
 
+    # DEVIDA-TECNICA: D21 — este teste fixa o comportamento **actual** (não o
+    desejado). A palavra-chave vazia nunca é validada no servidor: o schema
+    (`schemas.py:57`) é um `str` sem `min_length`, o modelo (`database.py:198`)
+    só impõe `nullable=False` e `unique=True`, e a rota (`routers/regras.py:35`
+    e 40-43) grava o valor tal e qual. A única barreira é o `trim()` do
+    formulário, em `frontend/src/pages/Regras.jsx:48` e 51, que se contorna com
+    uma chamada directa à API. Se a D21 for decidida no sentido de validar
+    `palavra_chave`, este teste passa a falhar de propósito.
+
     Cálculo à mão:
       linha 10/17: "" em qualquer cadeia é verdadeiro, pela definição de `in`
+      fase 1: a regra tem categoria_id = 1, logo é saltada (linhas 8-9)
       fase 2, com a regra vazia e categoria_id = 1:
         linha 18: a transação está sem categoria -> escreve (1, 10)
       a descrição não tem nada que ver com a regra e mesmo assim é categorizada
