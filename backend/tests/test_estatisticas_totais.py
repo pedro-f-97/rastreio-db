@@ -14,8 +14,9 @@ por isso que nenhum teste pede a `session` nem a `client`. O `poupanca` de
 de API, mais tarde.
 
 Nada aqui é corrigido. Onde o comportamento é questionável, fica marcado com
-`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`. O `D20` ainda
-não tem entrada no documento: fica à espera de um commit próprio, como o `D19`.
+`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`. A `D4`, a `D11` e
+a `D20` já têm entrada no documento; os testes fixam o comportamento **actual**,
+pelo que a correcção de qualquer um deles os faz falhar de propósito.
 
 Os objectos que entram nas funções são `SimpleNamespace` com os mesmos nomes
 de campo dos modelos, e o `tipo` é sempre o enum `TipoCategoria` — nunca uma
