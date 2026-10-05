@@ -1,0 +1,42 @@
+# Corre a suite de testes em cada push para uma branch e em cada pedido de
+# integração. As tags não correm aqui: o build.yml é quem as trata e quem gera
+# os executáveis. Chega definir `branches` sem `tags`, porque o GitHub só
+# dispara o trabalho para o tipo de ref definido.
+
+name: Testes
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+# Só precisa de ler o repositório. O build.yml pede contents: write porque cria
+# Releases.
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Retirar o código
+        uses: actions/checkout@v4
+
+      # Mesma versão que o build.yml usa nos dois trabalhos.
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      # O requirements-dev.txt inclui o requirements.txt, por isso este passo
+      # instala as dependências de produção e as de desenvolvimento.
+      - name: Instalar dependências
+        run: pip install -r requirements-dev.txt
+        working-directory: backend
+
+      # A partir de backend/, que é onde o pytest.ini está.
+      - name: Correr os testes
+        run: python -m pytest
+        working-directory: backend
