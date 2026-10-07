@@ -313,6 +313,18 @@ Os outros endpoints do projecto usam `Query(None, ge=1, le=12)`
 (ver `routers/transacoes.py:22`), pelo que a correcção é validar as entradas
 aqui e não testar o `calendar`.
 
+**Resolvido:** `detalhe_mensal` valida as entradas com `Query` —
+`backend/routers/estatisticas.py:236` (`ano: int = Query(ge=2000, le=9999)`)
+e `:237` (`mes: int = Query(ge=1, le=12)`) — e responde 422 a `mes=13`,
+`mes=0` e `ano=0` (testes em `backend/tests/test_api_estatisticas.py`). O
+`ge=2000` alinha com `transacoes.py:22`; o `le=9999` é o teto do `date()`
+(ano máximo suportado, para nunca tornar a estourar o `ValueError`). Dois
+detalhes verificados com a sonda: o **erro real era sempre o `ValueError` do
+`date()` da linha 240** (o `IllegalMonthError` citado acima vinha do
+`calendar.monthrange` da linha 241, que nunca chegava a ser avaliado porque o
+`date()` da linha anterior falha primeiro — tanto para mês fora de 1..12 como
+para ano fora de 1..9999).
+
 ## ⚪ D10 — Paginação sem desempate
 
 `backend/routers/transacoes.py:31` ordena só por `data DESC`. Transações com

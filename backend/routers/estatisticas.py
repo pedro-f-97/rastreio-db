@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
 from database import get_db, Transacao, Categoria, Subcategoria, TipoCategoria
@@ -232,7 +232,11 @@ def _agregar_por_categoria(rows):
     return por_cat
 
 @router.get("/detalhe-mensal")
-def detalhe_mensal(ano: int, mes: int, db: Session = Depends(get_db)):
+def detalhe_mensal(
+    ano: int = Query(ge=2000, le=9999),
+    mes: int = Query(ge=1, le=12),
+    db: Session = Depends(get_db),
+):
     inicio = date(ano, mes, 1)
     fim = date(ano, mes, calendar.monthrange(ano, mes)[1])
 
