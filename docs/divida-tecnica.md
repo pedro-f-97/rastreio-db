@@ -648,6 +648,20 @@ Fixo por `test_palavra_chave_vazia_casa_em_tudo` em
 `"TRANSFERENCIA PARA O TB"` em `(1, 10)`. Se a D21 for decidida no sentido de
 validar `palavra_chave`, o teste passa a falhar de propósito.
 
+**Resolvido:** validação **só no schema da entrada** —
+`RegraCreate.palavra_chave` (`backend/schemas.py:62`) é
+`Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]`.
+`RegraBase` e `Regra` ficam sem a restrição, para que uma regra antiga com
+palavra-chave vazia na BD continue a ser lida pela listagem (ver a guarda
+`test_listagem_continua_a_ler_regra_antiga_com_palavra_chave_vazia`). A via
+`POST /api/regras/` passa a responder 422 a `""` e `"   "`, e guarda
+`"  PINGO  "` como `PINGO` (testes em `backend/tests/test_api_regras_criar.py`).
+**O motor não mudou:** `aplicar_regras` (`importador_transacoes.py:10` e `:17`)
+continua sem guarda, e por isso `test_palavra_chave_vazia_casa_em_tudo`
+continua a passar — a frase acima ("o teste passa a falhar de propósito") só
+valeria se a validação tivesse sido também no motor. A barreira `trim()` do
+formulário (`Regras.jsx:48` e 51) mantém-se.
+
 ---
 
 ## Regra a seguir

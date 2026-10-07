@@ -430,14 +430,15 @@ def test_lista_de_regras_vazia_nao_faz_nada():
 def test_palavra_chave_vazia_casa_em_tudo():
     """Uma regra com palavra-chave vazia casa em qualquer descrição.
 
-    # DEVIDA-TECNICA: D21 — este teste fixa o comportamento **actual** (não o
-    desejado). A palavra-chave vazia nunca é validada no servidor: o schema
-    (`schemas.py:57`) é um `str` sem `min_length`, o modelo (`database.py:198`)
-    só impõe `nullable=False` e `unique=True`, e a rota (`routers/regras.py:35`
-    e 40-43) grava o valor tal e qual. A única barreira é o `trim()` do
-    formulário, em `frontend/src/pages/Regras.jsx:48` e 51, que se contorna com
-    uma chamada directa à API. Se a D21 for decidida no sentido de validar
-    `palavra_chave`, este teste passa a falhar de propósito.
+    # DEVIDA-TECNICA: D21 — resolvido **só no schema**: `RegraCreate.palavra_chave`
+    # (`schemas.py:62`) valida com `strip_whitespace` e `min_length=1`, pelo que
+    # a API recusa "" e "   " (ver `test_api_regras_criar.py`). O motor não
+    # mudou: este teste constrói a regra em memória e chama `aplicar_regras`
+    # directamente, sem passar pelo schema, e por isso continua a passar —
+    # `importador_transacoes.py:10` e `:17` seguem sem guarda, e o modelo
+    # (`database.py:198`) continua a só impor `nullable=False` e `unique=True`,
+    # que não impedem "". A barreira do formulário (`Regras.jsx:48` e 51)
+    # mantém-se.
 
     Cálculo à mão:
       linha 10/17: "" em qualquer cadeia é verdadeiro, pela definição de `in`
