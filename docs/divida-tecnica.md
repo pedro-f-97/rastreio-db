@@ -205,18 +205,39 @@ TABELAS_ESPERADAS = {"transacoes", "categorias", "contas"}
 ```
 
 Um ficheiro `.db` que não tenha `ativos`, `movimentos_ativo`, `precos_ativo`,
-`regra_categorizacao`, `perfis_importacao`, `tipos_ativo`, `subcategorias` ou
+`regras_categorizacao`, `perfis_importacao`, `tipos_ativo`, `subcategorias` ou
 `configuracao` **passa a validação** (linha 91) e é restaurado. A verificação
 pós-restauração (linha 112) volta a contar as mesmas 3 tabelas e dá tudo certo.
 
+A validação prévia (linhas 62-105) só verifica os nomes das tabelas. A
+verificação posterior (linhas 112-127) repete esse mesmo teste sobre as 3
+tabelas esperadas. **Não verifica colunas**: um `.db` com as 3 tabelas
+esperadas mas que tenha apenas a coluna `id` nessas tabelas é aceite com `200
+OK` e a base de dados fica inutilizável (quando se tenta ler tabelas existentes
+no modelo, SQLAlchemy levanta `OperationalError: no such column ...`).
+
 Resultado: um backup antigo ou de outra instalação é aceite, o `.anterior` de
-segurança é apagado (linhas 129-131) e o património inteiro —movimentos e
-preços— desaparece sem qualquer aviso. Como o `.anterior` só se apaga *depois*
+segurança é apagado (linhas 129-131) e o património inteiro — movimentos e
+preços — desaparece sem qualquer aviso. Como o `.anterior` só se apaga *depois*
 de tudo confirmar, e a confirmação é fraca, não há forma de recuperar.
 
-Não há teste que garanta a lista de tabelas esperadas. Essa lista deveria
-derivar de `Base.metadata.sorted_tables`, que é a fonte de verdade e não pode
-divergir do modelo.
+A lista das tabelas esperadas está fixada por testes de caracterização
+(`backend/tests/test_backups/`) com os nomes reais do modelo. Esses testes não
+garantem a derivação automática da lista: quando `TABELAS_ESPERADAS` passar a
+derivar de `Base.metadata.sorted_tables` (fonte de verdade), os testes de
+caracterização irão falhar de propósito, para serem invertidos.
+
+O que ficou por cobrir: o único caminho que usa o ficheiro `.anterior` (rollback
+no bloco `except Exception`) não é atingível com os ficheiros construídos nos
+testes — o docstring mantém «Rollback por cobrir» por esse motivo. Não há caso
+de teste que consiga atingir esse ramo com uma base de dados temporária válida
+antes da substituição.
+
+**O que os testes mediram:** para um `.db` que contém apenas as 3 tabelas
+esperadas (sem as restantes 8), o endpoint devolve `200 {"ok": true, "mensagem":
+"Base de dados restaurada"}` e, ao ler uma tabela que não existe no novo estado
+(exemplo: `ativos`), o acesso levanta `OperationalError: no such table: ativos`.
+Este é o mesmo defeito que estava anotado como `xfail` no commit 398130b.
 
 ## 🟡 D7 — Precedência das regras de categorização é não determinística
 
