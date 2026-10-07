@@ -45,7 +45,7 @@ function itemChecklist(label, preenchido) {
     return { label, preenchido }
 }
 
-export default function Importacao() {
+export default function Importacao({ onDadosAlterados }) {
     const [perfis, setPerfis] = useState([])
     const [modalAberto, setModalAberto] = useState(false)
     const [form, setForm] = useState(PERFIL_VAZIO)

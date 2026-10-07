@@ -1,7 +1,8 @@
 # Dívida Técnica
 
-Achados da análise ao código, feita antes de introduzir testes. **Nada disto
-foi corrigido.** O objectivo é registar o que se sabe, para que a decisão de
+Achados da análise ao código, feita antes de introduzir testes. Nada disto
+foi corrigido, excepto os itens marcados como **Resolvido**. O objectivo é
+registar o que se sabe, para que a decisão de
 mexer em cada ponto seja deliberada e não acidental.
 
 Cada item está numerado (`D1`, `D2`, …) e os testes de caracterização
@@ -412,7 +413,7 @@ isoladamente.
 
 Registado para quando se decidir introduzir linting. Não é bug.
 
-- **Frontend:** 21 problemas do ESLint (18 erros, 3 avisos). O único que é bug
+- **Frontend:** 20 problemas do ESLint (17 erros, 3 avisos). O único que é bug
   real foi promovido a **D14**. Os restantes são: `useEffect` a chamar
   `carregar()` antes da declaração da função (7 ficheiros — `Categorias.jsx:15`,
   `Contas.jsx:14-15`, `Patrimonio.jsx:19`, `Regras.jsx:28`, `TiposAtivo.jsx:15`
@@ -462,6 +463,11 @@ a página.
 
 É correcção de uma linha em qualquer um dos dois lados — receber a prop no
 componente, ou remover a chamada.
+
+**Resolvido:** `Importacao` passa a receber a prop —
+`frontend/src/pages/Importacao.jsx:48` (`export default function
+Importacao({ onDadosAlterados })`). `App.jsx:176` já a passava; quem faltava
+era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
 
 ## ⚪ D19 — Leitura de CSV com delimitador diferente de vírgula
 
@@ -646,7 +652,6 @@ validar `palavra_chave`, o teste passa a falhar de propósito.
 
 ## Regra a seguir
 
-Ao corrigir qualquer item, actualizar o número aqui e o teste de
-caracterização correspondente passa a falhar de propósito — é o ponto. Só
-depois se muda o teste para o comportamento novo, no mesmo commit. Assim a
+Ao corrigir qualquer item, no mesmo commit, corrige o código, ajusta ou
+acrescenta o teste que o fixa, e marca o item como **Resolvido**. Assim a
 mudança fica explícita no histórico em vez de ser um efeito colateral.
