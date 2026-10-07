@@ -2,11 +2,11 @@
 
 Porque uma sub-pasta com conftest próprio
 -----------------------------------------
-`backend/routers/backups.py:6` faz `from database import DB_PATH, engine`, e
+`backend/routers/backups.py:7` faz `from database import Base, DB_PATH, engine`, e
 `importar_backup` não usa `get_db`: trabalha com a `engine` e com o `DB_PATH` do
 módulo. Por isso a fixture `session` do conftest pai, que põe uma BD SQLite
 **em memória** e lha injecta por `get_db`, não chega: o `os.replace` do endpoint
-(`backups.py:108`) substitui um ficheiro, e não há ficheiro para substituir.
+(`backups.py:141`) substitui um ficheiro, e não há ficheiro para substituir.
 
 A boa notícia é que não é preciso remapear nada. O conftest pai põe
 `RASTREIO_DB_DIR` num directório temporário antes de `database` ser importado, e
@@ -65,9 +65,12 @@ BACKEND = Path(__file__).resolve().parents[2]
 BD_DE_PRODUCAO = (BACKEND / "dados" / "rastreio.db").resolve()
 
 # Os ficheiros que uma importação de backup pode deixar para trás, e que não
-# podem sobreviver a um teste: o temporário (`backups.py:71`), a cópia de
-# segurança (linha 72) e os arquivos de lado do SQLite.
-LIXO = ("*.anterior", "*.tmp", "*.tmp-wal", "*.tmp-shm", "*-wal", "*-shm",
+# podem sobreviver a um teste: o temporário e os arquivos de lado do SQLite.
+# O `.anterior` ficou de fora de propósito: depois do D6 ele é o estado
+# anterior ao restauro, criado a cada sucesso e substituído no seguinte, e por
+# isso sobreviver a um teste é comportamento esperado — quem o limpa entre
+# testes é a fixture `bd_em_ficheiro` (ver `limpar_bd_e_irmaos`).
+LIXO = ("*.tmp", "*.tmp-wal", "*.tmp-shm", "*-wal", "*-shm",
         "*-journal", "_fixture_*")
 
 
@@ -80,12 +83,20 @@ def listar_tudo(directorio: Path) -> set[str]:
     }
 
 
+def sem_anteriores(ficheiros: set[str]) -> set[str]:
+    """Fica só com o que não é `.anterior` (ver o docstring de `guarda_ficheiros`)."""
+    return {nome for nome in ficheiros if not nome.endswith(".anterior")}
+
+
 def limpar_bd_e_irmaos(caminho: Path) -> None:
     """Apaga a BD, os arquivos de lado e o que o endpoint deixou atrás.
 
     Vale a pena limpar também `rastreio.db.tmp` e `rastreio.db.anterior`: se um
     pedido falhar a meio e deixar um deles para trás, esse ficheiro não é culpa do
-    teste seguinte, e deixá-lo contaminaria a leitura da guarda de ficheiros.
+    teste seguinte, e deixá-lo contaminaria a leitura da guarda de ficheiros. O
+    `.anterior` é limpo aqui mesmo depois de um restauro bem sucedido (depois do
+    D6 ele é esperado e fica no disco) — é esta limpeza entre testes que permite
+    à `guarda_ficheiros` ignorar os `.anterior` sem ficar cega a outro lixo.
     """
     for sufixo in ("", "-journal", "-wal", "-shm", ".tmp", ".anterior"):
         alvo = Path(str(caminho) + sufixo)
@@ -100,7 +111,7 @@ def bd_em_ficheiro():
     """BD em ficheiro, recriada do zero, dentro do directório temporário.
 
     Devolve o `DB_PATH` em uso, que é o caminho que os ficheiros `.tmp` e
-    `.anterior` do endpoint vão ter (`backups.py:71-72`).
+    `.anterior` do endpoint vão ter (`backups.py:111-112`).
     """
     import database
 
@@ -153,23 +164,28 @@ def client(bd_em_ficheiro):
 
 @pytest.fixture(autouse=True)
 def guarda_ficheiros(bd_em_ficheiro):
-    """Falha se um teste deixar um `.tmp`, um `.anterior` ou outro ficheiro novo.
+    """Falha se um teste deixar um `.tmp` ou outro ficheiro novo.
 
     Compara a listagem completa do directório temporário antes e depois do teste.
     É mais forte do que verificar os dois nomes conhecidos: apanha também um
-    ficheiro de fixture criado no sítio errado, e apanha um `.anterior` deixado
-    por um restauro que devia tê-lo apagado.
+    ficheiro de fixture criado no sítio errado.
+
+    Os `.anterior` ficam de fora da comparação e do `LIXO`: depois do D6 um
+    `.anterior` após um restauro bem sucedido é artefacto esperado (fica no
+    disco até ao restauro seguinte), e a `bd_em_ficheiro` o limpa entre testes
+    para não contaminar a leitura. Um `.anterior` deixado por uma tentativa
+    falhada escapa a esta guarda, mas não escapa a `test_rejeicao_nao_toca_no_anterior_pre_existente`.
 
     A listagem é tirada depois de `bd_em_ficheiro`, porque a fixture destrói o
     ficheiro da BD e a ordem de destruição é a inversa da de criação: a guarda
     é a última a montar e a primeira a desmontar, e por isso vê a BD ainda no
     sítio nos dois lados da comparação.
     """
-    antes = listar_tudo(RASTREIO_DB_DIR)
+    antes = sem_anteriores(listar_tudo(RASTREIO_DB_DIR))
 
     yield
 
-    depois = listar_tudo(RASTREIO_DB_DIR)
+    depois = sem_anteriores(listar_tudo(RASTREIO_DB_DIR))
     assert depois == antes, (
         "O teste alterou os ficheiros do directório temporário. "
         f"Novos: {sorted(depois - antes)}. "
@@ -186,7 +202,9 @@ def guarda_ficheiros_no_fim_da_corrida():
     """No fim da sessão, o directório temporário não pode ter lixo nenhum.
 
     Rede de segurança para o caso de um teste rebentar a meio e a fixture
-    `guarda_ficheiros` não chegar a correr.
+    `guarda_ficheiros` não chegar a correr. Os `.anterior` ficaram de fora do
+    `LIXO` (ver `guarda_ficheiros`), mas não ficam impunes: a última
+    `bd_em_ficheiro` a desmontar limpa-os todos em `limpar_bd_e_irmaos`.
     """
     yield
 
