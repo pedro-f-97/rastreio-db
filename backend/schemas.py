@@ -1,8 +1,8 @@
 from datetime import date
-from typing import Optional
+from typing import Annotated, Optional
 
 from database import TipoCategoria, TipoContabilizacao, TipoMovimento
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
 
 
 # --- SCHEMAS DE CATEGORIA ---
@@ -59,7 +59,7 @@ class RegraBase(BaseModel):
     subcategoria_id: Optional[int] = None
 
 class RegraCreate(RegraBase):
-    pass
+    palavra_chave: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 class Regra(RegraBase):
     id: int

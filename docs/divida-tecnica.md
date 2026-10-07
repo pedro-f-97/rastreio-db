@@ -1,7 +1,8 @@
 # Dívida Técnica
 
-Achados da análise ao código, feita antes de introduzir testes. **Nada disto
-foi corrigido.** O objectivo é registar o que se sabe, para que a decisão de
+Achados da análise ao código, feita antes de introduzir testes. Nada disto
+foi corrigido, excepto os itens marcados como **Resolvido**. O objectivo é
+registar o que se sabe, para que a decisão de
 mexer em cada ponto seja deliberada e não acidental.
 
 Cada item está numerado (`D1`, `D2`, …) e os testes de caracterização
@@ -312,6 +313,18 @@ Os outros endpoints do projecto usam `Query(None, ge=1, le=12)`
 (ver `routers/transacoes.py:22`), pelo que a correcção é validar as entradas
 aqui e não testar o `calendar`.
 
+**Resolvido:** `detalhe_mensal` valida as entradas com `Query` —
+`backend/routers/estatisticas.py:236` (`ano: int = Query(ge=2000, le=9999)`)
+e `:237` (`mes: int = Query(ge=1, le=12)`) — e responde 422 a `mes=13`,
+`mes=0` e `ano=0` (testes em `backend/tests/test_api_estatisticas.py`). O
+`ge=2000` alinha com `transacoes.py:22`; o `le=9999` é o teto do `date()`
+(ano máximo suportado, para nunca tornar a estourar o `ValueError`). Dois
+detalhes verificados com a sonda: o **erro real era sempre o `ValueError` do
+`date()` da linha 240** (o `IllegalMonthError` citado acima vinha do
+`calendar.monthrange` da linha 241, que nunca chegava a ser avaliado porque o
+`date()` da linha anterior falha primeiro — tanto para mês fora de 1..12 como
+para ano fora de 1..9999).
+
 ## ⚪ D10 — Paginação sem desempate
 
 `backend/routers/transacoes.py:31` ordena só por `data DESC`. Transações com
@@ -412,7 +425,7 @@ isoladamente.
 
 Registado para quando se decidir introduzir linting. Não é bug.
 
-- **Frontend:** 21 problemas do ESLint (18 erros, 3 avisos). O único que é bug
+- **Frontend:** 20 problemas do ESLint (17 erros, 3 avisos). O único que é bug
   real foi promovido a **D14**. Os restantes são: `useEffect` a chamar
   `carregar()` antes da declaração da função (7 ficheiros — `Categorias.jsx:15`,
   `Contas.jsx:14-15`, `Patrimonio.jsx:19`, `Regras.jsx:28`, `TiposAtivo.jsx:15`
@@ -462,6 +475,11 @@ a página.
 
 É correcção de uma linha em qualquer um dos dois lados — receber a prop no
 componente, ou remover a chamada.
+
+**Resolvido:** `Importacao` passa a receber a prop —
+`frontend/src/pages/Importacao.jsx:48` (`export default function
+Importacao({ onDadosAlterados })`). `App.jsx:176` já a passava; quem faltava
+era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
 
 ## ⚪ D19 — Leitura de CSV com delimitador diferente de vírgula
 
@@ -642,11 +660,24 @@ Fixo por `test_palavra_chave_vazia_casa_em_tudo` em
 `"TRANSFERENCIA PARA O TB"` em `(1, 10)`. Se a D21 for decidida no sentido de
 validar `palavra_chave`, o teste passa a falhar de propósito.
 
+**Resolvido:** validação **só no schema da entrada** —
+`RegraCreate.palavra_chave` (`backend/schemas.py:62`) é
+`Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]`.
+`RegraBase` e `Regra` ficam sem a restrição, para que uma regra antiga com
+palavra-chave vazia na BD continue a ser lida pela listagem (ver a guarda
+`test_listagem_continua_a_ler_regra_antiga_com_palavra_chave_vazia`). A via
+`POST /api/regras/` passa a responder 422 a `""` e `"   "`, e guarda
+`"  PINGO  "` como `PINGO` (testes em `backend/tests/test_api_regras_criar.py`).
+**O motor não mudou:** `aplicar_regras` (`importador_transacoes.py:10` e `:17`)
+continua sem guarda, e por isso `test_palavra_chave_vazia_casa_em_tudo`
+continua a passar — a frase acima ("o teste passa a falhar de propósito") só
+valeria se a validação tivesse sido também no motor. A barreira `trim()` do
+formulário (`Regras.jsx:48` e 51) mantém-se.
+
 ---
 
 ## Regra a seguir
 
-Ao corrigir qualquer item, actualizar o número aqui e o teste de
-caracterização correspondente passa a falhar de propósito — é o ponto. Só
-depois se muda o teste para o comportamento novo, no mesmo commit. Assim a
+Ao corrigir qualquer item, no mesmo commit, corrige o código, ajusta ou
+acrescenta o teste que o fixa, e marca o item como **Resolvido**. Assim a
 mudança fica explícita no histórico em vez de ser um efeito colateral.
