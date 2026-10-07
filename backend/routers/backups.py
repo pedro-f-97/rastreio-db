@@ -2,15 +2,24 @@
 import os
 import shutil
 import sqlite3
+from pathlib import Path
 
-from database import DB_PATH, engine
+from database import Base, DB_PATH, engine
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import text
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
-TABELAS_ESPERADAS = {"transacoes", "categorias", "contas"}
+# A lista de tabelas validadas deriva do modelo (D6): um backup a que falte
+# qualquer tabela do modelo é rejeitado.
+TABELAS_ESPERADAS = {tabela.name for tabela in Base.metadata.sorted_tables}
+
+# Mensagem única para qualquer problema de estrutura — tabela ou coluna em
+# falta. Não diz o que falta: é propositado (D6).
+MENSAGEM_ESTRUTURA = (
+    "O ficheiro não corresponde a um backup válido do Rastreio-DB"
+)
 
 
 def _limpar_wal_shm(db_path: str) -> None:
@@ -59,6 +68,37 @@ def _validar_sqlite(path: str) -> set[str]:
     return tabelas
 
 
+def _validar_estrutura(path: str) -> None:
+    """Confirma que `path` tem todas as tabelas e colunas do modelo.
+
+    Só leitura: o ficheiro é aberto com `mode=ro` (URI), portanto nunca há
+    escrita à toa. Tabelas e colunas a mais são aceites; qualquer falta levanta
+    HTTPException 400 com a mensagem genérica (D6).
+    """
+    try:
+        con = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            linhas = con.execute(
+                "SELECT m.name, p.name FROM sqlite_master AS m "
+                "JOIN pragma_table_info(m.name) AS p WHERE m.type = 'table'"
+            ).fetchall()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
+
+    reais: dict[str, set[str]] = {}
+    for nome_tabela, nome_coluna in linhas:
+        reais.setdefault(nome_tabela, set()).add(nome_coluna)
+
+    if TABELAS_ESPERADAS - reais.keys():
+        raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
+
+    for tabela in Base.metadata.sorted_tables:
+        if {coluna.name for coluna in tabela.columns} - reais[tabela.name]:
+            raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
+
+
 @router.post("/importar")
 async def importar_backup(file: UploadFile = File(...)):
     if not file.filename or not file.filename.endswith(".db"):
@@ -71,10 +111,10 @@ async def importar_backup(file: UploadFile = File(...)):
     temp_path = DB_PATH + ".tmp"
     anterior_path = DB_PATH + ".anterior"
 
-    # limpar restos de tentativas anteriores
-    for p in (temp_path, anterior_path):
-        if os.path.exists(p):
-            os.remove(p)
+    # limpar só o temporário: o `.anterior` fica no disco até um restauro que
+    # passe a validação o substituir (D6)
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
 
     # 1) Escrever e validar ANTES de tocar no DB atual
     with open(temp_path, "wb") as f:
@@ -83,18 +123,11 @@ async def importar_backup(file: UploadFile = File(...)):
         os.fsync(f.fileno())
 
     try:
-        tabelas = _validar_sqlite(temp_path)
+        _validar_sqlite(temp_path)
+        _validar_estrutura(temp_path)
     except HTTPException:
         os.remove(temp_path)
         raise
-
-    faltam = TABELAS_ESPERADAS - tabelas
-    if faltam:
-        os.remove(temp_path)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Estrutura inesperada. Faltam tabelas: {sorted(faltam)}",
-        )
 
     # 2) Só agora mexemos no DB real
     engine.dispose()
@@ -107,10 +140,8 @@ async def importar_backup(file: UploadFile = File(...)):
         _limpar_wal_shm(DB_PATH)
         os.replace(temp_path, DB_PATH)
 
-        # 3) Verificação pós-swap: reabrir e fazer SELECTs reais
-        with engine.connect() as conn:
-            for t in TABELAS_ESPERADAS:
-                conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar()
+        # 3) Verificação pós-troca: a MESMA validação sobre a BD trocada
+        _validar_estrutura(DB_PATH)
 
     except Exception as e:
         # rollback
@@ -118,7 +149,6 @@ async def importar_backup(file: UploadFile = File(...)):
         try:
             if os.path.exists(anterior_path):
                 shutil.copy2(anterior_path, DB_PATH)
-                os.remove(anterior_path)
             _limpar_wal_shm(DB_PATH)
         except Exception:
             # rollback também falhou — pelo menos não esconder o erro original
@@ -126,8 +156,5 @@ async def importar_backup(file: UploadFile = File(...)):
         _limpar_wal_shm(DB_PATH)
         raise HTTPException(status_code=500, detail=f"Falha ao restaurar: {e}")
 
-    # 4) Só depois de tudo confirmado é que apagamos o .anterior
-    if os.path.exists(anterior_path):
-        os.remove(anterior_path)
-
+    # 4) O `.anterior` fica no disco: é substituído no restauro seguinte (D6)
     return {"ok": True, "mensagem": "Base de dados restaurada"}

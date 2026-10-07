@@ -199,6 +199,8 @@ entre si.
 
 ## 🔴 D6 — Restauro de backup valida só 3 das 11 tabelas
 
+### Descrição original
+
 `backend/routers/backups.py:13`:
 
 ```python
@@ -217,28 +219,68 @@ esperadas mas que tenha apenas a coluna `id` nessas tabelas é aceite com `200
 OK` e a base de dados fica inutilizável (quando se tenta ler tabelas existentes
 no modelo, SQLAlchemy levanta `OperationalError: no such column ...`).
 
-Resultado: um backup antigo ou de outra instalação é aceite, o `.anterior` de
-segurança é apagado (linhas 129-131) e o património inteiro — movimentos e
-preços — desaparece sem qualquer aviso. Como o `.anterior` só se apaga *depois*
-de tudo confirmar, e a confirmação é fraca, não há forma de recuperar.
+Resultado: um backup antigo ou de outra instalação era aceite, o `.anterior` de
+segurança era apagado no fim do restauro e o património inteiro — movimentos e
+preços — desaparecia sem qualquer aviso. Como o `.anterior` só se apagava
+*depois* de tudo confirmar, e a confirmação era fraca, não havia forma de
+recuperar.
 
-A lista das tabelas esperadas está fixada por testes de caracterização
+A lista das tabelas esperadas estava fixada por testes de caracterização
 (`backend/tests/test_backups/`) com os nomes reais do modelo. Esses testes não
-garantem a derivação automática da lista: quando `TABELAS_ESPERADAS` passar a
-derivar de `Base.metadata.sorted_tables` (fonte de verdade), os testes de
-caracterização irão falhar de propósito, para serem invertidos.
+garantiam a derivação automática da lista: quando `TABELAS_ESPERADAS` passasse
+a derivar de `Base.metadata.sorted_tables` (fonte de verdade), os testes de
+caracterização iriam falhar de propósito, para serem invertidos.
 
-O que ficou por cobrir: o único caminho que usa o ficheiro `.anterior` (rollback
-no bloco `except Exception`) não é atingível com os ficheiros construídos nos
-testes — o docstring mantém «Rollback por cobrir» por esse motivo. Não há caso
-de teste que consiga atingir esse ramo com uma base de dados temporária válida
-antes da substituição.
+**O que os testes mediram antes da correção:** para um `.db` que contém apenas
+as 3 tabelas esperadas (sem as restantes 8), o endpoint devolvia
+`200 {"ok": true, "mensagem": "Base de dados restaurada"}` e, ao ler uma tabela
+que não existe no novo estado (exemplo: `ativos`), o acesso levantava
+`OperationalError: no such table: ativos`. Este é o mesmo defeito que estava
+anotado como `xfail` no commit 398130b.
 
-**O que os testes mediram:** para um `.db` que contém apenas as 3 tabelas
-esperadas (sem as restantes 8), o endpoint devolve `200 {"ok": true, "mensagem":
-"Base de dados restaurada"}` e, ao ler uma tabela que não existe no novo estado
-(exemplo: `ativos`), o acesso levanta `OperationalError: no such table: ativos`.
-Este é o mesmo defeito que estava anotado como `xfail` no commit 398130b.
+### Resolvido
+
+- `backend/routers/backups.py:16` — `TABELAS_ESPERADAS` deriva de
+  `Base.metadata.sorted_tables` (as 11 tabelas do modelo, fonte de verdade): um
+  backup a que falte qualquer tabela do modelo é rejeitado com 400.
+- `backend/routers/backups.py:71-99` — `_validar_estrutura` nova. Compara as
+  tabelas reais com `TABELAS_ESPERADAS` e, tabela a tabela, as **colunas** do
+  modelo contra o backup. O ficheiro é aberto só em leitura
+  (`Path(path).resolve().as_uri() + "?mode=ro"`, linha 79) para nunca escrever
+  no ficheiro a validar. Tabelas e colunas **a mais** são aceites — apenas a
+  falta rejeita.
+- `backend/routers/backups.py:20` — falha de estrutura responde sempre 400 com
+  a mensagem única `"O ficheiro não corresponde a um backup válido do
+  Rastreio-DB"` (`MENSAGEM_ESTRUTURA`): por decisão do Pedro, o erro não diz o
+  que falta (não expõe o esquema interno).
+- `backend/routers/backups.py:124-131` — validação ANTES de tocar no DB: a
+  validação antiga (`_validar_sqlite`, linhas 49-68) e a nova
+  (`_validar_estrutura`) correm sobre o `.tmp` já gravado; em caso de rejeição
+  o `.tmp` é removido.
+- `backend/routers/backups.py:143-144` — verificação pós-troca usa a **mesma**
+  `_validar_estrutura` sobre o `DB_PATH`, no lugar dos três `SELECT COUNT(*)`.
+- O `.anterior` **nunca é apagado automaticamente**: a limpeza inicial
+  (`backups.py:114-117`) remove só o `.tmp`; no sucesso o `.anterior` fica no
+  disco (`backups.py:159-160`) até o restauro seguinte o substituir
+  (`shutil.copy2`, linha 137); no rollback (`backups.py:150-151`) a BD é
+  reposta a partir do `.anterior` e ele permanece (deixou de haver o
+  `os.remove`).
+- `backend/routers/backups.py:146-157` — o bloco `except Exception` continua a
+  devolver 500 (linha 157), sem tocar no `.anterior`.
+- `backend/tests/test_backups/test_importar.py` — caracterização invertida e
+  testes novos: validação exaustiva por tabela
+  (`test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado`), coluna em
+  falta (`test_coluna_em_falta_numa_so_tabela_e_rejeitado`), rejeição que não
+  toca num `.anterior` pré-existente, modelo completo com coluna extra aceite,
+  e `test_a_lista_validada_e_a_do_modelo`, que garante que a lista vem do
+  modelo — se a fonte de verdade mudar, o teste falha de propósito.
+
+**O que continua por cobrir:** o rollback (linhas 146-155) e a verificação
+pós-troca (linha 144) não são atingíveis com os ficheiros construídos nos
+testes: a validação pós-troca corre sobre um ficheiro que acabou de passar a
+validação prévia e o `os.replace` é atómico, por isso o ramo não falha de forma
+natural. O docstring de `backend/tests/test_backups/test_importar.py` mantém
+«Rollback por cobrir» com essa justificação.
 
 ## 🟡 D7 — Precedência das regras de categorização é não determinística
 
@@ -405,7 +447,7 @@ isoladamente.
   `SEED_TIPOS_ATIVO`, ao contrário de `routers/configuracao.py:29-39`. E o
   guard da linha 158 só olha para o número de categorias: se a BD já tiver
   categorias mas nenhum tipo de ativo, `popular()` sai sem os semear.
-- **D12h** — `routers/backups.py:64` — `filename.endswith(".db")` é
+- **D12h** — `routers/backups.py:104` — `filename.endswith(".db")` é
   case-sensitive: um ficheiro `BACKUP.DB` é rejeitado, e a recusa não diz
   porquê.
 - **D12i** — `tray.py:19` — porta `9742` hardcoded, duplicada de
@@ -673,6 +715,31 @@ continua sem guarda, e por isso `test_palavra_chave_vazia_casa_em_tudo`
 continua a passar — a frase acima ("o teste passa a falhar de propósito") só
 valeria se a validação tivesse sido também no motor. A barreira `trim()` do
 formulário (`Regras.jsx:48` e 51) mantém-se.
+
+## ⚪ D22 — Cópia do `.anterior` e do `.tmp` feitas no lugar
+
+`backend/routers/backups.py:137` — `shutil.copy2(DB_PATH, anterior_path)`
+escreve o `.anterior` **no lugar** (o `copy2` abre o destino e sobrescreve o
+conteúdo). Agora que o `.anterior` persiste no disco (D6), uma falha a meio da
+cópia — disco cheio, por exemplo — destrói o `.anterior` bom e deixa um
+ficheiro a meio, e o rollback (`backups.py:150-151`) reporia a BD a partir
+dessa cópia parcial.
+
+Pelo mesmo motivo, o `.tmp` que fique no disco se o `os.replace` da linha 141
+falhar não é removido no rollback (linhas 146-155): só desaparece no pedido
+seguinte, quando a limpeza inicial (linhas 116-117) o apaga.
+
+Correcção possível (não aplicada): copiar para um ficheiro temporário e
+renomear atómicamente, para que o `.anterior` só seja substituído quando a
+cópia está completa —
+
+```python
+anterior_tmp = anterior_path + ".tmp"
+shutil.copy2(DB_PATH, anterior_tmp)
+os.replace(anterior_tmp, anterior_path)
+```
+
+— e remover também o `.tmp` no rollback.
 
 ---
 
