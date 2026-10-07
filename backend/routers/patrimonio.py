@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import text, func
 from datetime import date
-from servicos.patrimonio_serv import gerar_evolucao
 from typing import List
-from database import get_db, Ativo as AtivoModel, MovimentoAtivo as MovimentoAtivoModel, PrecoAtivo as PrecoAtivoModel, Transacao as TransacaoModel
+
 import schemas
+from database import Ativo as AtivoModel
+from database import MovimentoAtivo as MovimentoAtivoModel
+from database import PrecoAtivo as PrecoAtivoModel
+from database import Transacao as TransacaoModel
+from database import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from servicos.patrimonio_serv import gerar_evolucao, _resumo_valor_ativo
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/patrimonio", tags=["patrimonio"])
 
@@ -158,23 +163,10 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
     movimentos = (
         db.query(MovimentoAtivoModel)
         .filter(MovimentoAtivoModel.ativo_id == ativo_id)
+        .order_by(MovimentoAtivoModel.data, MovimentoAtivoModel.id)
         .all()
     )
 
-    quantidade = 0.0
-    custo_total = 0.0
-    # Convenção de sinal: valor_total de uma "compra" chega já negativo do frontend
-    # (saída de dinheiro, tal como uma despesa). Por isso custo_total acumula negativo,
-    # e mais_menos_valia = valor_atual + custo_total já é a subtracção correta.
-    # Não trocar o "+" por "-" sem confirmar o sinal de valor_total.
-    for m in movimentos:
-        if m.tipo_movimento.value == "compra":
-            quantidade += float(m.quantidade or 0)
-            custo_total += float(m.valor_total)
-        elif m.tipo_movimento.value == "venda":
-            quantidade -= float(m.quantidade or 0)
-
-    # Preço mais recente
     preco_atual = (
         db.query(PrecoAtivoModel)
         .filter(PrecoAtivoModel.ativo_id == ativo_id)
@@ -182,22 +174,33 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
         .first()
     )
 
-    valor_atual = None
-    mais_menos_valia = None
-    if preco_atual:
-        if quantidade > 0:
-            valor_atual = round(quantidade * float(preco_atual.preco), 2)
-        else:
-            valor_atual = float(preco_atual.preco)
-        mais_menos_valia = round(valor_atual + custo_total, 2)  # custo_total já é negativo — ver nota acima
+    # Chama a função partilhada — zero duplicação de FIFO
+    resultado = _resumo_valor_ativo(ativo, movimentos, preco_atual)
+
+    realizado = round(resultado["realizado"], 2)
+    valor_atual = resultado["valor"]
+    custo_base = resultado["custo_base"]
+
+    if preco_atual and valor_atual is not None:
+        latente = round(valor_atual - custo_base, 2)
+    else:
+        latente = None
+
+    # mais_menos_valia = realizado + latente
+    # (o antigo era valor_atual + custo_total, onde custo_total era negativo).
+    # Esta fórmula mantém a invariante: valor total do ativo =
+    #   realizado (vendas concretizadas) + latente (valorização não realizada).
+    mais_menos_valia = round(realizado + (latente or 0.0), 2)
 
     return {
         "ativo_id": ativo_id,
-        "quantidade": round(quantidade, 6),
-        "custo_total": round(custo_total, 2),
+        "quantidade": round(resultado["quantidade"], 6),
+        "custo_total": round(-custo_base, 2),
         "preco_atual": float(preco_atual.preco) if preco_atual else None,
         "data_preco": str(preco_atual.data) if preco_atual else None,
         "valor_atual": valor_atual,
+        "realizado": realizado,
+        "latente": latente,
         "mais_menos_valia": mais_menos_valia,
     }
 

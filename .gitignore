@@ -12,6 +12,9 @@ backend/venv/
 __pycache__/
 *.pyc
 
+# Testes
+.pytest_cache/
+
 # Ficheiros com dados pessoais
 *.xlsx
 
@@ -21,3 +24,5 @@ backend/frontend_dist/
 backend/build/
 backend/dist/
 backend/*.spec
+
+.opencode

@@ -36,6 +36,31 @@ npm run dev
 
 Fica disponível em `http://localhost:9743`, com proxy para o backend configurado no Vite.
 
+## Testes
+A suite vive em `backend/tests/` e corre com o `pytest`. O `pytest.ini` está em `backend/`, por isso os testes correm sempre a partir de `backend/` — é lá que estão o `testpaths = tests` e o `pythonpath = .` de que os imports (`from database import ...`) dependem.
+
+### Instalar as dependências de testes
+```bash
+cd backend
+venv/bin/pip install -r requirements-dev.txt
+```
+O `requirements-dev.txt` inclui o `requirements.txt`, por isso não é preciso instalar os dois.
+
+### Correr os testes
+```bash
+./backend/test.sh
+```
+Ou, sem o script:
+```bash
+cd backend
+venv/bin/python -m pytest
+```
+
+### Antes de commit
+Corre os testes sempre que mexeres em `backend/`. O `test.sh` propaga o código de saída do `pytest`, por isso serve directamente num gancho de pré-commit.
+
+> **Nota:** o `pytest.ini` já traz `-q` nos `addopts`. Não repitas `-q` na linha de comandos: dois `-q` somam-se em `-qq` e escondem a linha final com o resumo.
+
 ## Estrutura do projeto
 Ver [arquitetura.md](./arquitetura.md).
 

@@ -16,6 +16,6 @@ export function preVisualizarRegras() {
     return client.post('/regras/pre-visualizar');
 }
 
-export function aplicarEmMassa(ids) {
-    return client.post('/regras/aplicar-em-massa', { ids });
+export function aplicarEmMassa(itens) {
+    return client.post('/regras/aplicar-em-massa', { itens });
 }

@@ -1,7 +1,9 @@
-from pydantic import BaseModel, ConfigDict, model_validator
-from typing import Optional
 from datetime import date
-from database import TipoCategoria, TipoMovimento, TipoContabilizacao
+from typing import Optional
+
+from database import TipoCategoria, TipoContabilizacao, TipoMovimento
+from pydantic import BaseModel, ConfigDict, model_validator
+
 
 # --- SCHEMAS DE CATEGORIA ---
 class CategoriaBase(BaseModel):
@@ -63,7 +65,8 @@ class Regra(RegraBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
-from database import TipoCategoria, ModoValor, TipoFicheiro
+from database import ModoValor, TipoFicheiro
+
 
 class PerfilImportacaoBase(BaseModel):
     nome: str
@@ -198,3 +201,16 @@ class Conta(ContaBase):
 
 class AssociarConta(BaseModel):
     conta_id: Optional[int] = None
+
+class AplicarEmMassaItem(BaseModel):
+    id: int
+    categoria_id: int
+    subcategoria_id: int | None = None
+
+class AplicarEmMassaPayload(BaseModel):
+    itens: list[AplicarEmMassaItem]
+
+class AplicarEmMassaResultado(BaseModel):
+    aplicadas: int
+    ignoradas: list[int]    # ids pedidos que não existem
+    invalidas: list[int]    # ids cuja categoria/subcategoria não bate certo
