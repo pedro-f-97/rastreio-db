@@ -10,8 +10,10 @@ O que **não** se repete aqui: os ramos felizes de `GET
 /api/patrimonio/ativos/{id}/resumo` e o núcleo `_resumo_valor_ativo` já estão
 fixados por `test_patrimonio_fifo.py`. Deste endpoint só se cobre o 404.
 
-Este commit cobre **ativos, movimentos e preços** de ativos (B2 a B23).
-Pendentes e evolução de património ficam para o commit seguinte.
+Cobre-se ativos, movimentos e preços de ativos (B2 a B23), e ainda os
+pendentes e a evolução de património (B1 e B24 a B30). A evolução não tem
+endpoint próprio para `calcular_patrimonio_em`, por isso é exercitada por
+`GET /api/patrimonio/evolucao`.
 
 Estado final da BD
 ------------------
@@ -35,12 +37,18 @@ from datetime import date
 
 from database import (
     Ativo,
+    Categoria,
+    Conta,
     MovimentoAtivo,
     PrecoAtivo,
+    Subcategoria,
     TipoAtivo,
+    TipoCategoria,
     TipoContabilizacao,
     TipoMovimento,
+    Transacao,
 )
+from routers import patrimonio as patrimonio_router
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +99,18 @@ def semear_preco(session, ativo, data, preco):
     session.add(registo)
     session.commit()
     return registo
+
+
+def semear_conta(session, nome, saldo_referencia, data_referencia):
+    conta = Conta(
+        nome=nome,
+        saldo_referencia=saldo_referencia,
+        data_referencia=data_referencia,
+        ativa=True,
+    )
+    session.add(conta)
+    session.commit()
+    return conta
 
 
 # ---------------------------------------------------------------------------
@@ -574,3 +594,382 @@ def test_resumo_de_ativo_inexistente_da_404(client, session):
 
     assert r.status_code == 404
     assert r.json()["detail"] == "Ativo não encontrado."
+
+
+# ---------------------------------------------------------------------------
+# B1 — GET /api/patrimonio/pendentes
+# ---------------------------------------------------------------------------
+
+def test_pendentes_so_transacoes_de_patrimonio_sem_movimento(client, session):
+    """Só entram transações de subcategoria de património e sem movimento.
+
+    Cálculo à mão: das cinco transações semeadas, só `t2` e `t1` cumprem:
+      * `t5` não tem subcategoria -> o `JOIN` interno com `subcategorias`
+        exclui-a;
+      * `t4` tem subcategoria com `trata_patrimonio=0` -> excluída;
+      * `t3` já tem um movimento ligado (`m.transacao_id`) -> o
+        `LEFT JOIN ... m.id IS NULL` exclui-a.
+
+    Sobram `t2` (2025-01-20) e `t1` (2025-01-10), por `data DESC`.
+    """
+    categoria = Categoria(nome="Investimentos", tipo=TipoCategoria.despesa)
+    session.add(categoria)
+    session.commit()
+    categoria_patrimonio = Subcategoria(
+        nome="Acoes", categoria_id=categoria.id, trata_patrimonio=True
+    )
+    categoria_normal = Subcategoria(
+        nome="Casa", categoria_id=categoria.id, trata_patrimonio=False
+    )
+    session.add_all([categoria_patrimonio, categoria_normal])
+    session.commit()
+
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+
+    t1 = Transacao(data=date(2025, 1, 10), descricao="Compra ETF",
+                   valor=-300.0, subcategoria_id=categoria_patrimonio.id)
+    t2 = Transacao(data=date(2025, 1, 20), descricao="Compra acoes",
+                   valor=-200.0, subcategoria_id=categoria_patrimonio.id)
+    t3 = Transacao(data=date(2025, 1, 15), descricao="Venda",
+                   valor=150.0, subcategoria_id=categoria_patrimonio.id)
+    t4 = Transacao(data=date(2025, 1, 5), descricao="Supermercado",
+                   valor=-50.0, subcategoria_id=categoria_normal.id)
+    t5 = Transacao(data=date(2025, 1, 1), descricao="Sem subcategoria",
+                   valor=-10.0, subcategoria_id=None)
+    session.add_all([t1, t2, t3, t4, t5])
+    session.commit()
+
+    movimento = MovimentoAtivo(
+        ativo_id=ativo.id,
+        transacao_id=t3.id,
+        tipo_movimento=TipoMovimento.venda,
+        data=date(2025, 1, 15),
+        valor_total=150.0,
+    )
+    session.add(movimento)
+    session.commit()
+
+    r = client.get("/api/patrimonio/pendentes")
+
+    assert r.status_code == 200
+    assert [p["id"] for p in r.json()] == [t2.id, t1.id]
+    assert [p["descricao"] for p in r.json()] == ["Compra acoes", "Compra ETF"]
+    assert [p["subcategoria_id"] for p in r.json()] == [
+        categoria_patrimonio.id,
+        categoria_patrimonio.id,
+    ]
+
+
+# ---------------------------------------------------------------------------
+# B24 — GET /api/patrimonio/evolucao (cenário completo)
+# ---------------------------------------------------------------------------
+
+def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
+    """Evolução de 2025-01-15 a 2025-03-20, com liquidez e dois tipos de ativo.
+
+    Semente, por conta e por data:
+      * conta A: `saldo_referencia=1000.00`, `data_referencia=2025-01-01`;
+        transações `2025-01-01 +50.00` e `2025-01-15 -200.00`;
+      * conta B: `saldo_referencia=100.00`, `data_referencia=2025-02-01`;
+      * ativo de investimento (com unidades): compra `2025-01-10` de 10 un.
+        por 200.00; preço `2025-01-20=25.00`; preço `2025-03-15=30.00`;
+      * ativo físico (sem unidades): compra `2025-01-05` de 15000.00; preço
+        `2025-03-01=15000.00`.
+
+    Cálculo à mão, ponto a ponto (`gerar_evolucao` faz `min(fim do mês,
+    data_fim)`):
+
+    * **2025-01-31**
+      - liquidez: conta A `1000.00 + (-200.00) = 800.00`. A transação de
+        `2025-01-01 +50.00` fica de fora: o filtro é `data >
+        conta.data_referencia` (estrito, DEVIDA-TECNICA: D3), e é exactamente a
+        data de referência. A conta B ainda não entrou (referência
+        `2025-02-01 > 2025-01-31`).
+      - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
+        `2025-03-15` é posterior, DEVIDA-TECNICA: D18) -> `10 x 25.00 = 250.00`.
+      - ativos_físicos: ainda sem preço até esta data -> `0.0`
+        (DEVIDA-TECNICA: D16).
+      - total: `800.00 + 250.00 + 0.0 = 1050.00`.
+    * **2025-02-28**
+      - liquidez: `800.00` (conta A) `+ 100.00` (conta B, cuja referência
+        `2025-02-01` já passou e sem transações próprias) `= 900.00`.
+      - investimentos: `250.00` (o preço de 30.00 só chega a `2025-03-15`).
+      - ativos_físicos: `0.0`.
+      - total: `900.00 + 250.00 + 0.0 = 1150.00`.
+    * **2025-03-20** (`min(2025-03-31, data_fim)`)
+      - liquidez: `900.00`.
+      - investimentos: `10 x 30.00 = 300.00`.
+      - ativos_físicos: `15000.00`.
+      - total: `900.00 + 300.00 + 15000.00 = 16200.00`.
+    """
+    conta_a = semear_conta(session, "A", 1000.00, date(2025, 1, 1))
+    semear_conta(session, "B", 100.00, date(2025, 2, 1))
+    session.add_all([
+        Transacao(data=date(2025, 1, 1), descricao="Entrada",
+                  valor=50.0, conta_id=conta_a.id),
+        Transacao(data=date(2025, 1, 15), descricao="Saída",
+                  valor=-200.0, conta_id=conta_a.id),
+    ])
+    session.commit()
+
+    tipo_unidades = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo_invest = semear_ativo(session, "Acao", tipo_unidades)
+    semear_movimento(session, ativo_invest, TipoMovimento.compra,
+                     date(2025, 1, 10), valor_total=-200.0, quantidade=10)
+    semear_preco(session, ativo_invest, date(2025, 1, 20), 25.00)
+    semear_preco(session, ativo_invest, date(2025, 3, 15), 30.00)
+
+    tipo_bem = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo_fisico = semear_ativo(session, "Casa", tipo_bem)
+    semear_movimento(session, ativo_fisico, TipoMovimento.compra,
+                     date(2025, 1, 5), valor_total=-15000.0)
+    semear_preco(session, ativo_fisico, date(2025, 3, 1), 15000.00)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-01-15", "data_fim": "2025-03-20"},
+    )
+
+    assert r.status_code == 200
+    pontos = r.json()
+    assert [p["data"] for p in pontos] == ["2025-01-31", "2025-02-28", "2025-03-20"]
+
+    assert pontos[0] == {
+        "data": "2025-01-31",
+        "liquidez": 800.00,
+        "investimentos": 250.00,
+        "ativos_fisicos": 0.0,
+        "total": 1050.00,
+    }
+    assert pontos[1] == {
+        "data": "2025-02-28",
+        "liquidez": 900.00,
+        "investimentos": 250.00,
+        "ativos_fisicos": 0.0,
+        "total": 1150.00,
+    }
+    assert pontos[2] == {
+        "data": "2025-03-20",
+        "liquidez": 900.00,
+        "investimentos": 300.00,
+        "ativos_fisicos": 15000.00,
+        "total": 16200.00,
+    }
+
+
+# ---------------------------------------------------------------------------
+# B25 — D2: o total pode divergir da soma dos componentes apresentados
+# ---------------------------------------------------------------------------
+
+def test_evolucao_total_pode_divergir_da_soma_dos_componentes(client, session):
+    """O `total` é arredondado da soma, não da soma dos arredondados (D2).
+
+    Cálculo à mão:
+      * conta: `saldo_referencia=0.005`, `data_referencia=2025-01-01`;
+      * ativo físico com compra de 1.00 e preço `0.01`;
+      * só há um ponto (`data_inicio = data_fim = 2025-06-30`).
+
+    Componentes devolvidos, cada um arredondado da mesma soma não arredondada:
+      - liquidez        = `round(0.005, 2)      = 0.01`
+      - investimentos   = `round(0.0, 2)        = 0.0`
+      - ativos_físicos  = `round(0.01, 2)       = 0.01`
+      - soma apresentada = `0.01 + 0.0 + 0.01   = 0.02`
+    Mas o total vem de `round(0.005 + 0.0 + 0.01, 2) = round(0.015, 2) = 0.01`.
+
+    DEVIDA-TECNICA: D2 — este é o comportamento ACTUAL: o `total` (0.01) não
+    bate com a soma dos três componentes visíveis no mesmo ecrã (0.02). Não se
+    corrige; fixa-se.
+    """
+    semear_conta(session, "A", 0.005, date(2025, 1, 1))
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Terreno", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 1), valor_total=-1.0)
+    semear_preco(session, ativo, date(2025, 1, 2), 0.01)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-06-30", "data_fim": "2025-06-30"},
+    )
+
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    ponto = r.json()[0]
+
+    soma_componentes = round(
+        ponto["liquidez"] + ponto["investimentos"] + ponto["ativos_fisicos"], 2
+    )
+    assert ponto["liquidez"] == 0.01
+    assert ponto["investimentos"] == 0.0
+    assert ponto["ativos_fisicos"] == 0.01
+    assert soma_componentes == 0.02
+    assert ponto["total"] == 0.01
+    assert ponto["total"] != soma_componentes
+
+
+# ---------------------------------------------------------------------------
+# B26 — D3: a fronteira da data de referência é estrita
+# ---------------------------------------------------------------------------
+
+def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
+    """Uma transação exactamente na data de referência fica de fora.
+
+    Cálculo à mão: conta `100.00`, `data_referencia=2025-01-01`, e uma
+    transação de `+50.00` na mesma data. O filtro é `data >
+    conta.data_referencia` (`servicos/patrimonio_serv.py:112`), estrito, pelo
+    que a liquidez é `100.00`.
+
+    DEVIDA-TECNICA: D3 — o `/api/contas/{id}/saldo`
+    (`routers/contas.py:62`) usa `data >= :data_referencia` e devolveria
+    `150.00` para a mesma conta. Divergem na mesma data.
+    """
+    conta = semear_conta(session, "A", 100.0, date(2025, 1, 1))
+    session.add(Transacao(data=date(2025, 1, 1), descricao="No limite",
+                          valor=50.0, conta_id=conta.id))
+    session.commit()
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-01-31", "data_fim": "2025-01-31"},
+    )
+
+    assert r.status_code == 200
+    ponto = r.json()[0]
+    assert ponto["liquidez"] == 100.00
+    assert ponto["total"] == 100.00
+
+
+# ---------------------------------------------------------------------------
+# B27 — D16: bem sem preço não conta para o património
+# ---------------------------------------------------------------------------
+
+def test_evolucao_bem_sem_preco_contribui_zero(client, session):
+    """Um bem comprado e sem preço registado conta 0 para o total.
+
+    Cálculo à mão: compra de `15000.00` num bem sem unidades e sem linha em
+    `precos_ativo`. Para um `data_alvo` depois da compra, `_resumo_valor_ativo`
+    devolve `valor = 0.0` (o valor do ramo dos bens vem do preço, não do
+    custo), pelo que `ativos_fisicos = 0.0` e o `total` também é `0.0`.
+
+    DEVIDA-TECNICA: D16 — o bem desaparece do total apesar do custo de
+    `15000.00`.
+    """
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Terreno", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 10), valor_total=-15000.0)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-01-31", "data_fim": "2025-01-31"},
+    )
+
+    assert r.status_code == 200
+    ponto = r.json()[0]
+    assert ponto["investimentos"] == 0.0
+    assert ponto["ativos_fisicos"] == 0.0
+    assert ponto["total"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# B28 — D18: a evolução ignora preços posteriores ao data_alvo
+# ---------------------------------------------------------------------------
+
+def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
+    """Um preço registado depois do `data_alvo` não entra no cálculo.
+
+    Cálculo à mão: ativo de investimento com 10 un. e um único preço a 20.00,
+    registado em `2025-06-01`. Para `data_alvo=2025-03-31`, o filtro
+    `PrecoAtivoModel.data <= data_alvo` (`servicos/patrimonio_serv.py:137`)
+    não encontra preço e o valor é `0.0`.
+
+    DEVIDA-TECNICA: D18 — o `GET /ativos/{id}/resumo` não tem esse limite de
+    data e usaria o preço de `2025-06-01`, mostrando um valor que a evolução
+    não mostra.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 10), valor_total=-100.0, quantidade=10)
+    semear_preco(session, ativo, date(2025, 6, 1), 20.00)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-03-31", "data_fim": "2025-03-31"},
+    )
+
+    assert r.status_code == 200
+    ponto = r.json()[0]
+    assert ponto["investimentos"] == 0.0
+    assert ponto["total"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# B29 — dividendo num bem sem unidades
+# ---------------------------------------------------------------------------
+
+def test_evolucao_dividendo_de_bem_nao_chega_ao_total(client, session):
+    """O dividendo de um bem sem unidades não entra no total do património.
+
+    Cálculo à mão: bem com compra de `10000.00`, dividendo de `500.00` e preço
+    de `10000.00`. O ramo dos bens soma o dividendo ao `realizado`
+    (`servicos/patrimonio_serv.py:49-51`), mas `calcular_patrimonio_em` só lê
+    o campo `valor` (`:145`): o dividendo não chega ao `ativos_fisicos` nem ao
+    `total`, que ficam em `10000.00`.
+    """
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Casa", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 10), valor_total=-10000.0)
+    semear_movimento(session, ativo, TipoMovimento.dividendo,
+                     date(2025, 2, 10), valor_total=500.0)
+    semear_preco(session, ativo, date(2025, 2, 15), 10000.0)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-03-31", "data_fim": "2025-03-31"},
+    )
+
+    assert r.status_code == 200
+    ponto = r.json()[0]
+    assert ponto["ativos_fisicos"] == 10000.0
+    assert ponto["total"] == 10000.0
+
+
+# ---------------------------------------------------------------------------
+# B30 — datas por omissão de /evolucao
+# ---------------------------------------------------------------------------
+
+def test_evolucao_sem_parametros_usa_hoje_como_data_fim(client, session, monkeypatch):
+    """"Hoje" é injectado, para fixar as linhas 213-218 sem usar a data real.
+
+    Sem parâmetros, `data_fim = date.today()` e, sem transações,
+    `data_inicio = data_fim` (`routers/patrimonio.py:213-218`). Em vez de
+    depender da data real do dia, substitui-se o símbolo `date` do módulo do
+    router por uma subclasse que devolve `2025-06-30` em `today()`. É só
+    "hoje" que muda; a construção de datas da evolução continua a correr no
+    módulo do serviço.
+
+    Cálculo à mão: conta `100.00` referência `2025-01-01`, sem transações ->
+    um só ponto, em `2025-06-30`, com liquidez `100.00` e total `100.00`.
+    """
+    from datetime import date as Date
+
+    class HojeFixo(Date):
+        @classmethod
+        def today(cls):
+            return cls(2025, 6, 30)
+
+    monkeypatch.setattr(patrimonio_router, "date", HojeFixo)
+
+    semear_conta(session, "A", 100.0, date(2025, 1, 1))
+
+    r = client.get("/api/patrimonio/evolucao")
+
+    assert r.status_code == 200
+    pontos = r.json()
+    assert len(pontos) == 1
+    assert pontos[0]["data"] == "2025-06-30"
+    assert pontos[0]["liquidez"] == 100.00
+    assert pontos[0]["total"] == 100.00
