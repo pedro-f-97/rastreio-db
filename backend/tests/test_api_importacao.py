@@ -1,0 +1,613 @@
+"""Testes de API de `POST /api/importacao/preview` e `POST /api/importacao/importar`.
+
+Cobrem os dois endpoints do router de importação (`backend/routers/importacao.py`)
+e, com eles, o motor `importar_transacoes` (`backend/importador_transacoes.py`),
+que só é chamado por aqui. O parser já está caracterizado em
+`test_parser_importacao.py`; aqui testa-se a ligação.
+
+Rotas reais
+-----------
+`/api/importacao/preview` (`importacao.py:15`) e `/api/importacao/importar`
+(`importacao.py:35`). O `perfil_id` é um parâmetro de consulta (`?perfil_id=`);
+o ficheiro vai em `multipart/form-data`, campo `file`.
+
+O que os endpoints fazem, lido por ordem
+----------------------------------------
+* `_obter_perfil` (`importacao.py:9-13`) corre **antes** de ler o ficheiro. Se o
+  id não existir, responde 404 `"Perfil não encontrado."`.
+* `preview_extrato` (`:15-33`) analisa o ficheiro; qualquer excepção vira 400 com
+  `detail=str(e)`; devolve `transacoes[:10]` com a `data` convertida a `str`,
+  mais `total_linhas` e `erros`. **Não escreve nada na base de dados.**
+* `importar_extrato` (`:35-45`) analisa o ficheiro; 400 se
+  `not transacoes and erros`; senão chama
+  `importar_transacoes(transacoes, db, conta_id=perfil.conta_id)`.
+
+Regra de deduplicação, lida do código (`importador_transacoes.py:31-48`)
+-----------------------------------------------------------------------
+1. A chave é o 4-uplo `(data, descricao, valor, saldo)`, com comparação
+   **exacta**: `descricao` tal como o parser a produziu, `valor`/`saldo` sem
+   arredondar, e `saldo` distingue `None` de `0.0`.
+2. A comparação é feita **só contra transacções da mesma conta**
+   (`filter(Transacao.conta_id == conta_id)`). Com `conta_id=None` o SQLAlchemy
+   traduz `== None` para `IS NULL`, pelo que só compara com transacções de
+   `conta_id` NULL.
+3. `existentes` é lido uma vez, antes do ciclo, e **nunca é actualizado** durante
+   a inserção: linhas repetidas **dentro do mesmo ficheiro** não são
+   deduplicadas.
+
+Convenções fixadas (comportamento actual, não corrigido)
+--------------------------------------------------------
+* Um erro por linha **não** faz o endpoint falhar: o parser acumula-o em `erros`
+  e o preview devolve 200 com a lista. Só uma excepção do parser (ficheiro
+  ilegível, p.ex.) é que vira 400.
+* Ficheiro sem transacções e sem erros (só cabeçalho/linhas vazias) →
+  `importar_transacoes([])` → 200 `{"inseridas": 0, "duplicadas": 0}`. É
+  defensável: nada para importar não é um erro.
+* Linhas repetidas no mesmo ficheiro entram todas (`inseridas` iguais). É
+  defensável: duas transacções iguais no mesmo dia podem ser reais (dois cafés,
+  por exemplo), e a deduplicação é só contra o que já existe na conta.
+
+Nada aqui é corrigido nem dá origem a item novo de dívida técnica. Onde o
+comportamento é questionável, um `# DEVIDA-TECNICA: Dn` aponta o item existente.
+
+Valores esperados
+-----------------
+Calculados à mão e escritos como constantes, com o cálculo no comentário de cada
+teste. As datas são fixas em 2026: nenhum teste assenta na data de hoje. O perfil
+e a conta são criados com as classes e enums reais (`PerfilImportacao`,
+`Conta`, `TipoFicheiro`, `ModoValor`) e os ids são os que a base de dados nova
+atribui, nunca números fixos.
+"""
+
+from datetime import date
+
+from database import (
+    Categoria,
+    Conta,
+    ModoValor,
+    PerfilImportacao,
+    RegraCategorizacao,
+    Subcategoria,
+    TipoCategoria,
+    TipoFicheiro,
+    Transacao,
+)
+
+
+# ---------------------------------------------------------------------------
+# Auxiliares
+# ---------------------------------------------------------------------------
+
+def _criar_conta(session, nome="Conta X"):
+    """Cria uma conta com data de referência fixa e devolve-a com `id`."""
+    conta = Conta(
+        nome=nome,
+        saldo_referencia=0.0,
+        data_referencia=date(2026, 1, 1),
+        ativa=True,
+    )
+    session.add(conta)
+    session.commit()
+    session.refresh(conta)
+    return conta
+
+
+def _criar_perfil(session, **campos):
+    """Cria um perfil de importação CSV por omissão.
+
+    Os valores por omissão são o cenário mais comum: CSV com vírgula decimal,
+    uma coluna de valor e uma data por linha, dados a começar na linha 2. Os
+    campos passados em `campos` sobrepõem-se. Devolve o perfil com `id`.
+    """
+    perfil = PerfilImportacao(
+        nome="Perfil de teste",
+        tipo_ficheiro=TipoFicheiro.csv,
+        linha_inicio_dados=2,
+        coluna_data=0,
+        formato_data="%d/%m/%Y",
+        coluna_descricao=1,
+        modo_valor=ModoValor.coluna_unica,
+        coluna_valor=2,
+        separador_decimal=",",
+        tem_saldo=False,
+        conta_id=None,
+    )
+    for campo, valor in campos.items():
+        setattr(perfil, campo, valor)
+    session.add(perfil)
+    session.commit()
+    session.refresh(perfil)
+    return perfil
+
+
+def escrever_csv(caminho, linhas, codificacao="utf-8-sig"):
+    """Escreve um CSV verdadeiro no disco e devolve o caminho.
+
+    Copiado de `tests/test_parser_importacao.py` (por ser curto): a chave está
+    em `utf-8-sig`, que é como o Excel exporta em português, com a marca de ordem
+    de bytes no princípio do ficheiro.
+    """
+    caminho.write_text("".join(linha + "\n" for linha in linhas), encoding=codificacao)
+    return caminho
+
+
+# Extrato CSV limpo, duas linhas válidas, para os cenários de importação.
+CSV_DUAS_LINHAS = (
+    "Data,Descrição,Valor",
+    '31/01/2026,Supermercado,"-45,60"',
+    '02/02/2026,Salário,"1500,00"',
+)
+
+# As duas transacções que `CSV_DUAS_LINHAS` produz, calculadas à mão:
+#   linha 2: "-45,60" -> -45.60 ; linha 3: "1500,00" -> 1500.00 ; saldo ausente
+#   (tem_saldo=False) -> None.
+TRANSACOES_DUAS_LINHAS = [
+    {"data": date(2026, 1, 31), "descricao": "Supermercado", "valor": -45.6, "saldo": None},
+    {"data": date(2026, 2, 2), "descricao": "Salário", "valor": 1500.0, "saldo": None},
+]
+
+
+def _pedido_preview(client, perfil_id, conteudo, nome="extrato.csv"):
+    return client.post(
+        f"/api/importacao/preview?perfil_id={perfil_id}",
+        files={"file": (nome, conteudo, "text/csv")},
+    )
+
+
+def _pedido_importar(client, perfil_id, conteudo, nome="extrato.csv"):
+    return client.post(
+        f"/api/importacao/importar?perfil_id={perfil_id}",
+        files={"file": (nome, conteudo, "text/csv")},
+    )
+
+
+# ---------------------------------------------------------------------------
+# /preview
+# ---------------------------------------------------------------------------
+
+def test_preview_devolve_as_primeiras_linhas_sem_tocar_na_bd(client, session, tmp_path):
+    """Duas linhas válidas: 200 com as duas, e a base de dados fica vazia.
+
+    Cálculo à mão: `str(date(2026, 1, 31))` = "2026-01-31" e
+    `str(date(2026, 2, 2))` = "2026-02-02"; os valores saem tal como o parser os
+    lê (`TRANSACOES_DUAS_LINHAS`). `total_linhas` = 2 transacções + 0 erros.
+    """
+    perfil = _criar_perfil(session)
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
+
+    r = _pedido_preview(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "linhas_preview": [
+            {"data": "2026-01-31", "descricao": "Supermercado", "valor": -45.6, "saldo": None},
+            {"data": "2026-02-02", "descricao": "Salário", "valor": 1500.0, "saldo": None},
+        ],
+        "total_linhas": 2,
+        "erros": [],
+    }
+    # O preview é só-leitura: nenhuma transacção foi criada.
+    assert session.query(Transacao).count() == 0
+
+
+def test_preview_limita_a_dez_linhas(client, session, tmp_path):
+    """Com 11 linhas, o preview mostra as 10 primeiras e conta as 11.
+
+    Gera-se com um ciclo: para `n` em 1..11, a linha é `{n:02d}/01/2026`,
+    descrição "Linha {n}" e valor `"-{n},00"` (logo -n,00). A décima linha do
+    preview é a n=10; a n=11 não aparece. `total_linhas` = 11.
+    """
+    perfil = _criar_perfil(session)
+    linhas = ["Data,Descrição,Valor"]
+    for n in range(1, 12):
+        linhas.append(f'{n:02d}/01/2026,Linha {n},"-{n},00"')
+    caminho = escrever_csv(tmp_path / "onze.csv", linhas)
+
+    r = _pedido_preview(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    corpo = r.json()
+    preview = corpo["linhas_preview"]
+    assert len(preview) == 10
+    assert preview[0] == {
+        "data": "2026-01-01", "descricao": "Linha 1", "valor": -1.0, "saldo": None,
+    }
+    assert preview[9] == {
+        "data": "2026-01-10", "descricao": "Linha 10", "valor": -10.0, "saldo": None,
+    }
+    assert corpo["total_linhas"] == 11
+    assert corpo["erros"] == []
+
+
+def test_preview_reporta_linha_invalida_como_erro_sem_400(client, session, tmp_path):
+    """Uma data inválida não faz 400: entra na lista de erros e o resto passa.
+
+    Cálculo à mão: a linha 3 é 31 de fevereiro, que o `strptime` recusa; o parser
+    acumula `{"linha": 3, "erro": ...}` e continua. Sobra 1 transacção, logo
+    `total_linhas` = 1 + 1 = 2 e o preview tem 1 linha.
+    """
+    perfil = _criar_perfil(session)
+    caminho = escrever_csv(tmp_path / "com_erro.csv", (
+        "Data,Descrição,Valor",
+        '31/01/2026,Supermercado,"-45,60"',
+        '31/02/2026,Café,"-3,20"',
+    ))
+
+    r = _pedido_preview(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "linhas_preview": [
+            {"data": "2026-01-31", "descricao": "Supermercado", "valor": -45.6, "saldo": None},
+        ],
+        "total_linhas": 2,
+        "erros": [
+            {"linha": 3, "erro": "data inválida: '31/02/2026' (formato esperado: %d/%m/%Y)"},
+        ],
+    }
+    assert session.query(Transacao).count() == 0
+
+
+def test_preview_com_perfil_inexistente_da_404(client):
+    """Um `perfil_id` que não existe dá 404, antes de o ficheiro ser lido.
+
+    `_obter_perfil` corre na linha 17, antes do `file.read()` da linha 18, por
+    isso o conteúdo enviado é irrelevante e pode ir vazio. Não pede `session`:
+    nada é lido da base de dados para além da procura do perfil.
+    """
+    r = _pedido_preview(client, 999999, b"")
+
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Perfil não encontrado."}
+
+
+def test_preview_com_ficheiro_indescodificavel_da_400(client, session):
+    """Bytes que não são UTF-8 válido fazem o parser rebentar e o router dar 400.
+
+    O perfil é CSV, logo `_ler_linhas_csv` chama `file_bytes.decode("utf-8-sig")`
+    (`parser_importacao.py:47`); `0xff` não é um início válido e levanta
+    `UnicodeDecodeError`. O `except Exception` do router (`importacao.py:21`)
+    apanha-a e responde 400 com `detail=str(e)`.
+
+    Nota de comportamento: este `except Exception` transforma **qualquer** erro
+    de programação em 400, o que esconde bugs servidor. Não é corrigido aqui e
+    não corresponde a nenhum item da dívida técnica. A mensagem real é do codec,
+    por isso só se afirma o código e que `detail` é uma string não vazia.
+    """
+    perfil = _criar_perfil(session)
+    conteudo_invalido = b"\xff\xfe31/01/2026,Supermercado,\"-45,60\""
+
+    r = _pedido_preview(client, perfil.id, conteudo_invalido)
+
+    assert r.status_code == 400
+    detalhe = r.json()["detail"]
+    assert isinstance(detalhe, str) and detalhe
+
+
+# ---------------------------------------------------------------------------
+# /importar — inserção e deduplicação
+# ---------------------------------------------------------------------------
+
+def test_importar_insere_e_devolve_contagens(client, session, tmp_path):
+    """Duas linhas novas: 200 com `{"inseridas": 2, "duplicadas": 0}`.
+
+    Estado final, lido pela sessão: 2 transacções na conta do perfil, sem
+    categoria nem subcategoria (não há regras semeadas), `saldo` None e
+    `reembolso` False (o default do modelo).
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 2, "duplicadas": 0}
+
+    guardadas = session.query(Transacao).order_by(Transacao.data).all()
+    assert [
+        (t.data, t.descricao, t.valor, t.saldo, t.conta_id,
+         t.categoria_id, t.subcategoria_id, t.reembolso)
+        for t in guardadas
+    ] == [
+        (date(2026, 1, 31), "Supermercado", -45.6, None, conta.id, None, None, False),
+        (date(2026, 2, 2), "Salário", 1500.0, None, conta.id, None, None, False),
+    ]
+
+
+def test_importar_duas_vezes_deduplica(client, session, tmp_path):
+    """Importar o mesmo ficheiro outra vez não cria nada: as duas são duplicadas.
+
+    Cálculo à mão: na 2.ª chamada `existentes` já contém
+    `(2026-01-31, "Supermercado", -45.6, None)` e
+    `(2026-02-02, "Salário", 1500.0, None)`, que são exactamente as duas chaves
+    do ficheiro. Logo `inseridas` = 0 e `duplicadas` = 2; a base de dados fica
+    com as 2 linhas da primeira importação.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
+    conteudo = caminho.read_bytes()
+
+    _pedido_importar(client, perfil.id, conteudo)
+    r = _pedido_importar(client, perfil.id, conteudo)
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 0, "duplicadas": 2}
+    assert session.query(Transacao).count() == 2
+
+
+def test_dedup_usa_os_quatro_campos(client, session, tmp_path):
+    """A chave é `(data, descricao, valor, saldo)`: mudar um campo escapa à dedup.
+
+    Semeia-se `(2026-02-02, "Salário", 1500.0, None)`. O ficheiro traz essa linha
+    igual (duplicada) e uma outra, nova:
+      Supermercado  -> chave nova                    -> inserida
+      Salário       -> chave igual à semeada         -> duplicada
+    Resultado: `{"inseridas": 1, "duplicadas": 1}`; a base de dados fica com as
+    2 linhas (a semeada + a nova).
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    session.add(Transacao(
+        data=date(2026, 2, 2), descricao="Salário", valor=1500.0, saldo=None,
+        conta_id=conta.id,
+    ))
+    session.commit()
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 1, "duplicadas": 1}
+    assert session.query(Transacao).count() == 2
+
+
+def test_dedup_com_saldo_distinto_nao_e_duplicado(client, session, tmp_path):
+    """Com `tem_saldo`, um saldo diferente faz a linha deixar de ser duplicada.
+
+    Semeia-se `(2026-01-31, "Supermercado", -45.6, saldo=100.0)`. A linha
+    importada é igual em data, descrição e valor, mas com saldo `200,00` ->
+    200.0. As chaves diferem no quarto campo:
+      semeada   (2026-01-31, "Supermercado", -45.6, 100.0)
+      importada (2026-01-31, "Supermercado", -45.6, 200.0)
+    -> não é duplicada: `{"inseridas": 1, "duplicadas": 0}`. É este o caso que a
+    mutação de tirar o `saldo` da chave tem de apanhar.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(
+        session, conta_id=conta.id, tem_saldo=True, coluna_saldo=3,
+    )
+    session.add(Transacao(
+        data=date(2026, 1, 31), descricao="Supermercado", valor=-45.6,
+        saldo=100.0, conta_id=conta.id,
+    ))
+    session.commit()
+    caminho = escrever_csv(tmp_path / "com_saldo.csv", (
+        "Data,Descrição,Valor,Saldo",
+        '31/01/2026,Supermercado,"-45,60","200,00"',
+    ))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 1, "duplicadas": 0}
+    assert session.query(Transacao).count() == 2
+
+
+def test_dedup_com_saldo_zero_contra_none_nao_e_duplicado(client, session, tmp_path):
+    """A chave distingue `saldo=0.0` de `saldo=None`.
+
+    Semeia-se `(2026-01-31, "Supermercado", -45.6, saldo=None)`. A linha
+    importada tem saldo `0,00` -> 0.0. Em Python `0.0 != None` e o SQLAlchemy
+    compara-os como valores distintos, logo as chaves diferem:
+      semeada   (2026-01-31, "Supermercado", -45.6, None)
+      importada (2026-01-31, "Supermercado", -45.6, 0.0)
+    -> não é duplicada: `{"inseridas": 1, "duplicadas": 0}`.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(
+        session, conta_id=conta.id, tem_saldo=True, coluna_saldo=3,
+    )
+    session.add(Transacao(
+        data=date(2026, 1, 31), descricao="Supermercado", valor=-45.6,
+        saldo=None, conta_id=conta.id,
+    ))
+    session.commit()
+    caminho = escrever_csv(tmp_path / "saldo_zero.csv", (
+        "Data,Descrição,Valor,Saldo",
+        '31/01/2026,Supermercado,"-45,60","0,00"',
+    ))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 1, "duplicadas": 0}
+    assert session.query(Transacao).count() == 2
+
+
+def test_dedup_e_por_conta(client, session, tmp_path):
+    """A mesma transacção noutra conta não conta como duplicado.
+
+    Semeia-se a transacção `(2026-01-31, "Supermercado", -45.6, None)` na conta
+    2. O perfil aponta para a conta 1. Na consulta de existentes
+    (`filter(Transacao.conta_id == conta_id)`), a linha da conta 2 não entra,
+    logo a linha importada é nova -> `{"inseridas": 1, "duplicadas": 0}`. A base
+    de dados fica com 2 linhas: uma por conta.
+    """
+    conta1 = _criar_conta(session, nome="Conta 1")
+    conta2 = _criar_conta(session, nome="Conta 2")
+    perfil = _criar_perfil(session, conta_id=conta1.id)
+    session.add(Transacao(
+        data=date(2026, 1, 31), descricao="Supermercado", valor=-45.6,
+        saldo=None, conta_id=conta2.id,
+    ))
+    session.commit()
+    caminho = escrever_csv(tmp_path / "extrato.csv", (
+        "Data,Descrição,Valor",
+        '31/01/2026,Supermercado,"-45,60"',
+    ))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 1, "duplicadas": 0}
+    assert session.query(Transacao).count() == 2
+    nova = session.query(Transacao).filter_by(conta_id=conta1.id).one()
+    assert (nova.data, nova.descricao, nova.valor, nova.saldo) == (
+        date(2026, 1, 31), "Supermercado", -45.6, None,
+    )
+
+
+def test_linhas_repetidas_no_mesmo_ficheiro_nao_sao_deduplicadas(client, session, tmp_path):
+    """Duas linhas iguais no mesmo ficheiro entram as duas.
+
+    Comportamento actual: `existentes` é lido antes do ciclo e nunca recebe as
+    chaves novas, por isso a segunda linha repetida não é vista como duplicada
+    -> `{"inseridas": 2, "duplicadas": 0}`. É defensável: dois movimentos iguais
+    no mesmo dia podem ser reais (dois cafés) e a deduplicação é, por desenho,
+    só contra o que já existia na conta. Fixa-se o comportamento actual.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "repetido.csv", (
+        "Data,Descrição,Valor",
+        '31/01/2026,Supermercado,"-45,60"',
+        '31/01/2026,Supermercado,"-45,60"',
+    ))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 2, "duplicadas": 0}
+    assert session.query(Transacao).count() == 2
+
+
+def test_importar_perfil_sem_conta_deduplica_por_is_null(client, session, tmp_path):
+    """Sem conta, o perfil escreve `conta_id=None` e a dedup compara `IS NULL`.
+
+    Cálculo à mão: `filter(Transacao.conta_id == None)` é traduzido pelo
+    SQLAlchemy para `IS NULL`. A 1.ª importação cria 2 transacções com
+    `conta_id=None`; na 2.ª, essas 2 entram em `existentes` e o ficheiro repete
+    as mesmas chaves -> `{"inseridas": 0, "duplicadas": 2}`.
+    """
+    perfil = _criar_perfil(session, conta_id=None)
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
+    conteudo = caminho.read_bytes()
+
+    primeira = _pedido_importar(client, perfil.id, conteudo)
+    segunda = _pedido_importar(client, perfil.id, conteudo)
+
+    assert primeira.json() == {"inseridas": 2, "duplicadas": 0}
+    assert segunda.status_code == 200
+    assert segunda.json() == {"inseridas": 0, "duplicadas": 2}
+    assert session.query(Transacao).count() == 2
+    assert all(t.conta_id is None for t in session.query(Transacao).all())
+
+
+# ---------------------------------------------------------------------------
+# /importar — regras de categorização e casos-limite
+# ---------------------------------------------------------------------------
+
+def test_importar_aplica_regras_de_categorizacao(client, session, tmp_path):
+    """Durante a importação, as regras da base de dados categorizam as linhas.
+
+    `importar_transacoes` carrega todas as `RegraCategorizacao` (linha 26) e
+    chama `aplicar_regras` por cada transacção nova (linha 57). Semeiam-se duas
+    regras desencontradas (os padrões não se cruzam, para não depender da ordem,
+    que é a D7):
+      "supermercado" (categoria definida) -> categoriza
+      "café"         (categoria_id None)  -> exclusão, deixa sem categoria
+    O ficheiro traz "Supermercado" e "Café":
+      Supermercado -> fica com (categoria, subcategoria) da regra
+      Café         -> fica com (None, None)
+    """
+    categoria = Categoria(nome="Alimentação", tipo=TipoCategoria.despesa)
+    session.add(categoria)
+    session.commit()
+    session.refresh(categoria)
+    subcategoria = Subcategoria(nome="Supermercado", categoria_id=categoria.id)
+    session.add(subcategoria)
+    session.commit()
+    session.refresh(subcategoria)
+
+    session.add(RegraCategorizacao(
+        palavra_chave="supermercado",
+        categoria_id=categoria.id,
+        subcategoria_id=subcategoria.id,
+    ))
+    session.add(RegraCategorizacao(
+        palavra_chave="café", categoria_id=None, subcategoria_id=None,
+    ))
+    session.commit()
+
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "com_regras.csv", (
+        "Data,Descrição,Valor",
+        '31/01/2026,Supermercado,"-45,60"',
+        '01/02/2026,Café,"-3,20"',
+    ))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 2, "duplicadas": 0}
+
+    supermercado = session.query(Transacao).filter_by(descricao="Supermercado").one()
+    assert (supermercado.categoria_id, supermercado.subcategoria_id) == (
+        categoria.id, subcategoria.id,
+    )
+    cafe = session.query(Transacao).filter_by(descricao="Café").one()
+    assert (cafe.categoria_id, cafe.subcategoria_id) == (None, None)
+
+
+def test_importar_sem_transacoes_validas_da_400(client, session, tmp_path):
+    """Só com erros e nenhuma transacção válida, o endpoint recusa com 400.
+
+    cálculo à mão: a única linha de dados (linha 2) tem data inválida, logo
+    `transacoes == []` e `erros != []`; a guarda `not transacoes and erros`
+    (`importacao.py:43`) dispara e responde 400. A base de dados fica vazia.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "tudo_invalido.csv", (
+        "Data,Descrição,Valor",
+        '31/02/2026,Café,"-3,20"',
+    ))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": "Nenhuma transação válida encontrada. Verifica o perfil.",
+    }
+    assert session.query(Transacao).count() == 0
+
+
+def test_importar_ficheiro_sem_dados_da_200_com_zero(client, session, tmp_path):
+    """Um ficheiro só com cabeçalho (zero transacções, zero erros) dá 200 a zeros.
+
+    O parser devolve `{transacoes: [], total_linhas: 0, erros: []}`; como `erros`
+    está vazio, a guarda da linha 43 não dispara e chama-se
+    `importar_transacoes([])`, que devolve `{"inseridas": 0, "duplicadas": 0}`.
+    Comportamento actual, considerado defensável: não haver nada para importar
+    não é um erro. Fixa-se tal como está.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "so_cabecalho.csv", ("Data,Descrição,Valor",))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 0, "duplicadas": 0}
+    assert session.query(Transacao).count() == 0
+
+
+def test_importar_com_perfil_inexistente_da_404(client):
+    """Um `perfil_id` que não existe dá 404, sem tocar na base de dados."""
+    r = _pedido_importar(client, 999999, b"")
+
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Perfil não encontrado."}
