@@ -42,6 +42,10 @@ para o válido, com o corpo `[]` (a base de dados de teste está vazia, e
 assenta na data de hoje nem toca na base de dados real.
 """
 
+from datetime import date
+
+from database import Categoria, Subcategoria, Transacao, TipoCategoria
+
 
 def test_detalhe_mensal_mes_13_da_422(client):
     """`mes=13` é rejeitado pelo `Query(ge=1, le=12)`, com 422.
@@ -104,3 +108,426 @@ def test_detalhe_mensal_mes_12_com_bd_vazia_da_200(client):
 
     assert r.status_code == 200
     assert r.json() == []
+
+
+# ---------------------------------------------------------------------------
+# Auxiliares dos testes novos (por-categoria, por-subcategoria, resumo-mensal)
+# ---------------------------------------------------------------------------
+
+def semear_categoria(session, nome, tipo):
+    categoria = Categoria(nome=nome, tipo=tipo)
+    session.add(categoria)
+    session.commit()
+    return categoria
+
+
+def semear_subcategoria(session, nome, categoria):
+    subcategoria = Subcategoria(nome=nome, categoria_id=categoria.id)
+    session.add(subcategoria)
+    session.commit()
+    return subcategoria
+
+
+def semear_transacao(session, data, descricao, valor, categoria,
+                     subcategoria=None, reembolso=False):
+    transacao = Transacao(
+        data=data,
+        descricao=descricao,
+        valor=valor,
+        reembolso=reembolso,
+        categoria_id=categoria.id,
+        subcategoria_id=subcategoria.id if subcategoria else None,
+    )
+    session.add(transacao)
+    session.commit()
+    return transacao
+
+
+# ---------------------------------------------------------------------------
+# A1/A2 — GET /api/estatisticas/resumo-mensal
+# ---------------------------------------------------------------------------
+
+def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client, session):
+    """O resumo-mensal agrega por mês e calcula poupança, média e mediana.
+
+    Cenário semeado:
+      2025-03-05  Receita       +1000,00  (ramo A de _calculate_totals)
+      2025-03-10  Casa           -300,00  (ramo C)
+      2025-03-18  Casa            +50,00  reembolso=True (ramo D)
+      2025-04-02  Transferência  -500,00  (mês só com transferência)
+      2025-06-25  Investimento  -1000,00  (mês só com investimento)
+
+    Cálculo à mão, mês a mês:
+      março: receitas = 1000,0; despesas = -300,0 + 50,0 = -250,0;
+        poupança = round(1000,0 + (-250,0), 2) = 750,0 (linha 35) e o
+        investimento não entra na poupança
+      abril: só transferência: _calculate_totals ignora-a (linha 277), mas
+        `todos_meses` (linhas 16-19) não filtra transferências e as linhas
+        23-26 acrescentam o mês a zeros -> aparece no output a zeros. É a
+        mesma raiz da D5 a entrar no denominador das médias noutro endpoint
+        (DEVIDA-TECNICA: D5).
+      junho: só investimento: a chave é criada na linha 278 com
+        investimento -1000,0 e receitas/despesas a zero.
+      fevereiro (sem transacções) não está em `todos_meses`, por isso não
+      aparece em lado nenhum.
+
+    Média e mediana sobre totais_despesas = [-250,0, 0,0, 0,0]:
+      media_mensal   = round((-250,0 + 0,0 + 0,0) / 3, 2)
+                     = round(-83,333…, 2) = -83.33
+      mediana_mensal = median([-250,0, 0,0, 0,0]) = 0,0 (ordenado, o central)
+
+    Estado final da BD: as 5 transacções continuam (o GET não escreve).
+    """
+    receita = semear_categoria(session, "Receita", TipoCategoria.receita)
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    transferencia = semear_categoria(session, "Transferência", TipoCategoria.transferencia)
+    investimento = semear_categoria(session, "Investimento", TipoCategoria.investimento)
+
+    semear_transacao(session, date(2025, 3, 5), "Ordenado", 1000.00, receita)
+    semear_transacao(session, date(2025, 3, 10), "Renda", -300.00, casa)
+    semear_transacao(session, date(2025, 3, 18), "Reembolso seguros", 50.00, casa,
+                     reembolso=True)
+    semear_transacao(session, date(2025, 4, 2), "Para poupança", -500.00, transferencia)
+    semear_transacao(session, date(2025, 6, 25), "Comprar ETF", -1000.00, investimento)
+
+    r = client.get("/api/estatisticas/resumo-mensal")
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "meses": [
+            {"ano": 2025, "mes": 3, "receitas": 1000.0, "despesas": -250.0,
+             "investimento": 0.0, "poupanca": 750.0},
+            {"ano": 2025, "mes": 4, "receitas": 0.0, "despesas": 0.0,
+             "investimento": 0.0, "poupanca": 0.0},
+            {"ano": 2025, "mes": 6, "receitas": 0.0, "despesas": 0.0,
+             "investimento": -1000.0, "poupanca": 0.0},
+        ],
+        "media_mensal": -83.33,
+        "mediana_mensal": 0.0,
+    }
+    assert session.query(Transacao).count() == 5
+
+
+def test_resumo_mensal_com_bd_vazia_devolve_media_e_mediana_zero(client, session):
+    """BD vazia: meses vazio e média/mediana em 0.
+
+    Cálculo à mão: sem transacções, `meses` (de _calculate_totals) e
+    `todos_meses` estão vazios, o ciclo das linhas 31-45 não corre, e as
+    linhas 47-48 caem no `else`: media = 0 e mediana = 0. Sem dependência da
+    data actual.
+    """
+    r = client.get("/api/estatisticas/resumo-mensal")
+
+    assert r.status_code == 200
+    assert r.json() == {"meses": [], "media_mensal": 0, "mediana_mensal": 0}
+    assert session.query(Transacao).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# A3/A4 — GET /api/estatisticas/por-categoria
+# ---------------------------------------------------------------------------
+
+def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, session):
+    """A média usa o denominador com meses de transferências; a mediana não.
+
+    Cenário semeado:
+      2025-03-10  Casa/Renda       -100,00
+      2025-03-20  Casa (sem sub)    -30,00
+      2025-04-02  Transferência    -500,00  (mês só com transferência)
+      2025-05-05  Casa/Renda        -40,00
+      2025-06-02  Casa (sem sub)    -30,00
+
+    Cálculo à mão:
+      meses_distintos = 4 (mar, abr, mai, jun): as linhas 59-65 contam os
+      meses de TODAS as transacções, sem excluir transferências, e a query
+      de totais exclui-as (linha 77) -> o mês 04 só com transferências entra
+      no denominador sem entrar no numerador (DEVIDA-TECNICA: D5).
+
+      Casa.totais (linhas 88-98) é construído por LINHA da query, que agrupa
+      por (ano, mes, categoria, subcategoria) na linha 82: o mês 03 dá duas
+      linhas (Renda -100 e "Sem subcategoria" -30), não a soma mensal -130.
+      totais = [-100, -30, -40, -30].
+
+      A mediana da categoria é calculada sobre estes totais por (mês,
+      subcategoria); se fosse mensal seria [-130, -40, -30] -> mediana -40,0
+      (DEVIDA-TECNICA: D23 — item novo, a descrever pelo Pedro).
+
+      Casa:
+        media   = round((-100 - 30 - 40 - 30) / 4, 2) = round(-200/4, 2)
+                = -50,0. Com a D5 corrigida (meses_distintos = 3), seria
+                round(-200/3, 2) = -66.67.
+        mediana = median([-100, -30, -40, -30]) = median([-100, -40, -30, -30])
+                = (-40,0 + -30,0) / 2 = -35,0
+      Renda: totais [-100, -40], preenchido em [-100, -40, 0, 0] (linha 115)
+        media   = round((-100 - 40) / 4, 2) = round(-140/4, 2) = -35,0
+        mediana = (-100,0 + -40,0) / 2 = -70,0
+      Sem subcategoria: totais [-30, -30], preenchido em [-30, -30, 0, 0]
+        media   = round((-30 - 30) / 4, 2) = round(-60/4, 2) = -15,0
+        mediana = (-30,0 + -30,0) / 2 = -30,0
+
+      Transferência não aparece (filtro da linha 77).
+
+    A query só ordena por (ano, mes) na linha 83 e não por subcategoria:
+    a ordem das subs dentro de cada categoria segue a ordem das linhas do
+    SQLite no GROUP BY, por isso as subcategorias são assertidas por
+    conteúdo, não por ordem (como no por-subcategoria; ao contrário do
+    detalhe-mensal, que ordena as subs nas linhas 252-259).
+
+    Estado final da BD: as 5 transacções continuam.
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    renda = semear_subcategoria(session, "Renda", casa)
+    transferencia = semear_categoria(session, "Transferência", TipoCategoria.transferencia)
+
+    semear_transacao(session, date(2025, 3, 10), "Renda", -100.00, casa, renda)
+    semear_transacao(session, date(2025, 3, 20), "Água", -30.00, casa)
+    semear_transacao(session, date(2025, 4, 2), "Para poupança", -500.00, transferencia)
+    semear_transacao(session, date(2025, 5, 5), "Renda", -40.00, casa, renda)
+    semear_transacao(session, date(2025, 6, 2), "Luz", -30.00, casa)
+
+    r = client.get("/api/estatisticas/por-categoria")
+
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    casa_r = r.json()[0]
+    assert casa_r["categoria_id"] == casa.id
+    assert casa_r["categoria_nome"] == "Casa"
+    assert casa_r["mediana"] == -35.0
+    assert casa_r["media"] == -50.0
+    assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
+            for s in casa_r["subcategorias"]} == {
+        "Renda": (-70.0, -35.0),
+        "Sem subcategoria": (-30.0, -15.0),
+    }
+    assert session.query(Transacao).count() == 5
+
+
+def test_por_categoria_com_ano_filtra_meses_e_transacoes(client, session):
+    """O parâmetro `ano` corta meses_distintos e as linhas de totais.
+
+    Mesmos seeds do teste anterior, mais transacções de 2026. Com ano=2025,
+    os filtros das linhas 63-64 e 79-80 deixam de fora 2026: a resposta é
+    idêntica à do teste anterior (meses_distintos = 4 e os mesmos valores).
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    renda = semear_subcategoria(session, "Renda", casa)
+    transferencia = semear_categoria(session, "Transferência", TipoCategoria.transferencia)
+
+    semear_transacao(session, date(2025, 3, 10), "Renda", -100.00, casa, renda)
+    semear_transacao(session, date(2025, 3, 20), "Água", -30.00, casa)
+    semear_transacao(session, date(2025, 4, 2), "Para poupança", -500.00, transferencia)
+    semear_transacao(session, date(2025, 5, 5), "Renda", -40.00, casa, renda)
+    semear_transacao(session, date(2025, 6, 2), "Luz", -30.00, casa)
+    semear_transacao(session, date(2026, 2, 10), "Renda", -5.00, casa, renda)
+    semear_transacao(session, date(2026, 3, 20), "Para poupança", -100.00, transferencia)
+
+    r = client.get("/api/estatisticas/por-categoria", params={"ano": 2025})
+
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    casa_r = r.json()[0]
+    assert casa_r["categoria_id"] == casa.id
+    assert casa_r["categoria_nome"] == "Casa"
+    assert casa_r["mediana"] == -35.0
+    assert casa_r["media"] == -50.0
+    assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
+            for s in casa_r["subcategorias"]} == {
+        "Renda": (-70.0, -35.0),
+        "Sem subcategoria": (-30.0, -15.0),
+    }
+    assert session.query(Transacao).count() == 7
+
+
+# ---------------------------------------------------------------------------
+# A5/A6 — GET /api/estatisticas/por-subcategoria
+# ---------------------------------------------------------------------------
+
+def test_por_subcategoria_soma_em_centimos_ordena_categorias_e_esconde_zero(client, session):
+    """Somatório em cêntimos, categorias por total desc, subs por conteúdo.
+
+    Cenário semeado:
+      2025-03-02  Casa/Renda       -100,00
+      2025-03-09  Casa (sem sub)    -30,00
+      2025-03-20  Receita/Salário  +1500,00
+      2025-04-03  Transferência    -500,00   (filtrada na linha 137)
+      2025-06-05  Lazer/Convívio     +5,00
+      2025-06-06  Lazer/Convívio     -5,00    (net 0 -> escondida)
+
+    Cálculo à mão, em cêntimos inteiros (round(valor*100), linha 164):
+      Casa      = -10000 - 3000 = -13000 -> total -130,0
+        Renda   = -10000                  -> -100,0
+        sem sub = -3000                   -> -30,0
+      Receita   = 150000                  -> 1500,0
+        Salário = 150000                  -> 1500,0
+      Lazer     = +500 - 500 = 0 -> abs(0) > 0 é falso na linha 179, a
+        categoria e a subcategoria desaparecem do output
+
+    Ordenação das categorias: key = c["total"], reverse=True (linha 186) ->
+    descendente -> Receita (1500,0) antes de Casa (-130,0).
+
+    As subcategorias NÃO são ordenadas neste endpoint (linhas 172-178) e a
+    query nem tem ORDER BY (linha 144): por isso são assertidas por
+    conteúdo, não por ordem — ao contrário do detalhe-mensal, que ordena as
+    subs (linhas 252-259) e as categorias (linha 269).
+
+    Estado final da BD: as 6 transacções continuam.
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    renda = semear_subcategoria(session, "Renda", casa)
+    receita = semear_categoria(session, "Receita", TipoCategoria.receita)
+    salario = semear_subcategoria(session, "Salário", receita)
+    lazer = semear_categoria(session, "Lazer", TipoCategoria.despesa)
+    convivio = semear_subcategoria(session, "Convívio", lazer)
+    transferencia = semear_categoria(session, "Transferência", TipoCategoria.transferencia)
+
+    semear_transacao(session, date(2025, 3, 2), "Renda", -100.00, casa, renda)
+    semear_transacao(session, date(2025, 3, 9), "Água", -30.00, casa)
+    semear_transacao(session, date(2025, 3, 20), "Vencimento", 1500.00, receita, salario)
+    semear_transacao(session, date(2025, 4, 3), "Para poupança", -500.00, transferencia)
+    semear_transacao(session, date(2025, 6, 5), "Jantar", 5.00, lazer, convivio)
+    semear_transacao(session, date(2025, 6, 6), "Devolução jantar", -5.00, lazer, convivio)
+
+    r = client.get("/api/estatisticas/por-subcategoria")
+
+    assert r.status_code == 200
+    resposta = r.json()
+
+    assert [c["categoria_nome"] for c in resposta] == ["Receita", "Casa"]
+
+    por_nome = {c["categoria_nome"]: c for c in resposta}
+    assert por_nome["Casa"]["categoria_id"] == casa.id
+    assert por_nome["Casa"]["total"] == -130.0
+    assert {s["subcategoria_nome"]: s["total"] for s in por_nome["Casa"]["subcategorias"]} == {
+        "Renda": -100.0,
+        "Sem subcategoria": -30.0,
+    }
+    assert por_nome["Receita"]["categoria_id"] == receita.id
+    assert por_nome["Receita"]["total"] == 1500.0
+    assert {s["subcategoria_nome"]: s["total"] for s in por_nome["Receita"]["subcategorias"]} == {
+        "Salário": 1500.0,
+    }
+    assert len(resposta) == 2
+    assert session.query(Transacao).count() == 6
+
+
+def test_por_subcategoria_com_ano_ignora_outros_anos(client, session):
+    """O filtro `ano` corta as linhas de outros anos (linhas 141-142).
+
+    Cenário semeado:
+      2025-03-10  Casa/Renda  -100,00
+      2026-02-01  Casa (sem)   -1,00
+
+    Cálculo à mão:
+      com ano=2025: Casa = -100,00 -> -10000 cêntimos -> total -100,0
+      sem ano:      Casa = -100,00 + (-1,00) = -101,00 -> -10100 -> -101,0
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    renda = semear_subcategoria(session, "Renda", casa)
+
+    semear_transacao(session, date(2025, 3, 10), "Renda", -100.00, casa, renda)
+    semear_transacao(session, date(2026, 2, 1), "Água", -1.00, casa)
+
+    r = client.get("/api/estatisticas/por-subcategoria", params={"ano": 2025})
+
+    assert r.status_code == 200
+    assert r.json() == [
+        {
+            "categoria_id": casa.id,
+            "categoria_nome": "Casa",
+            "total": -100.0,
+            "subcategorias": [{"subcategoria_nome": "Renda", "total": -100.0}],
+        }
+    ]
+
+    r_sem_ano = client.get("/api/estatisticas/por-subcategoria")
+    assert r_sem_ano.status_code == 200
+    assert r_sem_ano.json()[0]["total"] == -101.0
+
+
+# ---------------------------------------------------------------------------
+# A7 — GET /api/estatisticas/detalhe-mensal com dados
+# ---------------------------------------------------------------------------
+
+def test_detalhe_mensal_agrega_subcategorias_e_ordena_por_total(client, session):
+    """Agregação por categoria/subcategoria, ordenada por total desc.
+
+    Cenário semeado em 2025-03 (mais uma transacção em abril):
+      03-01  Casa/Renda           -800,00
+      03-05  Casa/Renda           -200,00
+      03-10  Casa/Supermercado    -150,25
+      03-15  Casa (sem sub)        -50,00
+      03-20  Receita/Salário     +1500,00
+      03-25  Investimento/Ações  -1000,00
+      03-30  Transferência        -500,00   (excluída na linha 204)
+      04-01  Casa/Renda            -10,00   (fora do intervalo, linhas 200-202)
+
+    Cálculo à mão, em cêntimos (round(valor*100), linha 228):
+      Casa  = -80000 - 20000 - 15025 - 5000 = -120025 -> total -1200,25
+        Renda        = -80000 - 20000     = -100000 -> -1000,0
+        Supermercado = -15025                      -> -150,25
+        Sem sub      = -5000                       -> -50,0
+      Receita      = 150000 -> 1500,0
+        Salário    = 150000 -> 1500,0
+      Investimento = -100000 -> -1000,0
+        Ações      = -100000 -> -1000,0
+
+    Ordenações (ambas descendentes por total -> a mais negativa vai última):
+      subcategorias: key = s["total"], reverse=True (linhas 252-259) ->
+        Sem subcategoria (-50,0), Supermercado (-150,25), Renda (-1000,0)
+      categorias: key = c["total"], reverse=True (linha 269) ->
+        Receita (1500,0), Investimento (-1000,0), Casa (-1200,25)
+
+      `tipo` = categoria_tipo.value (linha 248): "receita", "investimento" e
+      "despesa" respectivamente.
+
+    Estado final da BD: as 8 transacções continuam.
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    renda = semear_subcategoria(session, "Renda", casa)
+    supermercado = semear_subcategoria(session, "Supermercado", casa)
+    receita = semear_categoria(session, "Receita", TipoCategoria.receita)
+    salario = semear_subcategoria(session, "Salário", receita)
+    investimento = semear_categoria(session, "Investimento", TipoCategoria.investimento)
+    acoes = semear_subcategoria(session, "Ações", investimento)
+    transferencia = semear_categoria(session, "Transferência", TipoCategoria.transferencia)
+
+    semear_transacao(session, date(2025, 3, 1), "Renda", -800.00, casa, renda)
+    semear_transacao(session, date(2025, 3, 5), "Renda", -200.00, casa, renda)
+    semear_transacao(session, date(2025, 3, 10), "Feira", -150.25, casa, supermercado)
+    semear_transacao(session, date(2025, 3, 15), "Combustível", -50.00, casa)
+    semear_transacao(session, date(2025, 3, 20), "Vencimento", 1500.00, receita, salario)
+    semear_transacao(session, date(2025, 3, 25), "Comprar ETF", -1000.00, investimento, acoes)
+    semear_transacao(session, date(2025, 3, 30), "Para poupança", -500.00, transferencia)
+    semear_transacao(session, date(2025, 4, 1), "Renda", -10.00, casa, renda)
+
+    r = client.get("/api/estatisticas/detalhe-mensal?ano=2025&mes=3")
+
+    assert r.status_code == 200
+    assert r.json() == [
+        {
+            "categoria_id": receita.id,
+            "categoria_nome": "Receita",
+            "tipo": "receita",
+            "total": 1500.0,
+            "subcategorias": [{"subcategoria_nome": "Salário", "total": 1500.0}],
+        },
+        {
+            "categoria_id": investimento.id,
+            "categoria_nome": "Investimento",
+            "tipo": "investimento",
+            "total": -1000.0,
+            "subcategorias": [{"subcategoria_nome": "Ações", "total": -1000.0}],
+        },
+        {
+            "categoria_id": casa.id,
+            "categoria_nome": "Casa",
+            "tipo": "despesa",
+            "total": -1200.25,
+            "subcategorias": [
+                {"subcategoria_nome": "Sem subcategoria", "total": -50.0},
+                {"subcategoria_nome": "Supermercado", "total": -150.25},
+                {"subcategoria_nome": "Renda", "total": -1000.0},
+            ],
+        },
+    ]
+    assert session.query(Transacao).count() == 8
