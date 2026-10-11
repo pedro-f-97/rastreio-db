@@ -180,22 +180,35 @@ de receita recebida) não satisfaz a linha 280 (`valor > 0` falha), nem a 284
 (exclui explicitamente receitas). Não cai em nenhuma branch: **desaparece sem
 ser somada a nada**, e o mês fecha sem esse valor.
 
-## 🟡 D5 — Transferências contaminam o denominador das médias
+## 🟡 D5 — Transferências contaminam o denominador das médias do `/por-categoria` e do `/resumo-mensal`
 
 `backend/routers/estatisticas.py:59-65` conta os meses distintos numa query
-que **não** exclui transferências; a query de totais (`linha 68+`) exclui
-(`Categoria.tipo != transferencia`, linha 77).
+que **não** exclui transferências; a query de totais do `/por-categoria`
+(`linha 67+`) exclui (`Categoria.tipo != transferencia`, linha 77).
 
 Consequência: meses em que houve apenas transferências entram no denominador
-sem entrarem no numerador, pelo que **todas as médias mensais de
-`/por-categoria` e `/por-subcategoria` são sistematicamente baixas**. A
-mediana não é afetada (usa a lista sem preenchimento, linha 110).
+sem entrarem no numerador, pelo que **as médias mensais do `/por-categoria`
+são sistematicamente baixas** — a da categoria (linha 111) e a das
+subcategorias (linha 117). Só `/por-categoria` calcula médias e medianas:
+`/por-subcategoria` só soma totais em cêntimos (linhas 164-166) e não tem
+médias nem medianas.
 
-Agravado pelo facto de `/por-categoria` e `/por-subcategoria` usarem
-estratégias de preenchimento diferentes: `media` preenche com zeros
-(linhas 109, 115), `mediana` não (linhas 110, 116). As duas medidas estão a
-ser calculadas sobre populações diferentes, o que as torna não comparáveis
-entre si.
+Sobre o preenchimento com zeros: as duas médias dividem por `meses_distintos`
+(linhas 111 e 117), e o `[0] * (meses_distintos - len(...))` das linhas 109 e
+115 soma zeros, que não alteram o `sum()`. **O preenchimento é código morto**
+— sem ele, `sum(totais) / meses_distintos` é exactamente o mesmo. As medianas
+(linhas 110 e 116) usam a lista sem preenchimento.
+
+O `/resumo-mensal` tem a mesma raiz: `todos_meses` (linhas 16-19) lista os
+meses distintos sem excluir transferências, e as linhas 23-26 acrescentam os
+meses só com transferências a zeros — a média (linha 47) e a mediana (linha
+48) de `totais_despesas` contam com eles.
+
+Fixo por `test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento` e
+`test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana` em
+`backend/tests/test_api_estatisticas.py`, que fixam o comportamento actual com
+os valores calculados à mão; corrigir o denominador fazê-los-á falhar de
+propósito.
 
 ## 🔴 D6 — Restauro de backup valida só 3 das 11 tabelas
 
@@ -740,6 +753,32 @@ os.replace(anterior_tmp, anterior_path)
 ```
 
 — e remover também o `.tmp` no rollback.
+
+## 🟡 D23 — Mediana por categoria do `/por-categoria` é sobre totais por (mês, subcategoria)
+
+A mediana de cada categoria do `/por-categoria` é calculada sobre os totais
+da **linha** da query, e não sobre totais mensais. A query agrupa por
+`('ano', 'mes', Transacao.categoria_id, Transacao.subcategoria_id)`
+(`backend/routers/estatisticas.py:82`), e o ciclo das linhas 88-98
+acrescenta `round(r.total, 2)` a `totais` **uma vez por linha** (linha 98) —
+por isso uma categoria com duas subcategorias no mesmo mês contribui com dois
+valores nesse mês. A mediana (linha 110, `median(cat["totais"])`) é calculada
+sobre essa lista de totais por (mês, subcategoria).
+
+Exemplo do teste (`test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento`
+em `backend/tests/test_api_estatisticas.py`), com a categoria Casa e as
+subcategorias Renda e (sem subcategoria) a dividirem março:
+
+- totais por (mês, subcategoria): `[-100, -30, -40, -30]` →
+  `median([-100, -40, -30, -30])` = `(-40 + -30) / 2` = **-35.0**;
+- se fosse calculada por mês, os totais mensais seriam
+  `[-130, -40, -30]` → mediana **-40.0**.
+
+A média não é afectada: soma por (mês, subcategoria) ou por mês dá o mesmo,
+e o denominador é `meses_distintos` (linha 111).
+
+**Decisão pendente (Pedro):** qual é a mediana pretendida — por mês, ou por
+(mês, subcategoria)?
 
 ---
 

@@ -250,7 +250,7 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
 
       A mediana da categoria é calculada sobre estes totais por (mês,
       subcategoria); se fosse mensal seria [-130, -40, -30] -> mediana -40,0
-      (DEVIDA-TECNICA: D23 — item novo, a descrever pelo Pedro).
+      (DEVIDA-TECNICA: D23 — decisão pendente).
 
       Casa:
         media   = round((-100 - 30 - 40 - 30) / 4, 2) = round(-200/4, 2)
