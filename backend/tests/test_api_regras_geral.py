@@ -134,11 +134,6 @@ def test_backfill_toca_por_categorizar_e_mesma_categoria_sem_subcategoria(client
 
 
 def test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria(client, session):
-    # DEVIDA-TECNICA: (sem número) possível defeito se acontecer — uma transacção
-    # com categoria None e subcategoria definida (estado inválido) é apanhada
-    # pela 1.ª query do backfill (`categoria_id == None`, `:52-55`) e a linha 58
-    # escreve `subcategoria_id = nova.subcategoria_id`, apagando a subcategoria
-    # que lá estava. Não está catalogado em docs/divida-tecnica.md.
     """O backfill não preserva a subcategoria de uma transacção órfã.
 
     Cálculo à mão (`:50-58`): a transacção tem `categoria_id is None` e

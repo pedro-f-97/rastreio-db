@@ -193,7 +193,6 @@ def test_criar_categoria_e_nome_duplicado_integrity(client, session):
     conta com este nome.") e regras (routers/regras.py:37 responde 400 "Já
     existe uma regra com esta palavra-chave"): aqui não há pré-checagem e o
     IntegrityError sobe, ou seja, **em produção é um 500**. Possível defeito;
-    sem número de Dn (não está catalogado em docs/divida-tecnica.md).
 
     Estado final da BD: o rollback do teste desfaz a tentativa e ficam as 4
     categorias (as 3 da semente + "Lazer", cujo commit já tinha passado).
@@ -222,7 +221,6 @@ def test_renomear_categoria_duplicado_e_404(client, session):
         escrevem nome e tipo, a 70-71 gravam; resposta {nome, tipo, id}
       segundo PUT em Casa com o nome "Receita" (já existente) -> o commit
         (linha 70) falha com UNIQUE constraint failed: categorias.nome
-        (mesmo defeito do POST: em produção é um 500; sem Dn)
       PUT em 9999 -> a `first()` (linha 65) devolve None -> 404
         {"detail": "Categoria não encontrada"}
 
