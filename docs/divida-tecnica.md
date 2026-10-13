@@ -35,6 +35,22 @@ linhas que já não existem, sem erro. Essas transações desapareceriam das
 estatísticas (os joins são `INNER`), apareceriam sem nome na listagem, e não
 seriam contadas em `/transacoes/por-categorizar/total`.
 
+**O que os testes de caracterização medem hoje** (`backend/tests/test_api_categorias.py`,
+sem a pragma ligada):
+
+- `test_apagar_categoria_com_subcategorias_integrity` — apagar uma categoria
+  **com** subcategorias dá `IntegrityError` (`NOT NULL constraint failed:
+  subcategorias.categoria_id`) e, em produção, **500**, mesmo com as chaves
+  estrangeiras desligadas: sem `ON DELETE` nem `cascade`, o SQLAlchemy tenta
+  desassociar as subcategorias pondo `subcategorias.categoria_id` a `NULL`, e a
+  coluna é `NOT NULL` (`database.py:167`).
+- `test_apagar_categoria_deixa_transacao_orfa` — apagar uma categoria só com
+  transacções directas dá **200** e deixa `transacoes.categoria_id` pendente.
+  É este o caso que passaria a falhar se a pragma fosse ligada.
+- `test_apagar_subcategoria_desassocia_transacoes` — apagar uma subcategoria com
+  transacções dá **200** e põe `transacoes.subcategoria_id` a `NULL` (coluna
+  `nullable=True`, `database.py:185`), mantendo a categoria.
+
 ### 🔴 D1a — O schema da BD actual aponta para uma tabela que não existe
 
 Isto não é hipotético, é o estado actual, e só apareceu com
@@ -93,7 +109,11 @@ que os `DELETE` sobre tabelas-pai passem a falhar por violação de FK onde ante
 devolviam 200. Lidos os quatro handlers:
 
 - `apagar_categoria` (`routers/categorias.py:59`) — `db.delete(cat)` sem
-  qualquer pré-checagem. **Passa a falhar.**
+  qualquer pré-checagem. **Já falha hoje, sem a pragma**, quando a categoria
+  tem subcategorias (500 por `NOT NULL constraint failed:
+  subcategorias.categoria_id`); se só tiver transacções directas devolve **200**
+  e deixa-as órfãs, e só nesse caso a pragma a faria falhar (ver os testes
+  acima).
 - `apagar_subcategoria` (`routers/categorias.py:91`) — idem, sem pré-checagem.
   **Passa a falhar.**
 - `apagar_ou_desativar_conta` (`routers/contas.py:40-52`) — **já faz
@@ -779,6 +799,29 @@ e o denominador é `meses_distintos` (linha 111).
 
 **Decisão pendente (Pedro):** qual é a mediana pretendida — por mês, ou por
 (mês, subcategoria)?
+
+## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400)
+
+`POST /api/categorias/` (`backend/routers/categorias.py:33-35`) e
+`PUT /api/categorias/{id}` (`backend/routers/categorias.py:63-70`) não têm
+pré-checagem de nome duplicado: escrevem e fazem `commit()` (linhas 35 e 70), e
+`categorias.nome` é `unique=True` (`database.py:155`). O `IntegrityError:
+UNIQUE constraint failed: categorias.nome` sobe sem ser tratado e em produção é
+um **500**.
+
+Os mesmos casos noutros routers devolvem um 4xx explícito:
+
+- `routers/contas.py:19-21` — `criar_conta` pré-checa o nome e responde **409**
+  "Já existe uma conta com este nome.";
+- `routers/regras.py:35-37` — `criar_regra` pré-checa a palavra-chave e responde
+  **400** "Já existe uma regra com esta palavra-chave".
+
+Possível defeito de consistência: a mesma condição de negócio (nome/palavra-chave
+repetida) responde 409 numa rota, 400 noutra e 500 nas categorias. **Decisão
+pendente (Pedro):** alinhar categorias por pré-checagem (e com que código), ou
+deixar a excepção subir. Fixo por
+`test_criar_categoria_e_nome_duplicado_integrity` e
+`test_renomear_categoria_duplicado_e_404` em `backend/tests/test_api_categorias.py`.
 
 ---
 
