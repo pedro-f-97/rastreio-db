@@ -17,6 +17,8 @@ validação manual. As restantes não tocam em dados.
 Legenda: 🔴 mexe em dados, ou é perda/erro silencioso · 🟡 resultado incorrecto
 mas visível · ⚪ robustez/qualidade
 
+Os itens já resolvidos têm « — resolvido» no título.
+
 Os itens `D12a`…`D12k` são pontos independentes dentro do mesmo ficheiro,
 separados para que o `grep` por `D12e` aponte para um só sítio.
 
@@ -122,7 +124,9 @@ devolviam 200. Lidos os quatro handlers:
 - `apagar_tipo_ativo` (`routers/tipos_ativo.py:35-41`) — **já faz
   pré-checagem** (`if tipo.ativos` na linha 39 devolve 409). Mas
   `ativos.tipo_id` é `NOT NULL`, e a pré-checagem só protege se a lista
-  `tipo.ativos` estiver carregada e em dia.
+  `tipo.ativos` estiver carregada e em dia. Fixo por
+  `test_apagar_tipo_ativo_com_ativos_da_409` em
+  `backend/tests/test_api_tipos_ativo.py`.
 
 Comprovado em cópia temporária da BD, com a pragma ligada: `DELETE` em
 `categorias` falha para as categorias 5, 6 e 11, e `DELETE` em `tipos_ativo`
@@ -230,7 +234,7 @@ Fixo por `test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento` e
 os valores calculados à mão; corrigir o denominador fazê-los-á falhar de
 propósito.
 
-## 🔴 D6 — Restauro de backup valida só 3 das 11 tabelas
+## 🔴 D6 — Restauro de backup valida só 3 das 11 tabelas — resolvido
 
 ### Descrição original
 
@@ -365,11 +369,29 @@ A mesma lógica de duas fases existe em três sítios:
 | `routers/regras.py:94` (`pre_visualizar_regras`) | igual, mas pré-filtra `subcategoria_id IS NULL` (linha 88) |
 | `routers/regras.py:54` (`criar_regra`, backfill) | SQL `ilike` — **ASCII-only** |
 
-Consequências: (a) o preview e a aplicação não veem o mesmo conjunto, logo as
-contagens não batem; (b) `ilike` não casa acentos, `upper()` casa — uma regra
-com "ç" funciona na importação e não no backfill; (c) `palavra_chave` com `%`
-ou `_` é injectado como wildcard no `ilike` (linha 54) e casa muito mais do
-que o pretendido.
+Consequências:
+
+- (a) o preview (`pre_visualizar_regras`, `routers/regras.py:85`) e o backfill
+  (`criar_regra`, `routers/regras.py:34`) **contam o mesmo** com dados válidos.
+  Os dois conjuntos só divergem no estado órfão — `categoria_id` a NULL com
+  `subcategoria_id` definida: a 1.ª query do backfill (`regras.py:52-55`) filtra
+  só `categoria_id == None` e apanha-o, enquanto a pré-visualização pré-filtra
+  `subcategoria_id IS NULL` (`regras.py:87-89`) e descarta-o. Esse estado só
+  chega à BD por causa da D1 (chaves estrangeiras não forçadas) ou por edição
+  directa. Fixado por
+  `test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos` e
+  `test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria` em
+  `backend/tests/test_api_regras_geral.py`.
+- (b) `ilike` não casa acentos, `upper()` casa — uma regra com "ç" funciona na
+  importação e não no backfill. Fixado, no motor, por
+  `test_regra_com_acento_casa_descricao_maiuscula` e
+  `test_regra_sem_acento_nao_casa_descricao_com_acento` (ver abaixo) e, no
+  backfill, por `test_backfill_com_acento_nao_casa_descricao_maiuscula` em
+  `backend/tests/test_api_regras_geral.py`.
+- (c) `palavra_chave` com `%` ou `_` é injectado como wildcard no `ilike`
+  (linha 54) e casa muito mais do que o pretendido. Fixado por
+  `test_backfill_percent_e_wildcard` e `test_backfill_underscore_e_wildcard`
+  em `backend/tests/test_api_regras_geral.py`.
 
 Os limites 4a e 4b — o `upper()` que casa o acento e a letra base que deixa de
 casar com o acento — estão fixados por `test_regra_com_acento_casa_descricao_maiuscula`
@@ -377,7 +399,7 @@ e `test_regra_sem_acento_nao_casa_descricao_com_acento` em
 `backend/tests/test_importador_regras.py`, ambos calculados à mão e com os
 valores esperados escritos como constantes.
 
-## ⚪ D9 — `detalhe-mensal` devolve HTTP 500 em mês inválido
+## ⚪ D9 — `detalhe-mensal` devolve HTTP 500 em mês inválido — resolvido
 
 `backend/routers/estatisticas.py:235-237` não valida as entradas:
 `calendar.monthrange(13, 13)` levanta `IllegalMonthError` e `date(0, 0, 1)`
@@ -519,7 +541,7 @@ Registado para quando se decidir introduzir linting. Não é bug.
   data ou FK (`grep` por índices na BD actual devolve vazio). `gerar_evolucao`
   repete o cálculo completo por mês.
 
-## 🔴 D14 — `ReferenceError` ao terminar cada importação
+## 🔴 D14 — `ReferenceError` ao terminar cada importação — resolvido
 
 `frontend/src/pages/Importacao.jsx:208` chama `onDadosAlterados?.()` dentro do
 `try` de `aoImportar`, mas `Importacao` não recebe essa prop: o componente é
@@ -699,7 +721,7 @@ Ao contrário de D3, aqui a divergência não é de *boundary* (`>` contra `>=`)
 dos lados não tem comparação nenhuma. Registado sem teste — fixá-lo exigiria
 caracterizar o `/evolucao`, que está fora do âmbito desta suite.
 
-## ⚪ D21 — `palavra_chave` vazia ou só com espaços não é validada no servidor
+## ⚪ D21 — `palavra_chave` vazia ou só com espaços não é validada no servidor — resolvido
 
 A palavra-chave de uma regra de categorização pode ser vazia, ou só espaços, e
 nada no servidor o impede. Nenhuma das três camadas valida:
@@ -809,6 +831,14 @@ pré-checagem de nome duplicado: escrevem e fazem `commit()` (linhas 35 e 70), e
 UNIQUE constraint failed: categorias.nome` sobe sem ser tratado e em produção é
 um **500**.
 
+O mesmo defeito existe no `PUT /api/tipos-ativo/{tipo_id}`
+(`backend/routers/tipos_ativo.py:25-32`): ao contrário do `POST`
+(`routers/tipos_ativo.py:14-16`, que pré-checa e responde **409**), o `PUT`
+escreve o `nome` (linha 28) e faz `commit()` (linha 30) sem pré-checagem, e
+`tipos_ativo.nome` é `unique=True` (`database.py:125`). Renomear para um nome
+existente rebenta com `IntegrityError: UNIQUE constraint failed: tipos_ativo.nome`
+— em produção, um **500**.
+
 Os mesmos casos noutros routers devolvem um 4xx explícito:
 
 - `routers/contas.py:19-21` — `criar_conta` pré-checa o nome e responde **409**
@@ -820,8 +850,36 @@ Possível defeito de consistência: a mesma condição de negócio (nome/palavra
 repetida) responde 409 numa rota, 400 noutra e 500 nas categorias. **Decisão
 pendente (Pedro):** alinhar categorias por pré-checagem (e com que código), ou
 deixar a excepção subir. Fixo por
-`test_criar_categoria_e_nome_duplicado_integrity` e
-`test_renomear_categoria_duplicado_e_404` em `backend/tests/test_api_categorias.py`.
+`test_criar_categoria_e_nome_duplicado_integrity` (POST de categorias) e
+`test_renomear_categoria_duplicado_e_404` (PUT de categorias) em
+`backend/tests/test_api_categorias.py`, e por
+`test_renomear_tipo_ativo_para_nome_duplicado_integrity` (PUT de tipos de ativo)
+em `backend/tests/test_api_tipos_ativo.py`.
+
+## ⚪ D25 — `/api/configuracao/inicializar` semeia categorias duplicadas e dá 500
+
+`POST /api/configuracao/inicializar` (`backend/routers/configuracao.py:15-48`)
+só guarda contra a re-semente quando existe uma linha `Configuracao` já marcada
+como inicializada (`configuracao.py:21-23`, `if config and config.inicializado`).
+Se a tabela `categorias` já tiver linhas mas não existir linha `Configuracao`, o
+guard não dispara, o ciclo das linhas 29-35 volta a inserir os mesmos nomes e o
+`commit()` da linha 46 falha com `IntegrityError: UNIQUE constraint failed:
+categorias.nome` (`categorias.nome` é `unique=True`, `database.py:155`) — em
+produção, um **500**.
+
+É a mesma classe de robustez da D12g: `popular()`
+(`backend/popular_bd.py:151-173`) tem um guard análogo, mas também só olha para
+o número de categorias (`popular_bd.py:158`) e não para `Configuracao`. As duas
+vias divergem no que consideram "base já semeada": `inicializar` olha para
+`Configuracao`, `popular` olha para `categorias`.
+
+**Decisão pendente (Pedro):** o guard de `inicializar` deve olhar também para as
+categorias existentes, ou semear de forma idempotente?
+
+Fixo por `test_inicializar_com_categorias_existentes_sem_config_integrity` em
+`backend/tests/test_api_configuracao.py`, que fixa o comportamento **actual**:
+com uma categoria "Casa" na BD e sem linha `Configuracao`, o pedido rebenta com
+`IntegrityError` e nada fica inicializado.
 
 ---
 
