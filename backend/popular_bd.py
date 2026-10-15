@@ -10,7 +10,6 @@ class PerfilCategorias(str, Enum):
 CATEGORIAS_MINIMALISTA = {
     "Receita": [
         ("Salário", False),
-        ("Reembolso", False),
         ("Venda", False),
         ("Outros", False),
     ],
@@ -45,7 +44,6 @@ CATEGORIAS_MINIMALISTA = {
 CATEGORIAS_COMPLETO = {
     "Receita": [
         ("Salário", False),
-        ("Reembolso", False),
         ("Venda", False),
         ("Outros", False),
     ],

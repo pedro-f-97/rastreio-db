@@ -6,7 +6,7 @@ Cobre os três endpoints de `backend/routers/configuracao.py`:
   se não houver linha `Configuracao`);
 * `POST /inicializar` (`:15-48`) — com parâmetros `com_categorias` (True) e
   `perfil` (completo/minimalista). Ao inicializar com `perfil=completo`,
-  semeia **15 categorias** e **54 subcategorias** (constantes lidas de
+  semeia **15 categorias** e **53 subcategorias** (constantes lidas de
   `backend/popular_bd.py`), e **9 tipos de ativo** quando a tabela está vazia;
   devolve `200 {"ok": False, ...}` se já `inicializado`, e `200 {"ok": True,
   ...}` caso contrário;
@@ -35,7 +35,7 @@ from database import Categoria, Configuracao, Subcategoria, TipoAtivo, TipoCateg
 
 # Constantes obtidas por leitura de `popular_bd.py` (perfil completo)
 CATEGORIAS_COMPLETO_COUNT = 15
-SUBCATEGORIAS_COMPLETO_COUNT = 54
+SUBCATEGORIAS_COMPLETO_COUNT = 53
 SEED_TIPOS_ATIVO_COUNT = 9
 
 
