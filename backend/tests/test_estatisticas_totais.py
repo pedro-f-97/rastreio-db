@@ -89,7 +89,7 @@ from routers.estatisticas import _agregar_por_categoria, _calculate_totals
 # Auxiliares
 # ---------------------------------------------------------------------------
 
-# Nomes das categorias como o `popular_bd.py` as semeia. O `tipo` é o enum
+# Nomes das categorias como o `dados_iniciais.py` as semeia. O `tipo` é o enum
 # real, nunca uma cadeia.
 NOMES = {
     TipoCategoria.receita: "Receita",

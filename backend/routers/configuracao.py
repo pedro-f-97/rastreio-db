@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db, Categoria, Subcategoria, Configuracao, TipoCategoria, TipoAtivo
-from popular_bd import CATEGORIAS_MINIMALISTA, CATEGORIAS_COMPLETO, TIPOS, PerfilCategorias, SEED_TIPOS_ATIVO
+from dados_iniciais import CATEGORIAS_MINIMALISTA, CATEGORIAS_COMPLETO, TIPOS, PerfilCategorias, SEED_TIPOS_ATIVO
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
 

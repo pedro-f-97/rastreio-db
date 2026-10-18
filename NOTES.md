@@ -48,10 +48,10 @@ cd backend
 source venv/bin/activate
 export RASTREIO_DB_DIR=/tmp/rastreio-nova   # a BD fica em /tmp/rastreio-nova/dados/rastreio.db
 python database.py
-python popular_bd.py
+python dados_iniciais.py
 uvicorn main:app --reload --port 9742       # no mesmo terminal, para herdar a variável
 ```
-`popular_bd.py` semeia apenas a estrutura de categorias/subcategorias — não é ponto de partida para dados de transações.
+`dados_iniciais.py` semeia apenas a estrutura de categorias/subcategorias — não é ponto de partida para dados de transações.
 
 Para substituir mesmo a BD real, fazer primeiro um backup (botão de backup na página Transações, ou `cp backend/dados/rastreio.db ~/rastreio-backup-$(date +%F).db`) e só depois mexer no ficheiro.
 

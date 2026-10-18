@@ -121,7 +121,7 @@ que o sinal gravado não altera nada.
 
 ## TipoAtivo
 
-Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais vêm de `SEED_TIPOS_ATIVO` (`popular_bd.py`), semeados por `POST /api/configuracao/inicializar`.
+Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais vêm de `SEED_TIPOS_ATIVO` (`dados_iniciais.py`), semeados por `POST /api/configuracao/inicializar`.
 
 | Campo | Tipo | Notas |
 |---|---|---|

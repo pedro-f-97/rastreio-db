@@ -7,7 +7,7 @@ Cobre os três endpoints de `backend/routers/configuracao.py`:
 * `POST /inicializar` (`:15-48`) — com parâmetros `com_categorias` (True) e
   `perfil` (completo/minimalista). Ao inicializar com `perfil=completo`,
   semeia **15 categorias** e **53 subcategorias** (constantes lidas de
-  `backend/popular_bd.py`), e **9 tipos de ativo** quando a tabela está vazia;
+  `backend/dados_iniciais.py`), e **9 tipos de ativo** quando a tabela está vazia;
   devolve `200 {"ok": False, ...}` se já `inicializado`, e `200 {"ok": True,
   ...}` caso contrário;
 * `POST /tour-visto` (`:50-58`) — marca `tour_visto=True`; **comportamento
@@ -16,7 +16,7 @@ Cobre os três endpoints de `backend/routers/configuracao.py`:
   secundário, anotado.
 
 Valores esperados calculados à mão e escritos como constantes, com a soma por
-categoria verificada em `popular_bd.py`. Os testes não tocam na base de dados
+categoria verificada em `dados_iniciais.py`. Os testes não tocam na base de dados
 real (ver `conftest.py`). Como a fixture `client` e a fixture `session`
 partilham a sessão SQLAlchemy, as verificações de estado começam por
 `session.expire_all()`.
@@ -33,7 +33,7 @@ from sqlalchemy.exc import IntegrityError
 from database import Categoria, Configuracao, Subcategoria, TipoAtivo, TipoCategoria
 
 
-# Constantes obtidas por leitura de `popular_bd.py` (perfil completo)
+# Constantes obtidas por leitura de `dados_iniciais.py` (perfil completo)
 CATEGORIAS_COMPLETO_COUNT = 15
 SUBCATEGORIAS_COMPLETO_COUNT = 53
 SEED_TIPOS_ATIVO_COUNT = 9
