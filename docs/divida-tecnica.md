@@ -422,7 +422,7 @@ detalhes verificados com a sonda: o **erro real era sempre o `ValueError` do
 `date()` da linha anterior falha primeiro — tanto para mês fora de 1..12 como
 para ano fora de 1..9999).
 
-## ⚪ D10 — Paginação sem desempate
+## ⚪ D10 — Paginação sem desempate — resolvido
 
 `backend/routers/transacoes.py:31` ordena só por `data DESC`. Transações com
 a mesma data têm ordem indefinida entre páginas, pelo que a paginação pode
@@ -431,6 +431,21 @@ duas instruções sem snapshot partilhado, pelo que também podem discordar se
 houver escrita entre elas.
 
 Correção: `order_by(Transacao.data.desc(), Transacao.id.desc())`.
+
+**Resolvido (ordenação):** `backend/routers/transacoes.py:31` ordena agora por
+`Transacao.data.desc(), Transacao.id.desc()`: dentro da mesma data, a
+transacção com `id` mais alto vem primeiro, e a ordem é a mesma em todas as
+páginas. Teste novo em `backend/tests/test_api_transacoes.py`:
+`test_listar_paginacao_desempata_mesma_data_por_id_desc` (quatro transacções na
+mesma data repartidas por três páginas de 2, sem repetir nem saltar ids). Os
+dois testes que tinham a etiqueta D10 deixaram de a ter.
+
+**Limitação aceite (decisão do utilizador):** o `count()` e a query de itens
+(`transacoes.py:54-55`) continuam a ser duas leituras separadas. Só discordam
+se houver uma escrita entre as duas (por exemplo, uma importação noutro
+separador), e o efeito é o `total` não bater certo com os itens até ao pedido
+seguinte. Numa app local de um só utilizador não justifica mexer na forma como
+a sessão SQLite abre transacções.
 
 ## ⚪ D11 — Dinheiro em `float` e sem verificação de finitude
 

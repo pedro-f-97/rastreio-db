@@ -28,7 +28,7 @@ def listar_transacoes(
     descricao: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Transacao).order_by(Transacao.data.desc())
+    query = db.query(Transacao).order_by(Transacao.data.desc(), Transacao.id.desc())
 
     if ano:
         query = query.filter(extract('year', Transacao.data) == ano)

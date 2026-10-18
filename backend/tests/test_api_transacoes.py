@@ -8,11 +8,11 @@ Cobre os três endpoints de `backend/routers/transacoes.py`:
   subcategoria↔categoria e a semântica de `model_fields_set`.
 
 Os valores esperados são calculados à mão e escritos como constantes, com o
-cálculo exposto no docstring de cada teste. As datas são sempre explícitas e
-todas distintas — a ordenação é só por `data DESC` (sem desempate), pelo que
-testar a ordem *dentro* da mesma data seria fixar um comportamento indefinido
-(`D10`); nenhum teste o faz. Nenhum teste assenta na data de hoje nem toca na
-base de dados real (ver `conftest.py`).
+cálculo exposto no docstring de cada teste. As datas são sempre explícitas. A
+listagem ordena por `data DESC` e desempata por `id DESC` (linha 31); a semente
+de `_semear` tem datas todas distintas, e o desempate é testado à parte em
+`test_listar_paginacao_desempata_mesma_data_por_id_desc`. Nenhum teste assenta
+na data de hoje nem toca na base de dados real (ver `conftest.py`).
 
 A fixture `client` e a fixture `session` partilham a mesma sessão SQLAlchemy,
 por isso cada pedido é seguido de `session.expire_all()` antes de ler o estado
@@ -146,15 +146,13 @@ def test_total_por_categorizar_conta_categoria_ou_subcategoria_em_falta(client, 
 # ---------------------------------------------------------------------------
 
 def test_listar_por_omissao_ordena_por_data_desc(client, session):
-    # DEVIDA-TECNICA: D10
     """A listagem por omissão devolve tudo, ordenado por data descendente.
 
-    Cálculo à mão da ordem (`order_by(Transacao.data.desc())`, linha 31):
+    Cálculo à mão da ordem (`order_by(Transacao.data.desc(), ...)`, linha 31):
       2025-03-20 (t2) > 2025-03-10 (t1) > 2025-03-01 (t4)
         > 2025-02-05 (t3) > 2024-12-31 (t5)
-    Como todas as datas são distintas, a ordem é determinística; a ausência de
-    desempate (`Transacao.id`) é um problema real (D10) que este teste não
-    observa: só o `data DESC` é fixado.
+    Como todas as datas são distintas, o desempate por `id` não entra aqui
+    (ver `test_listar_paginacao_desempata_mesma_data_por_id_desc`).
 
     Os nomes vêm das relationships (linhas 71-75): t3 não tem categoria nem
     subcategoria, e t5 usa a conta Cartão.
@@ -351,7 +349,6 @@ def test_listar_por_categorizar(client, session):
 
 
 def test_listar_paginacao(client, session):
-    # DEVIDA-TECNICA: D10
     """A paginação corta os itens mas o `total` continua a ser o do filtro todo.
 
     Cálculo à mão, com `tamanho=2` e a ordem desc de t2, t1, t4, t3, t5:
@@ -361,8 +358,8 @@ def test_listar_paginacao(client, session):
     O `total` é `query.count()` antes do `offset/limit` (linha 54), por isso é
     5 nas três páginas.
 
-    Como na listagem por omissão, a ordem fixada é só a das datas distintas
-    (D10); o `offset` não é testado contra transacções da mesma data.
+    As datas são distintas; o `offset` sobre transacções da mesma data está em
+    `test_listar_paginacao_desempata_mesma_data_por_id_desc`.
 
     Estado final da BD: as 5 transacções continuam.
     """
@@ -386,6 +383,51 @@ def test_listar_paginacao(client, session):
     assert r3.json()["total"] == 5
     assert r3.json()["pagina"] == 3
     assert [i["id"] for i in r3.json()["items"]] == [d["t5"].id]
+    assert session.query(Transacao).count() == 5
+
+
+def test_listar_paginacao_desempata_mesma_data_por_id_desc(client, session):
+    """Transacções da mesma data ficam por `id` descendente, estáveis entre páginas.
+
+    Era a D10: sem desempate, a ordem dentro da mesma data ficava ao critério
+    do SQLite e o `offset` podia repetir ou saltar linhas entre páginas.
+
+    Semente, por ordem de criação (e de `id`): a1..a4 em 2025-03-10 e b em
+    2025-03-20, criada por último para ter o `id` mais alto de todos.
+
+    Cálculo à mão, `order_by(data DESC, id DESC)` (linha 31):
+      b (03-20) > a4 > a3 > a2 > a1 (os quatro de 03-10, por id desc)
+    Com `tamanho=2`:
+      pagina=1 -> [b, a4]   (offset 0)
+      pagina=2 -> [a3, a2]  (offset 2)
+      pagina=3 -> [a1]      (offset 4)
+    As três páginas juntas têm os 5 ids, cada um uma só vez.
+
+    Estado final da BD: as 5 transacções continuam.
+    """
+    mesmas = []
+    for n in range(1, 5):
+        t = Transacao(data=date(2025, 3, 10), descricao=f"Igual {n}", valor=-1.0)
+        session.add(t)
+        session.commit()
+        session.refresh(t)
+        mesmas.append(t)
+    a1, a2, a3, a4 = mesmas
+    b = Transacao(data=date(2025, 3, 20), descricao="Depois", valor=-1.0)
+    session.add(b)
+    session.commit()
+    session.refresh(b)
+
+    paginas = []
+    for pagina in (1, 2, 3):
+        r = client.get("/api/transacoes/", params={"pagina": pagina, "tamanho": 2})
+        assert r.status_code == 200
+        assert r.json()["total"] == 5
+        paginas.append([i["id"] for i in r.json()["items"]])
+
+    assert paginas == [[b.id, a4.id], [a3.id, a2.id], [a1.id]]
+    todos = [i for p in paginas for i in p]
+    assert sorted(todos) == sorted([a1.id, a2.id, a3.id, a4.id, b.id])
     assert session.query(Transacao).count() == 5
 
 
