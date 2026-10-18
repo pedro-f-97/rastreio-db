@@ -10,6 +10,7 @@ export default function Categorias() {
     const [categorias, setCategorias] = useState([]);
     const [novaCategoria, setNovaCategoria] = useState({ nome: '', tipo: 'despesa' });
     const [editando, setEditando] = useState({}); // { tipo: 'categoria'|'subcategoria', id, categoriaId, valor }
+    const [erro, setErro] = useState('');
 
     useEffect(() => {
         carregar();
@@ -22,15 +23,25 @@ export default function Categorias() {
 
     async function aoAdicionarCategoria() {
         if (!novaCategoria.nome.trim()) return;
-        await criarCategoria(novaCategoria.nome.trim(), novaCategoria.tipo);
-        setNovaCategoria({ nome: '', tipo: 'despesa' });
-        carregar();
+        setErro('');
+        try {
+            await criarCategoria(novaCategoria.nome.trim(), novaCategoria.tipo);
+            setNovaCategoria({ nome: '', tipo: 'despesa' });
+            carregar();
+        } catch (e) {
+            setErro(e.response?.data?.detail || 'Erro ao criar categoria.');
+        }
     }
 
     async function aoRenomearCategoria(id, nome, tipo) {
-        await renomearCategoria(id, nome, tipo);
-        setEditando({});
-        carregar();
+        setErro('');
+        try {
+            await renomearCategoria(id, nome, tipo);
+            setEditando({});
+            carregar();
+        } catch (e) {
+            setErro(e.response?.data?.detail || 'Erro ao renomear categoria.');
+        }
     }
 
     async function aoApagarCategoria(id) {
@@ -80,6 +91,8 @@ export default function Categorias() {
                 </select>
                 <button onClick={aoAdicionarCategoria}>Adicionar</button>
             </div>
+
+            {erro && <p className="erro">{erro}</p>}
 
             <div className="lista-itens">
                 {categorias.map(cat => (
