@@ -728,3 +728,83 @@ def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_fich
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior")
     assert nomes_das_contas() == [CONTA_REAL]
+
+
+# ---------------------------------------------------------------------------
+# D12h — a extensão é aceite com qualquer capitalização
+# ---------------------------------------------------------------------------
+
+def test_extensao_db_maiuscula_e_aceite(client, bd_em_ficheiro):
+    """Um backup válido chamado `BACKUP.DB` é restaurado com 200.
+
+    Cálculo à mão: o nome acaba em `.db` depois de passar a minúsculas
+    (`filename.lower().endswith(".db")`), pelo que a primeira verificação não
+    recusa. O conteúdo é o próprio export da BD da fixture, que tem as 11
+    tabelas com todas as colunas — logo `_validar_sqlite` e `_validar_estrutura`
+    passam e o `os.replace` troca a BD por ela própria, byte a byte.
+
+    Estado final da BD: continua só com a `Conta Real`, e o `.anterior` fica no
+    disco (comportamento esperado desde o D6).
+    """
+    semear_conta_real()
+
+    exportado = client.get("/api/backups/exportar")
+    assert exportado.status_code == 200
+
+    resposta = importar(client, exportado.content, nome="BACKUP.DB")
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {
+        "ok": True,
+        "mensagem": "Base de dados restaurada",
+    }
+    assert existe(bd_em_ficheiro, ".anterior")
+    assert nomes_das_contas() == [CONTA_REAL]
+
+
+def test_extensao_db_com_capitalizacao_mista_e_aceite(client, bd_em_ficheiro):
+    """Um backup válido chamado `backup.Db` também é restaurado com 200.
+
+    Cálculo à mão: `.lower()` de `backup.Db` dá `backup.db`, que acaba em
+    `.db`; o resto do percurso é o do teste anterior — conteúdo válido, 11
+    tabelas, `os.replace` atómico.
+
+    Estado final da BD: só a `Conta Real`, e o `.anterior` no disco.
+    """
+    semear_conta_real()
+
+    exportado = client.get("/api/backups/exportar")
+    assert exportado.status_code == 200
+
+    resposta = importar(client, exportado.content, nome="backup.Db")
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {
+        "ok": True,
+        "mensagem": "Base de dados restaurada",
+    }
+    assert existe(bd_em_ficheiro, ".anterior")
+    assert nomes_das_contas() == [CONTA_REAL]
+
+
+def test_extensao_errada_continua_a_ser_rejeitada(client, bd_em_ficheiro):
+    """A capitalização só ajuda a `.db`: `.txt` continua a dar 400.
+
+    Cálculo à mão: `.lower()` de `backup.txt` dá `backup.txt`, que não acaba em
+    `.db`, pelo que a verificação responde 400 `Ficheiro inválido` — a mesma
+    mensagem de antes, e ainda antes de se ler o conteúdo (não há `.tmp` no
+    disco).
+
+    Estado final da BD: intacta, com a `Conta Real`.
+    """
+    semear_conta_real()
+
+    exportado = client.get("/api/backups/exportar")
+    assert exportado.status_code == 200
+
+    resposta = importar(client, exportado.content, nome="backup.txt")
+
+    assert resposta.status_code == 400
+    assert resposta.json()["detail"] == "Ficheiro inválido"
+    assert not existe(bd_em_ficheiro, ".tmp")
+    assert nomes_das_contas() == [CONTA_REAL]

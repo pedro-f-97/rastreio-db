@@ -101,7 +101,7 @@ def _validar_estrutura(path: str) -> None:
 
 @router.post("/importar")
 async def importar_backup(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.endswith(".db"):
+    if not file.filename or not file.filename.lower().endswith(".db"):
         raise HTTPException(status_code=400, detail="Ficheiro inválido")
 
     conteudo = await file.read()

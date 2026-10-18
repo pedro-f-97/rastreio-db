@@ -502,9 +502,17 @@ isoladamente.
   `SEED_TIPOS_ATIVO`, ao contrário de `routers/configuracao.py:29-39`. E o
   guard da linha 158 só olha para o número de categorias: se a BD já tiver
   categorias mas nenhum tipo de ativo, `popular()` sai sem os semear.
-- **D12h** — `routers/backups.py:104` — `filename.endswith(".db")` é
+- **D12h — resolvido** — `routers/backups.py:104` — `filename.endswith(".db")` é
   case-sensitive: um ficheiro `BACKUP.DB` é rejeitado, e a recusa não diz
   porquê.
+  **Resolvido:** a comparação passou a `file.filename.lower().endswith(".db")`
+  (`backend/routers/backups.py:104`), pelo que `backup.db`, `BACKUP.DB` e
+  `backup.Db` são aceites; a recusa das extensões erradas mantém-se tal e qual
+  — 400 `Ficheiro inválido` (`backend/routers/backups.py:105`). Testes novos em
+  `backend/tests/test_backups/test_importar.py`:
+  `test_extensao_db_maiuscula_e_aceite` (linha 737),
+  `test_extensao_db_com_capitalizacao_mista_e_aceite` (linha 765) e
+  `test_extensao_errada_continua_a_ser_rejeitada` (linha 790).
 - **D12i** — `tray.py:19` — porta `9742` hardcoded, duplicada de
   `main.PORTA` (`main.py:207`). Alterar uma e não a outra deixa a tray a
   abrir um URL morto.
