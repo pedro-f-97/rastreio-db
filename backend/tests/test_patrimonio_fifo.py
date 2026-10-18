@@ -643,12 +643,10 @@ def test_bem_sem_unidades_trata_venda_parcial_como_venda_total(client, session):
       a parte que ficou por vender passou a ter custo zero e valor zero, ou
       seja, desaparece do patrimonio.
 
-    Sem etiqueta de correccao: o utilizador ainda nao decidiu se isto e erro, por isso
-    este teste fixa o comportamento actual e nao o desejado. O cenario 12
-    mostra o mesmo codigo com uma venda que e mesmo total.
-
-    DEVIDA-TECNICA: D17 (venda parcial no ramo dos bens tratada como venda
-    total).
+    E a convencao registada nas «Decisoes de design» do README (era a D17):
+    um bem sem unidades vende-se sempre por inteiro; para vender partes, o
+    bem regista-se com unidades e passa pelo FIFO. O cenario 12 mostra o
+    mesmo codigo com uma venda que e mesmo total.
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Loja", tipo)

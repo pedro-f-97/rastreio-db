@@ -111,6 +111,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 - Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas
 - Transferências internas são excluídas de todas as métricas para não distorcer os dados reais
+- Um bem sem unidades (ex. imóvel, viatura) vende-se sempre por inteiro: qualquer venda desconta o custo acumulado todo e o bem deixa de contar para o património. Para vender partes de um bem, regista-se o bem com unidades (ex. 100 unidades = 100%), e as vendas parciais passam pelo FIFO
 - As médias mensais das estatísticas contam todos os meses que têm transações, incluindo os que só têm transferências ou transações por categorizar; pressupõe-se que as transações importadas são categorizadas logo a seguir à importação
 - O sistema de regras usa correspondência por substring intuitiva
 - Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada

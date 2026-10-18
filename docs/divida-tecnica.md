@@ -803,7 +803,7 @@ desde maio de 2024 (1 000,00) e junho de 2024 (11 990,00). Testes actualizados:
 14 000,00, diferente do custo, para separar os dois casos) e
 `test_bem_sem_unidades_e_sem_preco_vale_o_custo`.
 
-## ⚪ D17 — Venda parcial de um bem sem unidades tratada como venda total
+## ⚪ D17 — Venda parcial de um bem sem unidades tratada como venda total — resolvido
 
 `backend/servicos/patrimonio_serv.py:43-47` — no ramo dos bens, qualquer
 movimento do tipo `venda` desconta o custo acumulado inteiro e zera-o, sem
@@ -830,6 +830,15 @@ distinção alguma, e o ramo não tem forma de representar uma posição parcial
 cenário 13 de `test_patrimonio_fifo.py`, que ficou sem etiqueta à espera de
 decisão. **Decisão pendente (utilizador):** se é erro a corrigir ou convenção a
 documentar.
+
+**Resolvido (decisão do utilizador: convenção):** um bem sem unidades vende-se
+sempre por inteiro. Ficou registado nas «Decisões de design» do `README.md`,
+com a alternativa para vendas parciais: registar o bem com unidades (por
+exemplo 100 unidades = 100%), para que passe pelo FIFO. O código não mudou.
+Verificado numa cópia da BD real: não há nenhuma venda registada, e o único bem
+sem unidades é uma viatura. O cenário 13 de
+`backend/tests/test_patrimonio_fifo.py` deixou de ter a etiqueta D17 e aponta
+para o README.
 
 ## ⚪ D18 — Os dois pontos de entrada do cálculo escolhem preços diferentes
 
