@@ -478,7 +478,9 @@ def test_sem_preco_degrada_o_latente_para_nulo(client, session):
 
     A API mantem o latente nulo e o mais/menos-valia igual ao realizado; e a
     pagina Ativos que mostra «sem preco» para um ativo detido nestas
-    condicoes (era a D12b). O valor 0,0 de um ativo com unidades e sem preco
+    condicoes (era a D12b).
+
+    DEVIDA-TECNICA: D26 — o valor 0,0 de um ativo com unidades e sem preco
     nao foi tocado pela D16, que so tratou dos bens.
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)

@@ -1125,6 +1125,29 @@ Fixo por `test_inicializar_com_categorias_existentes_sem_config_integrity` em
 com uma categoria "Casa" na BD e sem linha `Configuracao`, o pedido rebenta com
 `IntegrityError` e nada fica inicializado.
 
+## ⚪ D26 — Ativo com unidades e sem preço desaparece do património
+
+O mesmo problema da D16, no ramo com unidades. Em `_resumo_valor_ativo`
+(`backend/servicos/patrimonio_serv.py:101`), um ativo com unidades em carteira
+e sem nenhum preço registado tem `valor = 0.0`:
+
+```python
+valor = round(quantidade * float(preco.preco), 2) if (preco and quantidade > 0) else 0.0
+```
+
+O custo aparece no `custo_total`, mas o ativo contribui 0 para os
+`investimentos` e para o `total` do património. A D16 só tratou dos bens sem
+unidades (que passaram a valer o custo).
+
+Na prática é raro: uma compra registada pela API com `preco_unitario` cria logo
+um preço para essa data (`criar_movimento`, `routers/patrimonio.py`). Só
+acontece com compras sem preço unitário, ou se o preço for apagado à mão.
+
+Fixo por `test_sem_preco_degrada_o_latente_para_nulo` em
+`backend/tests/test_patrimonio_fifo.py`, que fixa o comportamento **actual**
+(valor 0,0 com 100,00 de custo). **Decisão pendente (utilizador):** valer o
+custo, como os bens desde a D16, ou outra regra.
+
 ---
 
 ## Regra a seguir
