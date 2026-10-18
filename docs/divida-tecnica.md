@@ -840,7 +840,7 @@ sem unidades é uma viatura. O cenário 13 de
 `backend/tests/test_patrimonio_fifo.py` deixou de ter a etiqueta D17 e aponta
 para o README.
 
-## ⚪ D18 — Os dois pontos de entrada do cálculo escolhem preços diferentes
+## ⚪ D18 — Os dois pontos de entrada do cálculo escolhem preços diferentes — resolvido
 
 O mesmo activo é avaliado em dois sítios, e a escolha do preço não é a mesma:
 
@@ -861,6 +861,24 @@ não o compara com nada.
 Ao contrário de D3, aqui a divergência não é de *boundary* (`>` contra `>=`): um
 dos lados não tem comparação nenhuma. Registado sem teste — fixá-lo exigiria
 caracterizar o `/evolucao`, que está fora do âmbito desta suite.
+
+**Resolvido (decisão do utilizador):** o valor **actual** usa o preço mais
+recente, mesmo com data futura, e os pontos passados continuam históricos.
+
+- `calcular_patrimonio_em` ganhou `precos_futuros`
+  (`backend/servicos/patrimonio_serv.py`), e `gerar_evolucao` liga-o nos
+  pontos a partir de hoje (`fim_mes >= hoje`; o `hoje` vem do router,
+  `routers/patrimonio.py`, para os testes o poderem fixar). Assim o ponto de
+  hoje do gráfico bate com os cartões, que vêm do resumo do ativo.
+- O resumo do ativo não mudou: já usava o preço mais recente.
+- Na página Ativos (`frontend/src/pages/Ativos.jsx`), a data do preço mostra
+  «⚠» e uma dica quando é futura, porque um preço com data futura é
+  normalmente um erro de introdução.
+
+Teste novo: `test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo`
+em `backend/tests/test_api_patrimonio.py`, com «hoje» fixado; o teste dos
+pontos passados (`test_evolucao_ignora_preco_posterior_ao_data_alvo`) continua
+igual.
 
 ## ⚪ D21 — `palavra_chave` vazia ou só com espaços não é validada no servidor — resolvido
 

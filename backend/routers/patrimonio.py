@@ -253,4 +253,4 @@ def evolucao_patrimonio(
     assert data_inicio is not None
     assert data_fim is not None
 
-    return gerar_evolucao(db, data_inicio, data_fim)
+    return gerar_evolucao(db, data_inicio, data_fim, date.today())

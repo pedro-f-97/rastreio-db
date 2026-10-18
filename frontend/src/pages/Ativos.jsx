@@ -170,6 +170,9 @@ export default function Ativos({ onDadosAlterados }) {
     return acc;
   }, {});
 
+  // Data local em AAAA-MM-DD, comparável com `data_preco` (D18)
+  const hoje = new Date().toLocaleDateString("sv-SE");
+
   function calcularResumoTipo(listaAtivos, resumos) {
     let custoTotal = 0;
     let valorAtualTotal = 0;
@@ -388,7 +391,11 @@ export default function Ativos({ onDadosAlterados }) {
                               <div className="celula-valor-data">
                                 <span>{formatarEuros(r.valor_atual)}</span>
                                 {r.data_preco && (
-                                  <span className="data-preco">{r.data_preco}</span>
+                                  r.data_preco > hoje ? (
+                                    <span className="data-preco" title="Preço com data futura: confirma se a data está certa.">⚠ {r.data_preco}</span>
+                                  ) : (
+                                    <span className="data-preco">{r.data_preco}</span>
+                                  )
                                 )}
                               </div>
                             ) : "—"}

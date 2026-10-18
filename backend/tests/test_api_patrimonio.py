@@ -1102,9 +1102,9 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
     `PrecoAtivoModel.data <= data_alvo` (`servicos/patrimonio_serv.py:137`)
     não encontra preço e o valor é `0.0`.
 
-    DEVIDA-TECNICA: D18 — o `GET /ativos/{id}/resumo` não tem esse limite de
-    data e usaria o preço de `2025-06-01`, mostrando um valor que a evolução
-    não mostra.
+    Vale para os pontos passados. O ponto de hoje usa o preço mais recente,
+    como o resumo do ativo (ver
+    `test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo`).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
@@ -1121,6 +1121,54 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
     ponto = r.json()[0]
     assert ponto["investimentos"] == 0.0
     assert ponto["total"] == 0.0
+
+
+def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
+        client, session, monkeypatch):
+    """O ponto de hoje usa o preço mais recente, mesmo com data futura.
+
+    Decisão do utilizador (era a D18): o resumo do ativo e o ponto de hoje do
+    gráfico usam os dois o preço mais recente, para baterem certo no mesmo
+    ecrã; os pontos passados continuam a usar o preço dessa data. O frontend
+    mostra um aviso quando a data do preço é futura.
+
+    "Hoje" fixado em 2025-06-30, como em
+    `test_evolucao_sem_parametros_usa_hoje_como_data_fim`.
+
+    Cálculo à mão: 10 un.; preços 20.00 em 2025-05-01 e 30.00 em 2025-08-01
+    (futuro face a hoje).
+      2025-05-31 (passado): preço até essa data = 20.00 -> 10 x 20 = 200.00
+      2025-06-30 (hoje):    preço mais recente = 30.00 -> 10 x 30 = 300.00
+      resumo: preço mais recente = 30.00 -> valor_atual 300.00, data_preco
+        2025-08-01
+    """
+    from datetime import date as Date
+
+    class HojeFixo(Date):
+        @classmethod
+        def today(cls):
+            return cls(2025, 6, 30)
+
+    monkeypatch.setattr(patrimonio_router, "date", HojeFixo)
+
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 10), valor_total=-100.0, quantidade=10)
+    semear_preco(session, ativo, date(2025, 5, 1), 20.00)
+    semear_preco(session, ativo, date(2025, 8, 1), 30.00)
+
+    r = client.get("/api/patrimonio/evolucao", params={"data_inicio": "2025-05-01"})
+
+    assert r.status_code == 200
+    assert [(p["data"], p["investimentos"]) for p in r.json()] == [
+        ("2025-05-31", 200.00),
+        ("2025-06-30", 300.00),
+    ]
+
+    resumo = client.get(f"/api/patrimonio/ativos/{ativo.id}/resumo").json()
+    assert resumo["valor_atual"] == 300.00
+    assert resumo["data_preco"] == "2025-08-01"
 
 
 # ---------------------------------------------------------------------------

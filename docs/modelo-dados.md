@@ -159,3 +159,5 @@ Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais 
 **Relações:** N:1 com `Ativo` (`ativo`)
 
 **Restrições:** `UNIQUE(ativo_id, data)` — um preço por activo e por dia
+
+**Uso:** o valor actual de um activo (resumo e ponto de hoje da evolução) usa o preço mais recente, mesmo com data futura, e a página Ativos assinala-o com «⚠»; os pontos passados da evolução usam o último preço até essa data.

@@ -124,7 +124,7 @@ def primeira_sobre_venda(movimentos):
     return None
 
 
-def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
+def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = False) -> dict:
     # --- Liquidez ---
     liquidez = 0.0
     contas = db.query(ContaModel).filter(ContaModel.ativa == True).all()
@@ -154,15 +154,12 @@ def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
             .all()
         )
 
-        preco = (
-            db.query(PrecoAtivoModel)
-            .filter(
-                PrecoAtivoModel.ativo_id == ativo.id,
-                PrecoAtivoModel.data <= data_alvo,
-            )
-            .order_by(PrecoAtivoModel.data.desc())
-            .first()
-        )
+        # Os pontos passados usam o preço dessa data; o de hoje usa o mais
+        # recente, mesmo com data futura, como o resumo do ativo (D18)
+        q_preco = db.query(PrecoAtivoModel).filter(PrecoAtivoModel.ativo_id == ativo.id)
+        if not precos_futuros:
+            q_preco = q_preco.filter(PrecoAtivoModel.data <= data_alvo)
+        preco = q_preco.order_by(PrecoAtivoModel.data.desc()).first()
 
         # Partilha a mesma lógica FIFO / sem-unidades que resumo_ativo
         resultado = _resumo_valor_ativo(ativo, movimentos, preco)
@@ -186,7 +183,7 @@ def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
     }
 
 
-def gerar_evolucao(db: Session, data_inicio: date, data_fim: date) -> list[dict]:
+def gerar_evolucao(db: Session, data_inicio: date, data_fim: date, hoje: date) -> list[dict]:
     from calendar import monthrange
 
     pontos = []
@@ -194,7 +191,7 @@ def gerar_evolucao(db: Session, data_inicio: date, data_fim: date) -> list[dict]
     while cursor <= data_fim:
         ultimo_dia = monthrange(cursor.year, cursor.month)[1]
         fim_mes = min(date(cursor.year, cursor.month, ultimo_dia), data_fim)
-        pontos.append(calcular_patrimonio_em(db, fim_mes))
+        pontos.append(calcular_patrimonio_em(db, fim_mes, precos_futuros=fim_mes >= hoje))
         cursor = date(cursor.year + (cursor.month == 12), (cursor.month % 12) + 1, 1)
 
     return pontos
