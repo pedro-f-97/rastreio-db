@@ -2,12 +2,15 @@
 
 Cobre os oito endpoints de `backend/routers/categorias.py`:
 
-* `GET /` (linha 8) — lista as categorias com as subcategorias aninhadas;
-* `GET /{id}/subcategorias` (linha 24);
-* `POST /` (linha 31) e `PUT /{id}` (linha 66) — criação e renomeação;
-* `POST /{id}/subcategorias` (linha 42) e
-  `PUT /{id}/subcategorias/{sub_id}` (linha 80);
-* `DELETE /{id}` (linha 57) e `DELETE /{id}/subcategorias/{sub_id}` (linha 92).
+* `GET /` (`listar_categorias`) — lista as categorias com as subcategorias
+  aninhadas;
+* `GET /{id}/subcategorias` (`listar_subcategorias`);
+* `POST /` (`criar_categoria`) e `PUT /{id}` (`renomear_categoria`) — criação e
+  renomeação;
+* `POST /{id}/subcategorias` (`criar_subcategoria`) e
+  `PUT /{id}/subcategorias/{sub_id}` (`renomear_subcategoria`);
+* `DELETE /{id}` (`apagar_categoria`) e `DELETE /{id}/subcategorias/{sub_id}`
+  (`apagar_subcategoria`).
 
 Os valores esperados são calculados à mão e escritos como constantes, com o
 cálculo exposto no docstring de cada teste. Nenhum teste toca na base de dados
@@ -96,14 +99,15 @@ def _semear(session):
 def test_listar_categorias_devolve_subcategorias(client, session):
     """`GET /` devolve cada categoria com as subcategorias aninhadas.
 
-    Cálculo à mão (linhas 11-22 montam o dicionário à mão, `cat.tipo.value` é
-    a string do enum):
+    Cálculo à mão (o `return` de `listar_categorias` monta o dicionário à mão,
+    `cat.tipo.value` é a string do enum):
       Casa    -> despesa, subcategorias [Alimentação (trata_patrimonio False)]
       Receita -> receita, subcategorias [Salário (trata_patrimonio True)]
       Saúde   -> despesa, subcategorias []
 
-    A query `db.query(Categoria).all()` (linha 10) não tem `order_by`, por isso
-    o teste indexa por `id` e não fixa a ordem (que o SQLite não garante).
+    A query `db.query(Categoria).all()` de `listar_categorias` não tem
+    `order_by`, por isso o teste indexa por `id` e não fixa a ordem (que o
+    SQLite não garante).
 
     Estado final da BD: 3 categorias, 2 subcategorias, 3 transacções.
     """
@@ -141,7 +145,7 @@ def test_listar_categorias_devolve_subcategorias(client, session):
 def test_listar_subcategorias_de_categoria_e_404(client, session):
     """`GET /{id}/subcategorias` devolve a lista ORM; id inexistente dá 404.
 
-    Cálculo à mão (linhas 26-29):
+    Cálculo à mão (o corpo de `listar_subcategorias`):
       categoria Casa    -> [Alimentação], serializada como
         {trata_patrimonio: False, nome: "Alimentação", id, categoria_id}
       categoria Receita -> [Salário], com trata_patrimonio True
@@ -185,7 +189,7 @@ def test_criar_categoria_e_nome_duplicado_da_409(client, session):
     """Criar uma categoria funciona; um nome repetido é recusado com 409.
 
     D24 (`docs/divida-tecnica.md`): o POST pré-checa `Categoria.nome` antes de
-    escrever (`backend/routers/categorias.py:33-35`), pelo que um nome repetido
+    escrever (a pré-checagem de `criar_categoria`), pelo que um nome repetido
     já não chega a `commit()` — em produção deixou de ser um 500 por
     `IntegrityError`.
 
@@ -195,8 +199,7 @@ def test_criar_categoria_e_nome_duplicado_da_409(client, session):
         `subcategorias`
       POST com o nome "Casa" (já existente): a pré-checagem encontra a linha e
         responde 409 {"detail": "Já existe uma categoria com este nome."} — a
-        mesma forma de `routers/contas.py:21` (contas) e do POST de tipos de
-        ativo
+        mesma forma de `criar_conta` (contas) e do POST de tipos de ativo
 
     Estado final da BD: a tentativa rejeitada não escreve nada — ficam 4
     categorias (as 3 da semente + "Lazer"), e "Casa" mantém o tipo `despesa`.
@@ -224,8 +227,8 @@ def test_renomear_categoria_duplicado_da_409_e_404(client, session):
     """Renomear funciona; renomear para um nome existente dá 409; id errado 404.
 
     D24 (`docs/divida-tecnica.md`): o PUT pré-checa o nome contra as **outras**
-    categorias (`Categoria.id != categoria_id`,
-    `backend/routers/categorias.py:71-73`), pelo que a colisão é recusada antes
+    categorias (`Categoria.id != categoria_id` na pré-checagem de
+    `renomear_categoria`), pelo que a colisão é recusada antes
     de escrever — em produção deixou de ser um 500 por `IntegrityError`.
 
     Cálculo à mão:
@@ -302,7 +305,8 @@ def test_renomear_categoria_mantendo_o_proprio_nome_e_200(client, session):
 # ---------------------------------------------------------------------------
 
 def test_criar_subcategoria_default_trata_e_404(client, session):
-    """`trata_patrimonio` omitido grava `False` (`... or False`, linha 47).
+    """`trata_patrimonio` omitido grava `False` (o `... or False` de
+    `criar_subcategoria`).
 
     Cálculo à mão:
       POST {"nome": "Casa de banho"} em Casa -> `None or False` = False,
@@ -346,11 +350,12 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
 
     Cálculo à mão:
       PUT {"nome": "Comida"} em Casa/Alimentação: o esquema
-        `SubcategoriaCreate` (schemas.py:26-28) traz `trata_patrimonio` a None,
-        a linha 80 é falsa e a linha 81 não corre, por isso Alimentação mantém
+        `SubcategoriaCreate` traz `trata_patrimonio` a None, o `if
+        subcategoria.trata_patrimonio is not None:` de `renomear_subcategoria`
+        é falso e a atribuição não corre, por isso Alimentação mantém
         `trata_patrimonio = False`
       PUT {"nome": "Ordenado"} em Receita/Salário: mantém `True`
-      PUT no URL Receita/Alimentação: a query (linha 76) exige
+      PUT no URL Receita/Alimentação: a query de `renomear_subcategoria` exige
         `categoria_id == categoria_id do URL`, não encontra e responde 404
         {"detail": "Subcategoria não encontrada"}
 
@@ -396,11 +401,12 @@ def test_apagar_categoria_com_subcategorias_integrity(client, session):
     # DEVIDA-TECNICA: D1
     """Apagar uma categoria com subcategorias rebenta com `IntegrityError`.
 
-    Cálculo à mão (linhas 56-60): a categoria Casa tem a subcategoria
-    Alimentação. A `relationship` Cat.subcategorias (database.py:158) não tem
-    `cascade`, por isso ao apagar a categoria o SQLAlchemy tenta pôr
-    `subcategorias.categoria_id = NULL` para desassociar; essa coluna é
-    `nullable=False` (database.py:167), e o `commit()` (linha 60) falha com
+    Cálculo à mão (o corpo de `apagar_categoria`): a categoria Casa tem a
+    subcategoria Alimentação. A `relationship` `Categoria.subcategorias` de
+    `database.py` não tem `cascade`, por isso ao apagar a categoria o
+    SQLAlchemy tenta pôr `subcategorias.categoria_id = NULL` para desassociar;
+    essa coluna é `nullable=False` no modelo `Subcategoria`, e o `db.commit()`
+    de `apagar_categoria` falha com
     `NOT NULL constraint failed: subcategorias.categoria_id`.
 
     O `IntegrityError` não é apanhado: **em produção é um 500**. Faz parte da
@@ -428,10 +434,11 @@ def test_apagar_categoria_deixa_transacao_orfa(client, session):
     # DEVIDA-TECNICA: D1
     """Apagar uma categoria só com transacções directas deixa-as órfãs.
 
-    Cálculo à mão (linhas 56-61): Saúde (id 3) não tem subcategorias, só a
+    Cálculo à mão (o corpo de `apagar_categoria`): Saúde (id 3) não tem
+    subcategorias, só a
     transacção 2 a apontar para ela. Como o SQLite não força as chaves
-    estrangeiras (D1) e não existe `relationship` de Categoria para Transacao
-    (database.py:190 só liga Transacao->Categoria), nada toca em
+    estrangeiras (D1) e em `database.py` só existe a `relationship` de
+    Transacao para Categoria, nada toca em
     `transacoes.categoria_id`: o `DELETE` passa, a categoria desaparece e a
     transacção 2 fica a apontar para o id 3, que já não existe.
 
@@ -460,12 +467,13 @@ def test_apagar_subcategoria_desassocia_transacoes(client, session):
     # DEVIDA-TECNICA: D1
     """Apagar uma subcategoria põe as suas transacções a NULL (não as apaga).
 
-    Cálculo à mão (linhas 88-92): Alimentação tem a transacção 1 a apontar para
-    ela. A `relationship` Subcategoria.transacoes (database.py:170), sem
-    `cascade`, leva o SQLAlchemy a escrever `transacoes.subcategoria_id = NULL`
-    — coluna que é `nullable=True` (database.py:185), por isso o `commit`
-    (linha 92) passa. A transacção 1 fica "por categorizar" mas mantém a
-    categoria Casa.
+    Cálculo à mão (o corpo de `apagar_subcategoria`): Alimentação tem a
+    transacção 1 a apontar para ela. A `relationship`
+    `Subcategoria.transacoes` de `database.py`, sem `cascade`, leva o
+    SQLAlchemy a escrever `transacoes.subcategoria_id = NULL`
+    — coluna que é `nullable=True` no modelo, por isso o `db.commit()`
+    de `apagar_subcategoria` passa. A transacção 1 fica "por categorizar" mas
+    mantém a categoria Casa.
 
     Faz parte da D1: a associação some-se por efeito de desassociação, não por
     regra de negócio explícita.
@@ -499,7 +507,8 @@ def test_apagar_categoria_vazia_e_subcategoria_sem_transacoes(client, session):
 
     Cálculo à mão:
       DELETE numa categoria criada na hora (sem subcategorias nem transacções):
-        a `first()` (linha 56) encontra-a e a linha 59 apaga-a -> 200 {"ok": True}
+        a `first()` de `apagar_categoria` encontra-a e o `db.delete(cat)`
+        apaga-a -> 200 {"ok": True}
       DELETE em Salário (Receita), que nenhuma transacção usa -> 200 {"ok": True}
 
     Estado final da BD: a categoria vazia desaparece (ficam as 3 da semente) e
@@ -531,10 +540,11 @@ def test_apagar_inexistentes_da_404(client, session):
     """Apagar uma categoria ou subcategoria inexistente dá 404.
 
     Cálculo à mão:
-      DELETE /9999 -> `first()` (linha 56) devolve None -> 404
+      DELETE /9999 -> a `first()` de `apagar_categoria` devolve None -> 404
         {"detail": "Categoria não encontrada"}
-      DELETE /Casa/subcategorias/9999 -> a query (linha 88) não encontra e a
-        linha 90 responde 404 {"detail": "Subcategoria não encontrada"}
+      DELETE /Casa/subcategorias/9999 -> a query de `apagar_subcategoria` não
+        encontra e o `raise` responde 404
+        {"detail": "Subcategoria não encontrada"}
 
     Estado final da BD: nada muda — 3 categorias, 2 subcategorias, 3
     transacções.

@@ -3,11 +3,10 @@
 O que fica fixado
 -----------------
 A D9 é a falta de validação dos parâmetros `ano` e `mes` de
-`detalhe_mensal` (`backend/routers/estatisticas.py:235`). A função constrói
-`date(ano, mes, 1)` na linha 236 e `date(ano, mes, calendar.monthrange(ano,
-mes)[1])` na linha 237 sem limites, e o `date()` levanta `ValueError` tanto
-para o mês fora de 1..12 como para o ano fora de 1..9999 — nunca o
-`calendar` da linha 237 chega a ser avaliado:
+`detalhe_mensal`. A função constrói `inicio = date(ano, mes, 1)` e
+`fim = date(ano, mes, calendar.monthrange(ano, mes)[1])` sem limites, e o
+`date()` levanta `ValueError` tanto para o mês fora de 1..12 como para o ano
+fora de 1..9999 — nunca o `calendar.monthrange` chega a ser avaliado:
 
 * `ano=2024, mes=13` → `ValueError: month must be in 1..12, not 13`;
 * `ano=2024, mes=0`  → `ValueError: month must be in 1..12, not 0`;
@@ -15,13 +14,13 @@ para o mês fora de 1..12 como para o ano fora de 1..9999 — nunca o
 * `ano=2024, mes=12` → válido, devolve 200 (confirmado com BD vazia antes de
   escrever o teste).
 
-A correcção alinha com o resto do projecto: `backend/routers/transacoes.py:21`
-já usa `Query(None, ge=1, le=12)` para o mês, e a linha 22 usa `Query(None,
-ge=2000)` para o ano. Na rota passa a ser `ano: int = Query(ge=2000, le=9999)`
-e `mes: int = Query(ge=1, le=12)` — `Query` sem `default` mantém os dois
-parâmetros **obrigatórios**, pelo que pedir sem `?ano=` continua a dar 422. O
-`le=9999` é o teto do `date()` (ano máximo suportado) e o `ge=2000` alinha com
-`transacoes.py:22`.
+A correcção alinha com o resto do projecto: `listar_transacoes` já usa
+`Query(None, ge=1, le=12)` para o mês e `Query(None, ge=2000)` para o ano. Na
+rota passa a ser `ano: int = Query(ge=2000, le=9999)` e `mes: int =
+Query(ge=1, le=12)` — `Query` sem `default` mantém os dois parâmetros
+**obrigatórios**, pelo que pedir sem `?ano=` continua a dar 422. O `le=9999` é
+o teto do `date()` (ano máximo suportado) e o `ge=2000` alinha com o mesmo
+limite de `listar_transacoes`.
 
 Nos três primeiros testes o `TestClient` do `conftest.py` tem
 `raise_server_exceptions=True`, por isso a excepção original (`ValueError`) é
@@ -32,7 +31,7 @@ excepções em fixtures) — em produção, sem a correcção, o FastAPI devolve
 500.
 
 Rota real: `GET /api/estatisticas/detalhe-mensal?ano=&mes=` (prefixo `api` do
-`main.py` + prefixo `/estatisticas` de `estatisticas.py:10`).
+`main.py` + prefixo `/estatisticas` do router de estatísticas).
 
 Valores esperados
 -----------------
@@ -50,8 +49,9 @@ from database import Categoria, Subcategoria, Transacao, TipoCategoria
 def test_detalhe_mensal_mes_13_da_422(client):
     """`mes=13` é rejeitado pelo `Query(ge=1, le=12)`, com 422.
 
-    Antes da correcção o `date(2024, 13, 1)` da linha 236 levantava
-    `ValueError` e o `TestClient` re-levantava a excepção em vez de responder;
+    Antes da correcção o `date(2024, 13, 1)` do `inicio` de `detalhe_mensal`
+    levantava `ValueError` e o `TestClient` re-levantava a excepção em vez de
+    responder;
     em produção era 500. O Pydantic roda agora a validação de `Query` antes da
     rota e devolve 422.
 
@@ -159,15 +159,15 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
 
     Cálculo à mão, mês a mês:
       março: receitas = 1000,0; despesas = -300,0 + 50,0 = -250,0;
-        poupança = round(1000,0 + (-250,0), 2) = 750,0 (linha 35) e o
-        investimento não entra na poupança
-      abril: só transferência: _calculate_totals ignora-a (linha 277), mas
-        `todos_meses` (linhas 16-19) não filtra transferências e as linhas
-        23-26 acrescentam o mês a zeros -> aparece no output a zeros. É a
+        poupança = round(1000,0 + (-250,0), 2) = 750,0 (o `poupanca` de
+        `resumo_mensal`) e o investimento não entra na poupança
+      abril: só transferência: _calculate_totals ignora-a (o seu ramo de
+        transferências), mas `todos_meses` não filtra transferências e o ciclo
+        seguinte acrescenta o mês a zeros -> aparece no output a zeros. É a
         mesma raiz da D5 a entrar no denominador das médias noutro endpoint
         (DEVIDA-TECNICA: D5).
-      junho: só investimento: a chave é criada na linha 278 com
-        investimento -1000,0 e receitas/despesas a zero.
+      junho: só investimento: a chave do mês é criada com investimento
+        -1000,0 e receitas/despesas a zero.
       fevereiro (sem transacções) não está em `todos_meses`, por isso não
       aparece em lado nenhum.
 
@@ -212,9 +212,9 @@ def test_resumo_mensal_com_bd_vazia_devolve_media_e_mediana_zero(client, session
     """BD vazia: meses vazio e média/mediana em 0.
 
     Cálculo à mão: sem transacções, `meses` (de _calculate_totals) e
-    `todos_meses` estão vazios, o ciclo das linhas 31-45 não corre, e as
-    linhas 47-48 caem no `else`: media = 0 e mediana = 0. Sem dependência da
-    data actual.
+    `todos_meses` estão vazios, o ciclo sobre os meses não corre, e o cálculo
+    de `media` e `mediana` cai no `else`: media = 0 e mediana = 0. Sem
+    dependência da data actual.
     """
     r = client.get("/api/estatisticas/resumo-mensal")
 
@@ -238,14 +238,16 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
       2025-06-02  Casa (sem sub)    -30,00
 
     Cálculo à mão:
-      meses_distintos = 4 (mar, abr, mai, jun): as linhas 59-65 contam os
-      meses de TODAS as transacções, sem excluir transferências, e a query
-      de totais exclui-as (linha 77) -> o mês 04 só com transferências entra
+      meses_distintos = 4 (mar, abr, mai, jun): a query `q_meses` de
+      `por_categoria` conta os meses de TODAS as transacções, sem excluir
+      transferências, e a query de totais exclui-as (o seu `filter` de
+      transferências) -> o mês 04 só com transferências entra
       no denominador sem entrar no numerador (DEVIDA-TECNICA: D5).
 
-      Casa.totais (linhas 88-98) é construído por LINHA da query, que agrupa
-      por (ano, mes, categoria, subcategoria) na linha 82: o mês 03 dá duas
-      linhas (Renda -100 e "Sem subcategoria" -30), não a soma mensal -130.
+      Casa.totais é construído por LINHA da query (o ciclo de `resultados`),
+      que agrupa por (ano, mes, categoria, subcategoria) no `group_by`: o mês
+      03 dá duas linhas (Renda -100 e "Sem subcategoria" -30), não a soma
+      mensal -130.
       totais = [-100, -30, -40, -30].
 
       A mediana da categoria é calculada sobre estes totais por (mês,
@@ -258,20 +260,21 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
                 round(-200/3, 2) = -66.67.
         mediana = median([-100, -30, -40, -30]) = median([-100, -40, -30, -30])
                 = (-40,0 + -30,0) / 2 = -35,0
-      Renda: totais [-100, -40], preenchido em [-100, -40, 0, 0] (linha 115)
+      Renda: totais [-100, -40], preenchido em [-100, -40, 0, 0] (no
+        preenchimento com zeros de `por_categoria`)
         media   = round((-100 - 40) / 4, 2) = round(-140/4, 2) = -35,0
         mediana = (-100,0 + -40,0) / 2 = -70,0
       Sem subcategoria: totais [-30, -30], preenchido em [-30, -30, 0, 0]
         media   = round((-30 - 30) / 4, 2) = round(-60/4, 2) = -15,0
         mediana = (-30,0 + -30,0) / 2 = -30,0
 
-      Transferência não aparece (filtro da linha 77).
+      Transferência não aparece (o `filter` de transferências da query).
 
-    A query só ordena por (ano, mes) na linha 83 e não por subcategoria:
+    A query só ordena por (ano, mes) no `order_by` e não por subcategoria:
     a ordem das subs dentro de cada categoria segue a ordem das linhas do
     SQLite no GROUP BY, por isso as subcategorias são assertidas por
     conteúdo, não por ordem (como no por-subcategoria; ao contrário do
-    detalhe-mensal, que ordena as subs nas linhas 252-259).
+    detalhe-mensal, que ordena as subs com `sorted(..., reverse=True)`).
 
     Estado final da BD: as 5 transacções continuam.
     """
@@ -306,7 +309,8 @@ def test_por_categoria_com_ano_filtra_meses_e_transacoes(client, session):
     """O parâmetro `ano` corta meses_distintos e as linhas de totais.
 
     Mesmos seeds do teste anterior, mais transacções de 2026. Com ano=2025,
-    os filtros das linhas 63-64 e 79-80 deixam de fora 2026: a resposta é
+    os dois filtros de `ano` de `por_categoria` (o de `q_meses` e o da query de
+    totais) deixam de fora 2026: a resposta é
     idêntica à do teste anterior (meses_distintos = 4 e os mesmos valores).
     """
     casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
@@ -349,26 +353,30 @@ def test_por_subcategoria_soma_em_centimos_ordena_categorias_e_esconde_zero(clie
       2025-03-02  Casa/Renda       -100,00
       2025-03-09  Casa (sem sub)    -30,00
       2025-03-20  Receita/Salário  +1500,00
-      2025-04-03  Transferência    -500,00   (filtrada na linha 137)
+      2025-04-03  Transferência    -500,00   (filtrada pela query de
+                                                 `por_subcategoria`)
       2025-06-05  Lazer/Convívio     +5,00
       2025-06-06  Lazer/Convívio     -5,00    (net 0 -> escondida)
 
-    Cálculo à mão, em cêntimos inteiros (round(valor*100), linha 164):
+    Cálculo à mão, em cêntimos inteiros (round(valor*100) na soma de
+    `por_subcategoria`):
       Casa      = -10000 - 3000 = -13000 -> total -130,0
         Renda   = -10000                  -> -100,0
         sem sub = -3000                   -> -30,0
       Receita   = 150000                  -> 1500,0
         Salário = 150000                  -> 1500,0
-      Lazer     = +500 - 500 = 0 -> abs(0) > 0 é falso na linha 179, a
-        categoria e a subcategoria desaparecem do output
+      Lazer     = +500 - 500 = 0 -> abs(0) > 0 é falso no
+        `if abs(total_cat) > 0`, a categoria e a subcategoria desaparecem do
+        output
 
-    Ordenação das categorias: key = c["total"], reverse=True (linha 186) ->
-    descendente -> Receita (1500,0) antes de Casa (-130,0).
+    Ordenação das categorias: key = c["total"], reverse=True (no `sorted`
+    final) -> descendente -> Receita (1500,0) antes de Casa (-130,0).
 
-    As subcategorias NÃO são ordenadas neste endpoint (linhas 172-178) e a
-    query nem tem ORDER BY (linha 144): por isso são assertidas por
-    conteúdo, não por ordem — ao contrário do detalhe-mensal, que ordena as
-    subs (linhas 252-259) e as categorias (linha 269).
+    As subcategorias NÃO são ordenadas neste endpoint (o ciclo que as acumula
+    passa-as tal e qual) e a query nem tem ORDER BY (o `q.all()` da consulta):
+    por isso são assertidas por conteúdo, não por ordem — ao contrário do
+    detalhe-mensal, que ordena as subs com `sorted(..., reverse=True)` e as
+    categorias no `sorted` final de `resultado_final`.
 
     Estado final da BD: as 6 transacções continuam.
     """
@@ -411,7 +419,8 @@ def test_por_subcategoria_soma_em_centimos_ordena_categorias_e_esconde_zero(clie
 
 
 def test_por_subcategoria_com_ano_ignora_outros_anos(client, session):
-    """O filtro `ano` corta as linhas de outros anos (linhas 141-142).
+    """O filtro `ano` corta as linhas de outros anos (o `filter` de `ano` da
+    query de `por_subcategoria`).
 
     Cenário semeado:
       2025-03-10  Casa/Renda  -100,00
@@ -458,10 +467,13 @@ def test_detalhe_mensal_agrega_subcategorias_e_ordena_por_total(client, session)
       03-15  Casa (sem sub)        -50,00
       03-20  Receita/Salário     +1500,00
       03-25  Investimento/Ações  -1000,00
-      03-30  Transferência        -500,00   (excluída na linha 204)
-      04-01  Casa/Renda            -10,00   (fora do intervalo, linhas 200-202)
+      03-30  Transferência        -500,00   (excluída pelo ramo das
+                                               transferências de
+                                               `_query_transacoes_mes`)
+      04-01  Casa/Renda            -10,00   (fora do intervalo, nos filtros de
+                                               `data` de `_query_transacoes_mes`)
 
-    Cálculo à mão, em cêntimos (round(valor*100), linha 228):
+    Cálculo à mão, em cêntimos (round(valor*100) em `_agregar_por_categoria`):
       Casa  = -80000 - 20000 - 15025 - 5000 = -120025 -> total -1200,25
         Renda        = -80000 - 20000     = -100000 -> -1000,0
         Supermercado = -15025                      -> -150,25
@@ -472,13 +484,16 @@ def test_detalhe_mensal_agrega_subcategorias_e_ordena_por_total(client, session)
         Ações      = -100000 -> -1000,0
 
     Ordenações (ambas descendentes por total -> a mais negativa vai última):
-      subcategorias: key = s["total"], reverse=True (linhas 252-259) ->
+      subcategorias: key = s["total"], reverse=True (o `sorted` de
+        `detalhe_mensal`) ->
         Sem subcategoria (-50,0), Supermercado (-150,25), Renda (-1000,0)
-      categorias: key = c["total"], reverse=True (linha 269) ->
+      categorias: key = c["total"], reverse=True (o `sorted` final de
+        `resultado_final`) ->
         Receita (1500,0), Investimento (-1000,0), Casa (-1200,25)
 
-      `tipo` = categoria_tipo.value (linha 248): "receita", "investimento" e
-      "despesa" respectivamente.
+      `tipo` = categoria_tipo.value (o `cat["categoria_tipo"].value` de
+        `detalhe_mensal`): "receita", "investimento" e "despesa"
+        respectivamente.
 
     Estado final da BD: as 8 transacções continuam.
     """
