@@ -91,8 +91,6 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
     movimento = MovimentoAtivoModel(**payload.model_dump())
     db.add(movimento)
-    db.commit()
-    db.refresh(movimento)
 
     if payload.tipo_movimento.value == "compra" and payload.preco_unitario is not None:
         existente = (
@@ -104,8 +102,10 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
             existente.preco = payload.preco_unitario
         else:
             db.add(PrecoAtivoModel(ativo_id=payload.ativo_id, data=payload.data, preco=payload.preco_unitario))
-        db.commit()
 
+    # Um só commit: o movimento e o preço gravam-se juntos ou não se grava nada.
+    db.commit()
+    db.refresh(movimento)
     return movimento
 
 @router.delete("/movimentos/{movimento_id}", status_code=204)

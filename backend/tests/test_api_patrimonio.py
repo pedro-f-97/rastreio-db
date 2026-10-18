@@ -26,14 +26,19 @@ Notas de comportamento (sem correcção)
 * `DELETE /api/patrimonio/ativos/{id}` apaga à mão os movimentos e os preços do
   ativo antes de apagar o ativo (`routers/patrimonio.py:79-81`), porque o
   SQLite não aplica as chaves estrangeiras (D1).
-* `POST /api/patrimonio/movimentos` faz dois `commit()` no mesmo handler
-  (`routers/patrimonio.py:94` e `:107`): se a gravação do preço falhasse, o
-  movimento já estaria gravado (DEVIDA-TECNICA: D12c). Não se força a falha.
+* `POST /api/patrimonio/movimentos` grava o movimento e o preço num só
+  `commit()` (`routers/patrimonio.py:107`): se a gravação do preço falhar, o
+  movimento também não fica gravado (ver
+  `test_criar_movimento_falha_no_preco_nao_grava_o_movimento`).
 * O upsert de preço só acontece em movimentos de `compra` com `preco_unitario`
-  preenchido (`routers/patrimonio.py:97`).
+  preenchido (`routers/patrimonio.py:95`).
 """
 
 from datetime import date
+
+import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from database import (
     Ativo,
@@ -350,6 +355,49 @@ def test_criar_movimento_de_compra_grava_e_cria_preco(client, session):
     assert precos[0].ativo_id == ativo.id
     assert precos[0].data == date(2025, 1, 10)
     assert precos[0].preco == 20.0
+
+
+def test_criar_movimento_falha_no_preco_nao_grava_o_movimento(client, session):
+    """Se a gravação do preço falhar, o movimento da mesma compra não fica gravado.
+
+    Era a D12c: o handler fazia `commit()` do movimento antes de tratar do
+    preço, e uma falha no preço deixava o movimento gravado sozinho.
+
+    A falha é provocada por um trigger que recusa qualquer `INSERT` em
+    `precos_ativo`. Uma compra com `preco_unitario` cria um preço novo
+    (`routers/patrimonio.py:95-104`), por isso o `commit()` único da linha 107
+    rebenta com `IntegrityError` e a transacção inteira é desfeita.
+
+    O `session.rollback()` depois do pedido faz o que o `get_db` real faz ao
+    fechar a sessão; a fixture de testes partilha a sessão e não a fecha.
+
+    Estado final da BD, calculado à mão: 0 movimentos e 0 preços.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    session.execute(text(
+        "CREATE TRIGGER recusa_preco BEFORE INSERT ON precos_ativo "
+        "BEGIN SELECT RAISE(ABORT, 'falha simulada no preço'); END"
+    ))
+    session.commit()
+
+    with pytest.raises(IntegrityError):
+        client.post(
+            "/api/patrimonio/movimentos",
+            json={
+                "ativo_id": ativo.id,
+                "tipo_movimento": "compra",
+                "data": "2025-01-10",
+                "quantidade": 10,
+                "preco_unitario": 20.0,
+                "valor_total": -200.0,
+            },
+        )
+
+    session.rollback()
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 0
+    assert session.query(PrecoAtivo).count() == 0
 
 
 def test_compra_no_mesmo_dia_actualiza_o_preco(client, session):

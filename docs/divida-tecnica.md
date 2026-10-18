@@ -483,10 +483,17 @@ isoladamente.
 - **D12b** — `routers/patrimonio.py:184-193` — `latente` é `None` quando falta
   preço, e `mais_menos_valia` degrada silenciosamente para `realizado`.
   "Sem preço" fica indistinguível de "sem mais-valia".
-- **D12c** — `routers/patrimonio.py:94` e `:107` — dois `commit()` no mesmo
+- **D12c — resolvido** — `routers/patrimonio.py:94` e `:107` — dois `commit()` no mesmo
   endpoint (`criar_movimento`). Se o upsert de preço da linha 107 falhar, o
   movimento já foi gravado na linha 94: escrita parcial, sem rollback. Um
   `commit()` só, no fim, resolvia.
+  **Resolvido:** `criar_movimento` faz agora um só `commit()`, no fim
+  (`backend/routers/patrimonio.py:107`), depois de juntar o movimento e o
+  upsert do preço (linhas 92-104): ou se gravam os dois, ou nenhum. Teste novo
+  em `backend/tests/test_api_patrimonio.py`:
+  `test_criar_movimento_falha_no_preco_nao_grava_o_movimento`, que provoca a
+  falha com um trigger que recusa o `INSERT` em `precos_ativo` e confirma que
+  ficam 0 movimentos e 0 preços.
 - **D12d** — `parser_importacao.py:9-22` — `_parse_valor` não tem forma de
   distinguir ponto decimal de separador de milhares. Isto **não** é um erro de
   configuração: com `separador_decimal="."`, `"1.234"` dar `1.234` é o
