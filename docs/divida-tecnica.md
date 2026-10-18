@@ -146,7 +146,7 @@ Para activar: `PRAGMA foreign_keys=ON` por conexão, via
 pool recicla). Antes disso é preciso corrigir D1a e decidir a política de
 `ON DELETE`, porque `ON DELETE CASCADE` muda o comportamento dos endpoints.
 
-## 🟡 D2 — `total` do património não bate com a soma dos componentes
+## 🟡 D2 — `total` do património não bate com a soma dos componentes — resolvido
 
 `backend/servicos/patrimonio_serv.py:152-158` soma os três blocos em ponto
 flutuante e só depois arredonda:
@@ -169,6 +169,17 @@ visíveis lado a lado.
 
 Correção: arredondar cada componente e somar os arredondados, ou somar em
 `Decimal`.
+
+**Resolvido:** `calcular_patrimonio_em` (`backend/servicos/patrimonio_serv.py:152-162`)
+arredonda primeiro os três componentes e o `total` é a soma desses valores
+arredondados, outra vez arredondada a 2 casas para tirar o ruído de vírgula
+flutuante (`0.1 + 0.2`). Face ao que era apresentado, o `total` muda no
+máximo 2 cêntimos (cada componente arredondado desvia até meio cêntimo), e
+passa a bater sempre com a soma das três séries do gráfico. O teste de caracterização foi invertido
+(`test_evolucao_total_e_a_soma_dos_componentes_arredondados`: total 0.02 em vez
+de 0.01) e há um teste novo para o ruído,
+`test_evolucao_total_sem_ruido_de_virgula_flutuante`, ambos em
+`backend/tests/test_api_patrimonio.py`. A passagem a `Decimal` fica para a D11.
 
 ## 🟡 D3 — Boundary de data de referência diverge entre dois endpoints
 

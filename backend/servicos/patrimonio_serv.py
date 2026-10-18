@@ -149,13 +149,16 @@ def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
         else:
             ativos_fisicos += valor
 
-    total = liquidez + investimentos + ativos_fisicos
+    # O total soma os componentes já arredondados, para bater certo com eles (D2)
+    liquidez = round(liquidez, 2)
+    investimentos = round(investimentos, 2)
+    ativos_fisicos = round(ativos_fisicos, 2)
     return {
         "data": str(data_alvo),
-        "liquidez": round(liquidez, 2),
-        "investimentos": round(investimentos, 2),
-        "ativos_fisicos": round(ativos_fisicos, 2),
-        "total": round(total, 2),
+        "liquidez": liquidez,
+        "investimentos": investimentos,
+        "ativos_fisicos": ativos_fisicos,
+        "total": round(liquidez + investimentos + ativos_fisicos, 2),
     }
 
 

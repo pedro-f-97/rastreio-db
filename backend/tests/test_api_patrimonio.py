@@ -807,27 +807,26 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B25 — D2: o total pode divergir da soma dos componentes apresentados
+# B25 — o total é a soma dos componentes apresentados (era a D2)
 # ---------------------------------------------------------------------------
 
-def test_evolucao_total_pode_divergir_da_soma_dos_componentes(client, session):
-    """O `total` é arredondado da soma, não da soma dos arredondados (D2).
+def test_evolucao_total_e_a_soma_dos_componentes_arredondados(client, session):
+    """O `total` é a soma dos três componentes já arredondados.
 
     Cálculo à mão:
       * conta: `saldo_referencia=0.005`, `data_referencia=2025-01-01`;
       * ativo físico com compra de 1.00 e preço `0.01`;
       * só há um ponto (`data_inicio = data_fim = 2025-06-30`).
 
-    Componentes devolvidos, cada um arredondado da mesma soma não arredondada:
+    Componentes devolvidos, cada um arredondado a 2 casas:
       - liquidez        = `round(0.005, 2)      = 0.01`
       - investimentos   = `round(0.0, 2)        = 0.0`
       - ativos_físicos  = `round(0.01, 2)       = 0.01`
-      - soma apresentada = `0.01 + 0.0 + 0.01   = 0.02`
-    Mas o total vem de `round(0.005 + 0.0 + 0.01, 2) = round(0.015, 2) = 0.01`.
+      - total           = `round(0.01 + 0.0 + 0.01, 2) = 0.02`
 
-    DEVIDA-TECNICA: D2 — este é o comportamento ACTUAL: o `total` (0.01) não
-    bate com a soma dos três componentes visíveis no mesmo ecrã (0.02). Não se
-    corrige; fixa-se.
+    Era a D2: o total vinha da soma **não** arredondada,
+    `round(0.005 + 0.0 + 0.01, 2) = round(0.015, 2) = 0.01`, e ficava 1 cêntimo
+    abaixo dos três componentes que o ecrã mostra ao lado (0.02).
     """
     semear_conta(session, "A", 0.005, date(2025, 1, 1))
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
@@ -852,8 +851,34 @@ def test_evolucao_total_pode_divergir_da_soma_dos_componentes(client, session):
     assert ponto["investimentos"] == 0.0
     assert ponto["ativos_fisicos"] == 0.01
     assert soma_componentes == 0.02
-    assert ponto["total"] == 0.01
-    assert ponto["total"] != soma_componentes
+    assert ponto["total"] == 0.02
+
+
+def test_evolucao_total_sem_ruido_de_virgula_flutuante(client, session):
+    """O `total` volta a ser arredondado depois de somar os componentes.
+
+    Cálculo à mão: liquidez `0.10` (conta) e ativos físicos `0.20` (preço do
+    bem). Em vírgula flutuante, `0.1 + 0.2 = 0.30000000000000004`; o total
+    tem de vir `round(0.1 + 0.0 + 0.2, 2) = 0.3`.
+    """
+    semear_conta(session, "A", 0.10, date(2025, 1, 1))
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Terreno", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 1), valor_total=-1.0)
+    semear_preco(session, ativo, date(2025, 1, 2), 0.20)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-06-30", "data_fim": "2025-06-30"},
+    )
+
+    assert r.status_code == 200
+    ponto = r.json()[0]
+    assert ponto["liquidez"] == 0.1
+    assert ponto["investimentos"] == 0.0
+    assert ponto["ativos_fisicos"] == 0.2
+    assert ponto["total"] == 0.3
 
 
 # ---------------------------------------------------------------------------
