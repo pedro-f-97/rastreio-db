@@ -37,8 +37,8 @@ linhas que já não existem, sem erro. Essas transações desapareceriam das
 estatísticas (os joins são `INNER`), apareceriam sem nome na listagem, e não
 seriam contadas em `/transacoes/por-categorizar/total`.
 
-**O que os testes de caracterização medem hoje** (`backend/tests/test_api_categorias.py`,
-sem a pragma ligada):
+**O que os testes de caracterização mediam antes da política de apagar** (ver
+a secção «Política de apagar», mais abaixo):
 
 - `test_apagar_categoria_com_subcategorias_integrity` — apagar uma categoria
   **com** subcategorias dá `IntegrityError` (`NOT NULL constraint failed:
@@ -145,6 +145,31 @@ Para activar: `PRAGMA foreign_keys=ON` por conexão, via
 `event.listens_for(engine, "connect")` em `database.py` (é por conexão, e o
 pool recicla). Antes disso é preciso corrigir D1a e decidir a política de
 `ON DELETE`, porque `ON DELETE CASCADE` muda o comportamento dos endpoints.
+
+### Política de apagar — decidida e aplicada na aplicação
+
+**Decisão do utilizador:**
+
+- uma **categoria com transações** (directas, ou nas suas subcategorias) não se
+  apaga: 409 «A categoria tem N transações; muda-as de categoria antes de a
+  apagar.»;
+- uma **categoria sem transações** apaga-se com as suas subcategorias e com as
+  regras que apontam para ela ou para elas;
+- uma **subcategoria** apaga-se; as suas transações ficam por categorizar na
+  mesma categoria, e as regras que apontavam para ela ficam sem subcategoria.
+
+Aplicada em `apagar_categoria` e `apagar_subcategoria`
+(`backend/routers/categorias.py`), e a página Categorias passou a mostrar o
+erro (antes, apagar uma categoria com subcategorias dava 500 e o ecrã não
+fazia nada). Fica nas «Decisões de design» do `README.md`. Testes em
+`backend/tests/test_api_categorias.py`: os dois de caracterização foram
+substituídos por `test_apagar_categoria_com_transacoes_da_409_e_nada_muda`,
+`test_apagar_categoria_sem_transacoes_leva_subcategorias_e_regras` e
+`test_apagar_categoria_conta_transacoes_das_suas_subcategorias`, e
+`test_apagar_subcategoria_desassocia_transacoes` passou a verificar a regra.
+
+**A D1 continua aberta:** a BD ainda não garante nada disto (sem
+`PRAGMA foreign_keys` nem `ON DELETE`), o que depende de corrigir a D1a.
 
 ## 🟡 D2 — `total` do património não bate com a soma dos componentes — resolvido
 
