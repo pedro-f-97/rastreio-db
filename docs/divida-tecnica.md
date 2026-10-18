@@ -187,20 +187,20 @@ escolhido um dos dois e propagado.
 
 ## 🟡 D4 — Receita negativa desaparece de todos os totais
 
-`backend/routers/estatisticas.py:268-289` (`_calculate_totals`):
+`backend/routers/estatisticas.py:272-293` (`_calculate_totals`):
 
 ```python
-if t.categoria.tipo == receita and not t.reembolso and t.valor > 0:  # 280
-elif t.categoria.tipo == investimento:                              # 282
-elif t.valor < 0 and t.categoria.tipo != receita:                   # 284
-elif t.valor > 0 and t.reembolso:                                   # 286
+if t.categoria.tipo == receita and not t.reembolso and t.valor > 0:  # 284
+elif t.categoria.tipo == investimento:                               # 286
+elif t.valor < 0 and t.categoria.tipo != receita:                    # 288
+elif t.valor > 0:                                                    # 290
 ```
 
 Os números são das linhas da condição; a soma correspondente está logo a seguir,
-nas linhas 281, 283, 285 e 287.
+nas linhas 285, 287, 289 e 291.
 
 Uma transação de categoria `receita` com `valor` negativo (estorno, devolução
-de receita recebida) não satisfaz a linha 280 (`valor > 0` falha), nem a 284
+de receita recebida) não satisfaz a linha 284 (`valor > 0` falha), nem a 288
 (exclui explicitamente receitas). Não cai em nenhuma branch: **desaparece sem
 ser somada a nada**, e o mês fecha sem esse valor.
 
@@ -502,9 +502,17 @@ isoladamente.
   `SEED_TIPOS_ATIVO`, ao contrário de `routers/configuracao.py:29-39`. E o
   guard da linha 158 só olha para o número de categorias: se a BD já tiver
   categorias mas nenhum tipo de ativo, `popular()` sai sem os semear.
-- **D12h** — `routers/backups.py:104` — `filename.endswith(".db")` é
+- **D12h — resolvido** — `routers/backups.py:104` — `filename.endswith(".db")` é
   case-sensitive: um ficheiro `BACKUP.DB` é rejeitado, e a recusa não diz
   porquê.
+  **Resolvido:** a comparação passou a `file.filename.lower().endswith(".db")`
+  (`backend/routers/backups.py:104`), pelo que `backup.db`, `BACKUP.DB` e
+  `backup.Db` são aceites; a recusa das extensões erradas mantém-se tal e qual
+  — 400 `Ficheiro inválido` (`backend/routers/backups.py:105`). Testes novos em
+  `backend/tests/test_backups/test_importar.py`:
+  `test_extensao_db_maiuscula_e_aceite` (linha 737),
+  `test_extensao_db_com_capitalizacao_mista_e_aceite` (linha 765) e
+  `test_extensao_errada_continua_a_ser_rejeitada` (linha 790).
 - **D12i** — `tray.py:19` — porta `9742` hardcoded, duplicada de
   `main.PORTA` (`main.py:207`). Alterar uma e não a outra deixa a tray a
   abrir um URL morto.
@@ -590,42 +598,44 @@ era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
   detectar automaticamente, permitir configuração do delimitador, ou documentar o
   requisito). ⚪
 
-## 🟡 D20 — Despesa positiva sem a marca de reembolso desaparece dos totais
+## 🟡 D20 — Despesa positiva sem a marca de reembolso desaparece dos totais — resolvido
 
-`backend/routers/estatisticas.py:268-289` (`_calculate_totals`), pelo outro lado
+`backend/routers/estatisticas.py:272-293` (`_calculate_totals`), pelo outro lado
 da D4:
 
 ```python
-elif t.valor < 0 and t.categoria.tipo != receita:   # 284
-    meses[chave]["despesas"] += t.valor           # 285
-elif t.valor > 0 and t.reembolso:                   # 286
-    meses[chave]["despesas"] += t.valor            # 287
+elif t.valor < 0 and t.categoria.tipo != receita:   # 288
+    meses[chave]["despesas"] += t.valor             # 289
+elif t.valor > 0:                                   # 290
+    meses[chave]["despesas"] += t.valor             # 291
 ```
 
 Uma transação de categoria `despesa` com `valor` positivo e **sem** a marca de
-reembolso não satisfaz a linha 284 (`valor < 0` falha), nem a 286 (exige a
-marca), nem as duas que ficam acima (não é receita nem é investimento).
-**Desaparece sem ser somada a nada** — mesma raiz da D4: nenhum ramo apanha o
-caso.
+reembolso não satisfaz a linha 288 (`valor < 0` falha), nem as duas que ficam
+acima (não é receita nem é investimento). Antes da correcção, o último ramo
+exigia a marca (`elif t.valor > 0 and t.reembolso:`), pelo que o valor
+**desaparecia sem ser somado a nada** — mesma raiz da D4: nenhum ramo apanhava
+o caso.
 
-Exemplo: `-45,50` seguido de `+30,00` sem marca fecham o mês com despesas
+Exemplo: `-45,50` seguido de `+30,00` sem marca fechavam o mês com despesas
 `-45,5` em vez de `-15,5`. A diferença na poupança é de 30,00, e a despesa
-recuperada nunca chega a aparecer em lado nenhum.
+recuperada nunca chegava a aparecer em lado nenhum.
 
-**Comportamento esperado (decisão do Pedro):** o correcto é uma despesa positiva
-estar marcada como reembolso; mas, como os valores seguem o sinal, a conta fica
-certa mesmo sem a marca — somar `+30,00` às despesas de `-45,50` dá `-15,5`, que
-é o valor certo. Por isso o valor **não pode ser ignorado**. Correcção: contar o
-valor em despesas sempre que não case noutro ramo, o que se faz fechando a
-cadeia com um ramo final em vez de a deixar terminar sem efeito.
+**Resolvido (decisão do Pedro: o sinal manda):** o correcto é uma despesa
+positiva estar marcada como reembolso; mas, como os valores seguem o sinal, a
+conta fica certa mesmo sem a marca — somar `+30,00` às despesas de `-45,50` dá
+`-15,5`, que é o valor certo. Por isso o valor **não pode ser ignorado**. Mudou
+`backend/routers/estatisticas.py:290`, o último ramo da cadeia: a condição
+passou de `elif t.valor > 0 and t.reembolso:` para `elif t.valor > 0:`. Como é
+o ramo final, qualquer valor positivo que não case com os três anteriores conta
+em despesas com o sinal que tem, e a marca de reembolso deixa de ser necessária
+para uma despesa entrar no cesto. Verificação nos dados reais (Pedro): existia
+1 caso, de 6,15 EUR, tratado pelo próprio.
 
-**Por verificar (Pedro):** se existem despesas com valor positivo sem a marca nos
-dados reais. Não foi consultado nenhum registo — o cenário é teórico e ficou
-construído para o teste.
-
-Fixo por `test_despesa_positiva_sem_marca_de_reembolso_desaparece` em
-`backend/tests/test_estatisticas_totais.py`, que fixa o comportamento **actual**
-(não o desejado), pelo que a correcção o faz falhar de propósito.
+Fixo por `test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas` em
+`backend/tests/test_estatisticas_totais.py`, que fixa o comportamento
+corrigido (`-45,50 + 30,00 = -15,5`, valor escrito à mão). A D4 continua aberta:
+a receita negativa continua sem ramo que a apanhe.
 
 ## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado
 
@@ -822,7 +832,7 @@ e o denominador é `meses_distintos` (linha 111).
 **Decisão pendente (Pedro):** qual é a mediana pretendida — por mês, ou por
 (mês, subcategoria)?
 
-## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400)
+## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400) — resolvido
 
 `POST /api/categorias/` (`backend/routers/categorias.py:33-35`) e
 `PUT /api/categorias/{id}` (`backend/routers/categorias.py:63-70`) não têm
@@ -849,12 +859,36 @@ Os mesmos casos noutros routers devolvem um 4xx explícito:
 Possível defeito de consistência: a mesma condição de negócio (nome/palavra-chave
 repetida) responde 409 numa rota, 400 noutra e 500 nas categorias. **Decisão
 pendente (Pedro):** alinhar categorias por pré-checagem (e com que código), ou
-deixar a excepção subir. Fixo por
-`test_criar_categoria_e_nome_duplicado_integrity` (POST de categorias) e
-`test_renomear_categoria_duplicado_e_404` (PUT de categorias) em
-`backend/tests/test_api_categorias.py`, e por
-`test_renomear_tipo_ativo_para_nome_duplicado_integrity` (PUT de tipos de ativo)
-em `backend/tests/test_api_tipos_ativo.py`.
+deixar a excepção subir.
+
+**Resolvido:** decisão do Pedro — pré-checagem e **409** nos três sítios, com
+mensagem em PT-PT no estilo de `contas.py` e do POST de tipos de ativo. As
+linhas abaixo são as de **antes** da correcção (a descrição acima ficou como
+está); as que se seguem foram lidas no código depois dela:
+
+- `backend/routers/categorias.py:33-35` — `criar_categoria` pré-checa
+  `Categoria.nome` e responde 409 `"Já existe uma categoria com este nome."`
+  (`:35`);
+- `backend/routers/categorias.py:71-73` — `renomear_categoria` pré-checa contra
+  as **outras** categorias (`Categoria.id != categoria_id`, `:71`) e responde o
+  mesmo 409 (`:73`): re-submeter o próprio nome não é duplicado e continua 200;
+- `backend/routers/tipos_ativo.py:28-30` — `renomear_tipo_ativo` pré-checa
+  contra os **outros** tipos (`TipoAtivo.id != tipo_id`, `:28`) e responde 409
+  `"Já existe um tipo de ativo com este nome."` (`:30`), a mesma frase do POST
+  (`backend/routers/tipos_ativo.py:16`).
+
+A diferença de código com `regras.py` fica como estava: `routers/regras.py:37`
+continua a responder **400** pela palavra-chave — não fez parte desta decisão.
+Os testes que fixavam o 500 passaram a afirmar o 409, o corpo (`detail`) e o
+estado final da BD (`session.expire_all()`, nada alterado), e cada router ganhou
+um teste do PUT com o próprio nome a 200:
+`test_criar_categoria_e_nome_duplicado_da_409`,
+`test_renomear_categoria_duplicado_da_409_e_404` e
+`test_renomear_categoria_mantendo_o_proprio_nome_e_200`
+(`backend/tests/test_api_categorias.py`);
+`test_renomear_tipo_ativo_para_nome_duplicado_da_409` e
+`test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200`
+(`backend/tests/test_api_tipos_ativo.py`).
 
 ## ⚪ D25 — `/api/configuracao/inicializar` semeia categorias duplicadas e dá 500
 

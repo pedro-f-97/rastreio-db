@@ -2,12 +2,15 @@
 
 Cobre os oito endpoints de `backend/routers/categorias.py`:
 
-* `GET /` (linha 8) — lista as categorias com as subcategorias aninhadas;
-* `GET /{id}/subcategorias` (linha 24);
-* `POST /` (linha 31) e `PUT /{id}` (linha 63) — criação e renomeação;
-* `POST /{id}/subcategorias` (linha 39) e
-  `PUT /{id}/subcategorias/{sub_id}` (linha 74);
-* `DELETE /{id}` (linha 54) e `DELETE /{id}/subcategorias/{sub_id}` (linha 86).
+* `GET /` (`listar_categorias`) — lista as categorias com as subcategorias
+  aninhadas;
+* `GET /{id}/subcategorias` (`listar_subcategorias`);
+* `POST /` (`criar_categoria`) e `PUT /{id}` (`renomear_categoria`) — criação e
+  renomeação;
+* `POST /{id}/subcategorias` (`criar_subcategoria`) e
+  `PUT /{id}/subcategorias/{sub_id}` (`renomear_subcategoria`);
+* `DELETE /{id}` (`apagar_categoria`) e `DELETE /{id}/subcategorias/{sub_id}`
+  (`apagar_subcategoria`).
 
 Os valores esperados são calculados à mão e escritos como constantes, com o
 cálculo exposto no docstring de cada teste. Nenhum teste toca na base de dados
@@ -17,8 +20,11 @@ A fixture `client` e a fixture `session` partilham a mesma sessão SQLAlchemy.
 Os pedidos que rebentam com `IntegrityError` (o `commit()` do router falha e a
 excepção sobe até ao teste) deixam a sessão à espera de rollback, por isso cada
 `pytest.raises` é seguido de `session.rollback()` antes de afirmar o estado da
-BD. Em produção esse `IntegrityError` não é apanhado e o resultado é um **500**;
-o teste fixa o comportamento real, não o desejável.
+BD. Depois do D24 esses casos são só os do D1 (apagar sem `cascade`), em que
+produção continua a dar **500** — o teste fixa o comportamento real, não o
+desejável. Nome duplicado já não chega a `commit()`: o POST e o PUT de
+categorias pré-checam e respondem **409**, e os testes respectivos afirmam o
+código, o corpo (`detail`) e o estado final da BD com `session.expire_all()`.
 
 Onde o comportamento é questionável fica a etiqueta `# DEVIDA-TECNICA: Dn`,
 a remeter para `docs/divida-tecnica.md`.
@@ -93,14 +99,15 @@ def _semear(session):
 def test_listar_categorias_devolve_subcategorias(client, session):
     """`GET /` devolve cada categoria com as subcategorias aninhadas.
 
-    Cálculo à mão (linhas 11-22 montam o dicionário à mão, `cat.tipo.value` é
-    a string do enum):
+    Cálculo à mão (o `return` de `listar_categorias` monta o dicionário à mão,
+    `cat.tipo.value` é a string do enum):
       Casa    -> despesa, subcategorias [Alimentação (trata_patrimonio False)]
       Receita -> receita, subcategorias [Salário (trata_patrimonio True)]
       Saúde   -> despesa, subcategorias []
 
-    A query `db.query(Categoria).all()` (linha 10) não tem `order_by`, por isso
-    o teste indexa por `id` e não fixa a ordem (que o SQLite não garante).
+    A query `db.query(Categoria).all()` de `listar_categorias` não tem
+    `order_by`, por isso o teste indexa por `id` e não fixa a ordem (que o
+    SQLite não garante).
 
     Estado final da BD: 3 categorias, 2 subcategorias, 3 transacções.
     """
@@ -138,7 +145,7 @@ def test_listar_categorias_devolve_subcategorias(client, session):
 def test_listar_subcategorias_de_categoria_e_404(client, session):
     """`GET /{id}/subcategorias` devolve a lista ORM; id inexistente dá 404.
 
-    Cálculo à mão (linhas 26-29):
+    Cálculo à mão (o corpo de `listar_subcategorias`):
       categoria Casa    -> [Alimentação], serializada como
         {trata_patrimonio: False, nome: "Alimentação", id, categoria_id}
       categoria Receita -> [Salário], com trata_patrimonio True
@@ -175,27 +182,27 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
 
 
 # ---------------------------------------------------------------------------
-# POST e PUT de categorias — nome duplicado (IntegrityError, não um 4xx)
+# POST e PUT de categorias — nome duplicado (D24: 409 antes de escrever)
 # ---------------------------------------------------------------------------
 
-def test_criar_categoria_e_nome_duplicado_integrity(client, session):
-    """Criar uma categoria funciona; um nome repetido rebenta em `commit()`.
+def test_criar_categoria_e_nome_duplicado_da_409(client, session):
+    """Criar uma categoria funciona; um nome repetido é recusado com 409.
+
+    D24 (`docs/divida-tecnica.md`): o POST pré-checa `Categoria.nome` antes de
+    escrever (a pré-checagem de `criar_categoria`), pelo que um nome repetido
+    já não chega a `commit()` — em produção deixou de ser um 500 por
+    `IntegrityError`.
 
     Cálculo à mão:
-      POST {"nome": "Lazer", "tipo": "despesa"} -> a linha 33 cria, as linhas
-        35-36 gravam e refrescam; o `id` é 4 (três já existem) e a resposta
-        ecoa {nome, tipo, id} — sem `subcategorias`
-      POST com o nome "Casa" (já existente): `categorias.nome` é `unique=True`
-        (database.py:155), o `db.commit()` (linha 35) falha com
-        IntegrityError: UNIQUE constraint failed: categorias.nome
+      POST {"nome": "Lazer", "tipo": "despesa"} -> cria, grava e refresca; o
+        `id` é 4 (três já existem) e a resposta ecoa {nome, tipo, id} — sem
+        `subcategorias`
+      POST com o nome "Casa" (já existente): a pré-checagem encontra a linha e
+        responde 409 {"detail": "Já existe uma categoria com este nome."} — a
+        mesma forma de `criar_conta` (contas) e do POST de tipos de ativo
 
-    Inconsistente com contas (routers/contas.py:21 responde 409 "Já existe uma
-    conta com este nome.") e regras (routers/regras.py:37 responde 400 "Já
-    existe uma regra com esta palavra-chave"): aqui não há pré-checagem e o
-    IntegrityError sobe, ou seja, **em produção é um 500**. Possível defeito;
-
-    Estado final da BD: o rollback do teste desfaz a tentativa e ficam as 4
-    categorias (as 3 da semente + "Lazer", cujo commit já tinha passado).
+    Estado final da BD: a tentativa rejeitada não escreve nada — ficam 4
+    categorias (as 3 da semente + "Lazer"), e "Casa" mantém o tipo `despesa`.
     """
     _semear(session)
 
@@ -205,27 +212,35 @@ def test_criar_categoria_e_nome_duplicado_integrity(client, session):
     assert r.json() == {"nome": "Lazer", "tipo": "despesa", "id": 4}
     assert session.query(Categoria).count() == 4
 
-    with pytest.raises(IntegrityError,
-                       match="UNIQUE constraint failed: categorias.nome"):
-        client.post("/api/categorias/", json={"nome": "Casa", "tipo": "despesa"})
-    session.rollback()
+    r_dup = client.post("/api/categorias/", json={"nome": "Casa", "tipo": "despesa"})
 
+    assert r_dup.status_code == 409
+    assert r_dup.json() == {"detail": "Já existe uma categoria com este nome."}
+
+    session.expire_all()
     assert session.query(Categoria).count() == 4
+    casa = session.query(Categoria).filter_by(nome="Casa").one()
+    assert casa.tipo is TipoCategoria.despesa
 
 
-def test_renomear_categoria_duplicado_e_404(client, session):
-    """Renomear funciona; renomear para um nome existente rebenta; id errado 404.
+def test_renomear_categoria_duplicado_da_409_e_404(client, session):
+    """Renomear funciona; renomear para um nome existente dá 409; id errado 404.
+
+    D24 (`docs/divida-tecnica.md`): o PUT pré-checa o nome contra as **outras**
+    categorias (`Categoria.id != categoria_id` na pré-checagem de
+    `renomear_categoria`), pelo que a colisão é recusada antes
+    de escrever — em produção deixou de ser um 500 por `IntegrityError`.
 
     Cálculo à mão:
-      PUT {"nome": "Lar", "tipo": "receita"} em Casa -> a linha 68 e a 69
-        escrevem nome e tipo, a 70-71 gravam; resposta {nome, tipo, id}
-      segundo PUT em Casa com o nome "Receita" (já existente) -> o commit
-        (linha 70) falha com UNIQUE constraint failed: categorias.nome
-      PUT em 9999 -> a `first()` (linha 65) devolve None -> 404
+      PUT {"nome": "Lar", "tipo": "receita"} em Casa -> escreve nome e tipo,
+        grava e devolve {nome, tipo, id}
+      segundo PUT em Casa com o nome "Receita" (já existente noutra linha) ->
+        409 {"detail": "Já existe uma categoria com este nome."}, sem escrita
+      PUT em 9999 -> a `first()` devolve None -> 404
         {"detail": "Categoria não encontrada"}
 
-    Estado final da BD: o rollback reverte a segunda tentativa, por isso Casa
-    fica "Lar"/receita; contam-se 3 categorias.
+    Estado final da BD: a tentativa rejeitada não mexe em nada, por isso Casa
+    fica "Lar"/receita e contam-se 3 categorias.
     """
     d = _semear(session)
 
@@ -236,11 +251,11 @@ def test_renomear_categoria_duplicado_e_404(client, session):
         "nome": "Lar", "tipo": "receita", "id": d["cat_casa"].id,
     }
 
-    with pytest.raises(IntegrityError,
-                       match="UNIQUE constraint failed: categorias.nome"):
-        client.put(f"/api/categorias/{d['cat_casa'].id}",
-                   json={"nome": "Receita", "tipo": "despesa"})
-    session.rollback()
+    r_dup = client.put(f"/api/categorias/{d['cat_casa'].id}",
+                       json={"nome": "Receita", "tipo": "despesa"})
+
+    assert r_dup.status_code == 409
+    assert r_dup.json() == {"detail": "Já existe uma categoria com este nome."}
 
     session.expire_all()
     casa = session.get(Categoria, d["cat_casa"].id)
@@ -254,12 +269,44 @@ def test_renomear_categoria_duplicado_e_404(client, session):
     assert r_404.json() == {"detail": "Categoria não encontrada"}
 
 
+def test_renomear_categoria_mantendo_o_proprio_nome_e_200(client, session):
+    """Guardar uma categoria sem mudar o nome não é duplicado: 200.
+
+    D24 (`docs/divida-tecnica.md`): a pré-checagem do PUT exclui o próprio
+    `id`, por isso o nome de uma categoria continua a poder ser re-submetido
+    tal e qual.
+
+    Cálculo à mão:
+      PUT em Casa {"nome": "Casa", "tipo": "despesa"} -> a query não encontra
+        OUTRA linha com esse nome -> escreve os mesmos valores de antes e
+        responde 200 {"nome": "Casa", "tipo": "despesa", "id": 1}
+
+    Estado final da BD: nada muda — 3 categorias, 2 subcategorias e 3
+    transacções.
+    """
+    d = _semear(session)
+
+    r = client.put(f"/api/categorias/{d['cat_casa'].id}",
+                   json={"nome": "Casa", "tipo": "despesa"})
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "nome": "Casa", "tipo": "despesa", "id": d["cat_casa"].id,
+    }
+
+    session.expire_all()
+    assert session.query(Categoria).count() == 3
+    assert session.query(Subcategoria).count() == 2
+    assert session.query(Transacao).count() == 3
+
+
 # ---------------------------------------------------------------------------
 # POST e PUT de subcategorias — `trata_patrimonio` opcional
 # ---------------------------------------------------------------------------
 
 def test_criar_subcategoria_default_trata_e_404(client, session):
-    """`trata_patrimonio` omitido grava `False` (`... or False`, linha 47).
+    """`trata_patrimonio` omitido grava `False` (o `... or False` de
+    `criar_subcategoria`).
 
     Cálculo à mão:
       POST {"nome": "Casa de banho"} em Casa -> `None or False` = False,
@@ -303,11 +350,12 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
 
     Cálculo à mão:
       PUT {"nome": "Comida"} em Casa/Alimentação: o esquema
-        `SubcategoriaCreate` (schemas.py:26-28) traz `trata_patrimonio` a None,
-        a linha 80 é falsa e a linha 81 não corre, por isso Alimentação mantém
+        `SubcategoriaCreate` traz `trata_patrimonio` a None, o `if
+        subcategoria.trata_patrimonio is not None:` de `renomear_subcategoria`
+        é falso e a atribuição não corre, por isso Alimentação mantém
         `trata_patrimonio = False`
       PUT {"nome": "Ordenado"} em Receita/Salário: mantém `True`
-      PUT no URL Receita/Alimentação: a query (linha 76) exige
+      PUT no URL Receita/Alimentação: a query de `renomear_subcategoria` exige
         `categoria_id == categoria_id do URL`, não encontra e responde 404
         {"detail": "Subcategoria não encontrada"}
 
@@ -353,11 +401,12 @@ def test_apagar_categoria_com_subcategorias_integrity(client, session):
     # DEVIDA-TECNICA: D1
     """Apagar uma categoria com subcategorias rebenta com `IntegrityError`.
 
-    Cálculo à mão (linhas 56-60): a categoria Casa tem a subcategoria
-    Alimentação. A `relationship` Cat.subcategorias (database.py:158) não tem
-    `cascade`, por isso ao apagar a categoria o SQLAlchemy tenta pôr
-    `subcategorias.categoria_id = NULL` para desassociar; essa coluna é
-    `nullable=False` (database.py:167), e o `commit()` (linha 60) falha com
+    Cálculo à mão (o corpo de `apagar_categoria`): a categoria Casa tem a
+    subcategoria Alimentação. A `relationship` `Categoria.subcategorias` de
+    `database.py` não tem `cascade`, por isso ao apagar a categoria o
+    SQLAlchemy tenta pôr `subcategorias.categoria_id = NULL` para desassociar;
+    essa coluna é `nullable=False` no modelo `Subcategoria`, e o `db.commit()`
+    de `apagar_categoria` falha com
     `NOT NULL constraint failed: subcategorias.categoria_id`.
 
     O `IntegrityError` não é apanhado: **em produção é um 500**. Faz parte da
@@ -385,10 +434,11 @@ def test_apagar_categoria_deixa_transacao_orfa(client, session):
     # DEVIDA-TECNICA: D1
     """Apagar uma categoria só com transacções directas deixa-as órfãs.
 
-    Cálculo à mão (linhas 56-61): Saúde (id 3) não tem subcategorias, só a
+    Cálculo à mão (o corpo de `apagar_categoria`): Saúde (id 3) não tem
+    subcategorias, só a
     transacção 2 a apontar para ela. Como o SQLite não força as chaves
-    estrangeiras (D1) e não existe `relationship` de Categoria para Transacao
-    (database.py:190 só liga Transacao->Categoria), nada toca em
+    estrangeiras (D1) e em `database.py` só existe a `relationship` de
+    Transacao para Categoria, nada toca em
     `transacoes.categoria_id`: o `DELETE` passa, a categoria desaparece e a
     transacção 2 fica a apontar para o id 3, que já não existe.
 
@@ -417,12 +467,13 @@ def test_apagar_subcategoria_desassocia_transacoes(client, session):
     # DEVIDA-TECNICA: D1
     """Apagar uma subcategoria põe as suas transacções a NULL (não as apaga).
 
-    Cálculo à mão (linhas 88-92): Alimentação tem a transacção 1 a apontar para
-    ela. A `relationship` Subcategoria.transacoes (database.py:170), sem
-    `cascade`, leva o SQLAlchemy a escrever `transacoes.subcategoria_id = NULL`
-    — coluna que é `nullable=True` (database.py:185), por isso o `commit`
-    (linha 92) passa. A transacção 1 fica "por categorizar" mas mantém a
-    categoria Casa.
+    Cálculo à mão (o corpo de `apagar_subcategoria`): Alimentação tem a
+    transacção 1 a apontar para ela. A `relationship`
+    `Subcategoria.transacoes` de `database.py`, sem `cascade`, leva o
+    SQLAlchemy a escrever `transacoes.subcategoria_id = NULL`
+    — coluna que é `nullable=True` no modelo, por isso o `db.commit()`
+    de `apagar_subcategoria` passa. A transacção 1 fica "por categorizar" mas
+    mantém a categoria Casa.
 
     Faz parte da D1: a associação some-se por efeito de desassociação, não por
     regra de negócio explícita.
@@ -456,7 +507,8 @@ def test_apagar_categoria_vazia_e_subcategoria_sem_transacoes(client, session):
 
     Cálculo à mão:
       DELETE numa categoria criada na hora (sem subcategorias nem transacções):
-        a `first()` (linha 56) encontra-a e a linha 59 apaga-a -> 200 {"ok": True}
+        a `first()` de `apagar_categoria` encontra-a e o `db.delete(cat)`
+        apaga-a -> 200 {"ok": True}
       DELETE em Salário (Receita), que nenhuma transacção usa -> 200 {"ok": True}
 
     Estado final da BD: a categoria vazia desaparece (ficam as 3 da semente) e
@@ -488,10 +540,11 @@ def test_apagar_inexistentes_da_404(client, session):
     """Apagar uma categoria ou subcategoria inexistente dá 404.
 
     Cálculo à mão:
-      DELETE /9999 -> `first()` (linha 56) devolve None -> 404
+      DELETE /9999 -> a `first()` de `apagar_categoria` devolve None -> 404
         {"detail": "Categoria não encontrada"}
-      DELETE /Casa/subcategorias/9999 -> a query (linha 88) não encontra e a
-        linha 90 responde 404 {"detail": "Subcategoria não encontrada"}
+      DELETE /Casa/subcategorias/9999 -> a query de `apagar_subcategoria` não
+        encontra e o `raise` responde 404
+        {"detail": "Subcategoria não encontrada"}
 
     Estado final da BD: nada muda — 3 categorias, 2 subcategorias, 3
     transacções.

@@ -3,20 +3,22 @@
 Fixam o comportamento **actual** das duas funções privadas de
 `backend/routers/estatisticas.py` que fazem a conta toda:
 
-* `_calculate_totals` (linha 268) — o que entra em receitas, despesas e
-  investimento, em cada mês;
-* `_agregar_por_categoria` (linha 208) — o agrupamento por categoria e
+* `_calculate_totals`, em `backend/routers/estatisticas.py` — o que entra em
+  receitas, despesas e investimento, em cada mês;
+* `_agregar_por_categoria`, no mesmo ficheiro — o agrupamento por categoria e
   subcategoria que alimenta `GET /estatisticas/detalhe-mensal`.
 
 São testes de função, não de API: nenhuma das duas toca na base de dados, e é
 por isso que nenhum teste pede a `session` nem a `client`. O `poupanca` de
-`resumo-mensal` (linha 35) fica de fora de propósito — é assunto para os testes
-de API, mais tarde.
+`resumo-mensal`, calculado em `resumo_mensal`, fica de fora de propósito — é
+assunto para os testes de API, mais tarde.
 
 Nada aqui é corrigido. Onde o comportamento é questionável, fica marcado com
-`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`. A `D4`, a `D11` e
-a `D20` já têm entrada no documento; os testes fixam o comportamento **actual**,
-pelo que a correcção de qualquer um deles os faz falhar de propósito.
+`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`. A `D4` e a
+`D11` continuam abertas e os testes fixam o comportamento **actual**, pelo que a
+correcção de qualquer uma delas os faz falhar de propósito. A `D20` já está
+resolvida (o sinal manda): o seu teste deixa de fixar um comportamento
+questionável e afirma o comportamento corrigido.
 
 Os objectos que entram nas funções são `SimpleNamespace` com os mesmos nomes
 de campo dos modelos, e o `tipo` é sempre o enum `TipoCategoria` — nunca uma
@@ -25,17 +27,18 @@ a todos os ramos sem chegar a nenhum.
 
 Os quatro ramos, pela ordem em que são avaliados
 ------------------------------------------------
-A chave do mês é criada nas linhas 277-278, **depois** dos dois filtros das
-linhas 271-274 e **antes** da cadeia de ramos. Daí duas consequências que os
+A chave do mês é criada **depois** dos dois filtros (transações sem categoria e
+transferências, ambos com `continue`) e **antes** da cadeia de ramos, tudo
+dentro de `_calculate_totals`. Daí duas consequências que os
 testes fixam: um mês só com transferências não aparece; um mês com uma
 transação que não casa em ramo nenhum aparece, com os três cestos a zero.
 
 | Ramo | Condição                                | Efeito                          |
 | --- | --- | --- |
-| A (281) | `receita`, não reembolsada, `valor > 0` | receitas += valor              |
-| B (283) | `investimento`                          | investimento += valor, com o sinal que entra |
-| C (285) | `valor < 0` e o tipo não é `receita`    | despesas += valor (negativo)    |
-| D (287) | `valor > 0` e reembolsada               | despesas += valor (positivo)    |
+| A | `receita`, não reembolsada, `valor > 0` | receitas += valor              |
+| B | `investimento`                          | investimento += valor, com o sinal que entra |
+| C | `valor < 0` e o tipo não é `receita`    | despesas += valor (negativo)    |
+| D | `valor > 0` (até à D20 exigia também a marca de reembolso) | despesas += valor (positivo)    |
 
 São `elif`, um atrás do outro: o B chega antes do D, pelo que um investimento
 marcado como reembolso nunca entra em despesas.
@@ -45,8 +48,8 @@ Convenções que estes testes fixam
 * O cesto `despesas` é uma **soma com sinal**: as despesas entram negativas e
   os reembolsos positivos, de modo que o total é a despesa líquida. É por isso
   que um reembolso de 120,00 entra como +120,0 e não como -120,0. A poupança,
-  que não é calculada aqui mas sim em `resumo_mensal` (linha 35) por
-  `receitas + despesas`, sai certa nos dois casos.
+  que não é calculada aqui mas sim em `resumo_mensal`, por `receitas +
+  despesas`, sai certa nos dois casos.
 * `investimento` é um acumulador com sinal, e mais nada: uma compra negativa e
   uma venda positiva cancelam-se, e nunca tocam receitas nem despesas. O
   investimento é uma linha informativa à parte e não entra na poupança.
@@ -58,7 +61,8 @@ Convenções que estes testes fixam
   subcategorias noutro dicionário indexado por `subcategoria_id` — ou por `0`,
   com o nome `"Sem subcategoria"`, quando a transação não tem subcategoria. A
   função não filtra transferências: o filtro está na consulta que a alimenta
-  (`_query_transacoes_mes`, linha 204), pelo que entra o que lhe derem.
+  (`_query_transacoes_mes`, que exclui transferências na própria query), pelo
+  que entra o que lhe derem.
 
 Números escolhidos
 ------------------
@@ -135,7 +139,7 @@ def test_receita_normal_entra_no_cesto_das_receitas():
       chave do mês = (2025, 3)
       ramo A: tipo receita, `not reembolso` verdadeiro, 1500,00 > 0
       receitas = 0 + 1500,00 = 1500,0
-      os outros dois cestos ficam com o zero inicial da linha 278
+      os outros dois cestos ficam com o zero inicial da chave do mês
     """
     resultado = _calculate_totals([
         transacao(2025, 3, 10, TipoCategoria.receita, 1500.00),
@@ -169,12 +173,13 @@ def test_reembolso_entra_no_cesto_das_despesas_com_sinal_positivo():
 
     Cálculo à mão:
       ramo C não pega: 120,00 não é < 0
-      ramo D: 120,00 > 0 e a marca de reembolso está ligada
+      ramo D: 120,00 > 0 (a marca de reembolso está ligada, mas desde a D20 que
+        a marca já não é exigida numa despesa — o sinal é que manda)
       despesas = 0 + 120,00 = 120,0
 
     Não é um sinal trocado: o cesto é uma soma com sinal, e as despesas
     negativas com os reembolsos positivos dão a despesa líquida. É esse total
-    que `resumo_mensal` (linha 35) soma às receitas para dar a poupança, pelo
+    que `resumo_mensal` soma às receitas para dar a poupança, pelo
     que um reembolso de 120,00 tem de entrar com + para a poupança descer.
     """
     resultado = _calculate_totals([
@@ -190,14 +195,15 @@ def test_transferencia_e_ignorada_e_nao_cria_mes():
     """Uma transferência não é contada, nem faz o mês aparecer.
 
     Cálculo à mão:
-      linha 273: o tipo é transferência, logo `continue` (linha 274)
-      a chave (2025, 4) é criada na linha 277, depois do filtro
+      o ramo das transferências: o tipo é transferência, logo `continue`
+      a chave (2025, 4) só seria criada depois desse `continue` e por isso não
+      chega a ser criada
       resultado: dicionário vazio
 
     A diferença para os cenários em que o mês fica a zeros importa: ali a
     chave é criado, aqui não. No endpoint a diferença não se vê, porque
-    `resumo_mensal` volta a acrescentar os meses em falta a zeros (linhas
-    23-26); aqui vê-se.
+    `resumo_mensal` volta a acrescentar os meses em falta a zeros (no ciclo
+    sobre `todos_meses`); aqui vê-se.
     """
     resultado = _calculate_totals([
         transacao(2025, 4, 2, TipoCategoria.transferencia, -500.00),
@@ -269,13 +275,12 @@ def test_receita_negativa_desaparece_dos_totais():
     }
 
 
-def test_despesa_positiva_sem_marca_de_reembolso_desaparece():
-    # DEVIDA-TECNICA: D20
-    """Uma despesa positiva sem a marca de reembolso não cai em ramo nenhum.
+def test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas():
+    """Uma despesa positiva conta nas despesas mesmo sem a marca de reembolso.
 
-    Mesma raiz que a D4, pelo outro lado: a linha 284 exige `valor < 0` e a
-    linha 286 exige a marca de reembolso, e entre as duas não há nada que
-    apanhe este caso.
+    Decisão do Pedro (o sinal manda): o valor não pode ser ignorado só porque
+    a marca está desligada — os totais seguem o sinal, pelo que a marca de
+    reembolso já não é necessária para uma despesa entrar no cesto.
 
     Cálculo à mão:
       -45,50: ramo C, despesas = 0 + (-45,50) = -45,5
@@ -283,25 +288,20 @@ def test_despesa_positiva_sem_marca_de_reembolso_desaparece():
         ramo A não pega: o tipo não é receita
         ramo B não pega: não é investimento
         ramo C não pega: 30,00 não é < 0
-        ramo D não pega: a marca está desligada
-      despesas = -45,5, e fica -45,5
+        ramo D: 30,00 > 0, entra com o sinal que tem
+      despesas = -45,50 + 30,00 = -15,5
 
-    Comportamento actual: o valor desaparece e o mês fecha com as despesas de
-    antes. Comportamento esperado: contar na soma de despesas, ou seja
-    -45,5 + 30,00 = -15,5. A diferença na poupança é de 30,00.
-
-    A decisão de negócio (Pedro) é que o correcto é uma despesa positiva estar
-    marcada como reembolso; mas, como os valores seguem o sinal, a conta fica
-    certa mesmo sem a marca, e por isso o valor não pode ser ignorado. Este
-    teste fixa o comportamento actual, não o desejado.
+    Face ao comportamento antigo, em que o +30,00 desaparecia e o mês fechava
+    com -45,5, a diferença na poupança é de 30,00.
     """
     resultado = _calculate_totals([
         transacao(2025, 6, 3, TipoCategoria.despesa, -45.50),
         transacao(2025, 6, 18, TipoCategoria.despesa, 30.00),
     ])
 
+    # -45,50 + 30,00 = -15,50
     assert resultado == {
-        (2025, 6): {"receitas": 0, "despesas": -45.5, "investimento": 0},
+        (2025, 6): {"receitas": 0, "despesas": -15.5, "investimento": 0},
     }
 
 
@@ -318,7 +318,7 @@ def test_valor_zero_cria_o_mes_mas_nao_soma(tipo):
       ramo B: só pega em investimentos
       ramo C: exige `valor < 0`
       ramo D: exige `valor > 0`
-      os três cestos ficam com o zero inicial da linha 278
+      os três cestos ficam com o zero inicial da chave do mês
     """
     resultado = _calculate_totals([
         transacao(2025, 5, 20, tipo, 0.0),
@@ -361,7 +361,7 @@ def test_transacao_sem_categoria_e_ignorada_e_nao_cria_mes():
     """Uma transação sem categoria é descartada antes de se criar a chave.
 
     Cálculo à mão:
-      linha 271: `not t.categoria` é verdadeiro, logo `continue` (linha 272)
+      o primeiro filtro: `not t.categoria` é verdadeiro, logo `continue`
       a chave (2025, 7) nunca chega a ser criada
       resultado: dicionário vazio
     """
@@ -379,7 +379,8 @@ def test_transacao_sem_categoria_e_ignorada_e_nao_cria_mes():
 def test_agrega_duas_categorias_e_as_respectivas_subcategorias():
     """Duas categorias, três subcategorias e uma linha sem subcategoria.
 
-    Cálculo à mão, em cêntimos inteiros (`round(valor x 100)`, linha 228):
+    Cálculo à mão, em cêntimos inteiros (`round(valor x 100)`, em
+    `_agregar_por_categoria`):
 
       linha 1, casa / renda,        -800,00 -> -80000
       linha 2, casa / renda,        -200,00 -> -20000
@@ -398,9 +399,9 @@ def test_agrega_duas_categorias_e_as_respectivas_subcategorias():
       investimento = -100000
         ações      = -100000
 
-    A chave da subcategoria ausente é `0` e o nome é o texto literal da linha
-    224. O `categoria_tipo` fica o enum em bruto: quem o converte em texto é
-    `detalhe_mensal`, na linha 244.
+    A chave da subcategoria ausente é `0` e o nome é o texto literal
+    `"Sem subcategoria"`. O `categoria_tipo` fica o enum em bruto: quem o
+    converte em texto é `detalhe_mensal`, com `.value` sobre `categoria_tipo`.
     """
     agregado = _agregar_por_categoria([
         linha(1, "Casa", TipoCategoria.despesa, -800.00, 10, "Renda"),
@@ -453,7 +454,7 @@ def test_arredondamento_em_centimos_perde_meio_centimo():
       exactamente, sem ruído nenhum
       round(12,5) = 12, porque o `round` do Python arredonda a par e 12 é par
       total_centimos = 12, e o chamador divide por 100 e apresenta 0,12
-      (`detalhe_mensal`, linha 245)
+      (`detalhe_mensal`, que faz `total_centimos / 100`)
 
     Com 13 cêntimos, por arredondamento para cima, seriam 0,13. A diferença é
     de meio cêntimo, e o valor guardado na base de dados é fiel — a perda é

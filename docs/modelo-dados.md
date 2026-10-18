@@ -63,7 +63,7 @@ Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, fic
 | descricao | str(255) | obrigatório |
 | valor | float | obrigatório |
 | saldo | float | opcional |
-| reembolso | bool | default `False` |
+| reembolso | bool | default `False` — nos totais mensais (`_calculate_totals`) só pesa nas receitas: uma receita positiva com a marca fica de fora do cesto de `receitas` e conta em `despesas`; numa despesa o sinal decide e a marca não altera o total; nas agregações de `por-subcategoria` e `detalhe-mensal` a coluna é projectada na query mas não entra em nenhuma soma, é só informativa |
 | notas | str(500) | opcional |
 | categoria_id | int | FK → `categorias.id`, opcional |
 | subcategoria_id | int | FK → `subcategorias.id`, opcional |

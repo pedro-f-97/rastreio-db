@@ -287,7 +287,7 @@ def _calculate_totals(transacoes):
             meses[chave]["investimento"] += t.valor
         elif t.valor < 0 and t.categoria.tipo != TipoCategoria.receita:
             meses[chave]["despesas"] += t.valor
-        elif t.valor > 0 and t.reembolso:
+        elif t.valor > 0:
             meses[chave]["despesas"] += t.valor
 
     return meses
