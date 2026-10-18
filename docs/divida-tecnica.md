@@ -542,8 +542,8 @@ isoladamente.
   «0,00 €» que parecia «sem ganho nem perda». Um ativo já vendido continua a
   mostrar o realizado, que é um valor real, e os totais por tipo continuam a
   somar o realizado. Com a D16, é o caso do Twingo, que vale o custo por falta
-  de preço. Não há testes de frontend; a alteração foi verificada só com o
-  ESLint.
+  de preço. Não há testes de frontend; a alteração passou no ESLint e foi
+  confirmada pelo utilizador na app (o Twingo mostra «sem preço»).
 - **D12c — resolvido** — `routers/patrimonio.py:94` e `:107` — dois `commit()` no mesmo
   endpoint (`criar_movimento`). Se o upsert de preço da linha 107 falhar, o
   movimento já foi gravado na linha 94: escrita parcial, sem rollback. Um
