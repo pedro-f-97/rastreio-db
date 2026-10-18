@@ -294,33 +294,51 @@ def test_listar_filtra_por_sinal(client, session):
     assert session.query(Transacao).count() == 5
 
 
-def test_listar_filtra_por_descricao_ascii(client, session):
-    # DEVIDA-TECNICA: D8
-    """O filtro de descrição é `ilike` e é ASCII-only, como os restantes `ilike`.
+def test_listar_filtra_por_descricao_sem_acentos_nem_maiusculas(client, session):
+    """A pesquisa por descrição ignora acentos e maiúsculas, e é texto literal.
 
-    Cálculo à mão:
-      descricao=far    casa "Farmácia" nas letras acii -> 1 (t3)
-      descricao=farmacia (sem acento), contra "Farmácia": o `á` não casa o `a`
-        sob o `LIKE` do SQLite, que só é case-insensitive para ASCII -> 0
-
-    Mesma limitação ASCII do `ilike` da D8 (o backfill das regras), aqui na
-    linha 46 de `transacoes.py`. Não é um defeito novo: fixa-se o que existe.
+    Era a D28: o filtro era `ilike`, que só ignora maiúsculas em ASCII.
+    Decisão do utilizador: na pesquisa, os acentos também não contam.
+    Cálculo à mão, contra as cinco descrições da semente:
+      "far"      -> "farmacia" contém "far"           -> 1 (t3)
+      "farmacia" -> sem acento, casa "Farmácia"       -> 1 (t3)
+      "FARMÁCIA" -> "farmacia" depois de normalizar   -> 1 (t3)
+      "CAFE"     -> casa "Café"                       -> 1 (t4)
+      "%"        -> literal; nenhuma descrição tem "%" -> 0
 
     Estado final da BD: as 5 transacções continuam.
     """
     d = _semear(session)
 
-    r_far = client.get("/api/transacoes/", params={"descricao": "far"})
-    assert r_far.status_code == 200
-    assert r_far.json()["total"] == 1
-    assert [i["id"] for i in r_far.json()["items"]] == [d["t3"].id]
-
-    r_sem_acento = client.get("/api/transacoes/",
-                              params={"descricao": "farmacia"})
-    assert r_sem_acento.status_code == 200
-    assert r_sem_acento.json()["total"] == 0
-    assert r_sem_acento.json()["items"] == []
+    for procura, esperado in [
+        ("far", [d["t3"].id]),
+        ("farmacia", [d["t3"].id]),
+        ("FARMÁCIA", [d["t3"].id]),
+        ("CAFE", [d["t4"].id]),
+        ("%", []),
+    ]:
+        r = client.get("/api/transacoes/", params={"descricao": procura})
+        assert r.status_code == 200
+        assert [i["id"] for i in r.json()["items"]] == esperado, procura
+        assert r.json()["total"] == len(esperado), procura
     assert session.query(Transacao).count() == 5
+
+
+def test_listar_por_descricao_pagina_so_as_que_casam(client, session):
+    """Com pesquisa, o `total` e as páginas contam só as transacções que casam.
+
+    Cálculo à mão, "a" sem acentos: "pingo doce" não tem "a"; "salario",
+    "farmacia", "cafe" e "jantar" têm -> 4. Por data desc: t2 (03-20),
+    t4 (03-01), t3 (02-05), t5 (2024-12-31). Com `tamanho=2`, a página 2 é
+    [t3, t5] e o `total` é 4.
+    """
+    d = _semear(session)
+
+    r = client.get("/api/transacoes/", params={"descricao": "a", "pagina": 2, "tamanho": 2})
+
+    assert r.status_code == 200
+    assert r.json()["total"] == 4
+    assert [i["id"] for i in r.json()["items"]] == [d["t3"].id, d["t5"].id]
 
 
 def test_listar_por_categorizar(client, session):

@@ -50,11 +50,13 @@ Convenções que estes testes fixam
   casa com `"CAFÉ"`; `"café"` casa. Regra vazia é o caso limite de `"x" in s`,
   que é sempre verdadeiro.
 - A **primeira** regra que casa ganha, e o `break` é incondicional — ver o
-  cenário da categoria diferente, que é a D7.
+  cenário da categoria diferente. É a convenção das «Decisões de design» do
+  README (era a D7): a primeira regra decide sozinha.
 - A precedência entre as duas fases é fixa pelo código, não pela ordem da
   lista: exclusão antes de categorização, sempre. A ordem dentro de cada fase
-  é a da lista que o `importar_transacoes` (linha 26) recebe do SQLite sem
-  `ORDER BY`, o que é a outra metade da D7 e não é testado aqui.
+  é a da lista recebida; o `importar_transacoes` passa-a ordenada por
+  `regras_por_precedencia` (a palavra-chave mais longa primeiro e, em empate,
+  a mais antiga), testado no fim deste ficheiro.
 
 Números escolhidos
 ------------------
@@ -71,7 +73,8 @@ o cálculo no comentário de cada teste.
 from datetime import date
 from types import SimpleNamespace
 
-from importador_transacoes import aplicar_regras
+from database import Categoria, RegraCategorizacao, TipoCategoria, Transacao
+from importador_transacoes import aplicar_regras, importar_transacoes
 
 
 # ---------------------------------------------------------------------------
@@ -163,10 +166,8 @@ def test_comparacao_ignora_maiusculas_nos_dois_sentidos():
 def test_regra_com_acento_casa_descricao_maiuscula():
     """`upper()` não deita fora os acentos: a palavra acentuada casa.
 
-    # DEVIDA-TECNICA: D8 (lado b) — a importação casa o "ç" e o "é", porque a
-    comparação é `upper()`; o backfill de `routers/regras.py:54` usa `ilike`,
-    que é ASCII-only e não casa. A mesma regra funciona na importação e falha
-    no backfill.
+    A comparação é `casa_palavra`, a mesma na importação, na pré-visualização
+    e no backfill (era a D8 b: o backfill usava `ilike` e não casava).
 
     Cálculo à mão:
       fase 2: palavra_chave "café" -> "CAFÉ"; descrição "CAFÉ PASTELARIA"
@@ -217,8 +218,8 @@ def test_a_primeira_regra_que_casa_ganha():
 def test_break_impede_a_segunda_regra_de_atribuir_a_subcategoria():
     """Regra 1.ª sem subcategoria: a 2.ª traria a subcategoria, o break não deixa.
 
-    # DEVIDA-TECNICA: D7 (o `break` da fase 2) — este teste só passa porque o
-    `break` da linha 23 existe. A 2.ª regra também casa, e entraria pelo ramo da
+    Convenção (README, «Decisões de design»; era a D7): este teste só passa
+    porque o `break` da linha 23 existe. A 2.ª regra também casa, e entraria pelo ramo da
     linha 21, que é exactamente o ramo que escreve a subcategoria; é o `break` que
     impede a escrita. É o par com
     `test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria`, que
@@ -290,9 +291,9 @@ def test_categoria_e_subcategoria_iguais_mudam_nada():
 def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
     """Categoria diferente: nada é atribuído e a regra seguinte é ignorada.
 
-    # DEVIDA-TECNICA: D7 — o `break` da linha 23 é incondicional: está dentro
-    # do `if` de correspondência (linha 17) e não dentro de nenhum dos ramos de
-    # atribuição. "Casou" não é "atribuiu", e a diferença de consequência é uma
+    Convenção (README, «Decisões de design»; era a D7): o `break` da linha 23
+    é incondicional: está dentro do `if` de correspondência (linha 17) e não
+    dentro de nenhum dos ramos de atribuição. "Casou" não é "atribuiu", e a diferença de consequência é uma
     transação já categorizada que fica sem a subcategoria que a 2.ª regra lhe
     traria, sem erro nem registo.
 
@@ -317,7 +318,7 @@ def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
 def test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria():
     """A 1.ª regra casa com outra categoria e consome o ciclo; a 2.ª traria a sub.
 
-    # DEVIDA-TECNICA: D7 (regra consumida sem atribuir) — este teste fixa o caso
+    Convenção (README, «Decisões de design»; era a D7): este teste fixa o caso
     em que a consequência é visível numa transação que o utilizador já tinha
     classificado à mão: ela fica com categoria mas sem subcategoria, e a 2.ª regra
     —que era exactamente a que lhe servia— nunca chega a ser avaliada. Sem o
@@ -451,3 +452,64 @@ def test_palavra_chave_vazia_casa_em_tudo():
     aplicar_regras(t, [regra("", 1, 10)])
 
     assert (t.categoria_id, t.subcategoria_id) == (1, 10)
+
+
+# ---------------------------------------------------------------------------
+# Precedência das regras na importação (era a D7)
+# ---------------------------------------------------------------------------
+
+def _importar_uma(session, descricao):
+    """Importa uma linha com `importar_transacoes` e devolve a transacção gravada."""
+    importar_transacoes(
+        [{"data": date(2025, 3, 10), "descricao": descricao, "valor": -12.75,
+          "saldo": None}],
+        session,
+    )
+    return session.query(Transacao).filter_by(descricao=descricao).one()
+
+
+def _categorias(session, *nomes):
+    cats = [Categoria(nome=n, tipo=TipoCategoria.despesa) for n in nomes]
+    session.add_all(cats)
+    session.commit()
+    return cats
+
+
+def _regras(session, *pares):
+    """Cria as regras por esta ordem, e por isso com `id` crescente."""
+    for palavra_chave, categoria in pares:
+        session.add(RegraCategorizacao(palavra_chave=palavra_chave,
+                                       categoria_id=categoria.id))
+        session.commit()
+
+
+def test_importar_avalia_primeiro_a_palavra_chave_mais_longa(session):
+    """Duas regras casam: ganha a mais longa, mesmo que tenha sido criada depois.
+
+    Cálculo à mão: "uber" (Transportes, criada primeiro, id menor) e
+    "uber eats" (Restauração, criada depois). A descrição "UBER EATS LISBOA"
+    casa as duas. Ordem de avaliação: comprimento 9 ("uber eats") antes de 4
+    ("uber") -> a primeira que casa é "uber eats" -> Restauração.
+    Pela ordem de criação ganharia "uber" -> Transportes.
+    """
+    transportes, restauracao = _categorias(session, "Transportes", "Restauração")
+    _regras(session, ("uber", transportes), ("uber eats", restauracao))
+
+    t = _importar_uma(session, "UBER EATS LISBOA")
+
+    assert t.categoria_id == restauracao.id
+
+
+def test_importar_com_o_mesmo_comprimento_ganha_a_regra_mais_antiga(session):
+    """Em empate de comprimento, ganha a regra criada primeiro.
+
+    Cálculo à mão: "pingo" (Mercearia, criada primeiro) e "doces" (Pastelaria,
+    criada depois), ambas com 5 caracteres; "PINGO DOCES" casa as duas.
+    Empate no comprimento -> desempate por id crescente -> "pingo" -> Mercearia.
+    """
+    mercearia, pastelaria = _categorias(session, "Mercearia", "Pastelaria")
+    _regras(session, ("pingo", mercearia), ("doces", pastelaria))
+
+    t = _importar_uma(session, "PINGO DOCES")
+
+    assert t.categoria_id == mercearia.id

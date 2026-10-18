@@ -16,15 +16,10 @@ Os valores esperados são calculados à mão e escritos como constantes, com o
 cálculo exposto no docstring de cada teste. Nenhum teste toca na base de dados
 real (ver `conftest.py`).
 
-A fixture `client` e a fixture `session` partilham a mesma sessão SQLAlchemy.
-Os pedidos que rebentam com `IntegrityError` (o `commit()` do router falha e a
-excepção sobe até ao teste) deixam a sessão à espera de rollback, por isso cada
-`pytest.raises` é seguido de `session.rollback()` antes de afirmar o estado da
-BD. Depois do D24 esses casos são só os do D1 (apagar sem `cascade`), em que
-produção continua a dar **500** — o teste fixa o comportamento real, não o
-desejável. Nome duplicado já não chega a `commit()`: o POST e o PUT de
-categorias pré-checam e respondem **409**, e os testes respectivos afirmam o
-código, o corpo (`detail`) e o estado final da BD com `session.expire_all()`.
+A fixture `client` e a fixture `session` partilham a mesma sessão SQLAlchemy;
+o estado final da BD lê-se depois de `session.expire_all()`. Nenhum pedido
+chega a rebentar com `IntegrityError`: o nome duplicado (D24) e o apagar de uma
+categoria com transações (D1) são pré-checados e respondem **409**.
 
 Onde o comportamento é questionável fica a etiqueta `# DEVIDA-TECNICA: Dn`,
 a remeter para `docs/divida-tecnica.md`.
@@ -32,10 +27,7 @@ a remeter para `docs/divida-tecnica.md`.
 
 from datetime import date
 
-import pytest
-from sqlalchemy.exc import IntegrityError
-
-from database import Categoria, Subcategoria, Transacao, TipoCategoria
+from database import Categoria, RegraCategorizacao, Subcategoria, Transacao, TipoCategoria
 
 
 # ---------------------------------------------------------------------------
@@ -397,74 +389,86 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
 # DELETE — o efeito em cascata que D1 descreve
 # ---------------------------------------------------------------------------
 
-def test_apagar_categoria_com_subcategorias_integrity(client, session):
-    # DEVIDA-TECNICA: D1
-    """Apagar uma categoria com subcategorias rebenta com `IntegrityError`.
+def test_apagar_categoria_com_transacoes_da_409_e_nada_muda(client, session):
+    """Uma categoria com transações não se apaga: 409, e nada muda (D1).
 
-    Cálculo à mão (o corpo de `apagar_categoria`): a categoria Casa tem a
-    subcategoria Alimentação. A `relationship` `Categoria.subcategorias` de
-    `database.py` não tem `cascade`, por isso ao apagar a categoria o
-    SQLAlchemy tenta pôr `subcategorias.categoria_id = NULL` para desassociar;
-    essa coluna é `nullable=False` no modelo `Subcategoria`, e o `db.commit()`
-    de `apagar_categoria` falha com
-    `NOT NULL constraint failed: subcategorias.categoria_id`.
-
-    O `IntegrityError` não é apanhado: **em produção é um 500**. Faz parte da
-    D1 (não há `ON DELETE` nem `cascade` em lado nenhum).
-
-    Estado final da BD: o rollback desfaz a tentativa; continuam 3 categorias,
-    2 subcategorias e 3 transacções — Alimentação continua ligada a Casa.
+    Era a D1: com subcategorias o pedido rebentava com 500 (NOT NULL em
+    `subcategorias.categoria_id`), e só com transações directas a categoria
+    era apagada e as transações ficavam a apontar para o vazio.
+    Decisão do utilizador: com transações, recusa.
+    Cálculo à mão, semente de `_semear`:
+      Casa: t1 (Casa/Alimentação)          -> 1 transação -> 409
+      Saúde: t2 (directa, sem subcategoria) -> 1 transação -> 409
+    Estado final: 3 categorias, 2 subcategorias, 3 transações, t2 em Saúde.
     """
     d = _semear(session)
 
-    with pytest.raises(IntegrityError,
-                       match="NOT NULL constraint failed: subcategorias.categoria_id"):
-        client.delete(f"/api/categorias/{d['cat_casa'].id}")
-    session.rollback()
+    for cat in (d["cat_casa"], d["cat_saude"]):
+        r = client.delete(f"/api/categorias/{cat.id}")
+        assert r.status_code == 409
+        assert r.json() == {
+            "detail": "A categoria tem 1 transação; muda-as de categoria antes de a apagar.",
+        }
 
     session.expire_all()
     assert session.query(Categoria).count() == 3
     assert session.query(Subcategoria).count() == 2
     assert session.query(Transacao).count() == 3
-    alim = session.get(Subcategoria, d["sub_alim"].id)
-    assert alim.categoria_id == d["cat_casa"].id
+    assert session.get(Transacao, d["t2"].id).categoria_id == d["cat_saude"].id
 
 
-def test_apagar_categoria_deixa_transacao_orfa(client, session):
-    # DEVIDA-TECNICA: D1
-    """Apagar uma categoria só com transacções directas deixa-as órfãs.
+def test_apagar_categoria_sem_transacoes_leva_subcategorias_e_regras(client, session):
+    """Sem transações, a categoria vai com as suas subcategorias e regras (D1).
 
-    Cálculo à mão (o corpo de `apagar_categoria`): Saúde (id 3) não tem
-    subcategorias, só a
-    transacção 2 a apontar para ela. Como o SQLite não força as chaves
-    estrangeiras (D1) e em `database.py` só existe a `relationship` de
-    Transacao para Categoria, nada toca em
-    `transacoes.categoria_id`: o `DELETE` passa, a categoria desaparece e a
-    transacção 2 fica a apontar para o id 3, que já não existe.
-
-    É o efeito da D1: essa transacção desaparece das estatísticas (os joins são
-    `INNER`) e aparece sem nome na listagem.
-
-    Estado final da BD: 2 categorias; a transacção 2 mantém `categoria_id == 3`
-    (órfão) e `subcategoria_id is None`.
+    Cálculo à mão: Receita tem a subcategoria Salário e nenhuma transação.
+    Regras: "salario" -> (Receita, Salário), "bonus" -> (Receita, sem sub),
+    "pingo" -> (Casa, Alimentação).
+      DELETE Receita -> 200; apagam-se Receita, Salário, "salario" e "bonus"
+    Estado final: 2 categorias, 1 subcategoria (Alimentação), 1 regra ("pingo"),
+    3 transações.
     """
     d = _semear(session)
+    receita = d["cat_receita"]
+    session.add_all([
+        RegraCategorizacao(palavra_chave="salario", categoria_id=receita.id,
+                           subcategoria_id=d["sub_salario"].id),
+        RegraCategorizacao(palavra_chave="bonus", categoria_id=receita.id),
+        RegraCategorizacao(palavra_chave="pingo", categoria_id=d["cat_casa"].id,
+                           subcategoria_id=d["sub_alim"].id),
+    ])
+    session.commit()
 
-    r = client.delete(f"/api/categorias/{d['cat_saude'].id}")
+    r = client.delete(f"/api/categorias/{receita.id}")
 
     assert r.status_code == 200
     assert r.json() == {"ok": True}
-
     session.expire_all()
-    assert session.query(Categoria).count() == 2
-    assert session.get(Categoria, d["cat_saude"].id) is None
-    t2 = session.get(Transacao, d["t2"].id)
-    assert t2.categoria_id == d["cat_saude"].id
-    assert t2.subcategoria_id is None
+    assert {c.nome for c in session.query(Categoria).all()} == {"Casa", "Saúde"}
+    assert [s.nome for s in session.query(Subcategoria).all()] == ["Alimentação"]
+    assert [x.palavra_chave for x in session.query(RegraCategorizacao).all()] == ["pingo"]
+    assert session.query(Transacao).count() == 3
+
+
+def test_apagar_categoria_conta_transacoes_das_suas_subcategorias(client, session):
+    """Uma transação que só aponta para uma subcategoria da categoria também conta.
+
+    Cálculo à mão: uma transação órfã (sem categoria, com a subcategoria
+    Salário de Receita) -> a contagem inclui `subcategoria_id in (Salário)` ->
+    1 transação -> 409, e Receita e Salário ficam.
+    """
+    d = _semear(session)
+    session.add(Transacao(data=date(2025, 1, 4), descricao="Órfã", valor=100.0,
+                          subcategoria_id=d["sub_salario"].id))
+    session.commit()
+
+    r = client.delete(f"/api/categorias/{d['cat_receita'].id}")
+
+    assert r.status_code == 409
+    session.expire_all()
+    assert session.get(Subcategoria, d["sub_salario"].id) is not None
 
 
 def test_apagar_subcategoria_desassocia_transacoes(client, session):
-    # DEVIDA-TECNICA: D1
     """Apagar uma subcategoria põe as suas transacções a NULL (não as apaga).
 
     Cálculo à mão (o corpo de `apagar_subcategoria`): Alimentação tem a
@@ -475,13 +479,18 @@ def test_apagar_subcategoria_desassocia_transacoes(client, session):
     de `apagar_subcategoria` passa. A transacção 1 fica "por categorizar" mas
     mantém a categoria Casa.
 
-    Faz parte da D1: a associação some-se por efeito de desassociação, não por
-    regra de negócio explícita.
+    É a política decidida na D1: as transações ficam por categorizar na mesma
+    categoria. As regras que apontavam para a subcategoria ficam sem ela: a
+    regra "pingo" -> (Casa, Alimentação) passa a (Casa, None).
 
     Estado final da BD: 1 subcategoria; a transacção 1 com `categoria_id == 1`
-    e `subcategoria_id is None`.
+    e `subcategoria_id is None`; a regra com `subcategoria_id is None`.
     """
     d = _semear(session)
+    regra = RegraCategorizacao(palavra_chave="pingo", categoria_id=d["cat_casa"].id,
+                               subcategoria_id=d["sub_alim"].id)
+    session.add(regra)
+    session.commit()
 
     r = client.delete(
         f"/api/categorias/{d['cat_casa'].id}/subcategorias/{d['sub_alim'].id}"
@@ -496,6 +505,8 @@ def test_apagar_subcategoria_desassocia_transacoes(client, session):
     t1 = session.get(Transacao, d["t1"].id)
     assert t1.categoria_id == d["cat_casa"].id
     assert t1.subcategoria_id is None
+    regra = session.get(RegraCategorizacao, regra.id)
+    assert (regra.categoria_id, regra.subcategoria_id) == (d["cat_casa"].id, None)
 
 
 # ---------------------------------------------------------------------------

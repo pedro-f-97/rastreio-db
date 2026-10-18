@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, Categoria, Subcategoria
+from database import get_db, Categoria, RegraCategorizacao, Subcategoria, Transacao
 from schemas import CategoriaCreate, SubcategoriaCreate
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])
@@ -59,6 +59,22 @@ def apagar_categoria(categoria_id: int, db: Session = Depends(get_db)):
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    # Com transações, recusa: sem elas, vão-se as subcategorias e as regras (D1)
+    ids_sub = [s.id for s in cat.subcategorias]
+    n = db.query(Transacao).filter(
+        (Transacao.categoria_id == categoria_id) | Transacao.subcategoria_id.in_(ids_sub)
+    ).count()
+    if n:
+        raise HTTPException(status_code=409, detail=(
+            f"A categoria tem {n} {'transação' if n == 1 else 'transações'}; "
+            "muda-as de categoria antes de a apagar."
+        ))
+    db.query(RegraCategorizacao).filter(
+        (RegraCategorizacao.categoria_id == categoria_id)
+        | RegraCategorizacao.subcategoria_id.in_(ids_sub)
+    ).delete(synchronize_session=False)
+    for sub in cat.subcategorias:
+        db.delete(sub)
     db.delete(cat)
     db.commit()
     return {"ok": True}
@@ -94,6 +110,11 @@ def apagar_subcategoria(categoria_id: int, subcategoria_id: int, db: Session = D
     sub = db.query(Subcategoria).filter(Subcategoria.id == subcategoria_id, Subcategoria.categoria_id == categoria_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
+    # As transações ficam por categorizar na mesma categoria (pela relationship);
+    # as regras perdem a subcategoria (D1)
+    db.query(RegraCategorizacao).filter(RegraCategorizacao.subcategoria_id == subcategoria_id).update(
+        {RegraCategorizacao.subcategoria_id: None}, synchronize_session=False
+    )
     db.delete(sub)
     db.commit()
     return {"ok": True}

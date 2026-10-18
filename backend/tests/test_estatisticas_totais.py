@@ -13,12 +13,11 @@ por isso que nenhum teste pede a `session` nem a `client`. O `poupanca` de
 `resumo-mensal`, calculado em `resumo_mensal`, fica de fora de propósito — é
 assunto para os testes de API, mais tarde.
 
-Nada aqui é corrigido. Onde o comportamento é questionável, fica marcado com
-`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`. A `D4` e a
-`D11` continuam abertas e os testes fixam o comportamento **actual**, pelo que a
-correcção de qualquer uma delas os faz falhar de propósito. A `D20` já está
-resolvida (o sinal manda): o seu teste deixa de fixar um comportamento
-questionável e afirma o comportamento corrigido.
+Onde o comportamento é questionável, fica marcado com `# DEVIDA-TECNICA: Dn`,
+a remeter para `docs/divida-tecnica.md`. A `D11` continua aberta e os testes
+fixam o comportamento **actual**, pelo que a sua correcção os faz falhar de
+propósito. A `D20` e a `D4` já estão resolvidas (o sinal manda): os seus testes
+afirmam o comportamento corrigido.
 
 Os objectos que entram nas funções são `SimpleNamespace` com os mesmos nomes
 de campo dos modelos, e o `tipo` é sempre o enum `TipoCategoria` — nunca uma
@@ -36,6 +35,7 @@ transação que não casa em ramo nenhum aparece, com os três cestos a zero.
 | Ramo | Condição                                | Efeito                          |
 | --- | --- | --- |
 | A | `receita`, não reembolsada, `valor > 0` | receitas += valor              |
+| A2 | `receita`, `valor < 0` (até à D4 não havia ramo) | receitas += valor (negativo) |
 | B | `investimento`                          | investimento += valor, com o sinal que entra |
 | C | `valor < 0` e o tipo não é `receita`    | despesas += valor (negativo)    |
 | D | `valor > 0` (até à D20 exigia também a marca de reembolso) | despesas += valor (positivo)    |
@@ -89,7 +89,7 @@ from routers.estatisticas import _agregar_por_categoria, _calculate_totals
 # Auxiliares
 # ---------------------------------------------------------------------------
 
-# Nomes das categorias como o `popular_bd.py` as semeia. O `tipo` é o enum
+# Nomes das categorias como o `dados_iniciais.py` as semeia. O `tipo` é o enum
 # real, nunca uma cadeia.
 NOMES = {
     TipoCategoria.receita: "Receita",
@@ -248,22 +248,22 @@ def test_investimento_marcado_como_reembolso_continua_no_cesto_do_investimento()
     }
 
 
-def test_receita_negativa_desaparece_dos_totais():
-    # DEVIDA-TECNICA: D4
-    """Uma receita negativa não cai em ramo nenhum, e o mês fecha sem ela.
+def test_receita_negativa_reduz_as_receitas():
+    """Uma receita negativa (estorno) conta nas receitas, com o sinal que tem.
+
+    Era a D4: o -300,00 não caía em ramo nenhum e o mês fechava sem ele.
+    Decisão do utilizador (o sinal manda, como na D20): conta nas receitas.
 
     Cálculo à mão:
       -300,00, tipo receita, sem reembolso:
         ramo A: `valor > 0` falha
-        ramo B: não é investimento
-        ramo C: `valor < 0` é verdadeiro, mas exclui explicitamente receitas
-        ramo D: `valor > 0` falha
+        ramo A2: receita e `valor < 0` -> receitas = 0 + (-300,00) = -300,0
       1500,00, tipo receita, sem reembolso:
-        ramo A: receitas = 0 + 1500,00 = 1500,0
+        ramo A: receitas = -300,00 + 1500,00 = 1200,0
+      despesas e investimento ficam a 0
 
-    O -300,00 não está em nenhum cesto. Se fosse contado como despesa, o mês
-    fecharia com receitas 1500,0 e despesas -300,0, e a poupança (que não é
-    calculada aqui) em 1200,0 em vez de 1500,0.
+    A poupança (calculada em `resumo_mensal`, não aqui) passa de 1500,0 para
+    1200,0.
     """
     resultado = _calculate_totals([
         transacao(2025, 3, 10, TipoCategoria.receita, -300.00),
@@ -271,7 +271,25 @@ def test_receita_negativa_desaparece_dos_totais():
     ])
 
     assert resultado == {
-        (2025, 3): {"receitas": 1500.0, "despesas": 0, "investimento": 0},
+        (2025, 3): {"receitas": 1200.0, "despesas": 0, "investimento": 0},
+    }
+
+
+def test_receita_negativa_marcada_como_reembolso_tambem_reduz_as_receitas():
+    """A marca de reembolso não muda nada numa receita negativa.
+
+    A marca só desvia uma receita **positiva** para as despesas (ramo D). Numa
+    receita negativa, o ramo A falha pelo sinal e o ramo A2 não olha para a
+    marca.
+
+    Cálculo à mão: -80,00, receita, com reembolso -> ramo A2 -> receitas = -80,0.
+    """
+    resultado = _calculate_totals([
+        transacao(2025, 5, 4, TipoCategoria.receita, -80.00, reembolso=True),
+    ])
+
+    assert resultado == {
+        (2025, 5): {"receitas": -80.0, "despesas": 0, "investimento": 0},
     }
 
 

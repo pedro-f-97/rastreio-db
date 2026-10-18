@@ -37,8 +37,8 @@ linhas que já não existem, sem erro. Essas transações desapareceriam das
 estatísticas (os joins são `INNER`), apareceriam sem nome na listagem, e não
 seriam contadas em `/transacoes/por-categorizar/total`.
 
-**O que os testes de caracterização medem hoje** (`backend/tests/test_api_categorias.py`,
-sem a pragma ligada):
+**O que os testes de caracterização mediam antes da política de apagar** (ver
+a secção «Política de apagar», mais abaixo):
 
 - `test_apagar_categoria_com_subcategorias_integrity` — apagar uma categoria
   **com** subcategorias dá `IntegrityError` (`NOT NULL constraint failed:
@@ -146,7 +146,32 @@ Para activar: `PRAGMA foreign_keys=ON` por conexão, via
 pool recicla). Antes disso é preciso corrigir D1a e decidir a política de
 `ON DELETE`, porque `ON DELETE CASCADE` muda o comportamento dos endpoints.
 
-## 🟡 D2 — `total` do património não bate com a soma dos componentes
+### Política de apagar — decidida e aplicada na aplicação
+
+**Decisão do utilizador:**
+
+- uma **categoria com transações** (directas, ou nas suas subcategorias) não se
+  apaga: 409 «A categoria tem N transações; muda-as de categoria antes de a
+  apagar.»;
+- uma **categoria sem transações** apaga-se com as suas subcategorias e com as
+  regras que apontam para ela ou para elas;
+- uma **subcategoria** apaga-se; as suas transações ficam por categorizar na
+  mesma categoria, e as regras que apontavam para ela ficam sem subcategoria.
+
+Aplicada em `apagar_categoria` e `apagar_subcategoria`
+(`backend/routers/categorias.py`), e a página Categorias passou a mostrar o
+erro (antes, apagar uma categoria com subcategorias dava 500 e o ecrã não
+fazia nada). Fica nas «Decisões de design» do `README.md`. Testes em
+`backend/tests/test_api_categorias.py`: os dois de caracterização foram
+substituídos por `test_apagar_categoria_com_transacoes_da_409_e_nada_muda`,
+`test_apagar_categoria_sem_transacoes_leva_subcategorias_e_regras` e
+`test_apagar_categoria_conta_transacoes_das_suas_subcategorias`, e
+`test_apagar_subcategoria_desassocia_transacoes` passou a verificar a regra.
+
+**A D1 continua aberta:** a BD ainda não garante nada disto (sem
+`PRAGMA foreign_keys` nem `ON DELETE`), o que depende de corrigir a D1a.
+
+## 🟡 D2 — `total` do património não bate com a soma dos componentes — resolvido
 
 `backend/servicos/patrimonio_serv.py:152-158` soma os três blocos em ponto
 flutuante e só depois arredonda:
@@ -170,7 +195,18 @@ visíveis lado a lado.
 Correção: arredondar cada componente e somar os arredondados, ou somar em
 `Decimal`.
 
-## 🟡 D3 — Boundary de data de referência diverge entre dois endpoints
+**Resolvido:** `calcular_patrimonio_em` (`backend/servicos/patrimonio_serv.py:152-162`)
+arredonda primeiro os três componentes e o `total` é a soma desses valores
+arredondados, outra vez arredondada a 2 casas para tirar o ruído de vírgula
+flutuante (`0.1 + 0.2`). Face ao que era apresentado, o `total` muda no
+máximo 2 cêntimos (cada componente arredondado desvia até meio cêntimo), e
+passa a bater sempre com a soma das três séries do gráfico. O teste de caracterização foi invertido
+(`test_evolucao_total_e_a_soma_dos_componentes_arredondados`: total 0.02 em vez
+de 0.01) e há um teste novo para o ruído,
+`test_evolucao_total_sem_ruido_de_virgula_flutuante`, ambos em
+`backend/tests/test_api_patrimonio.py`. A passagem a `Decimal` fica para a D11.
+
+## 🟡 D3 — Boundary de data de referência diverge entre dois endpoints — resolvido
 
 A mesma conta é calculada de duas maneiras incompatíveis:
 
@@ -185,7 +221,20 @@ utilizador vê dois saldos diferentes para a mesma conta.
 significar "antes desta data" ou "até esta data, exclusive". Tem de ser
 escolhido um dos dois e propagado.
 
-## 🟡 D4 — Receita negativa desaparece de todos os totais
+**Resolvido (decisão do utilizador: o saldo de referência é o do fim do
+dia):** já reflecte as transacções desse dia, que por isso não se somam outra
+vez. `backend/routers/contas.py:62` passou de `>=` para `>`, igual a
+`servicos/patrimonio_serv.py:112`; na página Património, o cartão Liquidez e a
+linha do gráfico passam a concordar. Verificado numa cópia da BD real (aberta
+só em leitura e apagada a seguir): nenhuma das duas contas tem transacções no
+dia de referência, ambas as datas são anteriores a todas as transacções, e o
+saldo de referência do ActivoBank bate ao cêntimo com o saldo do banco da
+primeira transacção (14 818,96 + 804,50 = 15 623,46). A mudança não altera
+nenhum número actual. O teste de caracterização foi invertido
+(`test_saldo_conta_e_evolucao_excluem_a_data_de_referencia`, saldo 130,0 em vez
+de 180,0, em `backend/tests/test_api_contas.py`).
+
+## 🟡 D4 — Receita negativa desaparece de todos os totais — resolvido
 
 `backend/routers/estatisticas.py:272-293` (`_calculate_totals`):
 
@@ -204,7 +253,19 @@ de receita recebida) não satisfaz a linha 284 (`valor > 0` falha), nem a 288
 (exclui explicitamente receitas). Não cai em nenhuma branch: **desaparece sem
 ser somada a nada**, e o mês fecha sem esse valor.
 
-## 🟡 D5 — Transferências contaminam o denominador das médias do `/por-categoria` e do `/resumo-mensal`
+**Resolvido (decisão do utilizador: o sinal manda, como na D20):** um ramo novo
+em `_calculate_totals` (`backend/routers/estatisticas.py:284-286`) soma a
+receita negativa às `receitas`, com o sinal que tem: um estorno de -300,00 num
+mês com 1500,00 de salário fecha com receitas 1200,0. A marca de reembolso não
+muda nada numa receita negativa (só desvia as receitas **positivas** para as
+despesas). Só o resumo mensal é afectado (receitas, poupança e taxa de
+poupança): as vistas por categoria somam por SQL e já incluíam o valor. O teste
+de caracterização foi invertido (`test_receita_negativa_reduz_as_receitas`) e há
+um novo para a marca
+(`test_receita_negativa_marcada_como_reembolso_tambem_reduz_as_receitas`),
+ambos em `backend/tests/test_estatisticas_totais.py`.
+
+## 🟡 D5 — Transferências contaminam o denominador das médias do `/por-categoria` e do `/resumo-mensal` — resolvido
 
 `backend/routers/estatisticas.py:59-65` conta os meses distintos numa query
 que **não** exclui transferências; a query de totais do `/por-categoria`
@@ -233,6 +294,15 @@ Fixo por `test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento` e
 `backend/tests/test_api_estatisticas.py`, que fixam o comportamento actual com
 os valores calculados à mão; corrigir o denominador fazê-los-á falhar de
 propósito.
+
+**Resolvido (decisão do utilizador: convenção, sem mudar os números):** o
+fluxo pretendido é categorizar as transacções logo a seguir a importá-las, pelo
+que um mês só por categorizar dura minutos, e um mês só com transferências não
+acontece na prática. O comportamento fica como está e foi registado como
+convenção nas «Decisões de design» do `README.md`. O preenchimento com zeros,
+que era código morto, saiu de `por_categoria` num commit `refactor` à parte, e
+os testes existentes continuaram a passar sem mudar nenhum valor. Os dois
+testes acima deixaram de ter a etiqueta D5 e apontam para o README.
 
 ## 🔴 D6 — Restauro de backup valida só 3 das 11 tabelas — resolvido
 
@@ -319,7 +389,7 @@ validação prévia e o `os.replace` é atómico, por isso o ramo não falha de 
 natural. O docstring de `backend/tests/test_backups/test_importar.py` mantém
 «Rollback por cobrir» com essa justificação.
 
-## 🟡 D7 — Precedência das regras de categorização é não determinística
+## 🟡 D7 — Precedência das regras de categorização é não determinística — resolvido
 
 `backend/importador_transacoes.py:26` faz `db.query(RegraCategorizacao).all()`
 sem `ORDER BY`. A ordem das linhas devolvidas depende do plano de execução do
@@ -359,7 +429,29 @@ utilizador já tinha em `(5, None)`: a 1.ª regra casa com a categoria 2, `5 == 
 dois testes a ausência do `break` mudaria o resultado: `(1, 20)` em vez de
 `(1, None)`, e `(5, 50)` em vez de `(5, None)`.
 
-## 🟡 D8 — Motor de regras duplicado com semântica divergente
+**Resolvido (decisões do utilizador):**
+
+- **Ordem:** `regras_por_precedencia` (`backend/importador_transacoes.py`)
+  ordena as regras pela palavra-chave mais longa primeiro (a mais específica)
+  e, em empate, pela mais antiga (`id` menor). É usada na importação e na
+  pré-visualização da aplicação em massa (`routers/regras.py`), que deixam de
+  depender da ordem em que o SQLite devolve as linhas.
+- **`break`:** mantém-se: a primeira regra que casa decide sozinha, mesmo que
+  deixe a subcategoria por preencher. Na importação, o caso «casou mas não
+  atribuiu» nunca acontece (as transacções são novas e não têm categoria); o
+  caso que acontece é uma regra seguinte da mesma categoria que traria a
+  subcategoria, e a ordem nova já resolve o mais comum (palavras-chave contidas
+  uma na outra, como `MERCADO` / `MERCADO CENTRAL`).
+
+As duas regras ficaram nas «Decisões de design» do `README.md`. Testes novos:
+`test_importar_avalia_primeiro_a_palavra_chave_mais_longa` e
+`test_importar_com_o_mesmo_comprimento_ganha_a_regra_mais_antiga`
+(`backend/tests/test_importador_regras.py`) e
+`test_pre_visualizar_avalia_primeiro_a_palavra_chave_mais_longa`
+(`backend/tests/test_api_regras_geral.py`). Os três testes do `break` deixaram
+de ter a etiqueta D7 e apontam para o README.
+
+## 🟡 D8 — Motor de regras duplicado com semântica divergente — resolvido
 
 A mesma lógica de duas fases existe em três sítios:
 
@@ -398,6 +490,37 @@ casar com o acento — estão fixados por `test_regra_com_acento_casa_descricao_
 e `test_regra_sem_acento_nao_casa_descricao_com_acento` em
 `backend/tests/test_importador_regras.py`, ambos calculados à mão e com os
 valores esperados escritos como constantes.
+
+**Resolvido (decisão do utilizador: o backfill igual à importação, com
+exclusões):**
+
+- `casa_palavra` (`backend/importador_transacoes.py`) é a comparação única:
+  `palavra_chave.upper() in descricao.upper()`, que ignora maiúsculas também
+  nas letras acentuadas e trata a palavra-chave como texto literal. Usam-na a
+  importação (`aplicar_regras`), a pré-visualização e o backfill de
+  `criar_regra` (`backend/routers/regras.py`);
+- o backfill deixou de usar `ilike`: filtra em Python, pelo que (b) os acentos
+  casam e (c) `%` e `_` são texto;
+- o backfill passou a respeitar as regras de exclusão (`categoria_id` nulo),
+  como a importação: uma transacção que uma exclusão apanha não é tocada. Esta
+  divergência não estava listada acima e foi encontrada ao corrigir o item;
+- (a) a diferença do pré-filtro só existe com transacções órfãs, um estado que
+  só a D1 permite; os testes que a fixam passaram a ter a etiqueta D1.
+
+Verificado numa cópia da BD real (só leitura, apagada a seguir): 58 regras,
+nenhuma com acentos, `%` ou `_`, e o `ilike` e o `upper()` davam o mesmo
+resultado em todos os pares (regra, transacção); há uma regra de exclusão
+(`TRF`) e 4 transacções que casam com ela e com uma regra de categoria, que
+um backfill futuro passa a deixar por tocar. Os testes de caracterização foram
+invertidos (`test_backfill_com_acento_casa_descricao_maiuscula`,
+`test_backfill_percent_e_texto_literal`,
+`test_backfill_underscore_e_texto_literal`) e há um novo,
+`test_backfill_respeita_as_regras_de_exclusao`, em
+`backend/tests/test_api_regras_geral.py`.
+
+Fica de fora: a pesquisa por descrição da listagem de transacções
+(`routers/transacoes.py`, `ilike`) continua só ASCII; não faz parte do motor de
+regras e foi registada como D28.
 
 ## ⚪ D9 — `detalhe-mensal` devolve HTTP 500 em mês inválido — resolvido
 
@@ -475,14 +598,30 @@ isoladamente.
 
 ### Backend
 
-- **D12a** — `routers/patrimonio.py:198` devolve `custo_total` **com sinal
+- **D12a — resolvido** — `routers/patrimonio.py:198` devolve `custo_total` **com sinal
   negativo** (`-custo_base`). O comentário nas linhas 189-192 regista que já
   houve bugs aqui. O frontend tem de compensar: `Ativos.jsx:182` e
   `Patrimonio.jsx:54` lêem o campo e combinam-nos. Um sinal invertido aqui
   produz totais de mais-menos-valia errados sem qualquer aviso.
-- **D12b** — `routers/patrimonio.py:184-193` — `latente` é `None` quando falta
+  **Resolvido (decisão do utilizador: convenção):** o `custo_total` continua
+  negativo, coerente com as transacções, e é assim que a página Ativos o mostra.
+  A regra ficou escrita em `docs/modelo-dados.md` («Convenções de sinal»), com
+  um comentário no sítio onde é produzido (`routers/patrimonio.py`, no
+  `resumo_ativo`) e onde o frontend depende dele (`Patrimonio.jsx`, no
+  `totalMaisValia`). Os testes de `test_patrimonio_fifo.py` deixaram de citar a
+  D12a e apontam para a convenção.
+- **D12b — resolvido** — `routers/patrimonio.py:184-193` — `latente` é `None` quando falta
   preço, e `mais_menos_valia` degrada silenciosamente para `realizado`.
   "Sem preço" fica indistinguível de "sem mais-valia".
+  **Resolvido (decisão do utilizador: só no ecrã):** a API não mudou. Na página
+  Ativos (`frontend/src/pages/Ativos.jsx`), a coluna da mais-valia mostra «sem
+  preço», com uma dica, quando o ativo **ainda é detido** (unidades em carteira,
+  ou um bem com custo por vender) e não tem preço registado, em vez de um
+  «0,00 €» que parecia «sem ganho nem perda». Um ativo já vendido continua a
+  mostrar o realizado, que é um valor real, e os totais por tipo continuam a
+  somar o realizado. Com a D16, é o caso do Twingo, que vale o custo por falta
+  de preço. Não há testes de frontend; a alteração passou no ESLint e foi
+  confirmada pelo utilizador na app (o Twingo mostra «sem preço»).
 - **D12c — resolvido** — `routers/patrimonio.py:94` e `:107` — dois `commit()` no mesmo
   endpoint (`criar_movimento`). Se o upsert de preço da linha 107 falhar, o
   movimento já foi gravado na linha 94: escrita parcial, sem rollback. Um
@@ -494,7 +633,7 @@ isoladamente.
   `test_criar_movimento_falha_no_preco_nao_grava_o_movimento`, que provoca a
   falha com um trigger que recusa o `INSERT` em `precos_ativo` e confirma que
   ficam 0 movimentos e 0 preços.
-- **D12d** — `parser_importacao.py:9-22` — `_parse_valor` não tem forma de
+- **D12d — resolvido** — `parser_importacao.py:9-22` — `_parse_valor` não tem forma de
   distinguir ponto decimal de separador de milhares. Isto **não** é um erro de
   configuração: com `separador_decimal="."`, `"1.234"` dar `1.234` é o
   comportamento correcto. O problema é o inverso — quando o ficheiro traz
@@ -503,7 +642,24 @@ isoladamente.
   parênteses de contabilidade (`(123,45)`) nem símbolos de moeda
   (`"1.234,56 €"`), que falham com `ErroParsing` — pelo menos esse caso é
   visível.
-- **D12e** — `parser_importacao.py:107` — `fee` é somado com o sinal tal como
+  **Resolvido (decisão do utilizador: recusar, e a importação inteira):**
+  `_parse_valor` (`backend/parser_importacao.py`) recusa um texto numérico que
+  não bata com o separador do perfil: o separador decimal tem de aparecer no
+  máximo uma vez e no fim, e o outro só em grupos de milhares de 3 dígitos.
+  `1.234,56` com o perfil em ponto, `1,234.56` com o perfil em vírgula,
+  `45.60` com o perfil em vírgula e `1,5` com o perfil em ponto dão
+  `ErroParsing`; `1.234` com o perfil em ponto continua a ser 1,234, porque é
+  o que o perfil diz e o texto bate certo. E, por decisão do utilizador, uma
+  linha com erro recusa a importação inteira (ver D29), porque um valor
+  incoerente quer dizer que o perfil não serve para o ficheiro e os outros
+  valores também não merecem confiança. Verificado numa cópia da BD real: o
+  ActivoBank é xlsx (valores numéricos, não passam pelo texto) e o
+  TradeRepublic é CSV com ponto decimal, cujos valores (`8612.0`, `-1`)
+  continuam aceites; nenhuma transacção tem mais de 2 casas decimais. Os
+  parênteses de contabilidade e os símbolos de moeda continuam sem suporte e
+  dão erro visível. Testes na secção C de
+  `backend/tests/test_parser_importacao.py`.
+- **D12e — resolvido** — `parser_importacao.py:107` — `fee` é somado com o sinal tal como
   vem (`valor += _parse_valor(raw_fee, ...)`). **Confirmado pelo utilizador:** no
   extracto do Trade Republic a comissão vem NEGATIVA (por exemplo `-1`). Para
   esse banco o comportamento actual é o correcto: `-50,00 + -1,00 = -51,00`, a
@@ -513,17 +669,46 @@ isoladamente.
   **Relevante para os testes:**
   é uma linha, e o comportamento propaga-se a `transacoes.valor` e a tudo o que
   deriva dele — taxa de poupança, estatísticas, património.
-- **D12f** — `popular_bd.py:145` — `"Certificados de Aforro"` está marcado
+  **Resolvido (decisão do utilizador: a comissão é sempre paga):** na
+  importação, a comissão entra sempre negativa, venha com que sinal vier no
+  extracto: `valor -= abs(comissão)` (`backend/parser_importacao.py`, em
+  `parse_ficheiro`). Para o TradeRepublic nada muda (`-50,00` com comissão
+  `-1,00` continua `-51,00`); um banco que exporte a comissão positiva passa a
+  dar o mesmo resultado, e numa venda a comissão reduz o que entra. Fica nas
+  «Decisões de design» do `README.md`. Testes em
+  `backend/tests/test_parser_importacao.py`: o da comissão positiva foi
+  invertido (`test_comissao_positiva_tambem_aumenta_a_saida`, -51,50 em vez de
+  -48,50) e há um novo para a venda
+  (`test_comissao_numa_entrada_reduz_o_que_entra`).
+- **D12f — resolvido** — `popular_bd.py:145` — `"Certificados de Aforro"` está marcado
   `tem_unidades=False`. A confirmar, sem evidência de ser erro: certificados de
   Aforro subscrevem-se por montante e o valor acumula com juros, não se
   negociam por unidades, pelo que o ramo sem unidades parece o correcto. Fica
   anotado porque a consequência é silenciosa — um certificado passa pelo
   cálculo de custo acumulado e nunca pelo FIFO. Se algum dia se registarem
   movementos parciais, há aqui uma divergência.
-- **D12g** — `popular_bd.py:151-173` — `popular()` não semeia
+  **Resolvido (decisão do utilizador: com unidades):** os Certificados de
+  Aforro são subscritos em unidades (cada uma vale 1 € à subscrição e
+  valoriza com os juros), e um resgate parcial é comum; sem unidades, pela
+  convenção da D17, qualquer resgate seria tratado como total. Em
+  `SEED_TIPOS_ATIVO` (`backend/popular_bd.py:143`) passaram a
+  `tem_unidades=True`. Só afecta instalações novas: a BD real não tem este
+  tipo (verificado numa cópia: só ETF, Crypto e Veículo), e o tipo continua
+  editável na página Tipos de Ativo. Teste novo:
+  `test_inicializar_cria_os_tipos_de_ativo_com_e_sem_unidades`
+  (`backend/tests/test_api_configuracao.py`), com a lista inteira escrita à mão.
+- **D12g — resolvido** — `popular_bd.py:151-173` — `popular()` não semeia
   `SEED_TIPOS_ATIVO`, ao contrário de `routers/configuracao.py:29-39`. E o
   guard da linha 158 só olha para o número de categorias: se a BD já tiver
   categorias mas nenhum tipo de ativo, `popular()` sai sem os semear.
+  **Resolvido (decisão do utilizador, com a D25):** os dados iniciais ficaram
+  num só sítio. `popular_bd.py` passou a chamar-se `backend/dados_iniciais.py`
+  (commit `refactor` à parte) e guarda as listas e a função
+  `semear_dados_iniciais`, que o `/inicializar` chama. O `popular()` e o modo
+  de script (pergunta interactiva) saíram: a página de primeiro uso faz o
+  mesmo, com os tipos de ativo e a marca «inicializado», e funciona no
+  executável. A receita de recriar a BD no `NOTES.md` passou a usar a página de
+  primeiro uso.
 - **D12h — resolvido** — `routers/backups.py:104` — `filename.endswith(".db")` é
   case-sensitive: um ficheiro `BACKUP.DB` é rejeitado, e a recusa não diz
   porquê.
@@ -535,9 +720,18 @@ isoladamente.
   `test_extensao_db_maiuscula_e_aceite` (linha 737),
   `test_extensao_db_com_capitalizacao_mista_e_aceite` (linha 765) e
   `test_extensao_errada_continua_a_ser_rejeitada` (linha 790).
-- **D12i** — `tray.py:19` — porta `9742` hardcoded, duplicada de
+- **D12i — resolvido** — `tray.py:19` — porta `9742` hardcoded, duplicada de
   `main.PORTA` (`main.py:207`). Alterar uma e não a outra deixa a tray a
   abrir um URL morto.
+  **Resolvido:** `iniciar_tray` recebe a porta como argumento
+  (`backend/tray.py:6`) e monta o URL com ela (`tray.py:19`); `main.py:268`
+  passa-lhe `PORTA`, a mesma constante que o uvicorn usa. Testes novos em
+  `backend/tests/test_tray.py`: `test_abrir_no_browser_usa_a_porta_recebida`
+  (com um `tkinter` falso, o botão abre `http://localhost:12345` quando a porta
+  é 12345) e `test_main_passa_a_porta_a_tray` (lê `main.py` com `ast`, sem o
+  importar). Fica de fora a porta do frontend em dev (`frontend/vite.config.js`
+  e `frontend/src/api/client.js`), que só existe no `npm run dev` e não chega ao
+  executável.
 
 ### Documentação
 
@@ -614,7 +808,7 @@ componente, ou remover a chamada.
 Importacao({ onDadosAlterados })`). `App.jsx:176` já a passava; quem faltava
 era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
 
-## ⚪ D19 — Leitura de CSV com delimitador diferente de vírgula
+## ⚪ D19 — Leitura de CSV com delimitador diferente de vírgula — resolvido
 
 - `parser_importacao.py:_ler_linhas_csv` (aprox. linha 48) usa
   `csv.reader` sem `delimiter` (o valor por omissão é a vírgula). Num CSV
@@ -625,6 +819,27 @@ era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
   em `backend/tests/test_parser_importacao.py`. Não decidido o curso de acção (se
   detectar automaticamente, permitir configuração do delimitador, ou documentar o
   requisito). ⚪
+
+**Resolvido (decisão do utilizador: detectar automaticamente):**
+`_detectar_delimitador` (`backend/parser_importacao.py`) escolhe, entre `,`,
+`;` e tabulação, o separador que divide as linhas de dados (a partir de
+`linha_inicio_dados`, até 20) no mesmo número de colunas, e no maior; se nenhum
+servir, usa a vírgula, como antes. Não se usou o `csv.Sniffer`, que foi testado
+e se engana num CSV com `;`, sem cabeçalho e com vírgula decimal sem aspas
+(`-3,20`): escolhe a vírgula. O formato do TradeRepublic continua a ser lido
+com vírgula. Se a detecção falhar num ficheiro estranho, as linhas dão erro e,
+pela D29, a importação é recusada sem gravar nada. A pré-visualização usada
+para criar um perfil (`analisar_ficheiro`, `routers/perfis_importacao.py`)
+tinha o mesmo `csv.reader` com a vírgula fixa e passou a usar a mesma
+detecção, sobre as primeiras linhas do ficheiro (o perfil ainda não diz onde
+começam os dados, pelo que um preâmbulo do banco pode fazê-la voltar à
+vírgula). Testes em
+`backend/tests/test_parser_importacao.py`: o de caracterização foi invertido
+(`test_csv_delimitado_por_ponto_e_virgula_e_detectado`), e há
+`test_detectar_delimitador` (seis casos) e
+`test_delimitador_detectado_so_nas_linhas_de_dados`, e em
+`backend/tests/test_api_perfis_importacao.py`
+`test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas`.
 
 ## 🟡 D20 — Despesa positiva sem a marca de reembolso desaparece dos totais — resolvido
 
@@ -662,10 +877,10 @@ para uma despesa entrar no cesto. Verificação nos dados reais (utilizador): ex
 
 Fixo por `test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas` em
 `backend/tests/test_estatisticas_totais.py`, que fixa o comportamento
-corrigido (`-45,50 + 30,00 = -15,5`, valor escrito à mão). A D4 continua aberta:
+corrigido (`-45,50 + 30,00 = -15,5`, valor escrito à mão). Na altura, a D4 continuava aberta:
 a receita negativa continua sem ramo que a apanhe.
 
-## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado
+## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado — resolvido
 
 `backend/servicos/patrimonio_serv.py:78-91` — o ciclo FIFO consome o que
 houver em lotes e pára quando a lista esgota. O que sobra de `por_consumir` não
@@ -692,7 +907,32 @@ a operação. As duas são defensáveis e divergem no que fica gravado, por isso
 se decide aqui. O teste `test_sobre_venda_escala_o_encaixe_e_nunca_avisa` fixa o
 comportamento **actual**, não o desejado.
 
-## ⚪ D16 — Bem sem unidades e sem preço desaparece do património
+**Resolvido (decisão do utilizador: recusar):** nos ativos com unidades, a API
+recusa com 422 qualquer operação que deixe uma venda acima das unidades em
+carteira nessa data, com a mensagem «A venda de DD/MM/AAAA (N unidades) excede
+as M unidades em carteira nessa data.»
+
+- `primeira_sobre_venda` (`backend/servicos/patrimonio_serv.py:103`) percorre
+  os movimentos pela mesma ordem do FIFO, `(data, id)`, e devolve a primeira
+  venda que exceda a posição (com a mesma tolerância de `1e-9`);
+- `_recusar_sobre_venda` (`backend/routers/patrimonio.py:91`) chama-a sobre a
+  linha do tempo **inteira** do ativo, com a alteração já pendente na sessão, e
+  desfaz tudo se houver sobre-venda. Corre ao criar uma venda (linha 134),
+  porque uma venda inserida no passado pode deixar sem unidades uma venda
+  posterior, e ao apagar uma compra (linha 149);
+- os bens sem unidades não são verificados: o ramo deles não tem posição;
+- o frontend já mostrava o `detail` ao criar; ao apagar não havia tratamento
+  de erro e a recusa passaria em silêncio, por isso `MovimentosAtivo`
+  (`frontend/src/pages/Ativos.jsx`) passou a mostrá-lo num `alert`, como a
+  página de Importação.
+
+Verificado numa cópia da BD real (só leitura, apagada a seguir): ainda não há
+nenhuma venda registada, logo nenhuma sobre-venda nos dados. O teste de
+caracterização passou a `test_sobre_venda_ja_gravada_escala_o_encaixe` e fixa o
+que o núcleo do FIFO faz se uma sobre-venda já estiver gravada. Testes novos em
+`backend/tests/test_api_patrimonio.py`, na secção «Sobre-venda recusada».
+
+## ⚪ D16 — Bem sem unidades e sem preço desaparece do património — resolvido
 
 `backend/servicos/patrimonio_serv.py:56` — no ramo dos bens, o valor actual vem
 do preço registado e não do custo:
@@ -709,7 +949,22 @@ opcional, e nada obriga a registá-lo: o resultado é um activo que consta como
 comprado e não conta para o património. Coberto por
 `test_bem_sem_unidades_e_sem_preco_desaparece_do_patrimonio`.
 
-## ⚪ D17 — Venda parcial de um bem sem unidades tratada como venda total
+**Resolvido (decisão do utilizador: o custo como valor de recurso):** sem preço
+registado, um bem vale o custo de aquisição acumulado
+(`backend/servicos/patrimonio_serv.py:59`); assim que tiver um preço, vale
+esse preço, como antes. O custo é um facto e não uma estimativa; para um bem
+que desvaloriza (uma viatura), o valor real só aparece quando se regista um
+preço, e a depreciação automática por tipo de ativo fica como funcionalidade
+a ponderar depois da dívida técnica. Verificado numa cópia da BD real (só
+leitura, apagada a seguir): o Twingo 2020 tem 11 990,00 de compras e nenhum
+preço, e passa a contar esse valor nos Bens e no total, também no gráfico
+desde maio de 2024 (1 000,00) e junho de 2024 (11 990,00). Testes actualizados:
+`test_evolucao_bem_sem_preco_conta_pelo_custo`,
+`test_evolucao_calcula_por_mes_e_por_tipo` (cujo preço do bem passou a
+14 000,00, diferente do custo, para separar os dois casos) e
+`test_bem_sem_unidades_e_sem_preco_vale_o_custo`.
+
+## ⚪ D17 — Venda parcial de um bem sem unidades tratada como venda total — resolvido
 
 `backend/servicos/patrimonio_serv.py:43-47` — no ramo dos bens, qualquer
 movimento do tipo `venda` desconta o custo acumulado inteiro e zera-o, sem
@@ -737,7 +992,16 @@ cenário 13 de `test_patrimonio_fifo.py`, que ficou sem etiqueta à espera de
 decisão. **Decisão pendente (utilizador):** se é erro a corrigir ou convenção a
 documentar.
 
-## ⚪ D18 — Os dois pontos de entrada do cálculo escolhem preços diferentes
+**Resolvido (decisão do utilizador: convenção):** um bem sem unidades vende-se
+sempre por inteiro. Ficou registado nas «Decisões de design» do `README.md`,
+com a alternativa para vendas parciais: registar o bem com unidades (por
+exemplo 100 unidades = 100%), para que passe pelo FIFO. O código não mudou.
+Verificado numa cópia da BD real: não há nenhuma venda registada, e o único bem
+sem unidades é uma viatura. O cenário 13 de
+`backend/tests/test_patrimonio_fifo.py` deixou de ter a etiqueta D17 e aponta
+para o README.
+
+## ⚪ D18 — Os dois pontos de entrada do cálculo escolhem preços diferentes — resolvido
 
 O mesmo activo é avaliado em dois sítios, e a escolha do preço não é a mesma:
 
@@ -758,6 +1022,24 @@ não o compara com nada.
 Ao contrário de D3, aqui a divergência não é de *boundary* (`>` contra `>=`): um
 dos lados não tem comparação nenhuma. Registado sem teste — fixá-lo exigiria
 caracterizar o `/evolucao`, que está fora do âmbito desta suite.
+
+**Resolvido (decisão do utilizador):** o valor **actual** usa o preço mais
+recente, mesmo com data futura, e os pontos passados continuam históricos.
+
+- `calcular_patrimonio_em` ganhou `precos_futuros`
+  (`backend/servicos/patrimonio_serv.py`), e `gerar_evolucao` liga-o nos
+  pontos a partir de hoje (`fim_mes >= hoje`; o `hoje` vem do router,
+  `routers/patrimonio.py`, para os testes o poderem fixar). Assim o ponto de
+  hoje do gráfico bate com os cartões, que vêm do resumo do ativo.
+- O resumo do ativo não mudou: já usava o preço mais recente.
+- Na página Ativos (`frontend/src/pages/Ativos.jsx`), a data do preço mostra
+  «⚠» e uma dica quando é futura, porque um preço com data futura é
+  normalmente um erro de introdução.
+
+Teste novo: `test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo`
+em `backend/tests/test_api_patrimonio.py`, com «hoje» fixado; o teste dos
+pontos passados (`test_evolucao_ignora_preco_posterior_ao_data_alvo`) continua
+igual.
 
 ## ⚪ D21 — `palavra_chave` vazia ou só com espaços não é validada no servidor — resolvido
 
@@ -809,7 +1091,7 @@ continua a passar — a frase acima ("o teste passa a falhar de propósito") só
 valeria se a validação tivesse sido também no motor. A barreira `trim()` do
 formulário (`Regras.jsx:48` e 51) mantém-se.
 
-## ⚪ D22 — Cópia do `.anterior` e do `.tmp` feitas no lugar
+## ⚪ D22 — Cópia do `.anterior` e do `.tmp` feitas no lugar — resolvido
 
 `backend/routers/backups.py:137` — `shutil.copy2(DB_PATH, anterior_path)`
 escreve o `.anterior` **no lugar** (o `copy2` abre o destino e sobrescreve o
@@ -834,7 +1116,31 @@ os.replace(anterior_tmp, anterior_path)
 
 — e remover também o `.tmp` no rollback.
 
-## 🟡 D23 — Mediana por categoria do `/por-categoria` é sobre totais por (mês, subcategoria)
+**Resolvido:** em `importar_backup` (`backend/routers/backups.py`):
+
+- a cópia vai para `.anterior.tmp` e só depois é renomeada para `.anterior`
+  (linhas 141-142): uma falha a meio da cópia não toca no `.anterior` bom;
+- o rollback só repõe a BD a partir do `.anterior` quando ele foi criado
+  **neste** pedido (`anterior_pronto`, linhas 136, 143 e 158). A correcção
+  proposta acima não chegava sozinha: com a cópia atómica, uma falha na cópia
+  deixava a BD intacta mas o rollback repunha-a na mesma, agora a partir do
+  `.anterior` de um restauro antigo, e apagava tudo o que tinha sido registado
+  desde então;
+- a reposição do rollback usa o mesmo padrão: copia o `.anterior` para
+  `.anterior.tmp` e renomeia-o para a BD (linhas 159-160), pelo que uma falha
+  a meio da reposição não deixa a BD cortada;
+- o rollback remove o `.tmp` e o `.anterior.tmp` que tenham ficado
+  (linhas 165-170).
+
+Testes novos no fim de `backend/tests/test_backups/test_importar.py`, todos com
+falhas simuladas por `monkeypatch`:
+`test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd`,
+`test_falha_na_troca_remove_o_tmp`,
+`test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior` e
+`test_falha_a_meio_da_reposicao_nao_corta_a_bd`. Os dois últimos cobrem o
+rollback que a D6 deixou «por cobrir».
+
+## 🟡 D23 — Mediana por categoria do `/por-categoria` é sobre totais por (mês, subcategoria) — resolvido
 
 A mediana de cada categoria do `/por-categoria` é calculada sobre os totais
 da **linha** da query, e não sobre totais mensais. A query agrupa por
@@ -859,6 +1165,27 @@ e o denominador é `meses_distintos` (linha 111).
 
 **Decisão pendente (utilizador):** qual é a mediana pretendida — por mês, ou por
 (mês, subcategoria)?
+
+**Resolvido (decisão do utilizador: por mês, com os meses vazios a zero):** a
+coluna chama-se «Mediana mensal» e aparece ao lado da «Média mensal»
+(`frontend/src/pages/Estatisticas.jsx:287-288`), por isso as duas passam a
+descrever os mesmos meses. Em `por_categoria` (`backend/routers/estatisticas.py`):
+
+- a categoria soma as linhas de cada mês antes de calcular a mediana
+  (`por_mes`, linha 108);
+- `_mediana_mensal` (linha 57) acrescenta um zero por cada mês do período sem
+  movimentos (`meses_distintos`), tal como a média já fazia pelo denominador;
+- o mesmo vale para as subcategorias.
+
+Isto também resolve o caso das categorias esporádicas: Férias com -1200,00 em
+2 meses de 12 tinha «mediana mensal» -1200,00; passa a 0,00, ao lado da média
+de -200,00. Pela convenção da D5, os meses só com transferências também
+contam como zero. Os dois testes do `/por-categoria` em
+`backend/tests/test_api_estatisticas.py` passaram a afirmar as medianas novas
+(Renda -70 → -20, Sem subcategoria -30 → -15; a Casa fica em -35 por
+coincidência), e o teste novo
+`test_por_categoria_mediana_por_mes_e_nao_por_subcategoria` usa um cenário em
+que as quatro maneiras de calcular dão valores diferentes.
 
 ## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400) — resolvido
 
@@ -918,7 +1245,7 @@ um teste do PUT com o próprio nome a 200:
 `test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200`
 (`backend/tests/test_api_tipos_ativo.py`).
 
-## ⚪ D25 — `/api/configuracao/inicializar` semeia categorias duplicadas e dá 500
+## ⚪ D25 — `/api/configuracao/inicializar` semeia categorias duplicadas e dá 500 — resolvido
 
 `POST /api/configuracao/inicializar` (`backend/routers/configuracao.py:15-48`)
 só guarda contra a re-semente quando existe uma linha `Configuracao` já marcada
@@ -942,6 +1269,151 @@ Fixo por `test_inicializar_com_categorias_existentes_sem_config_integrity` em
 `backend/tests/test_api_configuracao.py`, que fixa o comportamento **actual**:
 com uma categoria "Casa" na BD e sem linha `Configuracao`, o pedido rebenta com
 `IntegrityError` e nada fica inicializado.
+
+**Resolvido (decisão do utilizador: semear de forma idempotente, com a
+D12g):** `semear_dados_iniciais` (`backend/dados_iniciais.py`) cria, pelo
+nome, só as categorias, subcategorias e tipos de ativo que faltam; o que já
+existe não é tocado, e o `/inicializar` deixa de poder dar 500 por nome
+duplicado. Isto cobre os dois caminhos que levavam ao erro: uma BD criada pelo
+antigo `popular_bd.py` (categorias sem configuração) e o restauro de um backup
+nesse estado. O teste de caracterização foi invertido
+(`test_inicializar_com_dados_existentes_cria_so_o_que_falta`, em
+`backend/tests/test_api_configuracao.py`), com uma categoria e um tipo da lista
+já existentes e uma subcategoria e um tipo fora dela.
+
+## ⚪ D26 — Ativo com unidades e sem preço desaparece do património — resolvido
+
+O mesmo problema da D16, no ramo com unidades. Em `_resumo_valor_ativo`
+(`backend/servicos/patrimonio_serv.py:101`), um ativo com unidades em carteira
+e sem nenhum preço registado tem `valor = 0.0`:
+
+```python
+valor = round(quantidade * float(preco.preco), 2) if (preco and quantidade > 0) else 0.0
+```
+
+O custo aparece no `custo_total`, mas o ativo contribui 0 para os
+`investimentos` e para o `total` do património. A D16 só tratou dos bens sem
+unidades (que passaram a valer o custo).
+
+Na prática é raro: uma compra registada pela API com `preco_unitario` cria logo
+um preço para essa data (`criar_movimento`, `routers/patrimonio.py`). Só
+acontece com compras sem preço unitário, ou se o preço for apagado à mão.
+
+Fixo por `test_sem_preco_degrada_o_latente_para_nulo` em
+`backend/tests/test_patrimonio_fifo.py`, que fixa o comportamento **actual**
+(valor 0,0 com 100,00 de custo). **Decisão pendente (utilizador):** valer o
+custo, como os bens desde a D16, ou outra regra.
+
+**Resolvido (decisão do utilizador: o custo, como na D16):** sem preço
+registado, um ativo com unidades em carteira vale o custo FIFO dessas unidades
+(`custo_base`, `backend/servicos/patrimonio_serv.py`, ramo com unidades de
+`_resumo_valor_ativo`); com preço vale `quantidade x preço`, como antes, e sem
+unidades vale 0. A página Ativos mostra «sem preço» na mais-valia (D12b). Vale
+também para a evolução: um ponto anterior ao primeiro preço conta pelo custo.
+Testes actualizados: `test_sem_preco_vale_o_custo_e_o_latente_e_nulo`
+(`backend/tests/test_patrimonio_fifo.py`) e
+`test_evolucao_ignora_preco_posterior_ao_data_alvo` (100,00 em vez de 0,00,
+`backend/tests/test_api_patrimonio.py`).
+
+## 🟡 D27 — Um preço registado não se pode apagar — resolvido
+
+Encontrado pelo utilizador ao testar a D18 na app. A API só tinha
+`POST /api/patrimonio/precos`, que grava ou actualiza o preço de um dia: não
+havia listagem, nem `DELETE`, nem histórico de preços na página Ativos. Um preço
+com o valor errado só se corrigia voltando a registar o mesmo dia; um preço com
+a **data** errada não se corrigia de todo. Com a D18 o caso da data futura
+ficava pior: registar o preço outra vez na data certa criava outra linha, e a
+futura continuava a ser «a mais recente», usada no resumo e no ponto de hoje,
+até essa data passar.
+
+**Resolvido (decisão do utilizador: listar e apagar, e recusar datas
+futuras):** em `backend/routers/patrimonio.py`:
+
+- `registar_preco` recusa com 422 «A data do preço não pode ser futura.» uma
+  data depois de hoje (um preço é uma observação); a data de hoje é aceite;
+- `GET /ativos/{id}/precos` (`listar_precos`) lista os preços do ativo, do mais
+  recente para o mais antigo;
+- `DELETE /precos/{id}` (`eliminar_preco`) apaga um preço.
+
+Na página Ativos (`frontend/src/pages/Ativos.jsx`), a linha expandida do ativo
+mostra os preços com um botão para apagar (`PrecosAtivo`, no mesmo padrão de
+`MovimentosAtivo`), e o campo de data do registo de preço não deixa escolher
+uma data futura (`max`). O «⚠» da D18 fica para preços futuros já gravados.
+Confirmado pelo utilizador na app, sobre uma cópia da BD: o «⚠», a lista de
+preços, o apagar de um preço com data futura e a recusa de uma data futura no
+registo.
+
+Fica de fora: uma compra com `preco_unitario` e data futura continua a criar um
+preço futuro pela via de `criar_movimento`; a data dos movimentos não é
+validada. Testes novos em `backend/tests/test_api_patrimonio.py`:
+`test_registar_preco_com_data_futura_da_422`,
+`test_listar_precos_do_mais_recente_para_o_mais_antigo` e
+`test_eliminar_preco_apaga_so_esse_preco`.
+
+## ⚪ D28 — A pesquisa por descrição só ignora maiúsculas em letras sem acento — resolvido
+
+`backend/routers/transacoes.py:46` filtra a listagem de transacções com
+`Transacao.descricao.ilike(f"%{descricao}%")`. O `LIKE` do SQLite só ignora
+maiúsculas em letras ASCII, por isso:
+
+- «FARMÁCIA» não encontra «farmácia» (o «Á» e o «á» não são iguais);
+- «farmacia», sem acento, não encontra «Farmácia»;
+- `%` e `_` no texto pesquisado funcionam como curingas.
+
+É a mesma limitação que o backfill das regras tinha até à D8, mas numa
+pesquisa e não no motor de regras. Fixo por
+`test_listar_filtra_por_descricao_ascii` em
+`backend/tests/test_api_transacoes.py`, que fixa o comportamento **actual**.
+
+**Decisão pendente (utilizador):** igualar à comparação das regras
+(`casa_palavra`: ignora maiúsculas também nas letras acentuadas, texto
+literal), ou ir mais longe e ignorar também os acentos, para «farmacia»
+encontrar «Farmácia». Qualquer das duas tira o filtro do SQL, o que tem de ser
+feito antes da paginação (o `total` tem de contar só as que casam).
+
+**Resolvido (decisão do utilizador: ignorar também os acentos):** a pesquisa
+compara a descrição e o texto procurado depois de `_para_pesquisa`
+(`backend/routers/transacoes.py`), que tira os acentos (decomposição NFKD) e as
+maiúsculas (`casefold`): «farmacia», «FARMÁCIA» e «Farmácia» encontram-se umas
+às outras, e `%` e `_` são texto. O filtro saiu do SQL e corre em Python sobre
+as transacções que passam os outros filtros, antes da paginação, pelo que o
+`total` e as páginas contam só as que casam. As regras de categorização não
+mudaram: continuam a distinguir acentos (D8). Testes em
+`backend/tests/test_api_transacoes.py`:
+`test_listar_filtra_por_descricao_sem_acentos_nem_maiusculas` (invertido) e
+`test_listar_por_descricao_pagina_so_as_que_casam`.
+
+## 🟡 D29 — A importação ignorava as linhas com erro sem o dizer — resolvido
+
+Encontrado ao corrigir a D12d. `importar_extrato`
+(`backend/routers/importacao.py`) só recusava o ficheiro quando **nenhuma**
+linha era válida; com pelo menos uma válida, gravava essas e deixava as linhas
+com erro de fora, e a resposta (`inseridas`, `duplicadas`) não as mencionava.
+Só a pré-visualização as mostrava.
+
+**Resolvido (decisão do utilizador: qualquer erro recusa tudo):** se o parser
+devolver algum erro, a importação responde 400 e não grava nada, com a
+mensagem «Nada foi importado: o ficheiro tem N linha(s) com erro (a primeira é
+a linha L: ...). Corrige o ficheiro ou o perfil; a pré-visualização mostra
+todas.» O frontend já mostra o `detail` num `alert`. Consequência aceite: um
+extracto com uma linha de totais no fim tem de ser limpo antes de importar.
+Fica nas «Decisões de design» do `README.md`. Testes:
+`test_importar_sem_transacoes_validas_da_400` (mensagem nova) e
+`test_importar_com_uma_linha_com_erro_nao_importa_nenhuma`, em
+`backend/tests/test_api_importacao.py`.
+
+## ⚪ D30 — `.CSV` em maiúsculas tratado como Excel na criação de perfis — resolvido
+
+Encontrado ao corrigir a D19. `analisar_ficheiro`
+(`backend/routers/perfis_importacao.py:32`), a pré-visualização usada para
+criar um perfil, decidia o tipo com `nome.endswith(".csv")`, que distingue
+maiúsculas: um `EXTRACTO.CSV` era aberto com o `openpyxl` e falhava. É a mesma
+classe da D12h (extensão `.DB` nos backups).
+
+**Resolvido:** a comparação passou a `nome.lower().endswith(".csv")`. Teste
+novo: `test_analisar_ficheiro_csv_com_extensao_em_maiusculas`, em
+`backend/tests/test_api_perfis_importacao.py`. A importação em si não é
+afectada: usa o `tipo_ficheiro` do perfil, e não o nome do ficheiro.
 
 ---
 

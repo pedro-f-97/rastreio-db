@@ -11,6 +11,7 @@ from schemas import (
     AplicarEmMassaResultado,
     RegraCreate,
 )
+from importador_transacoes import casa_palavra, regras_por_precedencia
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/regras", tags=["regras"])
@@ -48,21 +49,31 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
     com_categoria = []
 
     if nova.categoria_id is not None:
+        exclusoes = db.query(RegraCategorizacao).filter(RegraCategorizacao.categoria_id == None).all()
+
+        def apanha(t):
+            # O mesmo motor da importação: uma regra de exclusão ganha (D8)
+            return casa_palavra(nova.palavra_chave, t.descricao) and not any(
+                casa_palavra(e.palavra_chave, t.descricao) for e in exclusoes
+            )
+
         # Transações sem categoria
-        sem_categoria = db.query(Transacao).filter(
-            Transacao.categoria_id == None,
-            Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
-        ).all()
+        sem_categoria = [
+            t for t in db.query(Transacao).filter(Transacao.categoria_id == None).all()
+            if apanha(t)
+        ]
         for t in sem_categoria:
             t.categoria_id = nova.categoria_id
             t.subcategoria_id = nova.subcategoria_id
 
         # Transações com categoria coincidente mas sem subcategoria
-        com_categoria = db.query(Transacao).filter(
-            Transacao.categoria_id == nova.categoria_id,
-            Transacao.subcategoria_id == None,
-            Transacao.descricao.ilike(f"%{regra.palavra_chave}%"),
-        ).all()
+        com_categoria = [
+            t for t in db.query(Transacao).filter(
+                Transacao.categoria_id == nova.categoria_id,
+                Transacao.subcategoria_id == None,
+            ).all()
+            if apanha(t)
+        ]
         for t in com_categoria:
             t.subcategoria_id = nova.subcategoria_id
 
@@ -83,7 +94,7 @@ def apagar_regra(regra_id: int, db: Session = Depends(get_db)):
 
 @router.post("/pre-visualizar")
 def pre_visualizar_regras(db: Session = Depends(get_db)):
-    regras = db.query(RegraCategorizacao).all()
+    regras = regras_por_precedencia(db)
     transacoes = db.query(Transacao).filter(
         Transacao.subcategoria_id.is_(None),
     ).all()
@@ -97,7 +108,7 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
         for regra in regras:
             if regra.categoria_id is not None:
                 continue
-            if regra.palavra_chave.upper() in t.descricao.upper():
+            if casa_palavra(regra.palavra_chave, t.descricao):
                 ignorada = True
                 break
 
@@ -108,7 +119,7 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
         for regra in regras:
             if regra.categoria_id is None:
                 continue
-            if regra.palavra_chave.upper() in t.descricao.upper():
+            if casa_palavra(regra.palavra_chave, t.descricao):
                 if t.categoria_id is None or t.categoria_id == regra.categoria_id:
                     sem_conflito.append({
                         "id": t.id,

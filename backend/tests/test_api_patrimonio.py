@@ -534,6 +534,151 @@ def test_eliminar_movimento_apaga_so_o_movimento(client, session):
     assert session.query(PrecoAtivo).count() == 1
 
 
+# ---------------------------------------------------------------------------
+# Sobre-venda recusada (era a D15)
+# ---------------------------------------------------------------------------
+
+def _vender(client, ativo, data, quantidade, valor_total):
+    return client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "venda",
+            "data": data,
+            "quantidade": quantidade,
+            "valor_total": valor_total,
+        },
+    )
+
+
+def test_venda_acima_da_posicao_da_422_e_nao_grava(client, session):
+    """Vender 15 unidades tendo 10 é recusado, e nada fica gravado.
+
+    Era a D15: a venda era aceite e o FIFO reescalava o encaixe em silêncio.
+    Cálculo à mão: compra de 10 em 2025-01-10; venda de 15 em 2025-04-10 ->
+    15 - 10 = 5 > 0 -> 422. Fica só a compra (1 movimento).
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+
+    r = _vender(client, ativo, "2025-04-10", 15, 300.0)
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "A venda de 10/04/2025 (15 unidades) excede as 10 unidades em carteira "
+        "nessa data."
+    )
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 1
+
+
+def test_venda_de_toda_a_posicao_e_aceite(client, session):
+    """Vender exactamente as unidades em carteira continua a ser aceite.
+
+    Cálculo à mão: compras de 2,5 e 7,5 (total 10); venda de 10 -> 10 - 10 = 0,
+    não excede -> 200 e 3 movimentos.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-25.0, quantidade=2.5)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
+                     valor_total=-75.0, quantidade=7.5)
+
+    r = _vender(client, ativo, "2025-04-10", 10, 120.0)
+
+    assert r.status_code == 200
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 3
+
+
+def test_venda_antiga_que_deixa_uma_venda_posterior_sem_unidades_da_422(client, session):
+    """Uma venda inserida no passado é recusada se uma venda posterior deixar de caber.
+
+    Cálculo à mão: compra de 10 em 2025-01-10 e venda de 8 em 2025-03-01, já
+    gravadas. Nova venda de 5 em 2025-02-01: nessa data há 10, e a venda cabe;
+    mas a de 2025-03-01 passa a ter só 10 - 5 = 5 em carteira para vender 8 ->
+    422 a apontar a venda de 01/03/2025. Ficam os 2 movimentos de antes.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 1),
+                     valor_total=96.0, quantidade=8)
+
+    r = _vender(client, ativo, "2025-02-01", 5, 60.0)
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "A venda de 01/03/2025 (8 unidades) excede as 5 unidades em carteira "
+        "nessa data."
+    )
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 2
+
+
+def test_apagar_compra_que_deixa_uma_venda_sem_unidades_da_422(client, session):
+    """Apagar uma compra é recusado se uma venda deixar de ter unidades.
+
+    Cálculo à mão: compras de 10 (2025-01-10) e 0,5 (2025-02-10), venda de
+    10,5 (2025-03-01). Sem a compra de 0,5, a venda tem só 10 em carteira ->
+    422. A compra continua gravada (3 movimentos).
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+    compra = semear_movimento(session, ativo, TipoMovimento.compra,
+                              date(2025, 2, 10), valor_total=-5.0,
+                              quantidade=0.5)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 1),
+                     valor_total=126.0, quantidade=10.5)
+
+    r = client.delete(f"/api/patrimonio/movimentos/{compra.id}")
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "A venda de 01/03/2025 (10,5 unidades) excede as 10 unidades em "
+        "carteira nessa data."
+    )
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 3
+
+
+def test_apagar_venda_ou_vender_bem_sem_unidades_nao_e_verificado(client, session):
+    """A verificação só se aplica a ativos com unidades, e apagar uma venda passa sempre.
+
+    Cálculo à mão:
+      * bem sem unidades (casa), com uma compra sem quantidade: venda com
+        `quantidade=1` -> 200. Se o bem fosse verificado, a posição seria 0 e
+        a venda de 1 seria recusada; o ramo dos bens não tem posição;
+      * ativo com unidades: compra de 10 e venda de 4; apagar a venda -> 204,
+        e fica 1 movimento no ativo com unidades.
+    """
+    tipo_bem = semear_tipo(session, "Imovel", tem_unidades=False)
+    casa = semear_ativo(session, "Casa", tipo_bem)
+    semear_movimento(session, casa, TipoMovimento.compra, date(2024, 1, 1),
+                     valor_total=-150000.0)
+    r_bem = _vender(client, casa, "2025-05-01", 1, 200000.0)
+    assert r_bem.status_code == 200
+
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+    venda = semear_movimento(session, ativo, TipoMovimento.venda,
+                             date(2025, 3, 1), valor_total=48.0, quantidade=4)
+
+    r = client.delete(f"/api/patrimonio/movimentos/{venda.id}")
+
+    assert r.status_code == 204
+    session.expire_all()
+    assert session.query(MovimentoAtivo).filter_by(ativo_id=ativo.id).count() == 1
+
+
 def test_eliminar_movimento_inexistente_da_404(client, session):
     """Apagar um movimento que não existe responde 404."""
     r = client.delete("/api/patrimonio/movimentos/999")
@@ -632,6 +777,94 @@ def test_registar_preco_em_ativo_inexistente_da_404(client, session):
 # B23 — GET /api/patrimonio/ativos/{id}/resumo (só o 404)
 # ---------------------------------------------------------------------------
 
+def _hoje_fixo(monkeypatch, ano, mes, dia):
+    """Fixa o `date.today()` do router, como em
+    `test_evolucao_sem_parametros_usa_hoje_como_data_fim`."""
+    from datetime import date as Date
+
+    class HojeFixo(Date):
+        @classmethod
+        def today(cls):
+            return cls(ano, mes, dia)
+
+    monkeypatch.setattr(patrimonio_router, "date", HojeFixo)
+
+
+def test_registar_preco_com_data_futura_da_422(client, session, monkeypatch):
+    """Um preço com data depois de hoje é recusado; o de hoje é aceite (D27).
+
+    Cálculo à mão, com hoje = 2025-06-30:
+      2025-07-01 > 2025-06-30 -> 422, nada gravado
+      2025-06-30 = hoje       -> 200, 1 preço gravado
+    """
+    _hoje_fixo(monkeypatch, 2025, 6, 30)
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+
+    r_futuro = client.post("/api/patrimonio/precos",
+                           json={"ativo_id": ativo.id, "data": "2025-07-01", "preco": 20.0})
+    assert r_futuro.status_code == 422
+    assert r_futuro.json()["detail"] == "A data do preço não pode ser futura."
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 0
+
+    r_hoje = client.post("/api/patrimonio/precos",
+                         json={"ativo_id": ativo.id, "data": "2025-06-30", "preco": 20.0})
+    assert r_hoje.status_code == 200
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 1
+
+
+def test_listar_precos_do_mais_recente_para_o_mais_antigo(client, session):
+    """`GET /ativos/{id}/precos` lista só os preços do ativo, por data descendente.
+
+    Cálculo à mão: Acao com preços em 2025-01-10 (20.0) e 2025-03-01 (25.0);
+    outro ativo com um preço que não pode aparecer. Ordem esperada:
+    2025-03-01, 2025-01-10. Ativo inexistente -> 404.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    outro = semear_ativo(session, "Outra", tipo)
+    semear_preco(session, ativo, date(2025, 1, 10), 20.0)
+    semear_preco(session, ativo, date(2025, 3, 1), 25.0)
+    semear_preco(session, outro, date(2025, 2, 1), 99.0)
+
+    r = client.get(f"/api/patrimonio/ativos/{ativo.id}/precos")
+
+    assert r.status_code == 200
+    assert [(x["data"], x["preco"]) for x in r.json()] == [
+        ("2025-03-01", 25.0),
+        ("2025-01-10", 20.0),
+    ]
+    assert client.get("/api/patrimonio/ativos/999/precos").status_code == 404
+
+
+def test_eliminar_preco_apaga_so_esse_preco(client, session):
+    """`DELETE /precos/{id}` apaga o preço e o resumo passa a usar o anterior (D27).
+
+    Cálculo à mão: 10 un.; preços 20.0 (2025-01-10) e 25.0 (2025-03-01).
+    Antes: valor_atual = 10 x 25 = 250.0. Apagar o de 2025-03-01 -> 204,
+    fica 1 preço e valor_atual = 10 x 20 = 200.0. Apagar outra vez -> 404.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-200.0, quantidade=10)
+    semear_preco(session, ativo, date(2025, 1, 10), 20.0)
+    recente = semear_preco(session, ativo, date(2025, 3, 1), 25.0)
+
+    resumo = f"/api/patrimonio/ativos/{ativo.id}/resumo"
+    assert client.get(resumo).json()["valor_atual"] == 250.0
+
+    r = client.delete(f"/api/patrimonio/precos/{recente.id}")
+
+    assert r.status_code == 204
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 1
+    assert client.get(resumo).json()["valor_atual"] == 200.0
+    assert client.delete(f"/api/patrimonio/precos/{recente.id}").status_code == 404
+
+
 def test_resumo_de_ativo_inexistente_da_404(client, session):
     """O resumo de um ativo que não existe responde 404.
 
@@ -723,7 +956,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
       * ativo de investimento (com unidades): compra `2025-01-10` de 10 un.
         por 200.00; preço `2025-01-20=25.00`; preço `2025-03-15=30.00`;
       * ativo físico (sem unidades): compra `2025-01-05` de 15000.00; preço
-        `2025-03-01=15000.00`.
+        `2025-03-01=14000.00` (diferente do custo, para distinguir os dois).
 
     Cálculo à mão, ponto a ponto (`gerar_evolucao` faz `min(fim do mês,
     data_fim)`):
@@ -731,25 +964,25 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
     * **2025-01-31**
       - liquidez: conta A `1000.00 + (-200.00) = 800.00`. A transação de
         `2025-01-01 +50.00` fica de fora: o filtro é `data >
-        conta.data_referencia` (estrito, DEVIDA-TECNICA: D3), e é exactamente a
+        conta.data_referencia` (estrito: o saldo de referência é o do fim do dia), e é exactamente a
         data de referência. A conta B ainda não entrou (referência
         `2025-02-01 > 2025-01-31`).
       - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
         `2025-03-15` é posterior, DEVIDA-TECNICA: D18) -> `10 x 25.00 = 250.00`.
-      - ativos_físicos: ainda sem preço até esta data -> `0.0`
-        (DEVIDA-TECNICA: D16).
-      - total: `800.00 + 250.00 + 0.0 = 1050.00`.
+      - ativos_físicos: ainda sem preço até esta data -> vale o custo,
+        `15000.00` (era 0.0 até à D16).
+      - total: `800.00 + 250.00 + 15000.00 = 16050.00`.
     * **2025-02-28**
       - liquidez: `800.00` (conta A) `+ 100.00` (conta B, cuja referência
         `2025-02-01` já passou e sem transações próprias) `= 900.00`.
       - investimentos: `250.00` (o preço de 30.00 só chega a `2025-03-15`).
-      - ativos_físicos: `0.0`.
-      - total: `900.00 + 250.00 + 0.0 = 1150.00`.
+      - ativos_físicos: ainda sem preço -> custo, `15000.00`.
+      - total: `900.00 + 250.00 + 15000.00 = 16150.00`.
     * **2025-03-20** (`min(2025-03-31, data_fim)`)
       - liquidez: `900.00`.
       - investimentos: `10 x 30.00 = 300.00`.
-      - ativos_físicos: `15000.00`.
-      - total: `900.00 + 300.00 + 15000.00 = 16200.00`.
+      - ativos_físicos: o preço de `2025-03-01` -> `14000.00`.
+      - total: `900.00 + 300.00 + 14000.00 = 15200.00`.
     """
     conta_a = semear_conta(session, "A", 1000.00, date(2025, 1, 1))
     semear_conta(session, "B", 100.00, date(2025, 2, 1))
@@ -772,7 +1005,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
     ativo_fisico = semear_ativo(session, "Casa", tipo_bem)
     semear_movimento(session, ativo_fisico, TipoMovimento.compra,
                      date(2025, 1, 5), valor_total=-15000.0)
-    semear_preco(session, ativo_fisico, date(2025, 3, 1), 15000.00)
+    semear_preco(session, ativo_fisico, date(2025, 3, 1), 14000.00)
 
     r = client.get(
         "/api/patrimonio/evolucao",
@@ -787,47 +1020,46 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
         "data": "2025-01-31",
         "liquidez": 800.00,
         "investimentos": 250.00,
-        "ativos_fisicos": 0.0,
-        "total": 1050.00,
+        "ativos_fisicos": 15000.00,
+        "total": 16050.00,
     }
     assert pontos[1] == {
         "data": "2025-02-28",
         "liquidez": 900.00,
         "investimentos": 250.00,
-        "ativos_fisicos": 0.0,
-        "total": 1150.00,
+        "ativos_fisicos": 15000.00,
+        "total": 16150.00,
     }
     assert pontos[2] == {
         "data": "2025-03-20",
         "liquidez": 900.00,
         "investimentos": 300.00,
-        "ativos_fisicos": 15000.00,
-        "total": 16200.00,
+        "ativos_fisicos": 14000.00,
+        "total": 15200.00,
     }
 
 
 # ---------------------------------------------------------------------------
-# B25 — D2: o total pode divergir da soma dos componentes apresentados
+# B25 — o total é a soma dos componentes apresentados (era a D2)
 # ---------------------------------------------------------------------------
 
-def test_evolucao_total_pode_divergir_da_soma_dos_componentes(client, session):
-    """O `total` é arredondado da soma, não da soma dos arredondados (D2).
+def test_evolucao_total_e_a_soma_dos_componentes_arredondados(client, session):
+    """O `total` é a soma dos três componentes já arredondados.
 
     Cálculo à mão:
       * conta: `saldo_referencia=0.005`, `data_referencia=2025-01-01`;
       * ativo físico com compra de 1.00 e preço `0.01`;
       * só há um ponto (`data_inicio = data_fim = 2025-06-30`).
 
-    Componentes devolvidos, cada um arredondado da mesma soma não arredondada:
+    Componentes devolvidos, cada um arredondado a 2 casas:
       - liquidez        = `round(0.005, 2)      = 0.01`
       - investimentos   = `round(0.0, 2)        = 0.0`
       - ativos_físicos  = `round(0.01, 2)       = 0.01`
-      - soma apresentada = `0.01 + 0.0 + 0.01   = 0.02`
-    Mas o total vem de `round(0.005 + 0.0 + 0.01, 2) = round(0.015, 2) = 0.01`.
+      - total           = `round(0.01 + 0.0 + 0.01, 2) = 0.02`
 
-    DEVIDA-TECNICA: D2 — este é o comportamento ACTUAL: o `total` (0.01) não
-    bate com a soma dos três componentes visíveis no mesmo ecrã (0.02). Não se
-    corrige; fixa-se.
+    Era a D2: o total vinha da soma **não** arredondada,
+    `round(0.005 + 0.0 + 0.01, 2) = round(0.015, 2) = 0.01`, e ficava 1 cêntimo
+    abaixo dos três componentes que o ecrã mostra ao lado (0.02).
     """
     semear_conta(session, "A", 0.005, date(2025, 1, 1))
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
@@ -852,12 +1084,38 @@ def test_evolucao_total_pode_divergir_da_soma_dos_componentes(client, session):
     assert ponto["investimentos"] == 0.0
     assert ponto["ativos_fisicos"] == 0.01
     assert soma_componentes == 0.02
-    assert ponto["total"] == 0.01
-    assert ponto["total"] != soma_componentes
+    assert ponto["total"] == 0.02
+
+
+def test_evolucao_total_sem_ruido_de_virgula_flutuante(client, session):
+    """O `total` volta a ser arredondado depois de somar os componentes.
+
+    Cálculo à mão: liquidez `0.10` (conta) e ativos físicos `0.20` (preço do
+    bem). Em vírgula flutuante, `0.1 + 0.2 = 0.30000000000000004`; o total
+    tem de vir `round(0.1 + 0.0 + 0.2, 2) = 0.3`.
+    """
+    semear_conta(session, "A", 0.10, date(2025, 1, 1))
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Terreno", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 1), valor_total=-1.0)
+    semear_preco(session, ativo, date(2025, 1, 2), 0.20)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-06-30", "data_fim": "2025-06-30"},
+    )
+
+    assert r.status_code == 200
+    ponto = r.json()[0]
+    assert ponto["liquidez"] == 0.1
+    assert ponto["investimentos"] == 0.0
+    assert ponto["ativos_fisicos"] == 0.2
+    assert ponto["total"] == 0.3
 
 
 # ---------------------------------------------------------------------------
-# B26 — D3: a fronteira da data de referência é estrita
+# B26 — a fronteira da data de referência é estrita (era a D3)
 # ---------------------------------------------------------------------------
 
 def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
@@ -868,9 +1126,9 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
     conta.data_referencia` (`servicos/patrimonio_serv.py:112`), estrito, pelo
     que a liquidez é `100.00`.
 
-    DEVIDA-TECNICA: D3 — o `/api/contas/{id}/saldo`
-    (`routers/contas.py:62`) usa `data >= :data_referencia` e devolveria
-    `150.00` para a mesma conta. Divergem na mesma data.
+    O saldo de referência é o do fim desse dia, que já inclui as transacções
+    do dia. O `/api/contas/{id}/saldo` (`routers/contas.py:62`) usa o mesmo
+    `>` desde a D3; antes usava `>=` e devolvia `150.00` para esta conta.
     """
     conta = semear_conta(session, "A", 100.0, date(2025, 1, 1))
     session.add(Transacao(data=date(2025, 1, 1), descricao="No limite",
@@ -889,19 +1147,19 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B27 — D16: bem sem preço não conta para o património
+# B27 — bem sem preço conta pelo custo (era a D16)
 # ---------------------------------------------------------------------------
 
-def test_evolucao_bem_sem_preco_contribui_zero(client, session):
-    """Um bem comprado e sem preço registado conta 0 para o total.
+def test_evolucao_bem_sem_preco_conta_pelo_custo(client, session):
+    """Um bem comprado e sem preço registado conta pelo custo de aquisição.
 
     Cálculo à mão: compra de `15000.00` num bem sem unidades e sem linha em
     `precos_ativo`. Para um `data_alvo` depois da compra, `_resumo_valor_ativo`
-    devolve `valor = 0.0` (o valor do ramo dos bens vem do preço, não do
-    custo), pelo que `ativos_fisicos = 0.0` e o `total` também é `0.0`.
+    devolve `valor = custo_base = 15000.00`, pelo que `ativos_fisicos` e o
+    `total` são `15000.00`.
 
-    DEVIDA-TECNICA: D16 — o bem desaparece do total apesar do custo de
-    `15000.00`.
+    Era a D16: o valor era 0.0 e o bem desaparecia do total. Decisão do
+    utilizador: o custo é o valor de recurso enquanto não houver avaliação.
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Terreno", tipo)
@@ -916,8 +1174,8 @@ def test_evolucao_bem_sem_preco_contribui_zero(client, session):
     assert r.status_code == 200
     ponto = r.json()[0]
     assert ponto["investimentos"] == 0.0
-    assert ponto["ativos_fisicos"] == 0.0
-    assert ponto["total"] == 0.0
+    assert ponto["ativos_fisicos"] == 15000.0
+    assert ponto["total"] == 15000.0
 
 
 # ---------------------------------------------------------------------------
@@ -929,12 +1187,13 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
 
     Cálculo à mão: ativo de investimento com 10 un. e um único preço a 20.00,
     registado em `2025-06-01`. Para `data_alvo=2025-03-31`, o filtro
-    `PrecoAtivoModel.data <= data_alvo` (`servicos/patrimonio_serv.py:137`)
-    não encontra preço e o valor é `0.0`.
+    `PrecoAtivoModel.data <= data_alvo` não encontra preço; desde a D26 o
+    ativo vale então o custo das unidades, `100.00`. Se o preço posterior
+    entrasse, valeria `10 x 20.00 = 200.00`.
 
-    DEVIDA-TECNICA: D18 — o `GET /ativos/{id}/resumo` não tem esse limite de
-    data e usaria o preço de `2025-06-01`, mostrando um valor que a evolução
-    não mostra.
+    Vale para os pontos passados. O ponto de hoje usa o preço mais recente,
+    como o resumo do ativo (ver
+    `test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo`).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
@@ -949,8 +1208,56 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
 
     assert r.status_code == 200
     ponto = r.json()[0]
-    assert ponto["investimentos"] == 0.0
-    assert ponto["total"] == 0.0
+    assert ponto["investimentos"] == 100.0
+    assert ponto["total"] == 100.0
+
+
+def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
+        client, session, monkeypatch):
+    """O ponto de hoje usa o preço mais recente, mesmo com data futura.
+
+    Decisão do utilizador (era a D18): o resumo do ativo e o ponto de hoje do
+    gráfico usam os dois o preço mais recente, para baterem certo no mesmo
+    ecrã; os pontos passados continuam a usar o preço dessa data. O frontend
+    mostra um aviso quando a data do preço é futura.
+
+    "Hoje" fixado em 2025-06-30, como em
+    `test_evolucao_sem_parametros_usa_hoje_como_data_fim`.
+
+    Cálculo à mão: 10 un.; preços 20.00 em 2025-05-01 e 30.00 em 2025-08-01
+    (futuro face a hoje).
+      2025-05-31 (passado): preço até essa data = 20.00 -> 10 x 20 = 200.00
+      2025-06-30 (hoje):    preço mais recente = 30.00 -> 10 x 30 = 300.00
+      resumo: preço mais recente = 30.00 -> valor_atual 300.00, data_preco
+        2025-08-01
+    """
+    from datetime import date as Date
+
+    class HojeFixo(Date):
+        @classmethod
+        def today(cls):
+            return cls(2025, 6, 30)
+
+    monkeypatch.setattr(patrimonio_router, "date", HojeFixo)
+
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra,
+                     date(2025, 1, 10), valor_total=-100.0, quantidade=10)
+    semear_preco(session, ativo, date(2025, 5, 1), 20.00)
+    semear_preco(session, ativo, date(2025, 8, 1), 30.00)
+
+    r = client.get("/api/patrimonio/evolucao", params={"data_inicio": "2025-05-01"})
+
+    assert r.status_code == 200
+    assert [(p["data"], p["investimentos"]) for p in r.json()] == [
+        ("2025-05-31", 200.00),
+        ("2025-06-30", 300.00),
+    ]
+
+    resumo = client.get(f"/api/patrimonio/ativos/{ativo.id}/resumo").json()
+    assert resumo["valor_atual"] == 300.00
+    assert resumo["data_preco"] == "2025-08-01"
 
 
 # ---------------------------------------------------------------------------

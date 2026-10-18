@@ -52,8 +52,11 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
 
         if vendido or custo_base <= 0:
             valor = 0.0
+        elif preco:
+            valor = round(float(preco.preco), 2)
         else:
-            valor = round(float(preco.preco), 2) if preco else 0.0
+            # Sem avaliação registada, o bem vale o custo de aquisição (D16)
+            valor = round(custo_base, 2)
 
         return {"quantidade": 0.0, "custo_base": custo_base, "realizado": realizado, "valor": valor}
 
@@ -95,12 +98,39 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
 
     quantidade = sum(l["quantidade"] for l in lotes)
     custo_base = sum(l["quantidade"] * l["custo_unitario"] for l in lotes)
-    valor = round(quantidade * float(preco.preco), 2) if (preco and quantidade > 0) else 0.0
+    if quantidade <= 0:
+        valor = 0.0
+    elif preco:
+        valor = round(quantidade * float(preco.preco), 2)
+    else:
+        # Sem preço registado, vale o custo das unidades em carteira (D26)
+        valor = round(custo_base, 2)
 
     return {"quantidade": quantidade, "custo_base": custo_base, "realizado": realizado, "valor": valor}
 
 
-def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
+def primeira_sobre_venda(movimentos):
+    """Primeira venda que excede as unidades em carteira, pela ordem do FIFO.
+
+    `movimentos` vem ordenado por (data, id), como em `_resumo_valor_ativo`.
+    Devolve `(venda, posicao_antes_da_venda)`, ou `None` se nenhuma exceder.
+    Só faz sentido para ativos com unidades.
+    """
+    posicao = 0.0
+    for m in movimentos:
+        q = float(m.quantidade or 0)
+        if q <= 0:
+            continue
+        if m.tipo_movimento.value == "compra":
+            posicao += q
+        elif m.tipo_movimento.value == "venda":
+            if q - posicao > 1e-9:
+                return m, posicao
+            posicao -= q
+    return None
+
+
+def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = False) -> dict:
     # --- Liquidez ---
     liquidez = 0.0
     contas = db.query(ContaModel).filter(ContaModel.ativa == True).all()
@@ -130,15 +160,12 @@ def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
             .all()
         )
 
-        preco = (
-            db.query(PrecoAtivoModel)
-            .filter(
-                PrecoAtivoModel.ativo_id == ativo.id,
-                PrecoAtivoModel.data <= data_alvo,
-            )
-            .order_by(PrecoAtivoModel.data.desc())
-            .first()
-        )
+        # Os pontos passados usam o preço dessa data; o de hoje usa o mais
+        # recente, mesmo com data futura, como o resumo do ativo (D18)
+        q_preco = db.query(PrecoAtivoModel).filter(PrecoAtivoModel.ativo_id == ativo.id)
+        if not precos_futuros:
+            q_preco = q_preco.filter(PrecoAtivoModel.data <= data_alvo)
+        preco = q_preco.order_by(PrecoAtivoModel.data.desc()).first()
 
         # Partilha a mesma lógica FIFO / sem-unidades que resumo_ativo
         resultado = _resumo_valor_ativo(ativo, movimentos, preco)
@@ -149,17 +176,20 @@ def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
         else:
             ativos_fisicos += valor
 
-    total = liquidez + investimentos + ativos_fisicos
+    # O total soma os componentes já arredondados, para bater certo com eles (D2)
+    liquidez = round(liquidez, 2)
+    investimentos = round(investimentos, 2)
+    ativos_fisicos = round(ativos_fisicos, 2)
     return {
         "data": str(data_alvo),
-        "liquidez": round(liquidez, 2),
-        "investimentos": round(investimentos, 2),
-        "ativos_fisicos": round(ativos_fisicos, 2),
-        "total": round(total, 2),
+        "liquidez": liquidez,
+        "investimentos": investimentos,
+        "ativos_fisicos": ativos_fisicos,
+        "total": round(liquidez + investimentos + ativos_fisicos, 2),
     }
 
 
-def gerar_evolucao(db: Session, data_inicio: date, data_fim: date) -> list[dict]:
+def gerar_evolucao(db: Session, data_inicio: date, data_fim: date, hoje: date) -> list[dict]:
     from calendar import monthrange
 
     pontos = []
@@ -167,7 +197,7 @@ def gerar_evolucao(db: Session, data_inicio: date, data_fim: date) -> list[dict]
     while cursor <= data_fim:
         ultimo_dia = monthrange(cursor.year, cursor.month)[1]
         fim_mes = min(date(cursor.year, cursor.month, ultimo_dia), data_fim)
-        pontos.append(calcular_patrimonio_em(db, fim_mes))
+        pontos.append(calcular_patrimonio_em(db, fim_mes, precos_futuros=fim_mes >= hoje))
         cursor = date(cursor.year + (cursor.month == 12), (cursor.month % 12) + 1, 1)
 
     return pontos

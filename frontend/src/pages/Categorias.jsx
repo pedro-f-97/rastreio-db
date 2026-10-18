@@ -46,7 +46,12 @@ export default function Categorias() {
 
     async function aoApagarCategoria(id) {
         if (!confirm('Apagar categoria e todas as suas subcategorias?')) return;
-        await apagarCategoria(id);
+        try {
+            await apagarCategoria(id);
+        } catch (e) {
+            alert(e.response?.data?.detail || 'Erro ao apagar categoria.');
+            return;
+        }
         carregar();
     }
 
@@ -64,7 +69,12 @@ export default function Categorias() {
 
     async function aoApagarSubcategoria(categoriaId, subcategoriaId) {
         if (!confirm('Apagar subcategoria?')) return;
-        await apagarSubcategoria(categoriaId, subcategoriaId);
+        try {
+            await apagarSubcategoria(categoriaId, subcategoriaId);
+        } catch (e) {
+            alert(e.response?.data?.detail || 'Erro ao apagar subcategoria.');
+            return;
+        }
         carregar();
     }
 

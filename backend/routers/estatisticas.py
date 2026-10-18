@@ -54,6 +54,13 @@ def resumo_mensal(db: Session = Depends(get_db)):
     }
 
 
+def _mediana_mensal(totais, meses_distintos):
+    """Mediana dos totais mensais, com os meses sem movimentos a contar como zero."""
+    if not meses_distintos:
+        return 0
+    return round(median(totais + [0] * (meses_distintos - len(totais))), 2)
+
+
 @router.get("/por-categoria")
 def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
     q_meses = db.query(
@@ -90,12 +97,15 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
             por_cat[cat_id] = {
                 "categoria_id": cat_id,
                 "categoria_nome": r.categoria_nome,
-                "totais": [],
+                "por_mes": {},
                 "subcategorias": {},
             }
 
         total = round(r.total or 0, 2)
-        por_cat[cat_id]["totais"].append(total)
+        # Uma linha por (mês, subcategoria): a categoria soma-as por mês (D23)
+        mes = (r.ano, r.mes)
+        por_mes = por_cat[cat_id]["por_mes"]
+        por_mes[mes] = round(por_mes.get(mes, 0) + total, 2)
 
         sub_id = r.subcategoria_id or 0
         if sub_id not in por_cat[cat_id]["subcategorias"]:
@@ -105,16 +115,16 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
             }
         por_cat[cat_id]["subcategorias"][sub_id]["totais"].append(total)
 
+    # Média e mediana sobre os mesmos meses: os `meses_distintos` do período, e
+    # os meses sem movimentos na categoria contam como zero (D23)
     for cat in por_cat.values():
-        totais_completos = cat["totais"] + [0] * (meses_distintos - len(cat["totais"]))
-        cat["mediana"] = round(median(cat["totais"]), 2) if cat["totais"] else 0
-        cat["media"] = round(sum(totais_completos) / meses_distintos, 2) if meses_distintos else 0
-        del cat["totais"]
+        totais = list(cat.pop("por_mes").values())
+        cat["mediana"] = _mediana_mensal(totais, meses_distintos)
+        cat["media"] = round(sum(totais) / meses_distintos, 2) if meses_distintos else 0
 
         for sub in cat["subcategorias"].values():
-            totais_completos = sub["totais"] + [0] * (meses_distintos - len(sub["totais"]))
-            sub["mediana"] = round(median(sub["totais"]), 2) if sub["totais"] else 0
-            sub["media"] = round(sum(totais_completos) / meses_distintos, 2) if meses_distintos else 0
+            sub["mediana"] = _mediana_mensal(sub["totais"], meses_distintos)
+            sub["media"] = round(sum(sub["totais"]) / meses_distintos, 2) if meses_distintos else 0
             del sub["totais"]
 
         cat["subcategorias"] = list(cat["subcategorias"].values())
@@ -280,6 +290,9 @@ def _calculate_totals(transacoes):
             meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
 
         if t.categoria.tipo == TipoCategoria.receita and not t.reembolso and t.valor > 0:
+            meses[chave]["receitas"] += t.valor
+        elif t.categoria.tipo == TipoCategoria.receita and t.valor < 0:
+            # Estorno de receita: reduz as receitas com o sinal que tem (D4)
             meses[chave]["receitas"] += t.valor
         elif t.categoria.tipo == TipoCategoria.investimento:
             meses[chave]["investimento"] += t.valor

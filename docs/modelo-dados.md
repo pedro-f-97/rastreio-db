@@ -2,6 +2,21 @@
 
 Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, ficheiro único em `dados/rastreio.db`.
 
+## Convenções de sinal
+
+O dinheiro que sai é **negativo** e o que entra é **positivo**, em todo o lado:
+
+- `Transacao.valor`: uma despesa é negativa, uma receita positiva;
+- o `custo_total` devolvido por `GET /api/patrimonio/ativos/{id}/resumo` é o
+  custo de aquisição com sinal negativo (`-200.00` para uma compra de 200 €), e
+  é assim que a página Ativos o mostra. O frontend **soma** o custo ao valor
+  actual para obter a mais-valia (`Patrimonio.jsx`: `totalInvestimentos +
+  totalCusto`); as percentagens usam `Math.abs(custo)`. Trocar o sinal de um
+  dos lados sem o outro dá uma mais-valia errada sem nenhum erro.
+
+`MovimentoAtivo.valor_total` é a excepção: o cálculo usa sempre `abs()`, pelo
+que o sinal gravado não altera nada.
+
 ## Enums
 
 | Enum | Valores |
@@ -27,7 +42,7 @@ Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, fic
 | id | int | PK |
 | nome | str(100) | obrigatório, único |
 | saldo_referencia | float | obrigatório, default `0` |
-| data_referencia | date | obrigatório |
+| data_referencia | date | obrigatório — o `saldo_referencia` é o saldo no fim deste dia: só as transacções posteriores (`data > data_referencia`) entram no saldo actual |
 | ativa | bool | default `True` |
 
 **Relações:** 1:N com `Transacao` (`transacoes`), 1:N com `PerfilImportacao` (`perfis_importacao`)
@@ -62,7 +77,7 @@ Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, fic
 | descricao | str(255) | obrigatório |
 | valor | float | obrigatório |
 | saldo | float | opcional |
-| reembolso | bool | default `False` — nos totais mensais (`_calculate_totals`) só pesa nas receitas: uma receita positiva com a marca fica de fora do cesto de `receitas` e conta em `despesas`; numa despesa o sinal decide e a marca não altera o total; as queries de `por-subcategoria` e `detalhe-mensal` não projectam a coluna |
+| reembolso | bool | default `False` — nos totais mensais (`_calculate_totals`) só pesa nas receitas: uma receita positiva com a marca fica de fora do cesto de `receitas` e conta em `despesas`; uma receita negativa (estorno) conta sempre em `receitas`, com o sinal, com ou sem a marca; numa despesa o sinal decide e a marca não altera o total; as queries de `por-subcategoria` e `detalhe-mensal` não projectam a coluna |
 | notas | str(500) | opcional |
 | categoria_id | int | FK → `categorias.id`, opcional |
 | subcategoria_id | int | FK → `subcategorias.id`, opcional |
@@ -106,13 +121,13 @@ Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, fic
 
 ## TipoAtivo
 
-Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais vêm de `SEED_TIPOS_ATIVO` (`popular_bd.py`), semeados por `POST /api/configuracao/inicializar`.
+Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais vêm de `SEED_TIPOS_ATIVO` (`dados_iniciais.py`), semeados por `POST /api/configuracao/inicializar`.
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | id | int | PK |
 | nome | str(100) | obrigatório, único |
-| tem_unidades | bool | default `False` — `True`: o custo segue FIFO por unidades; `False`: custo acumulado, e o valor actual vem do preço registado |
+| tem_unidades | bool | default `False` — `True`: o custo segue FIFO por unidades e o valor é quantidade × último preço ou, sem preço, o custo; `False`: custo acumulado, e o valor actual vem do último preço registado ou, sem preço, é o custo |
 
 **Relações:** 1:N com `Ativo` (`ativos`)
 
@@ -159,3 +174,5 @@ Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais 
 **Relações:** N:1 com `Ativo` (`ativo`)
 
 **Restrições:** `UNIQUE(ativo_id, data)` — um preço por activo e por dia
+
+**Uso:** o valor actual de um activo (resumo e ponto de hoje da evolução) usa o preço mais recente, mesmo com data futura, e a página Ativos assinala-o com «⚠» (desde a D27 a API recusa preços novos com data futura, e os preços podem ser listados e apagados); os pontos passados da evolução usam o último preço até essa data.

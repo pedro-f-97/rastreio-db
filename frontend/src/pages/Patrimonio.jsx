@@ -52,6 +52,7 @@ export default function Patrimonio() {
     return acc + (r?.valor_atual ?? 0);
   }, 0);
   const totalCusto = ativosInvestimento.reduce((acc, a) => acc + (resumos[a.id]?.custo_total ?? 0), 0);
+  // custo_total vem negativo (dinheiro que saiu), por isso soma-se ao valor
   const totalMaisValia = totalInvestimentos + totalCusto;
   const pctMaisValia = totalCusto !== 0 ? (totalMaisValia / Math.abs(totalCusto)) * 100 : null;
 

@@ -21,7 +21,7 @@ docs/       # Documentação (este ficheiro, modelo de dados, guia de desenvolvi
 - **`schemas.py`**: schemas Pydantic para validação de entrada/saída da API
 - **`routers/`**: um ficheiro por domínio (categorias, contas, transações, património, etc.). Cada novo domínio funcional ganha o seu próprio router, montado em `main.py`
 - **Migrações**: alterações de schema não-triviais (ex. coluna não-nula, recriação de tabela) são feitas via scripts manuais `migrar_*.py` na raiz do backend, usando recriação de tabela para preservar IDs e FKs. Scripts já aplicados são arquivados em `backend/old/`
-- **Seeding/dados predefinidos**: lógica de inicialização (categorias, tipos de ativo, etc.) fica nos endpoints de `/configuracao`, com guardas de idempotência (`if count() == 0`)
+- **Dados iniciais**: as listas de categorias, subcategorias e tipos de ativo e a função que as cria (`semear_dados_iniciais`) estão em `dados_iniciais.py`; o endpoint `/configuracao/inicializar` chama-a, e ela cria só o que falta, pelo nome
 
 ## Frontend
 

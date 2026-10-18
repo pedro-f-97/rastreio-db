@@ -2,6 +2,7 @@ from datetime import datetime
 from openpyxl import load_workbook
 import csv
 import io
+import re
 
 class ErroParsing(Exception):
     pass
@@ -12,6 +13,16 @@ def _parse_valor(raw, separador_decimal: str) -> float:
     if isinstance(raw, (int, float)):
         return float(raw)
     texto = str(raw).strip().replace(" ", "").replace("\xa0", "")
+    # Um número com separadores tem de bater com o perfil: o decimal só uma vez
+    # e no fim, e o outro separador só em grupos de milhares de 3 dígitos (D12d)
+    milhares = "." if separador_decimal == "," else ","
+    coerente = (
+        rf"[+-]?(\d{{1,3}}(\{milhares}\d{{3}})+|\d*)(\{separador_decimal}\d+)?"
+    )
+    if re.fullmatch(r"[+-]?[\d.,]+", texto) and not re.fullmatch(coerente, texto):
+        raise ErroParsing(
+            f"valor '{raw}' não corresponde ao separador decimal do perfil ('{separador_decimal}')"
+        )
     if separador_decimal == ",":
         texto = texto.replace(".", "").replace(",", ".")
     else:
@@ -43,9 +54,22 @@ def _ler_linhas_xlsx(file_bytes: bytes, linha_inicio: int) -> list[tuple]:
         linhas.append(row)
     return linhas
 
+def _detectar_delimitador(linhas_de_dados: list[str]) -> str:
+    """O separador de colunas que divide as linhas de dados no mesmo número de
+    colunas, e no maior; vírgula se nenhum servir (D19). O `csv.Sniffer`
+    engana-se num CSV com `;` sem cabeçalho e vírgula decimal (`-3,20`)."""
+    amostra = "\n".join(l for l in linhas_de_dados if l.strip())
+    melhor, colunas = ",", 1
+    for delimitador in (",", ";", "\t"):
+        contagens = {len(r) for r in csv.reader(io.StringIO(amostra), delimiter=delimitador)}
+        if len(contagens) == 1 and (n := contagens.pop()) > colunas:
+            melhor, colunas = delimitador, n
+    return melhor
+
 def _ler_linhas_csv(file_bytes: bytes, linha_inicio: int, separador_decimal: str) -> list[tuple]:
     texto = file_bytes.decode("utf-8-sig")
-    reader = csv.reader(io.StringIO(texto))
+    delimitador = _detectar_delimitador(texto.splitlines()[linha_inicio - 1:linha_inicio + 19])
+    reader = csv.reader(io.StringIO(texto), delimiter=delimitador)
     linhas = []
     for i, row in enumerate(reader, start=1):
         if i < linha_inicio:
@@ -104,7 +128,9 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
             if perfil.coluna_fee is not None:
                 raw_fee = celula(perfil.coluna_fee)
                 if raw_fee not in (None, "", "None"):
-                    valor += _parse_valor(raw_fee, perfil.separador_decimal)
+                    # Uma comissão é sempre paga: entra negativa, venha o sinal
+                    # que vier no extracto (D12e)
+                    valor -= abs(_parse_valor(raw_fee, perfil.separador_decimal))
 
             saldo = None
             if perfil.tem_saldo and perfil.coluna_saldo is not None:

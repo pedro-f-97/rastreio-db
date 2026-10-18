@@ -6,8 +6,8 @@ ficheiro inteiro (`parse_ficheiro`). Servem para que mexer no parser não mude
 nada sem dar conta: se um destes testes falhar, a mudança foi de propósito e
 tem de ser justificada.
 
-Nada aqui é corrigido. Onde o comportamento é questionável, fica marcado com
-`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`.
+Onde o comportamento é questionável, fica marcado com `# DEVIDA-TECNICA: Dn`,
+a remeter para `docs/divida-tecnica.md`.
 
 Todos os valores esperados são calculados à mão e escritos como constantes. O
 cálculo está no comentário de cada caso, dentro das tabelas do `parametrize` ou
@@ -23,8 +23,10 @@ reconhece símbolo nenhum.
 Convenções que estes testes fixam
 --------------------------------
 * `separador_decimal` decide o que é o ponto: com `","` os pontos são lidos
-  como separadores de milhares e apagados; com `"."` são as vírgulas. A função
-  não tem forma de distinguir um do outro (ver `DEVIDA-TECNICA: D12d`).
+  como separadores de milhares e apagados; com `"."` são as vírgulas. Desde a
+  D12d, um texto numérico que não bata com o perfil (o decimal que não é o
+  último separador, ou milhares sem grupos de 3 dígitos) dá `ErroParsing` em
+  vez de ser lido mil ou cem vezes errado (secção C).
 * `_parse_valor` não arredonda. Onde o valor sai directamente de `float(texto)`
   — quase sempre — a comparação é por `==` exacta, porque o literal escrito no
   teste e o literal interpretado pelo `float` são a mesma dupla. Só a secção E,
@@ -38,13 +40,10 @@ Convenções que estes testes fixam
 * `total_linhas` conta as linhas que deram transacção ou erro. Linhas vazias e
   linhas de cabeçalho não contam. O `linha` que vai no erro é o número da linha
   do ficheiro, não o índice dentro do que foi lido.
-* `_ler_linhas_csv` usa o `csv.reader` sem `delimiter`, pelo que a vírgula é o
-  único separador aceite num CSV (ver `DEVIDA-TECNICA: D19`).
+* `_ler_linhas_csv` detecta o separador de colunas (`,`, `;` ou tabulação)
+  com `_detectar_delimitador`, sobre as linhas de dados (era a D19).
 * `openpyxl` é uma dependência de produção, não de teste: está em
   `backend/requirements.txt`. Estes testes geram um `.xlsx` verdadeiro com ele.
-
-Nota sobre `DEVIDA-TECNICA: D19` — o caso do CSV delimitado por ponto-e-vírgula
-está registado em `docs/divida-tecnica.md`.
 """
 
 from datetime import date, datetime
@@ -56,6 +55,7 @@ from openpyxl import Workbook
 from database import ModoValor, TipoFicheiro
 from parser_importacao import (
     ErroParsing,
+    _detectar_delimitador,
     _parse_data,
     _parse_valor,
     parse_ficheiro,
@@ -182,8 +182,8 @@ def test_valor_lido_com_o_separador_do_perfil(entrada, separador_decimal, espera
 # Secção B — _parse_valor: o que falha com ErroParsing
 # ---------------------------------------------------------------------------
 
-# DEVIDA-TECNICA: D12d (parênteses de contabilidade e símbolos de moeda não
-# são suportados; pelo menos a falha é visível, ao contrário dos milhares).
+# Parênteses de contabilidade e símbolos de moeda não são suportados; a falha
+# é visível (e desde a D12d recusa a importação inteira).
 @pytest.mark.parametrize(
     "entrada, separador_decimal, mensagem, nota",
     [
@@ -213,53 +213,57 @@ def test_valor_que_falha_levanta_erro_de_parsing(entrada, separador_decimal, men
 
 
 # ---------------------------------------------------------------------------
-# Secção C — milhares ambíguos: o valor lido mil vezes mais pequeno, em silêncio
+# Secção C — separador do perfil: o que bate certo e o que é recusado (D12d)
 # ---------------------------------------------------------------------------
 
-def test_milhares_sem_milhares_viram_decimal():
-    """Um valor de mil euros em ponto entra como um euro e meio.
+def test_ponto_com_perfil_em_ponto_e_decimal():
+    """Com o perfil em ponto, "1.234" é 1,234: é o que o perfil diz, e bate certo.
 
-    DEVIDA-TECNICA: D12d
+    O texto sozinho não distingue "mil duzentos e trinta e quatro" de "um
+    vírgula dois três quatro"; é para isso que o perfil existe. Este caso não
+    é recusado, porque com ponto decimal é um número bem formado.
     """
-    # O ficheiro queria dizer 1234 (1.234 x 1000). O perfil diz que o ponto é
-    # decimal, e o parser acredita-lhe: devolve 1.234, que é o valor verdadeiro
-    # dividido por mil. Nem erro, nem aviso, nem nada em `erros`: a importação
-    # parece ter corrido bem.
     assert _parse_valor("1.234", ".") == 1.234
 
 
-def test_milhares_ambiguos_em_valor_com_centimos():
-    """`1.234,56` com perfil em ponto perde as duas casas e a vírgula.
+@pytest.mark.parametrize(
+    "entrada, separador_decimal, calculo",
+    [
+        ("1.234,56", ".",
+         "o decimal do perfil (ponto) não é o último separador: era lido 1,23456"),
+        ("1,234.56", ",",
+         "o decimal do perfil (vírgula) não é o último separador: era lido 1,23456"),
+        ("45.60", ",",
+         "ponto como milhar mas com grupo de 2 dígitos: era lido 4560"),
+        ("1,5", ".",
+         "vírgula como milhar mas com grupo de 1 dígito: era lido 15"),
+        ("1.234,5.6", ",",
+         "dois separadores decimais"),
+    ],
+)
+def test_texto_incoerente_com_o_separador_do_perfil_e_recusado(entrada, separador_decimal, calculo):
+    """Era a D12d: estes textos eram lidos com um factor errado, sem aviso."""
+    with pytest.raises(ErroParsing) as erro:
+        _parse_valor(entrada, separador_decimal)
 
-    DEVIDA-TECNICA: D12d
-    """
-    # "1.234,56" -> tira a vírgula como se fosse milhar -> "1.23456", que é
-    # 1234,56 dividido por 1000 (1.234,56 x 1000 = 1234,56).
-    assert _parse_valor("1.234,56", ".") == 1.23456
+    assert str(erro.value) == (
+        f"valor '{entrada}' não corresponde ao separador decimal do perfil "
+        f"('{separador_decimal}')"
+    ), calculo
 
 
-def test_o_mesmo_texto_com_as_duas_configuracoes_difere_num_factor_de_mil():
-    """A diferença entre o perfil certo e o perfil errado é um factor de mil.
-
-    DEVIDA-TECNICA: D12d
-    """
-    com_virgula = _parse_valor("1.234,56", ",")  # 1.234,56 -> 1234,56 -> 1234.56
-    com_ponto = _parse_valor("1.234,56", ".")    # 1.234,56 -> 1.23456
-
-    assert com_virgula == 1234.56
-    assert com_ponto == 1.23456
-    # 1234,56 / 1,23456 = 1000. As duas leituras são ambas plausíveis à primeira
-    # vista e nenhuma das duas levanta dúvida: a diferença é um factor de mil.
-
-
-def test_ponto_decimal_comido_como_milhar():
-    """Com perfil em vírgula, um ponto decimal é lido como separador de milhar.
-
-    DEVIDA-TECNICA: D12d
-    """
-    # "45.60" -> "4560" = 4560,0. O valor verdadeiro é 45,60, e 45,60 x 100 =
-    # 4560,00: o ponto some e o valor sai multiplicado por cem.
-    assert _parse_valor("45.60", ",") == 4560.0
+@pytest.mark.parametrize(
+    "entrada, separador_decimal, esperado, calculo",
+    [
+        ("1.234.567,89", ",", 1234567.89, "dois grupos de milhares de 3 dígitos"),
+        ("8612.0", ".", 8612.0, "formato do TradeRepublic: uma casa decimal"),
+        ("-1", ".", -1.0, "sem separadores: inteiro com sinal"),
+        ("+20,00", ",", 20.0, "sinal positivo explícito"),
+        (",5", ",", 0.5, "sem parte inteira: float(\".5\") = 0,5"),
+    ],
+)
+def test_texto_coerente_com_o_separador_do_perfil_e_aceite(entrada, separador_decimal, esperado, calculo):
+    assert _parse_valor(entrada, separador_decimal) == esperado, calculo
 
 
 # ---------------------------------------------------------------------------
@@ -469,31 +473,76 @@ def test_ficheiro_so_com_linhas_vazias(tmp_path):
     assert resultado == {"transacoes": [], "total_linhas": 0, "erros": []}
 
 
-def test_csv_delimitado_por_ponto_e_virgula_e_lido_como_uma_coluna(tmp_path):
-    """Um CSV com ponto-e-vírgula é lido como se tivesse uma coluna só.
+def test_csv_delimitado_por_ponto_e_virgula_e_detectado(tmp_path):
+    """Um CSV com ponto e vírgula é lido com as colunas certas.
 
-    DEVIDA-TECNICA: D19
+    Era a D19: o `csv.reader` usava sempre a vírgula, e a linha inteira ficava
+    numa só célula. Agora `_detectar_delimitador` escolhe o separador que dá o
+    mesmo número de colunas em todas as linhas de dados, e o maior.
+
+    Cálculo à mão, linhas de dados a partir da linha 2, perfil em vírgula:
+      "31/01/2026;Supermercado;-45,60" e "01/02/2026;Renda;-650,00"
+        "," -> 2 colunas em cada (a vírgula decimal parte o valor)
+        ";" -> 3 colunas em cada -> escolhido
+      -45,60 e -650,00 lidos com a vírgula decimal do perfil
     """
     caminho = escrever_csv(
         tmp_path / "pontos_e_virgulas.csv",
-        ("Data;Descrição;Valor", "31/01/2026;Supermercado;-45.60"),
+        ("Data;Descrição;Valor",
+         "31/01/2026;Supermercado;-45,60",
+         "01/02/2026;Renda;-650,00"),
     )
-    resultado = parse_ficheiro(
-        caminho.read_bytes(),
-        perfil(linha_inicio_dados=2, separador_decimal="."),
-    )
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=2))
 
-    # `_ler_linhas_csv` chama o `csv.reader` sem `delimiter`, e o separador por
-    # omissão é a vírgula. Cada linha do ficheiro tem zero vírgulas, logo vem
-    # uma única célula com a linha inteira dentro, e a data nem sequer é
-    # parecida com uma data. A importação inteira falha linha a linha.
-    assert resultado["transacoes"] == []
-    assert resultado["erros"] == [{
-        "linha": 2,
-        "erro": "data inválida: '31/01/2026;Supermercado;-45.60' "
-                "(formato esperado: %d/%m/%Y)",
-    }]
-    assert resultado["total_linhas"] == 1
+    assert resultado["erros"] == []
+    assert [(t["descricao"], t["valor"]) for t in resultado["transacoes"]] == [
+        ("Supermercado", -45.6),
+        ("Renda", -650.0),
+    ]
+
+
+def test_delimitador_detectado_so_nas_linhas_de_dados(tmp_path):
+    """As linhas antes de `linha_inicio_dados` não entram na detecção.
+
+    Cálculo à mão, dados a partir da linha 3:
+      linha 1 "Banco X, extracto de conta" (preâmbulo do banco)
+      linha 2 "Data;Descrição;Valor"       (cabeçalho)
+      linhas 3-4 com ";" -> 3 colunas cada, com "," -> 2 colunas cada
+    Só com as linhas 3-4: ";" -> lidas -12,50 e -650,00. Se o preâmbulo
+    entrasse, nenhum separador daria colunas iguais e voltava a vírgula.
+    """
+    caminho = escrever_csv(
+        tmp_path / "com_preambulo.csv",
+        ("Banco X, extracto de conta",
+         "Data;Descrição;Valor",
+         "31/01/2026;Supermercado;-12,50",
+         "01/02/2026;Renda;-650,00"),
+    )
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=3))
+
+    assert resultado["erros"] == []
+    assert [t["valor"] for t in resultado["transacoes"]] == [-12.5, -650.0]
+
+
+@pytest.mark.parametrize(
+    "linhas, esperado, calculo",
+    [
+        (["31/01/2026;Café;-3,20", "01/02/2026;Renda;-650,00"], ";",
+         "sem cabeçalho: ';' dá 3 colunas, ',' dá 2 (o csv.Sniffer escolhia ',')"),
+        (['31/01/2026,Café,"-3,20"', '01/02/2026,Renda,"-650,00"'], ",",
+         "vírgula com o decimal entre aspas: ',' dá 3 colunas, ';' dá 1"),
+        (["2025-06-11,BUY,ETF X,-8612.0,-1", "2025-07-01,INTEREST,Juros,9.44,"], ",",
+         "formato do TradeRepublic: ',' dá 5 colunas em cada"),
+        (["31/01/2026\tCafé\t-3,20"], "\t",
+         "tabulação: 3 colunas, as outras dão 1 ou 2"),
+        (["31/01/2026,Café,-3", "01/02/2026,Renda"], ",",
+         "nenhum separador dá o mesmo número de colunas -> vírgula, como antes"),
+        (['31/01/2026,Compra a;b;c;d,"-3,20"', '01/02/2026,Renda,"-650,00"'], ",",
+         "';' numa descrição dá 5 e 1 colunas (desiguais, rejeitado); ',' dá 3 e 3"),
+    ],
+)
+def test_detectar_delimitador(linhas, esperado, calculo):
+    assert _detectar_delimitador(linhas) == esperado, calculo
 
 
 # ---------------------------------------------------------------------------
@@ -560,10 +609,12 @@ def test_xlsx_com_data_invalida_na_terceira_linha(tmp_path):
 # Secção G — a comissão (coluna fee) e o sinal com que é somada
 # ---------------------------------------------------------------------------
 
-def test_comissao_positiva_reduz_a_saida(tmp_path):
-    """Uma comissão positiva, somada como vem, empurra o valor para zero.
+def test_comissao_positiva_tambem_aumenta_a_saida(tmp_path):
+    """Uma comissão positiva no extracto entra negativa: é sempre um pagamento.
 
-    DEVIDA-TECNICA: D12e
+    Era a D12e: a comissão era somada com o sinal que vinha, e uma comissão
+    positiva fazia a compra parecer mais barata. Decisão do utilizador: a
+    comissão é sempre algo que se paga, por isso entra como `-abs(comissão)`.
     """
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(
@@ -571,36 +622,29 @@ def test_comissao_positiva_reduz_a_saida(tmp_path):
         coluna_fee=3,
     ))
 
-    # Linha 2 do ficheiro: -50,00 + 1,50 = -48,50. Uma comissão de 1,50 numa
-    # compra faz a compra parecer mais barata em 1,50.
-    assert resultado["transacoes"][0]["valor"] == -48.5
+    # Linha 2 do ficheiro: -50,00 - abs(1,50) = -51,50 (antes dava -48,50).
+    assert resultado["transacoes"][0]["valor"] == -51.5
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
 
 
 def test_comissao_negativa_aumenta_a_saida(tmp_path):
-    """Uma comissão negativa, somada como vem, aumenta a saída.
-
-    DEVIDA-TECNICA: D12e
-    """
+    """Uma comissão negativa (como no TradeRepublic) aumenta a saída."""
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(
         linha_inicio_dados=2,
         coluna_fee=3,
     ))
 
-    # Linha 3 do ficheiro: -50,00 + (-1,50) = -51,50. Uma comissão de 1,50 numa
-    # compra faz a compra parecer mais cara em 1,50.
+    # Linha 3 do ficheiro: -50,00 - abs(-1,50) = -51,50. Uma comissão de 1,50
+    # numa compra faz a compra custar mais 1,50.
     assert resultado["transacoes"][1]["valor"] == -51.5
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
 
 
 def test_comissao_vazia_e_ignorada(tmp_path):
-    """Uma célula de comissão vazia não mexe no valor.
-
-    DEVIDA-TECNICA: D12e
-    """
+    """Uma célula de comissão vazia não mexe no valor."""
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(
         linha_inicio_dados=2,
@@ -616,3 +660,24 @@ def test_comissao_vazia_e_ignorada(tmp_path):
     ]
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
+
+
+def test_comissao_numa_entrada_reduz_o_que_entra(tmp_path):
+    """Numa entrada de dinheiro (venda), a comissão também é paga: reduz o valor.
+
+    Cálculo à mão, perfil em vírgula e comissão na coluna 3:
+      +100,00 com comissão "1,00"  -> 100,00 - abs(1,00)  = 99,00
+      +100,00 com comissão "-1,00" -> 100,00 - abs(-1,00) = 99,00
+    """
+    caminho = escrever_csv(tmp_path / "venda.csv", (
+        "Data,Descrição,Valor,Comissão",
+        '31/01/2026,Venda de ações,"100,00","1,00"',
+        '01/02/2026,Venda de ações,"100,00","-1,00"',
+    ))
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
+        linha_inicio_dados=2,
+        coluna_fee=3,
+    ))
+
+    assert [t["valor"] for t in resultado["transacoes"]] == [99.0, 99.0]
+    assert resultado["erros"] == []

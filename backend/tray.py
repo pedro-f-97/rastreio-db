@@ -3,7 +3,7 @@ import os
 import subprocess
 
 
-def iniciar_tray(parar_servidor_fn):
+def iniciar_tray(parar_servidor_fn, porta):
     import tkinter as tk
 
     if getattr(sys, 'frozen', False):
@@ -16,7 +16,7 @@ def iniciar_tray(parar_servidor_fn):
     ICON_PNGS = [os.path.join(BASE_DIR, "assets", f"icon-{s}.png") for s in ICON_SIZES]
 
     def ao_abrir():
-        url = "http://localhost:9742"
+        url = f"http://localhost:{porta}"
 
         if sys.platform.startswith("linux"):
             env = os.environ.copy()

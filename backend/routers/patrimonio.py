@@ -8,7 +8,7 @@ from database import PrecoAtivo as PrecoAtivoModel
 from database import Transacao as TransacaoModel
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException
-from servicos.patrimonio_serv import gerar_evolucao, _resumo_valor_ativo
+from servicos.patrimonio_serv import gerar_evolucao, primeira_sobre_venda, _resumo_valor_ativo
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -84,6 +84,33 @@ def eliminar_ativo(ativo_id: int, db: Session = Depends(get_db)):
 
 # --- MOVIMENTOS ---
 
+def _unidades(q: float) -> str:
+    return f"{q:.6f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
+def _recusar_sobre_venda(db: Session, ativo: AtivoModel) -> None:
+    """422 se, com as alterações pendentes na sessão, alguma venda do ativo
+    exceder as unidades em carteira nessa data (D15). Desfaz as alterações."""
+    if not ativo.tipo.tem_unidades:
+        return
+    db.flush()
+    movimentos = (
+        db.query(MovimentoAtivoModel)
+        .filter(MovimentoAtivoModel.ativo_id == ativo.id)
+        .order_by(MovimentoAtivoModel.data, MovimentoAtivoModel.id)
+        .all()
+    )
+    sobre_venda = primeira_sobre_venda(movimentos)
+    if sobre_venda:
+        venda, posicao = sobre_venda
+        detalhe = (
+            f"A venda de {venda.data:%d/%m/%Y} ({_unidades(venda.quantidade)} unidades) "
+            f"excede as {_unidades(posicao)} unidades em carteira nessa data."
+        )
+        db.rollback()
+        raise HTTPException(status_code=422, detail=detalhe)
+
+
 @router.post("/movimentos", response_model=schemas.MovimentoAtivo)
 def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends(get_db)):
     ativo = db.query(AtivoModel).filter(AtivoModel.id == payload.ativo_id).first()
@@ -103,6 +130,9 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
         else:
             db.add(PrecoAtivoModel(ativo_id=payload.ativo_id, data=payload.data, preco=payload.preco_unitario))
 
+    if payload.tipo_movimento.value == "venda":
+        _recusar_sobre_venda(db, ativo)
+
     # Um só commit: o movimento e o preço gravam-se juntos ou não se grava nada.
     db.commit()
     db.refresh(movimento)
@@ -113,7 +143,10 @@ def eliminar_movimento(movimento_id: int, db: Session = Depends(get_db)):
     movimento = db.query(MovimentoAtivoModel).filter(MovimentoAtivoModel.id == movimento_id).first()
     if not movimento:
         raise HTTPException(status_code=404, detail="Movimento não encontrado.")
+    ativo = movimento.ativo
     db.delete(movimento)
+    if movimento.tipo_movimento.value == "compra":
+        _recusar_sobre_venda(db, ativo)
     db.commit()
 
 
@@ -137,6 +170,9 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     ativo = db.query(AtivoModel).filter(AtivoModel.id == payload.ativo_id).first()
     if not ativo:
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    # Um preço é uma observação: não pode ter data futura (D27)
+    if payload.data > date.today():
+        raise HTTPException(status_code=422, detail="A data do preço não pode ser futura.")
     # Upsert: se já existe preço para esta data, actualiza
     existente = (
         db.query(PrecoAtivoModel)
@@ -153,6 +189,26 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(preco)
     return preco
+
+@router.get("/ativos/{ativo_id}/precos", response_model=List[schemas.PrecoAtivo])
+def listar_precos(ativo_id: int, db: Session = Depends(get_db)):
+    ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()
+    if not ativo:
+        raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    return (
+        db.query(PrecoAtivoModel)
+        .filter(PrecoAtivoModel.ativo_id == ativo_id)
+        .order_by(PrecoAtivoModel.data.desc())
+        .all()
+    )
+
+@router.delete("/precos/{preco_id}", status_code=204)
+def eliminar_preco(preco_id: int, db: Session = Depends(get_db)):
+    preco = db.query(PrecoAtivoModel).filter(PrecoAtivoModel.id == preco_id).first()
+    if not preco:
+        raise HTTPException(status_code=404, detail="Preço não encontrado.")
+    db.delete(preco)
+    db.commit()
 
 @router.get("/ativos/{ativo_id}/resumo")
 def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
@@ -195,6 +251,7 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
     return {
         "ativo_id": ativo_id,
         "quantidade": round(resultado["quantidade"], 6),
+        # Negativo por convenção: dinheiro que saiu (ver docs/modelo-dados.md)
         "custo_total": round(-custo_base, 2),
         "preco_atual": float(preco_atual.preco) if preco_atual else None,
         "data_preco": str(preco_atual.data) if preco_atual else None,
@@ -220,4 +277,4 @@ def evolucao_patrimonio(
     assert data_inicio is not None
     assert data_fim is not None
 
-    return gerar_evolucao(db, data_inicio, data_fim)
+    return gerar_evolucao(db, data_inicio, data_fim, date.today())

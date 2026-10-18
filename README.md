@@ -20,7 +20,7 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 - Histórico com totais por ano/mês e drill-down por categoria
 - Categorização automática por regras de substring, com sugestões automáticas de novas regras
 - Aplicação de regras em massa, com resolução individual de conflitos
-- Importação de Excel e CSV, com perfis de mapeamento de colunas por banco e conta, com deteção automática de duplicados
+- Importação de Excel e CSV (separado por vírgula, ponto e vírgula ou tabulação, detetado automaticamente), com perfis de mapeamento de colunas por banco e conta, com deteção automática de duplicados
 
 ### Análise
 - Estatísticas mensais: evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais
@@ -111,7 +111,13 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 - Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas
 - Transferências internas são excluídas de todas as métricas para não distorcer os dados reais
+- Uma categoria com transações não se pode apagar (é preciso mudá-las de categoria primeiro); sem transações, apaga-se com as suas subcategorias e regras. Apagar uma subcategoria deixa as suas transações por categorizar na mesma categoria, e as regras que apontavam para ela ficam sem subcategoria
+- Um bem sem unidades (ex. imóvel, viatura) vende-se sempre por inteiro: qualquer venda desconta o custo acumulado todo e o bem deixa de contar para o património. Para vender partes de um bem, regista-se o bem com unidades (ex. 100 unidades = 100%), e as vendas parciais passam pelo FIFO
+- As médias mensais das estatísticas contam todos os meses que têm transações, incluindo os que só têm transferências ou transações por categorizar; pressupõe-se que as transações importadas são categorizadas logo a seguir à importação
+- Uma importação é tudo ou nada: basta uma linha com erro (data inválida, valor que não bate com o separador decimal do perfil, linha de totais no fim do extracto) para o ficheiro inteiro ser recusado, e a pré-visualização mostra todas as linhas com erro
+- A coluna de comissão de um perfil de importação é sempre tratada como um pagamento: entra com sinal negativo, venha positiva ou negativa no extracto
 - O sistema de regras usa correspondência por substring intuitiva
+- Quando várias regras casam com a mesma descrição, ganha a de palavra-chave mais longa (a mais específica) e, em empate, a mais antiga; essa primeira regra decide sozinha a categoria e a subcategoria, mesmo que deixe a subcategoria por preencher
 - Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada
 - A base de dados fica em `dados/rastreio.db`, junto ao executável, para portabilidade e acesso fácil ao ficheiro
 

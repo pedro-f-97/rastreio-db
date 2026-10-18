@@ -131,8 +131,10 @@ build.bat           # Windows
   quoting one, and update the reference when you touch the item.
 * When fixing an item, in the **same commit**: fix the code, invert the
   characterization test that fails on purpose, and mark the item as resolved in the doc.
-* Do not decide business rules yourself. Open decisions: D3, D4, D5, D15, D17,
-  D19, D23, D25 and the `ON DELETE` policy of D1. Describe the options and ask the user.
+* Do not decide business rules yourself. Describe the options and ask the user.
+  All open business decisions have been taken; what remains open in the doc is
+  technical (D1/D1a schema migration, D11, D13). Decisions taken as conventions
+  live in the README's «Decisões de design» and must not be reverted silently.
 
 ## Stop Gates
 

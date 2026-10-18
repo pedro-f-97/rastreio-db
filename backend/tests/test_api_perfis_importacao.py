@@ -201,16 +201,12 @@ def test_analisar_ficheiro_csv_devolve_as_linhas_como_texto(client):
     ]
 
 
-def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_uma_so_coluna(client):
-    """Um CSV com `;` e lido como uma unica coluna.
+def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas(client):
+    """Um CSV com `;` mostra as colunas certas na criação de um perfil.
 
-    Cálculo à mão: conteúdo `a;b / 1;2`, lido com o delimitador de omissao
-    (virgula) do `csv.reader`: cada linha tem um so campo, `"a;b"` e `"1;2"`.
-
-    DEVIDA-TECNICA: D19 — e a mesma limitacao do `csv.reader` sem `delimiter`
-    em `parser_importacao.py`; a D19 descreve o parser, e o
-    `analisar-ficheiro` (a pre-visualizacao) reproduz aqui o mesmo
-    comportamento.
+    Era a D19: o `csv.reader` usava a vírgula e cada linha vinha num só campo
+    (`"a;b"`, `"1;2"`). Agora usa `_detectar_delimitador` sobre as primeiras
+    linhas: `;` dá 2 colunas em cada linha, `,` dá 1 -> `;`.
     """
     conteudo = "a;b\n1;2\n".encode("utf-8")
 
@@ -220,7 +216,23 @@ def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_uma_so_coluna(c
     )
 
     assert r.status_code == 200
-    assert r.json()["linhas"] == [["a;b"], ["1;2"]]
+    assert r.json()["linhas"] == [["a", "b"], ["1", "2"]]
+
+
+def test_analisar_ficheiro_csv_com_extensao_em_maiusculas(client):
+    """Um `EXTRACTO.CSV` é lido como CSV, e não aberto como Excel (D30).
+
+    Era a D30: a extensão era comparada com `.csv` em minúsculas, e um nome em
+    maiúsculas ia parar ao `openpyxl`, que falhava a abrir o ficheiro. Cálculo
+    à mão: `a,b / 1,2` -> 2 colunas por linha -> `[["a", "b"], ["1", "2"]]`.
+    """
+    r = client.post(
+        "/api/perfis-importacao/analisar-ficheiro",
+        files={"file": ("EXTRACTO.CSV", "a,b\n1,2\n".encode("utf-8"), "text/csv")},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["linhas"] == [["a", "b"], ["1", "2"]]
 
 
 def test_analisar_ficheiro_xlsx_converte_none_em_string_vazia(client):

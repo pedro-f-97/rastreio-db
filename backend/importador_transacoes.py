@@ -2,19 +2,24 @@ from sqlalchemy.orm import Session
 from database import Transacao, RegraCategorizacao, DB_PATH
 from sqlalchemy import or_
 
+def casa_palavra(palavra_chave: str, descricao: str) -> bool:
+    """A comparação única das regras (D8): ignora maiúsculas, também nas letras
+    acentuadas, e trata a palavra-chave como texto literal."""
+    return palavra_chave.upper() in descricao.upper()
+
 def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
     # Fase 1: verificar regras de exclusão (categoria_id = None)
     for regra in regras:
         if regra.categoria_id is not None:
             continue
-        if regra.palavra_chave.upper() in transacao.descricao.upper():
+        if casa_palavra(regra.palavra_chave, transacao.descricao):
             return                          # ← transação fica sem categoria
 
     # Fase 2: aplicar primeira regra de categorização que corresponde
     for regra in regras:
         if regra.categoria_id is None:
             continue
-        if regra.palavra_chave.upper() in transacao.descricao.upper():
+        if casa_palavra(regra.palavra_chave, transacao.descricao):
             if transacao.categoria_id is None:
                 transacao.categoria_id = regra.categoria_id
                 transacao.subcategoria_id = regra.subcategoria_id
@@ -22,8 +27,14 @@ def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
                 transacao.subcategoria_id = regra.subcategoria_id
             break
 
-def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: int | None = None) -> dict:
+def regras_por_precedencia(db: Session) -> list[RegraCategorizacao]:
+    """Regras pela ordem em que são avaliadas (D7): a palavra-chave mais longa
+    primeiro, porque é a mais específica, e em empate a mais antiga."""
     regras = db.query(RegraCategorizacao).all()
+    return sorted(regras, key=lambda r: (-len(r.palavra_chave), r.id))
+
+def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: int | None = None) -> dict:
+    regras = regras_por_precedencia(db)
     inseridas = 0
     duplicadas = 0
 

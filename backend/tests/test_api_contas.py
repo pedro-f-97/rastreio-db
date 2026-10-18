@@ -210,11 +210,14 @@ def test_apagar_conta_com_transacoes_desativa(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B6 — D3: GET /api/contas/{id}/saldo (>=) contra /api/patrimonio/evolucao (>)
+# B6 — GET /api/contas/{id}/saldo e /api/patrimonio/evolucao concordam (era a D3)
 # ---------------------------------------------------------------------------
 
-def test_saldo_conta_vs_evolucao_divergem_na_data_de_referencia(client, session):
-    """O saldo inclui a data de referência; a evolução exclui-a.
+def test_saldo_conta_e_evolucao_excluem_a_data_de_referencia(client, session):
+    """O saldo da conta e a evolução excluem os dois a data de referência.
+
+    O saldo de referência é o saldo no **fim** desse dia (decisão do
+    utilizador): já reflecte as transacções do dia, que não se somam outra vez.
 
     Cenário: conta "Activa" com saldo de referência 100.00 e referência em
     2025-01-10, e três transacções:
@@ -223,19 +226,19 @@ def test_saldo_conta_vs_evolucao_divergem_na_data_de_referencia(client, session)
       -20.00 em 2024-12-31  (antes da referência, não conta em lado nenhum)
 
     Cálculo à mão:
-      saldo: a query usa `data >= :data_referencia` (routers/contas.py:62):
-        entram +50.00 e +30.00 (o valor exactamente na data de referência
-        conta), fica de fora o -20.00 de 2024.
-        saldo = 100.00 + 50.00 + 30.00 = 180.0
+      saldo: a query usa `data > :data_referencia` (routers/contas.py:62):
+        entra só o +30.00; ficam de fora o +50.00 da própria data e o -20.00
+        de 2024.
+        saldo = 100.00 + 30.00 = 130.0
       evolução a 2025-01-31: o filtro é `data > conta.data_referencia`
         (servicos/patrimonio_serv.py:112): o +50.00 da própria data fica de
         fora, o +30.00 entra; a data_fim corta em 2025-01-31, sem activos.
         liquidez = 100.00 + 30.00 = 130.0
         total = liquidez + 0 + 0 = 130.0
 
-    DEVIDA-TECNICA: D3 — os dois endpoints divergem na fronteira da data de
-    referência (estrita numa, inclusiva na outra), por isso o mesmo cenário
-    dá 180.0 e 130.0. Ver o teste homólogo
+    Era a D3: o saldo usava `>=` e dava 180.0, enquanto a evolução dava 130.0
+    para a mesma conta, no mesmo ecrã (o cartão Liquidez e o gráfico da página
+    Património). Ver o teste homólogo
     `test_evolucao_exclui_transacao_na_data_de_referencia` em
     test_api_patrimonio.py.
 
@@ -254,7 +257,7 @@ def test_saldo_conta_vs_evolucao_divergem_na_data_de_referencia(client, session)
         "nome": "Activa",
         "saldo_referencia": 100.0,
         "data_referencia": "2025-01-10",
-        "saldo_atual": 180.0,
+        "saldo_atual": 130.0,
     }
 
     r_evolucao = client.get(

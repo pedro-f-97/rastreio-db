@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
+import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
 import { formatarEuros } from '../utils/formatacao';
@@ -170,6 +170,9 @@ export default function Ativos({ onDadosAlterados }) {
     return acc;
   }, {});
 
+  // Data local em AAAA-MM-DD, comparável com `data_preco` (D18)
+  const hoje = new Date().toLocaleDateString("sv-SE");
+
   function calcularResumoTipo(listaAtivos, resumos) {
     let custoTotal = 0;
     let valorAtualTotal = 0;
@@ -336,6 +339,9 @@ export default function Ativos({ onDadosAlterados }) {
                     const mmv = r?.mais_menos_valia;
                     const custo = r?.custo_total;
                     const pctAtivo = custo && custo !== 0 ? (mmv / Math.abs(custo)) * 100 : null;
+                    // Ainda detido e sem preço: a mais-valia não se sabe, não é zero (D12b)
+                    const semPreco = r != null && r.preco_atual == null &&
+                      (ativo.tipo.tem_unidades ? r.quantidade > 0 : r.custo_total !== 0);
                     return (
                       <Fragment key={ativo.id}>
                         <tr
@@ -388,13 +394,19 @@ export default function Ativos({ onDadosAlterados }) {
                               <div className="celula-valor-data">
                                 <span>{formatarEuros(r.valor_atual)}</span>
                                 {r.data_preco && (
-                                  <span className="data-preco">{r.data_preco}</span>
+                                  r.data_preco > hoje ? (
+                                    <span className="data-preco" title="Preço com data futura: confirma se a data está certa.">⚠ {r.data_preco}</span>
+                                  ) : (
+                                    <span className="data-preco">{r.data_preco}</span>
+                                  )
                                 )}
                               </div>
                             ) : "—"}
                           </td>
-                          <td className={`col-valor col-mono ${mmv != null ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
-                            {mmv != null ? (
+                          <td className={`col-valor col-mono ${mmv != null && !semPreco ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                            {semPreco ? (
+                              <span className="data-preco" title="Sem preço registado: regista um preço para ver a mais-valia.">sem preço</span>
+                            ) : mmv != null ? (
                               <div className="celula-valor-data">
                                 <span>{formatarEuros(mmv)}</span>
                                 {pctAtivo !== null && (
@@ -464,6 +476,7 @@ export default function Ativos({ onDadosAlterados }) {
                           <tr key={`exp-${ativo.id}`} className="linha-movimentos-container">
                             <td colSpan={7} className="celula-movimentos">
                               <MovimentosAtivo ativoId={ativo.id} onEliminar={aoEliminarMovimento} />
+                              <PrecosAtivo ativoId={ativo.id} onEliminar={aoEliminarMovimento} />
                             </td>
                           </tr>
                         )}
@@ -617,7 +630,7 @@ export default function Ativos({ onDadosAlterados }) {
             <p className="modal-subtitulo">{modalPreco.ativo.nome} {modalPreco.ativo.simbolo ? `· ${modalPreco.ativo.simbolo}` : ''}</p>
 
             <label className="label">Data
-              <input className="input" type="date" value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
+              <input className="input" type="date" max={hoje} value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
             </label>
             <label className="label">Preço unitário (€)
               <input className="input" type="number" step="0.0001" value={modalPreco.preco} onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))} />
@@ -648,7 +661,12 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
   }, [ativoId]);
 
   async function handleEliminar(movimentoId) {
-    await eliminarMovimento(movimentoId);
+    try {
+      await eliminarMovimento(movimentoId);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Erro ao eliminar movimento.");
+      return;
+    }
     const res = await getMovimentos(ativoId);
     setMovimentos(res.data);
     onEliminar();
@@ -679,6 +697,49 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
             <td className="col-mono">{m.comissao != null ? `${m.comissao.toFixed(2)} €` : "—"}</td>
             <td className="col-valor col-mono">{formatarEuros(m.valor_total)}</td>
             <td><button title="Eliminar registo" className="btn-ghost" onClick={() => handleEliminar(m.id)}>🗑</button></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function PrecosAtivo({ ativoId, onEliminar }) {
+  const [precos, setPrecos] = useState([]);
+
+  useEffect(() => {
+    getPrecos(ativoId).then((r) => setPrecos(r.data));
+  }, [ativoId]);
+
+  async function handleEliminar(precoId) {
+    try {
+      await eliminarPreco(precoId);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Erro ao eliminar preço.");
+      return;
+    }
+    const res = await getPrecos(ativoId);
+    setPrecos(res.data);
+    onEliminar();
+  }
+
+  if (precos.length === 0) return <p className="estado-vazio">Sem preços registados.</p>;
+
+  return (
+    <table className="tabela-base tabela-patrimonio tabela-aninhada">
+      <thead>
+        <tr>
+          <th>Data do preço</th>
+          <th className="col-valor">Preço</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {precos.map((p) => (
+          <tr key={p.id}>
+            <td className="col-mono">{p.data}</td>
+            <td className="col-valor col-mono">{formatarEuros(p.preco)}</td>
+            <td><button title="Eliminar preço" className="btn-ghost" onClick={() => handleEliminar(p.id)}>🗑</button></td>
           </tr>
         ))}
       </tbody>
