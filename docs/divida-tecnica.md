@@ -187,20 +187,20 @@ escolhido um dos dois e propagado.
 
 ## 🟡 D4 — Receita negativa desaparece de todos os totais
 
-`backend/routers/estatisticas.py:268-289` (`_calculate_totals`):
+`backend/routers/estatisticas.py:272-293` (`_calculate_totals`):
 
 ```python
-if t.categoria.tipo == receita and not t.reembolso and t.valor > 0:  # 280
-elif t.categoria.tipo == investimento:                              # 282
-elif t.valor < 0 and t.categoria.tipo != receita:                   # 284
-elif t.valor > 0 and t.reembolso:                                   # 286
+if t.categoria.tipo == receita and not t.reembolso and t.valor > 0:  # 284
+elif t.categoria.tipo == investimento:                               # 286
+elif t.valor < 0 and t.categoria.tipo != receita:                    # 288
+elif t.valor > 0:                                                    # 290
 ```
 
 Os números são das linhas da condição; a soma correspondente está logo a seguir,
-nas linhas 281, 283, 285 e 287.
+nas linhas 285, 287, 289 e 291.
 
 Uma transação de categoria `receita` com `valor` negativo (estorno, devolução
-de receita recebida) não satisfaz a linha 280 (`valor > 0` falha), nem a 284
+de receita recebida) não satisfaz a linha 284 (`valor > 0` falha), nem a 288
 (exclui explicitamente receitas). Não cai em nenhuma branch: **desaparece sem
 ser somada a nada**, e o mês fecha sem esse valor.
 
@@ -598,42 +598,44 @@ era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
   detectar automaticamente, permitir configuração do delimitador, ou documentar o
   requisito). ⚪
 
-## 🟡 D20 — Despesa positiva sem a marca de reembolso desaparece dos totais
+## 🟡 D20 — Despesa positiva sem a marca de reembolso desaparece dos totais — resolvido
 
-`backend/routers/estatisticas.py:268-289` (`_calculate_totals`), pelo outro lado
+`backend/routers/estatisticas.py:272-293` (`_calculate_totals`), pelo outro lado
 da D4:
 
 ```python
-elif t.valor < 0 and t.categoria.tipo != receita:   # 284
-    meses[chave]["despesas"] += t.valor           # 285
-elif t.valor > 0 and t.reembolso:                   # 286
-    meses[chave]["despesas"] += t.valor            # 287
+elif t.valor < 0 and t.categoria.tipo != receita:   # 288
+    meses[chave]["despesas"] += t.valor             # 289
+elif t.valor > 0:                                   # 290
+    meses[chave]["despesas"] += t.valor             # 291
 ```
 
 Uma transação de categoria `despesa` com `valor` positivo e **sem** a marca de
-reembolso não satisfaz a linha 284 (`valor < 0` falha), nem a 286 (exige a
-marca), nem as duas que ficam acima (não é receita nem é investimento).
-**Desaparece sem ser somada a nada** — mesma raiz da D4: nenhum ramo apanha o
-caso.
+reembolso não satisfaz a linha 288 (`valor < 0` falha), nem as duas que ficam
+acima (não é receita nem é investimento). Antes da correcção, o último ramo
+exigia a marca (`elif t.valor > 0 and t.reembolso:`), pelo que o valor
+**desaparecia sem ser somado a nada** — mesma raiz da D4: nenhum ramo apanhava
+o caso.
 
-Exemplo: `-45,50` seguido de `+30,00` sem marca fecham o mês com despesas
+Exemplo: `-45,50` seguido de `+30,00` sem marca fechavam o mês com despesas
 `-45,5` em vez de `-15,5`. A diferença na poupança é de 30,00, e a despesa
-recuperada nunca chega a aparecer em lado nenhum.
+recuperada nunca chegava a aparecer em lado nenhum.
 
-**Comportamento esperado (decisão do Pedro):** o correcto é uma despesa positiva
-estar marcada como reembolso; mas, como os valores seguem o sinal, a conta fica
-certa mesmo sem a marca — somar `+30,00` às despesas de `-45,50` dá `-15,5`, que
-é o valor certo. Por isso o valor **não pode ser ignorado**. Correcção: contar o
-valor em despesas sempre que não case noutro ramo, o que se faz fechando a
-cadeia com um ramo final em vez de a deixar terminar sem efeito.
+**Resolvido (decisão do Pedro: o sinal manda):** o correcto é uma despesa
+positiva estar marcada como reembolso; mas, como os valores seguem o sinal, a
+conta fica certa mesmo sem a marca — somar `+30,00` às despesas de `-45,50` dá
+`-15,5`, que é o valor certo. Por isso o valor **não pode ser ignorado**. Mudou
+`backend/routers/estatisticas.py:290`, o último ramo da cadeia: a condição
+passou de `elif t.valor > 0 and t.reembolso:` para `elif t.valor > 0:`. Como é
+o ramo final, qualquer valor positivo que não case com os três anteriores conta
+em despesas com o sinal que tem, e a marca de reembolso deixa de ser necessária
+para uma despesa entrar no cesto. Verificação nos dados reais (Pedro): existia
+1 caso, de 6,15 EUR, tratado pelo próprio.
 
-**Por verificar (Pedro):** se existem despesas com valor positivo sem a marca nos
-dados reais. Não foi consultado nenhum registo — o cenário é teórico e ficou
-construído para o teste.
-
-Fixo por `test_despesa_positiva_sem_marca_de_reembolso_desaparece` em
-`backend/tests/test_estatisticas_totais.py`, que fixa o comportamento **actual**
-(não o desejado), pelo que a correcção o faz falhar de propósito.
+Fixo por `test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas` em
+`backend/tests/test_estatisticas_totais.py`, que fixa o comportamento
+corrigido (`-45,50 + 30,00 = -15,5`, valor escrito à mão). A D4 continua aberta:
+a receita negativa continua sem ramo que a apanhe.
 
 ## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado
 

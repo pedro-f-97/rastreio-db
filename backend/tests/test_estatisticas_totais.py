@@ -269,13 +269,12 @@ def test_receita_negativa_desaparece_dos_totais():
     }
 
 
-def test_despesa_positiva_sem_marca_de_reembolso_desaparece():
-    # DEVIDA-TECNICA: D20
-    """Uma despesa positiva sem a marca de reembolso não cai em ramo nenhum.
+def test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas():
+    """Uma despesa positiva conta nas despesas mesmo sem a marca de reembolso.
 
-    Mesma raiz que a D4, pelo outro lado: a linha 284 exige `valor < 0` e a
-    linha 286 exige a marca de reembolso, e entre as duas não há nada que
-    apanhe este caso.
+    Decisão do Pedro (o sinal manda): o valor não pode ser ignorado só porque
+    a marca está desligada — os totais seguem o sinal, pelo que a marca de
+    reembolso já não é necessária para uma despesa entrar no cesto.
 
     Cálculo à mão:
       -45,50: ramo C, despesas = 0 + (-45,50) = -45,5
@@ -283,25 +282,20 @@ def test_despesa_positiva_sem_marca_de_reembolso_desaparece():
         ramo A não pega: o tipo não é receita
         ramo B não pega: não é investimento
         ramo C não pega: 30,00 não é < 0
-        ramo D não pega: a marca está desligada
-      despesas = -45,5, e fica -45,5
+        ramo D: 30,00 > 0, entra com o sinal que tem
+      despesas = -45,50 + 30,00 = -15,5
 
-    Comportamento actual: o valor desaparece e o mês fecha com as despesas de
-    antes. Comportamento esperado: contar na soma de despesas, ou seja
-    -45,5 + 30,00 = -15,5. A diferença na poupança é de 30,00.
-
-    A decisão de negócio (Pedro) é que o correcto é uma despesa positiva estar
-    marcada como reembolso; mas, como os valores seguem o sinal, a conta fica
-    certa mesmo sem a marca, e por isso o valor não pode ser ignorado. Este
-    teste fixa o comportamento actual, não o desejado.
+    Face ao comportamento antigo, em que o +30,00 desaparecia e o mês fechava
+    com -45,5, a diferença na poupança é de 30,00.
     """
     resultado = _calculate_totals([
         transacao(2025, 6, 3, TipoCategoria.despesa, -45.50),
         transacao(2025, 6, 18, TipoCategoria.despesa, 30.00),
     ])
 
+    # -45,50 + 30,00 = -15,50
     assert resultado == {
-        (2025, 6): {"receitas": 0, "despesas": -45.5, "investimento": 0},
+        (2025, 6): {"receitas": 0, "despesas": -15.5, "investimento": 0},
     }
 
 
