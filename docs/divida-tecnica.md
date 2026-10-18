@@ -227,7 +227,7 @@ um novo para a marca
 (`test_receita_negativa_marcada_como_reembolso_tambem_reduz_as_receitas`),
 ambos em `backend/tests/test_estatisticas_totais.py`.
 
-## 🟡 D5 — Transferências contaminam o denominador das médias do `/por-categoria` e do `/resumo-mensal`
+## 🟡 D5 — Transferências contaminam o denominador das médias do `/por-categoria` e do `/resumo-mensal` — resolvido
 
 `backend/routers/estatisticas.py:59-65` conta os meses distintos numa query
 que **não** exclui transferências; a query de totais do `/por-categoria`
@@ -256,6 +256,15 @@ Fixo por `test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento` e
 `backend/tests/test_api_estatisticas.py`, que fixam o comportamento actual com
 os valores calculados à mão; corrigir o denominador fazê-los-á falhar de
 propósito.
+
+**Resolvido (decisão do utilizador: convenção, sem mudar os números):** o
+fluxo pretendido é categorizar as transacções logo a seguir a importá-las, pelo
+que um mês só por categorizar dura minutos, e um mês só com transferências não
+acontece na prática. O comportamento fica como está e foi registado como
+convenção nas «Decisões de design» do `README.md`. O preenchimento com zeros,
+que era código morto, saiu de `por_categoria` num commit `refactor` à parte, e
+os testes existentes continuaram a passar sem mudar nenhum valor. Os dois
+testes acima deixaram de ter a etiqueta D5 e apontam para o README.
 
 ## 🔴 D6 — Restauro de backup valida só 3 das 11 tabelas — resolvido
 

@@ -111,6 +111,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 - Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas
 - Transferências internas são excluídas de todas as métricas para não distorcer os dados reais
+- As médias mensais das estatísticas contam todos os meses que têm transações, incluindo os que só têm transferências ou transações por categorizar; pressupõe-se que as transações importadas são categorizadas logo a seguir à importação
 - O sistema de regras usa correspondência por substring intuitiva
 - Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada
 - A base de dados fica em `dados/rastreio.db`, junto ao executável, para portabilidade e acesso fácil ao ficheiro

@@ -164,8 +164,8 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
       abril: só transferência: _calculate_totals ignora-a (o seu ramo de
         transferências), mas `todos_meses` não filtra transferências e o ciclo
         seguinte acrescenta o mês a zeros -> aparece no output a zeros. É a
-        mesma raiz da D5 a entrar no denominador das médias noutro endpoint
-        (DEVIDA-TECNICA: D5).
+        mesma convenção do denominador das médias no `/por-categoria` (ver
+        «Decisões de design» no README; era a D5).
       junho: só investimento: a chave do mês é criada com investimento
         -1000,0 e receitas/despesas a zero.
       fevereiro (sem transacções) não está em `todos_meses`, por isso não
@@ -242,7 +242,8 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
       `por_categoria` conta os meses de TODAS as transacções, sem excluir
       transferências, e a query de totais exclui-as (o seu `filter` de
       transferências) -> o mês 04 só com transferências entra
-      no denominador sem entrar no numerador (DEVIDA-TECNICA: D5).
+      no denominador sem entrar no numerador. É a convenção registada nas
+      «Decisões de design» do README (era a D5).
 
       Casa.totais é construído por LINHA da query (o ciclo de `resultados`),
       que agrupa por (ano, mes, categoria, subcategoria) no `group_by`: o mês
@@ -256,8 +257,8 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
 
       Casa:
         media   = round((-100 - 30 - 40 - 30) / 4, 2) = round(-200/4, 2)
-                = -50,0. Com a D5 corrigida (meses_distintos = 3), seria
-                round(-200/3, 2) = -66.67.
+                = -50,0 (sem o mês 04 no denominador seria
+                round(-200/3, 2) = -66.67).
         mediana = median([-100, -30, -40, -30]) = median([-100, -40, -30, -30])
                 = (-40,0 + -30,0) / 2 = -35,0
       Renda: totais [-100, -40]; os 2 meses sem Renda contam como zero só
