@@ -281,6 +281,9 @@ def _calculate_totals(transacoes):
 
         if t.categoria.tipo == TipoCategoria.receita and not t.reembolso and t.valor > 0:
             meses[chave]["receitas"] += t.valor
+        elif t.categoria.tipo == TipoCategoria.receita and t.valor < 0:
+            # Estorno de receita: reduz as receitas com o sinal que tem (D4)
+            meses[chave]["receitas"] += t.valor
         elif t.categoria.tipo == TipoCategoria.investimento:
             meses[chave]["investimento"] += t.valor
         elif t.valor < 0 and t.categoria.tipo != TipoCategoria.receita:

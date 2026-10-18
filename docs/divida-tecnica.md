@@ -196,7 +196,7 @@ utilizador vê dois saldos diferentes para a mesma conta.
 significar "antes desta data" ou "até esta data, exclusive". Tem de ser
 escolhido um dos dois e propagado.
 
-## 🟡 D4 — Receita negativa desaparece de todos os totais
+## 🟡 D4 — Receita negativa desaparece de todos os totais — resolvido
 
 `backend/routers/estatisticas.py:272-293` (`_calculate_totals`):
 
@@ -214,6 +214,18 @@ Uma transação de categoria `receita` com `valor` negativo (estorno, devoluçã
 de receita recebida) não satisfaz a linha 284 (`valor > 0` falha), nem a 288
 (exclui explicitamente receitas). Não cai em nenhuma branch: **desaparece sem
 ser somada a nada**, e o mês fecha sem esse valor.
+
+**Resolvido (decisão do utilizador: o sinal manda, como na D20):** um ramo novo
+em `_calculate_totals` (`backend/routers/estatisticas.py:284-286`) soma a
+receita negativa às `receitas`, com o sinal que tem: um estorno de -300,00 num
+mês com 1500,00 de salário fecha com receitas 1200,0. A marca de reembolso não
+muda nada numa receita negativa (só desvia as receitas **positivas** para as
+despesas). Só o resumo mensal é afectado (receitas, poupança e taxa de
+poupança): as vistas por categoria somam por SQL e já incluíam o valor. O teste
+de caracterização foi invertido (`test_receita_negativa_reduz_as_receitas`) e há
+um novo para a marca
+(`test_receita_negativa_marcada_como_reembolso_tambem_reduz_as_receitas`),
+ambos em `backend/tests/test_estatisticas_totais.py`.
 
 ## 🟡 D5 — Transferências contaminam o denominador das médias do `/por-categoria` e do `/resumo-mensal`
 
@@ -682,7 +694,7 @@ para uma despesa entrar no cesto. Verificação nos dados reais (utilizador): ex
 
 Fixo por `test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas` em
 `backend/tests/test_estatisticas_totais.py`, que fixa o comportamento
-corrigido (`-45,50 + 30,00 = -15,5`, valor escrito à mão). A D4 continua aberta:
+corrigido (`-45,50 + 30,00 = -15,5`, valor escrito à mão). Na altura, a D4 continuava aberta:
 a receita negativa continua sem ramo que a apanhe.
 
 ## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado
