@@ -170,6 +170,9 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     ativo = db.query(AtivoModel).filter(AtivoModel.id == payload.ativo_id).first()
     if not ativo:
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    # Um preço é uma observação: não pode ter data futura (D27)
+    if payload.data > date.today():
+        raise HTTPException(status_code=422, detail="A data do preço não pode ser futura.")
     # Upsert: se já existe preço para esta data, actualiza
     existente = (
         db.query(PrecoAtivoModel)
@@ -186,6 +189,26 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(preco)
     return preco
+
+@router.get("/ativos/{ativo_id}/precos", response_model=List[schemas.PrecoAtivo])
+def listar_precos(ativo_id: int, db: Session = Depends(get_db)):
+    ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()
+    if not ativo:
+        raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    return (
+        db.query(PrecoAtivoModel)
+        .filter(PrecoAtivoModel.ativo_id == ativo_id)
+        .order_by(PrecoAtivoModel.data.desc())
+        .all()
+    )
+
+@router.delete("/precos/{preco_id}", status_code=204)
+def eliminar_preco(preco_id: int, db: Session = Depends(get_db)):
+    preco = db.query(PrecoAtivoModel).filter(PrecoAtivoModel.id == preco_id).first()
+    if not preco:
+        raise HTTPException(status_code=404, detail="Preço não encontrado.")
+    db.delete(preco)
+    db.commit()
 
 @router.get("/ativos/{ativo_id}/resumo")
 def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):

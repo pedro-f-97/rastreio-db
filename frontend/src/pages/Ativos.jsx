@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo } from "../api/patrimonio";
+import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
 import { formatarEuros } from '../utils/formatacao';
@@ -476,6 +476,7 @@ export default function Ativos({ onDadosAlterados }) {
                           <tr key={`exp-${ativo.id}`} className="linha-movimentos-container">
                             <td colSpan={7} className="celula-movimentos">
                               <MovimentosAtivo ativoId={ativo.id} onEliminar={aoEliminarMovimento} />
+                              <PrecosAtivo ativoId={ativo.id} onEliminar={aoEliminarMovimento} />
                             </td>
                           </tr>
                         )}
@@ -629,7 +630,7 @@ export default function Ativos({ onDadosAlterados }) {
             <p className="modal-subtitulo">{modalPreco.ativo.nome} {modalPreco.ativo.simbolo ? `· ${modalPreco.ativo.simbolo}` : ''}</p>
 
             <label className="label">Data
-              <input className="input" type="date" value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
+              <input className="input" type="date" max={hoje} value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
             </label>
             <label className="label">Preço unitário (€)
               <input className="input" type="number" step="0.0001" value={modalPreco.preco} onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))} />
@@ -696,6 +697,49 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
             <td className="col-mono">{m.comissao != null ? `${m.comissao.toFixed(2)} €` : "—"}</td>
             <td className="col-valor col-mono">{formatarEuros(m.valor_total)}</td>
             <td><button title="Eliminar registo" className="btn-ghost" onClick={() => handleEliminar(m.id)}>🗑</button></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function PrecosAtivo({ ativoId, onEliminar }) {
+  const [precos, setPrecos] = useState([]);
+
+  useEffect(() => {
+    getPrecos(ativoId).then((r) => setPrecos(r.data));
+  }, [ativoId]);
+
+  async function handleEliminar(precoId) {
+    try {
+      await eliminarPreco(precoId);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Erro ao eliminar preço.");
+      return;
+    }
+    const res = await getPrecos(ativoId);
+    setPrecos(res.data);
+    onEliminar();
+  }
+
+  if (precos.length === 0) return <p className="estado-vazio">Sem preços registados.</p>;
+
+  return (
+    <table className="tabela-base tabela-patrimonio tabela-aninhada">
+      <thead>
+        <tr>
+          <th>Data do preço</th>
+          <th className="col-valor">Preço</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {precos.map((p) => (
+          <tr key={p.id}>
+            <td className="col-mono">{p.data}</td>
+            <td className="col-valor col-mono">{formatarEuros(p.preco)}</td>
+            <td><button title="Eliminar preço" className="btn-ghost" onClick={() => handleEliminar(p.id)}>🗑</button></td>
           </tr>
         ))}
       </tbody>

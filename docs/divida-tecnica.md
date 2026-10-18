@@ -1170,6 +1170,38 @@ Fixo por `test_sem_preco_degrada_o_latente_para_nulo` em
 (valor 0,0 com 100,00 de custo). **Decisão pendente (utilizador):** valer o
 custo, como os bens desde a D16, ou outra regra.
 
+## 🟡 D27 — Um preço registado não se pode apagar — resolvido
+
+Encontrado pelo utilizador ao testar a D18 na app. A API só tinha
+`POST /api/patrimonio/precos`, que grava ou actualiza o preço de um dia: não
+havia listagem, nem `DELETE`, nem histórico de preços na página Ativos. Um preço
+com o valor errado só se corrigia voltando a registar o mesmo dia; um preço com
+a **data** errada não se corrigia de todo. Com a D18 o caso da data futura
+ficava pior: registar o preço outra vez na data certa criava outra linha, e a
+futura continuava a ser «a mais recente», usada no resumo e no ponto de hoje,
+até essa data passar.
+
+**Resolvido (decisão do utilizador: listar e apagar, e recusar datas
+futuras):** em `backend/routers/patrimonio.py`:
+
+- `registar_preco` recusa com 422 «A data do preço não pode ser futura.» uma
+  data depois de hoje (um preço é uma observação); a data de hoje é aceite;
+- `GET /ativos/{id}/precos` (`listar_precos`) lista os preços do ativo, do mais
+  recente para o mais antigo;
+- `DELETE /precos/{id}` (`eliminar_preco`) apaga um preço.
+
+Na página Ativos (`frontend/src/pages/Ativos.jsx`), a linha expandida do ativo
+mostra os preços com um botão para apagar (`PrecosAtivo`, no mesmo padrão de
+`MovimentosAtivo`), e o campo de data do registo de preço não deixa escolher
+uma data futura (`max`). O «⚠» da D18 fica para preços futuros já gravados.
+
+Fica de fora: uma compra com `preco_unitario` e data futura continua a criar um
+preço futuro pela via de `criar_movimento`; a data dos movimentos não é
+validada. Testes novos em `backend/tests/test_api_patrimonio.py`:
+`test_registar_preco_com_data_futura_da_422`,
+`test_listar_precos_do_mais_recente_para_o_mais_antigo` e
+`test_eliminar_preco_apaga_so_esse_preco`.
+
 ---
 
 ## Regra a seguir

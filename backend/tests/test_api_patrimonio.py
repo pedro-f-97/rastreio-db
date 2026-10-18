@@ -777,6 +777,94 @@ def test_registar_preco_em_ativo_inexistente_da_404(client, session):
 # B23 — GET /api/patrimonio/ativos/{id}/resumo (só o 404)
 # ---------------------------------------------------------------------------
 
+def _hoje_fixo(monkeypatch, ano, mes, dia):
+    """Fixa o `date.today()` do router, como em
+    `test_evolucao_sem_parametros_usa_hoje_como_data_fim`."""
+    from datetime import date as Date
+
+    class HojeFixo(Date):
+        @classmethod
+        def today(cls):
+            return cls(ano, mes, dia)
+
+    monkeypatch.setattr(patrimonio_router, "date", HojeFixo)
+
+
+def test_registar_preco_com_data_futura_da_422(client, session, monkeypatch):
+    """Um preço com data depois de hoje é recusado; o de hoje é aceite (D27).
+
+    Cálculo à mão, com hoje = 2025-06-30:
+      2025-07-01 > 2025-06-30 -> 422, nada gravado
+      2025-06-30 = hoje       -> 200, 1 preço gravado
+    """
+    _hoje_fixo(monkeypatch, 2025, 6, 30)
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+
+    r_futuro = client.post("/api/patrimonio/precos",
+                           json={"ativo_id": ativo.id, "data": "2025-07-01", "preco": 20.0})
+    assert r_futuro.status_code == 422
+    assert r_futuro.json()["detail"] == "A data do preço não pode ser futura."
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 0
+
+    r_hoje = client.post("/api/patrimonio/precos",
+                         json={"ativo_id": ativo.id, "data": "2025-06-30", "preco": 20.0})
+    assert r_hoje.status_code == 200
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 1
+
+
+def test_listar_precos_do_mais_recente_para_o_mais_antigo(client, session):
+    """`GET /ativos/{id}/precos` lista só os preços do ativo, por data descendente.
+
+    Cálculo à mão: Acao com preços em 2025-01-10 (20.0) e 2025-03-01 (25.0);
+    outro ativo com um preço que não pode aparecer. Ordem esperada:
+    2025-03-01, 2025-01-10. Ativo inexistente -> 404.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    outro = semear_ativo(session, "Outra", tipo)
+    semear_preco(session, ativo, date(2025, 1, 10), 20.0)
+    semear_preco(session, ativo, date(2025, 3, 1), 25.0)
+    semear_preco(session, outro, date(2025, 2, 1), 99.0)
+
+    r = client.get(f"/api/patrimonio/ativos/{ativo.id}/precos")
+
+    assert r.status_code == 200
+    assert [(x["data"], x["preco"]) for x in r.json()] == [
+        ("2025-03-01", 25.0),
+        ("2025-01-10", 20.0),
+    ]
+    assert client.get("/api/patrimonio/ativos/999/precos").status_code == 404
+
+
+def test_eliminar_preco_apaga_so_esse_preco(client, session):
+    """`DELETE /precos/{id}` apaga o preço e o resumo passa a usar o anterior (D27).
+
+    Cálculo à mão: 10 un.; preços 20.0 (2025-01-10) e 25.0 (2025-03-01).
+    Antes: valor_atual = 10 x 25 = 250.0. Apagar o de 2025-03-01 -> 204,
+    fica 1 preço e valor_atual = 10 x 20 = 200.0. Apagar outra vez -> 404.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-200.0, quantidade=10)
+    semear_preco(session, ativo, date(2025, 1, 10), 20.0)
+    recente = semear_preco(session, ativo, date(2025, 3, 1), 25.0)
+
+    resumo = f"/api/patrimonio/ativos/{ativo.id}/resumo"
+    assert client.get(resumo).json()["valor_atual"] == 250.0
+
+    r = client.delete(f"/api/patrimonio/precos/{recente.id}")
+
+    assert r.status_code == 204
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 1
+    assert client.get(resumo).json()["valor_atual"] == 200.0
+    assert client.delete(f"/api/patrimonio/precos/{recente.id}").status_code == 404
+
+
 def test_resumo_de_ativo_inexistente_da_404(client, session):
     """O resumo de um ativo que não existe responde 404.
 
