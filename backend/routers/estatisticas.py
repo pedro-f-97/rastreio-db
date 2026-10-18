@@ -130,7 +130,6 @@ def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
         Transacao.subcategoria_id,
         Subcategoria.nome.label('subcategoria_nome'),
         Transacao.valor,
-        Transacao.reembolso,
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
         .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
         .filter(
@@ -194,7 +193,6 @@ def _query_transacoes_mes(db: Session, inicio, fim):
         Transacao.subcategoria_id,
         Subcategoria.nome.label('subcategoria_nome'),
         Transacao.valor,
-        Transacao.reembolso,
     ).join(Categoria, Transacao.categoria_id == Categoria.id)\
      .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
      .filter(
