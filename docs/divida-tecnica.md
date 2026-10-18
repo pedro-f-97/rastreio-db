@@ -1194,6 +1194,9 @@ Na página Ativos (`frontend/src/pages/Ativos.jsx`), a linha expandida do ativo
 mostra os preços com um botão para apagar (`PrecosAtivo`, no mesmo padrão de
 `MovimentosAtivo`), e o campo de data do registo de preço não deixa escolher
 uma data futura (`max`). O «⚠» da D18 fica para preços futuros já gravados.
+Confirmado pelo utilizador na app, sobre uma cópia da BD: o «⚠», a lista de
+preços, o apagar de um preço com data futura e a recusa de uma data futura no
+registo.
 
 Fica de fora: uma compra com `preco_unitario` e data futura continua a criar um
 preço futuro pela via de `criar_movimento`; a data dos movimentos não é
