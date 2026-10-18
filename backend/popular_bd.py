@@ -140,7 +140,7 @@ SEED_TIPOS_ATIVO = [
     ("Crypto", True),
     ("Ouro", True),
     ("Obrigações", True),
-    ("Certificados de Aforro", False),
+    ("Certificados de Aforro", True),  # subscritos em unidades (D12f)
     ("Veículo", False),
     ("Imóvel", False),
     ("Outro", False),

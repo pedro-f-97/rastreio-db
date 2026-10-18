@@ -655,13 +655,23 @@ isoladamente.
   invertido (`test_comissao_positiva_tambem_aumenta_a_saida`, -51,50 em vez de
   -48,50) e há um novo para a venda
   (`test_comissao_numa_entrada_reduz_o_que_entra`).
-- **D12f** — `popular_bd.py:145` — `"Certificados de Aforro"` está marcado
+- **D12f — resolvido** — `popular_bd.py:145` — `"Certificados de Aforro"` está marcado
   `tem_unidades=False`. A confirmar, sem evidência de ser erro: certificados de
   Aforro subscrevem-se por montante e o valor acumula com juros, não se
   negociam por unidades, pelo que o ramo sem unidades parece o correcto. Fica
   anotado porque a consequência é silenciosa — um certificado passa pelo
   cálculo de custo acumulado e nunca pelo FIFO. Se algum dia se registarem
   movementos parciais, há aqui uma divergência.
+  **Resolvido (decisão do utilizador: com unidades):** os Certificados de
+  Aforro são subscritos em unidades (cada uma vale 1 € à subscrição e
+  valoriza com os juros), e um resgate parcial é comum; sem unidades, pela
+  convenção da D17, qualquer resgate seria tratado como total. Em
+  `SEED_TIPOS_ATIVO` (`backend/popular_bd.py:143`) passaram a
+  `tem_unidades=True`. Só afecta instalações novas: a BD real não tem este
+  tipo (verificado numa cópia: só ETF, Crypto e Veículo), e o tipo continua
+  editável na página Tipos de Ativo. Teste novo:
+  `test_inicializar_cria_os_tipos_de_ativo_com_e_sem_unidades`
+  (`backend/tests/test_api_configuracao.py`), com a lista inteira escrita à mão.
 - **D12g** — `popular_bd.py:151-173` — `popular()` não semeia
   `SEED_TIPOS_ATIVO`, ao contrário de `routers/configuracao.py:29-39`. E o
   guard da linha 158 só olha para o número de categorias: se a BD já tiver

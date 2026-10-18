@@ -78,6 +78,30 @@ def test_inicializar_default_cria_categorias_tipos_e_configuracao(client, sessio
     assert session.query(TipoAtivo).count() == SEED_TIPOS_ATIVO_COUNT
 
 
+def test_inicializar_cria_os_tipos_de_ativo_com_e_sem_unidades(client, session):
+    """Os tipos iniciais e o `tem_unidades` de cada um, escritos à mão.
+
+    Com unidades (FIFO): ETF, Ações, Crypto, Ouro, Obrigações e Certificados de
+    Aforro, que são subscritos em unidades e podem ser resgatados em parte (era
+    a D12f: estavam sem unidades). Sem unidades (bens): Veículo, Imóvel, Outro.
+    """
+    r = client.post("/api/configuracao/inicializar?com_categorias=false")
+    assert r.status_code == 200
+
+    session.expire_all()
+    assert {t.nome: t.tem_unidades for t in session.query(TipoAtivo).all()} == {
+        "ETF": True,
+        "Ações": True,
+        "Crypto": True,
+        "Ouro": True,
+        "Obrigações": True,
+        "Certificados de Aforro": True,
+        "Veículo": False,
+        "Imóvel": False,
+        "Outro": False,
+    }
+
+
 def test_inicializar_sem_categorias_apenas_inicializa(client, session):
     r = client.post("/api/configuracao/inicializar?com_categorias=false")
     assert r.status_code == 200
