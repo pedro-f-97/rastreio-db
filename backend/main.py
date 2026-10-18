@@ -265,7 +265,7 @@ def _main() -> None:
     # utilizador pode aceder pelo browser.
     try:
         from tray import iniciar_tray
-        iniciar_tray(parar_servidor)
+        iniciar_tray(parar_servidor, PORTA)
         # Se chegámos aqui, a tray fechou-se (o utilizador fez quit no ícone).
         # O servidor deve terminar também.
         parar_servidor()

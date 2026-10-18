@@ -535,9 +535,18 @@ isoladamente.
   `test_extensao_db_maiuscula_e_aceite` (linha 737),
   `test_extensao_db_com_capitalizacao_mista_e_aceite` (linha 765) e
   `test_extensao_errada_continua_a_ser_rejeitada` (linha 790).
-- **D12i** — `tray.py:19` — porta `9742` hardcoded, duplicada de
+- **D12i — resolvido** — `tray.py:19` — porta `9742` hardcoded, duplicada de
   `main.PORTA` (`main.py:207`). Alterar uma e não a outra deixa a tray a
   abrir um URL morto.
+  **Resolvido:** `iniciar_tray` recebe a porta como argumento
+  (`backend/tray.py:6`) e monta o URL com ela (`tray.py:19`); `main.py:268`
+  passa-lhe `PORTA`, a mesma constante que o uvicorn usa. Testes novos em
+  `backend/tests/test_tray.py`: `test_abrir_no_browser_usa_a_porta_recebida`
+  (com um `tkinter` falso, o botão abre `http://localhost:12345` quando a porta
+  é 12345) e `test_main_passa_a_porta_a_tray` (lê `main.py` com `ast`, sem o
+  importar). Fica de fora a porta do frontend em dev (`frontend/vite.config.js`
+  e `frontend/src/api/client.js`), que só existe no `npm run dev` e não chega ao
+  executável.
 
 ### Documentação
 
