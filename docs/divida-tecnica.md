@@ -608,7 +608,7 @@ isoladamente.
   `test_criar_movimento_falha_no_preco_nao_grava_o_movimento`, que provoca a
   falha com um trigger que recusa o `INSERT` em `precos_ativo` e confirma que
   ficam 0 movimentos e 0 preços.
-- **D12d** — `parser_importacao.py:9-22` — `_parse_valor` não tem forma de
+- **D12d — resolvido** — `parser_importacao.py:9-22` — `_parse_valor` não tem forma de
   distinguir ponto decimal de separador de milhares. Isto **não** é um erro de
   configuração: com `separador_decimal="."`, `"1.234"` dar `1.234` é o
   comportamento correcto. O problema é o inverso — quando o ficheiro traz
@@ -617,6 +617,23 @@ isoladamente.
   parênteses de contabilidade (`(123,45)`) nem símbolos de moeda
   (`"1.234,56 €"`), que falham com `ErroParsing` — pelo menos esse caso é
   visível.
+  **Resolvido (decisão do utilizador: recusar, e a importação inteira):**
+  `_parse_valor` (`backend/parser_importacao.py`) recusa um texto numérico que
+  não bata com o separador do perfil: o separador decimal tem de aparecer no
+  máximo uma vez e no fim, e o outro só em grupos de milhares de 3 dígitos.
+  `1.234,56` com o perfil em ponto, `1,234.56` com o perfil em vírgula,
+  `45.60` com o perfil em vírgula e `1,5` com o perfil em ponto dão
+  `ErroParsing`; `1.234` com o perfil em ponto continua a ser 1,234, porque é
+  o que o perfil diz e o texto bate certo. E, por decisão do utilizador, uma
+  linha com erro recusa a importação inteira (ver D29), porque um valor
+  incoerente quer dizer que o perfil não serve para o ficheiro e os outros
+  valores também não merecem confiança. Verificado numa cópia da BD real: o
+  ActivoBank é xlsx (valores numéricos, não passam pelo texto) e o
+  TradeRepublic é CSV com ponto decimal, cujos valores (`8612.0`, `-1`)
+  continuam aceites; nenhuma transacção tem mais de 2 casas decimais. Os
+  parênteses de contabilidade e os símbolos de moeda continuam sem suporte e
+  dão erro visível. Testes na secção C de
+  `backend/tests/test_parser_importacao.py`.
 - **D12e** — `parser_importacao.py:107` — `fee` é somado com o sinal tal como
   vem (`valor += _parse_valor(raw_fee, ...)`). **Confirmado pelo utilizador:** no
   extracto do Trade Republic a comissão vem NEGATIVA (por exemplo `-1`). Para
@@ -1256,6 +1273,25 @@ pesquisa e não no motor de regras. Fixo por
 literal), ou ir mais longe e ignorar também os acentos, para «farmacia»
 encontrar «Farmácia». Qualquer das duas tira o filtro do SQL, o que tem de ser
 feito antes da paginação (o `total` tem de contar só as que casam).
+
+## 🟡 D29 — A importação ignorava as linhas com erro sem o dizer — resolvido
+
+Encontrado ao corrigir a D12d. `importar_extrato`
+(`backend/routers/importacao.py`) só recusava o ficheiro quando **nenhuma**
+linha era válida; com pelo menos uma válida, gravava essas e deixava as linhas
+com erro de fora, e a resposta (`inseridas`, `duplicadas`) não as mencionava.
+Só a pré-visualização as mostrava.
+
+**Resolvido (decisão do utilizador: qualquer erro recusa tudo):** se o parser
+devolver algum erro, a importação responde 400 e não grava nada, com a
+mensagem «Nada foi importado: o ficheiro tem N linha(s) com erro (a primeira é
+a linha L: ...). Corrige o ficheiro ou o perfil; a pré-visualização mostra
+todas.» O frontend já mostra o `detail` num `alert`. Consequência aceite: um
+extracto com uma linha de totais no fim tem de ser limpo antes de importar.
+Fica nas «Decisões de design» do `README.md`. Testes:
+`test_importar_sem_transacoes_validas_da_400` (mensagem nova) e
+`test_importar_com_uma_linha_com_erro_nao_importa_nenhuma`, em
+`backend/tests/test_api_importacao.py`.
 
 ---
 

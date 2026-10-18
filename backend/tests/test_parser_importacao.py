@@ -6,8 +6,8 @@ ficheiro inteiro (`parse_ficheiro`). Servem para que mexer no parser não mude
 nada sem dar conta: se um destes testes falhar, a mudança foi de propósito e
 tem de ser justificada.
 
-Nada aqui é corrigido. Onde o comportamento é questionável, fica marcado com
-`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`.
+Onde o comportamento é questionável, fica marcado com `# DEVIDA-TECNICA: Dn`,
+a remeter para `docs/divida-tecnica.md`.
 
 Todos os valores esperados são calculados à mão e escritos como constantes. O
 cálculo está no comentário de cada caso, dentro das tabelas do `parametrize` ou
@@ -23,8 +23,10 @@ reconhece símbolo nenhum.
 Convenções que estes testes fixam
 --------------------------------
 * `separador_decimal` decide o que é o ponto: com `","` os pontos são lidos
-  como separadores de milhares e apagados; com `"."` são as vírgulas. A função
-  não tem forma de distinguir um do outro (ver `DEVIDA-TECNICA: D12d`).
+  como separadores de milhares e apagados; com `"."` são as vírgulas. Desde a
+  D12d, um texto numérico que não bata com o perfil (o decimal que não é o
+  último separador, ou milhares sem grupos de 3 dígitos) dá `ErroParsing` em
+  vez de ser lido mil ou cem vezes errado (secção C).
 * `_parse_valor` não arredonda. Onde o valor sai directamente de `float(texto)`
   — quase sempre — a comparação é por `==` exacta, porque o literal escrito no
   teste e o literal interpretado pelo `float` são a mesma dupla. Só a secção E,
@@ -182,8 +184,8 @@ def test_valor_lido_com_o_separador_do_perfil(entrada, separador_decimal, espera
 # Secção B — _parse_valor: o que falha com ErroParsing
 # ---------------------------------------------------------------------------
 
-# DEVIDA-TECNICA: D12d (parênteses de contabilidade e símbolos de moeda não
-# são suportados; pelo menos a falha é visível, ao contrário dos milhares).
+# Parênteses de contabilidade e símbolos de moeda não são suportados; a falha
+# é visível (e desde a D12d recusa a importação inteira).
 @pytest.mark.parametrize(
     "entrada, separador_decimal, mensagem, nota",
     [
@@ -213,53 +215,57 @@ def test_valor_que_falha_levanta_erro_de_parsing(entrada, separador_decimal, men
 
 
 # ---------------------------------------------------------------------------
-# Secção C — milhares ambíguos: o valor lido mil vezes mais pequeno, em silêncio
+# Secção C — separador do perfil: o que bate certo e o que é recusado (D12d)
 # ---------------------------------------------------------------------------
 
-def test_milhares_sem_milhares_viram_decimal():
-    """Um valor de mil euros em ponto entra como um euro e meio.
+def test_ponto_com_perfil_em_ponto_e_decimal():
+    """Com o perfil em ponto, "1.234" é 1,234: é o que o perfil diz, e bate certo.
 
-    DEVIDA-TECNICA: D12d
+    O texto sozinho não distingue "mil duzentos e trinta e quatro" de "um
+    vírgula dois três quatro"; é para isso que o perfil existe. Este caso não
+    é recusado, porque com ponto decimal é um número bem formado.
     """
-    # O ficheiro queria dizer 1234 (1.234 x 1000). O perfil diz que o ponto é
-    # decimal, e o parser acredita-lhe: devolve 1.234, que é o valor verdadeiro
-    # dividido por mil. Nem erro, nem aviso, nem nada em `erros`: a importação
-    # parece ter corrido bem.
     assert _parse_valor("1.234", ".") == 1.234
 
 
-def test_milhares_ambiguos_em_valor_com_centimos():
-    """`1.234,56` com perfil em ponto perde as duas casas e a vírgula.
+@pytest.mark.parametrize(
+    "entrada, separador_decimal, calculo",
+    [
+        ("1.234,56", ".",
+         "o decimal do perfil (ponto) não é o último separador: era lido 1,23456"),
+        ("1,234.56", ",",
+         "o decimal do perfil (vírgula) não é o último separador: era lido 1,23456"),
+        ("45.60", ",",
+         "ponto como milhar mas com grupo de 2 dígitos: era lido 4560"),
+        ("1,5", ".",
+         "vírgula como milhar mas com grupo de 1 dígito: era lido 15"),
+        ("1.234,5.6", ",",
+         "dois separadores decimais"),
+    ],
+)
+def test_texto_incoerente_com_o_separador_do_perfil_e_recusado(entrada, separador_decimal, calculo):
+    """Era a D12d: estes textos eram lidos com um factor errado, sem aviso."""
+    with pytest.raises(ErroParsing) as erro:
+        _parse_valor(entrada, separador_decimal)
 
-    DEVIDA-TECNICA: D12d
-    """
-    # "1.234,56" -> tira a vírgula como se fosse milhar -> "1.23456", que é
-    # 1234,56 dividido por 1000 (1.234,56 x 1000 = 1234,56).
-    assert _parse_valor("1.234,56", ".") == 1.23456
+    assert str(erro.value) == (
+        f"valor '{entrada}' não corresponde ao separador decimal do perfil "
+        f"('{separador_decimal}')"
+    ), calculo
 
 
-def test_o_mesmo_texto_com_as_duas_configuracoes_difere_num_factor_de_mil():
-    """A diferença entre o perfil certo e o perfil errado é um factor de mil.
-
-    DEVIDA-TECNICA: D12d
-    """
-    com_virgula = _parse_valor("1.234,56", ",")  # 1.234,56 -> 1234,56 -> 1234.56
-    com_ponto = _parse_valor("1.234,56", ".")    # 1.234,56 -> 1.23456
-
-    assert com_virgula == 1234.56
-    assert com_ponto == 1.23456
-    # 1234,56 / 1,23456 = 1000. As duas leituras são ambas plausíveis à primeira
-    # vista e nenhuma das duas levanta dúvida: a diferença é um factor de mil.
-
-
-def test_ponto_decimal_comido_como_milhar():
-    """Com perfil em vírgula, um ponto decimal é lido como separador de milhar.
-
-    DEVIDA-TECNICA: D12d
-    """
-    # "45.60" -> "4560" = 4560,0. O valor verdadeiro é 45,60, e 45,60 x 100 =
-    # 4560,00: o ponto some e o valor sai multiplicado por cem.
-    assert _parse_valor("45.60", ",") == 4560.0
+@pytest.mark.parametrize(
+    "entrada, separador_decimal, esperado, calculo",
+    [
+        ("1.234.567,89", ",", 1234567.89, "dois grupos de milhares de 3 dígitos"),
+        ("8612.0", ".", 8612.0, "formato do TradeRepublic: uma casa decimal"),
+        ("-1", ".", -1.0, "sem separadores: inteiro com sinal"),
+        ("+20,00", ",", 20.0, "sinal positivo explícito"),
+        (",5", ",", 0.5, "sem parte inteira: float(\".5\") = 0,5"),
+    ],
+)
+def test_texto_coerente_com_o_separador_do_perfil_e_aceite(entrada, separador_decimal, esperado, calculo):
+    assert _parse_valor(entrada, separador_decimal) == esperado, calculo
 
 
 # ---------------------------------------------------------------------------

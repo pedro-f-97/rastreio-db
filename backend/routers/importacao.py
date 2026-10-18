@@ -40,6 +40,13 @@ async def importar_extrato(perfil_id: int, file: UploadFile = File(...), db: Ses
         resultado = parse_ficheiro(conteudo, perfil)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    if not resultado["transacoes"] and resultado["erros"]:
-        raise HTTPException(status_code=400, detail="Nenhuma transação válida encontrada. Verifica o perfil.")
+    # Uma linha com erro recusa o ficheiro inteiro: não se importa metade (D12d, D29)
+    erros = resultado["erros"]
+    if erros:
+        n = len(erros)
+        raise HTTPException(status_code=400, detail=(
+            f"Nada foi importado: o ficheiro tem {n} linha{'s' if n != 1 else ''} com erro "
+            f"(a primeira é a linha {erros[0]['linha']}: {erros[0]['erro']}). "
+            "Corrige o ficheiro ou o perfil; a pré-visualização mostra todas."
+        ))
     return importar_transacoes(resultado["transacoes"], db, conta_id=perfil.conta_id)

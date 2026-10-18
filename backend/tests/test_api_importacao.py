@@ -563,11 +563,11 @@ def test_importar_aplica_regras_de_categorizacao(client, session, tmp_path):
 
 
 def test_importar_sem_transacoes_validas_da_400(client, session, tmp_path):
-    """Só com erros e nenhuma transacção válida, o endpoint recusa com 400.
+    """Só com uma linha, e com erro, o endpoint recusa com 400.
 
-    cálculo à mão: a única linha de dados (linha 2) tem data inválida, logo
-    `transacoes == []` e `erros != []`; a guarda `not transacoes and erros`
-    (`importacao.py:43`) dispara e responde 400. A base de dados fica vazia.
+    Cálculo à mão: a única linha de dados (linha 2) tem data inválida, logo
+    `erros` tem 1 entrada; qualquer erro recusa o ficheiro (D12d, D29), com a
+    mensagem a apontar a linha 2. A base de dados fica vazia.
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
@@ -580,8 +580,44 @@ def test_importar_sem_transacoes_validas_da_400(client, session, tmp_path):
 
     assert r.status_code == 400
     assert r.json() == {
-        "detail": "Nenhuma transação válida encontrada. Verifica o perfil.",
+        "detail": (
+            "Nada foi importado: o ficheiro tem 1 linha com erro (a primeira é a "
+            "linha 2: data inválida: '31/02/2026' (formato esperado: %d/%m/%Y)). "
+            "Corrige o ficheiro ou o perfil; a pré-visualização mostra todas."
+        ),
     }
+    assert session.query(Transacao).count() == 0
+
+
+def test_importar_com_uma_linha_com_erro_nao_importa_nenhuma(client, session, tmp_path):
+    """Uma linha com erro recusa o ficheiro inteiro, mesmo com outras válidas.
+
+    Era a D29: a importação gravava as linhas válidas e ignorava as outras sem
+    o dizer na resposta. Decisão do utilizador: qualquer erro recusa tudo.
+    Cálculo à mão, perfil em vírgula:
+      linha 2 "-3,20"     -> válida
+      linha 3 "1,234.56"  -> o decimal (vírgula) não é o último separador -> erro
+      linha 4 "31/13/2026" -> data inválida -> erro
+      2 erros, o primeiro na linha 3 -> 400, e 0 transacções gravadas.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "misto.csv", (
+        "Data,Descrição,Valor",
+        '01/02/2026,Café,"-3,20"',
+        '02/02/2026,Renda,"1,234.56"',
+        '31/13/2026,Luz,"-40,00"',
+    ))
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 400
+    assert r.json()["detail"] == (
+        "Nada foi importado: o ficheiro tem 2 linhas com erro (a primeira é a "
+        "linha 3: valor '1,234.56' não corresponde ao separador decimal do "
+        "perfil (',')). Corrige o ficheiro ou o perfil; a pré-visualização "
+        "mostra todas."
+    )
     assert session.query(Transacao).count() == 0
 
 
@@ -589,7 +625,7 @@ def test_importar_ficheiro_sem_dados_da_200_com_zero(client, session, tmp_path):
     """Um ficheiro só com cabeçalho (zero transacções, zero erros) dá 200 a zeros.
 
     O parser devolve `{transacoes: [], total_linhas: 0, erros: []}`; como `erros`
-    está vazio, a guarda da linha 43 não dispara e chama-se
+    está vazio, a guarda dos erros não dispara e chama-se
     `importar_transacoes([])`, que devolve `{"inseridas": 0, "duplicadas": 0}`.
     Comportamento actual, considerado defensável: não haver nada para importar
     não é um erro. Fixa-se tal como está.

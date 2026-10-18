@@ -2,6 +2,7 @@ from datetime import datetime
 from openpyxl import load_workbook
 import csv
 import io
+import re
 
 class ErroParsing(Exception):
     pass
@@ -12,6 +13,16 @@ def _parse_valor(raw, separador_decimal: str) -> float:
     if isinstance(raw, (int, float)):
         return float(raw)
     texto = str(raw).strip().replace(" ", "").replace("\xa0", "")
+    # Um número com separadores tem de bater com o perfil: o decimal só uma vez
+    # e no fim, e o outro separador só em grupos de milhares de 3 dígitos (D12d)
+    milhares = "." if separador_decimal == "," else ","
+    coerente = (
+        rf"[+-]?(\d{{1,3}}(\{milhares}\d{{3}})+|\d*)(\{separador_decimal}\d+)?"
+    )
+    if re.fullmatch(r"[+-]?[\d.,]+", texto) and not re.fullmatch(coerente, texto):
+        raise ErroParsing(
+            f"valor '{raw}' não corresponde ao separador decimal do perfil ('{separador_decimal}')"
+        )
     if separador_decimal == ",":
         texto = texto.replace(".", "").replace(",", ".")
     else:
