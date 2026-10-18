@@ -105,16 +105,16 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
             }
         por_cat[cat_id]["subcategorias"][sub_id]["totais"].append(total)
 
+    # Os meses sem movimentos na categoria contam como zero na média, pelo
+    # denominador `meses_distintos`; a mediana usa só os meses com movimentos
     for cat in por_cat.values():
-        totais_completos = cat["totais"] + [0] * (meses_distintos - len(cat["totais"]))
         cat["mediana"] = round(median(cat["totais"]), 2) if cat["totais"] else 0
-        cat["media"] = round(sum(totais_completos) / meses_distintos, 2) if meses_distintos else 0
+        cat["media"] = round(sum(cat["totais"]) / meses_distintos, 2) if meses_distintos else 0
         del cat["totais"]
 
         for sub in cat["subcategorias"].values():
-            totais_completos = sub["totais"] + [0] * (meses_distintos - len(sub["totais"]))
             sub["mediana"] = round(median(sub["totais"]), 2) if sub["totais"] else 0
-            sub["media"] = round(sum(totais_completos) / meses_distintos, 2) if meses_distintos else 0
+            sub["media"] = round(sum(sub["totais"]) / meses_distintos, 2) if meses_distintos else 0
             del sub["totais"]
 
         cat["subcategorias"] = list(cat["subcategorias"].values())

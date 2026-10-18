@@ -260,11 +260,11 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
                 round(-200/3, 2) = -66.67.
         mediana = median([-100, -30, -40, -30]) = median([-100, -40, -30, -30])
                 = (-40,0 + -30,0) / 2 = -35,0
-      Renda: totais [-100, -40], preenchido em [-100, -40, 0, 0] (no
-        preenchimento com zeros de `por_categoria`)
+      Renda: totais [-100, -40]; os 2 meses sem Renda contam como zero só
+        pelo denominador (meses_distintos = 4)
         media   = round((-100 - 40) / 4, 2) = round(-140/4, 2) = -35,0
         mediana = (-100,0 + -40,0) / 2 = -70,0
-      Sem subcategoria: totais [-30, -30], preenchido em [-30, -30, 0, 0]
+      Sem subcategoria: totais [-30, -30], idem
         media   = round((-30 - 30) / 4, 2) = round(-60/4, 2) = -15,0
         mediana = (-30,0 + -30,0) / 2 = -30,0
 
