@@ -1187,8 +1187,9 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
 
     Cálculo à mão: ativo de investimento com 10 un. e um único preço a 20.00,
     registado em `2025-06-01`. Para `data_alvo=2025-03-31`, o filtro
-    `PrecoAtivoModel.data <= data_alvo` (`servicos/patrimonio_serv.py:137`)
-    não encontra preço e o valor é `0.0`.
+    `PrecoAtivoModel.data <= data_alvo` não encontra preço; desde a D26 o
+    ativo vale então o custo das unidades, `100.00`. Se o preço posterior
+    entrasse, valeria `10 x 20.00 = 200.00`.
 
     Vale para os pontos passados. O ponto de hoje usa o preço mais recente,
     como o resumo do ativo (ver
@@ -1207,8 +1208,8 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
 
     assert r.status_code == 200
     ponto = r.json()[0]
-    assert ponto["investimentos"] == 0.0
-    assert ponto["total"] == 0.0
+    assert ponto["investimentos"] == 100.0
+    assert ponto["total"] == 100.0
 
 
 def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(

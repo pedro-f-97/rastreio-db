@@ -98,7 +98,13 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
 
     quantidade = sum(l["quantidade"] for l in lotes)
     custo_base = sum(l["quantidade"] * l["custo_unitario"] for l in lotes)
-    valor = round(quantidade * float(preco.preco), 2) if (preco and quantidade > 0) else 0.0
+    if quantidade <= 0:
+        valor = 0.0
+    elif preco:
+        valor = round(quantidade * float(preco.preco), 2)
+    else:
+        # Sem preço registado, vale o custo das unidades em carteira (D26)
+        valor = round(custo_base, 2)
 
     return {"quantidade": quantidade, "custo_base": custo_base, "realizado": realizado, "valor": valor}
 

@@ -461,27 +461,21 @@ def test_ativo_sem_unidades_usa_o_valor_total_como_custo(client, session):
 # 9. Sem preco disponivel
 # ---------------------------------------------------------------------------
 
-def test_sem_preco_degrada_o_latente_para_nulo(client, session):
-    """Sem registo de preco: valor a zero e latente nulo.
+def test_sem_preco_vale_o_custo_e_o_latente_e_nulo(client, session):
+    """Sem registo de preco: o ativo vale o custo das unidades, latente nulo.
 
     Calculo a mao:
       custo_base = 10 x 10,00 = 100,00  (o FIFO corre todo)
-      valor_atual = 0,0 porque nao ha preco (so ha valor quando ha preco e
-                    quantidade maior que zero)
+      valor_atual = round(100,00, 2) = 100,00, o custo das unidades em
+                    carteira (era 0,0 ate a D26, como os bens ate a D16)
       custo_total = -100,00  (negativo, por convenção)
       latente = None, porque `preco_atual` e None
       mais_menos_valia = round(0,00 + 0,0, 2) = 0,00, o `ou 0,0` converte
         o latente nulo em zero
 
-    Os 100,00 de custo nao aparecem em lado nenhum: nem no valor, nem no
-    latente, nem no mais/menos-valia.
-
     A API mantem o latente nulo e o mais/menos-valia igual ao realizado; e a
     pagina Ativos que mostra «sem preco» para um ativo detido nestas
     condicoes (era a D12b).
-
-    DEVIDA-TECNICA: D26 — o valor 0,0 de um ativo com unidades e sem preco
-    nao foi tocado pela D16, que so tratou dos bens.
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes S", tipo)
@@ -494,7 +488,7 @@ def test_sem_preco_degrada_o_latente_para_nulo(client, session):
         resumo,
         quantidade=10.0,
         custo_total=-100.00,
-        valor_atual=0.0,
+        valor_atual=100.00,
         realizado=0.0,
         latente=None,
         mais_menos_valia=0.0,

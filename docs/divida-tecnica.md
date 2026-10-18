@@ -1256,7 +1256,7 @@ nesse estado. O teste de caracterização foi invertido
 `backend/tests/test_api_configuracao.py`), com uma categoria e um tipo da lista
 já existentes e uma subcategoria e um tipo fora dela.
 
-## ⚪ D26 — Ativo com unidades e sem preço desaparece do património
+## ⚪ D26 — Ativo com unidades e sem preço desaparece do património — resolvido
 
 O mesmo problema da D16, no ramo com unidades. Em `_resumo_valor_ativo`
 (`backend/servicos/patrimonio_serv.py:101`), um ativo com unidades em carteira
@@ -1278,6 +1278,17 @@ Fixo por `test_sem_preco_degrada_o_latente_para_nulo` em
 `backend/tests/test_patrimonio_fifo.py`, que fixa o comportamento **actual**
 (valor 0,0 com 100,00 de custo). **Decisão pendente (utilizador):** valer o
 custo, como os bens desde a D16, ou outra regra.
+
+**Resolvido (decisão do utilizador: o custo, como na D16):** sem preço
+registado, um ativo com unidades em carteira vale o custo FIFO dessas unidades
+(`custo_base`, `backend/servicos/patrimonio_serv.py`, ramo com unidades de
+`_resumo_valor_ativo`); com preço vale `quantidade x preço`, como antes, e sem
+unidades vale 0. A página Ativos mostra «sem preço» na mais-valia (D12b). Vale
+também para a evolução: um ponto anterior ao primeiro preço conta pelo custo.
+Testes actualizados: `test_sem_preco_vale_o_custo_e_o_latente_e_nulo`
+(`backend/tests/test_patrimonio_fifo.py`) e
+`test_evolucao_ignora_preco_posterior_ao_data_alvo` (100,00 em vez de 0,00,
+`backend/tests/test_api_patrimonio.py`).
 
 ## 🟡 D27 — Um preço registado não se pode apagar — resolvido
 
