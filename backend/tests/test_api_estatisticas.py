@@ -227,8 +227,8 @@ def test_resumo_mensal_com_bd_vazia_devolve_media_e_mediana_zero(client, session
 # A3/A4 — GET /api/estatisticas/por-categoria
 # ---------------------------------------------------------------------------
 
-def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, session):
-    """A média usa o denominador com meses de transferências; a mediana não.
+def test_por_categoria_media_e_mediana_mensais_com_zeros(client, session):
+    """A média e a mediana usam os mesmos meses, e os meses vazios contam zero.
 
     Cenário semeado:
       2025-03-10  Casa/Renda       -100,00
@@ -245,29 +245,24 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
       no denominador sem entrar no numerador. É a convenção registada nas
       «Decisões de design» do README (era a D5).
 
-      Casa.totais é construído por LINHA da query (o ciclo de `resultados`),
-      que agrupa por (ano, mes, categoria, subcategoria) no `group_by`: o mês
-      03 dá duas linhas (Renda -100 e "Sem subcategoria" -30), não a soma
-      mensal -130.
-      totais = [-100, -30, -40, -30].
+      A query agrupa por (ano, mes, categoria, subcategoria); a categoria
+      soma as linhas de cada mês: o mês 03 é Renda -100 + "Sem subcategoria"
+      -30 = -130. Os meses sem movimentos contam como zero, na média e na
+      mediana (era a D23: a mediana era por linha e sem os zeros).
 
-      A mediana da categoria é calculada sobre estes totais por (mês,
-      subcategoria); se fosse mensal seria [-130, -40, -30] -> mediana -40,0
-      (DEVIDA-TECNICA: D23 — decisão pendente).
-
-      Casa:
-        media   = round((-100 - 30 - 40 - 30) / 4, 2) = round(-200/4, 2)
-                = -50,0 (sem o mês 04 no denominador seria
-                round(-200/3, 2) = -66.67).
-        mediana = median([-100, -30, -40, -30]) = median([-100, -40, -30, -30])
-                = (-40,0 + -30,0) / 2 = -35,0
-      Renda: totais [-100, -40]; os 2 meses sem Renda contam como zero só
-        pelo denominador (meses_distintos = 4)
-        media   = round((-100 - 40) / 4, 2) = round(-140/4, 2) = -35,0
-        mediana = (-100,0 + -40,0) / 2 = -70,0
-      Sem subcategoria: totais [-30, -30], idem
-        media   = round((-30 - 30) / 4, 2) = round(-60/4, 2) = -15,0
-        mediana = (-30,0 + -30,0) / 2 = -30,0
+      Casa, totais mensais [mar -130, abr 0, mai -40, jun -30]:
+        media   = round(-200 / 4, 2) = -50,0 (sem o mês 04 no denominador
+                seria round(-200/3, 2) = -66.67)
+        mediana = median([-130, -40, -30, 0]) = (-40 + -30) / 2 = -35,0
+                (coincide com a mediana antiga por linha; o teste
+                `test_por_categoria_mediana_por_mes_e_nao_por_subcategoria`
+                separa os dois cálculos)
+      Renda, [mar -100, abr 0, mai -40, jun 0]:
+        media   = round(-140 / 4, 2) = -35,0
+        mediana = median([-100, -40, 0, 0]) = (-40 + 0) / 2 = -20,0
+      Sem subcategoria, [mar -30, abr 0, mai 0, jun -30]:
+        media   = round(-60 / 4, 2) = -15,0
+        mediana = median([-30, -30, 0, 0]) = (-30 + 0) / 2 = -15,0
 
       Transferência não aparece (o `filter` de transferências da query).
 
@@ -300,8 +295,8 @@ def test_por_categoria_media_com_zeros_e_mediana_sem_preenchimento(client, sessi
     assert casa_r["media"] == -50.0
     assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
             for s in casa_r["subcategorias"]} == {
-        "Renda": (-70.0, -35.0),
-        "Sem subcategoria": (-30.0, -15.0),
+        "Renda": (-20.0, -35.0),
+        "Sem subcategoria": (-15.0, -15.0),
     }
     assert session.query(Transacao).count() == 5
 
@@ -337,10 +332,68 @@ def test_por_categoria_com_ano_filtra_meses_e_transacoes(client, session):
     assert casa_r["media"] == -50.0
     assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
             for s in casa_r["subcategorias"]} == {
-        "Renda": (-70.0, -35.0),
-        "Sem subcategoria": (-30.0, -15.0),
+        "Renda": (-20.0, -35.0),
+        "Sem subcategoria": (-15.0, -15.0),
     }
     assert session.query(Transacao).count() == 7
+
+
+def test_por_categoria_mediana_por_mes_e_nao_por_subcategoria(client, session):
+    """A mediana da categoria é a dos totais mensais, com os meses vazios a zero.
+
+    Era a D23. O cenário foi escolhido para que as quatro maneiras de calcular
+    dêem quatro valores diferentes.
+
+    Cenário semeado (meses_distintos = 4: jan, fev, mar, abr):
+      2025-01-05  Casa/A   -100,00
+      2025-01-06  Casa/B    -60,00
+      2025-02-07  Casa/A    -20,00
+      2025-03-08  Lazer      -5,00   (o único movimento de março)
+      2025-04-09  Casa/B    -10,00
+
+    Casa, totais mensais [jan -160, fev -20, mar 0, abr -10]:
+      mediana = median([-160, -20, -10, 0]) = (-20 + -10) / 2 = -15,0
+      media   = -190 / 4 = -47,5
+      Os cálculos rejeitados davam: por linha sem zeros
+      median([-100, -60, -20, -10]) = -40,0; por mês sem zeros
+      median([-160, -20, -10]) = -20,0.
+    Casa/A, [-100, -20, 0, 0]: mediana (-20 + 0) / 2 = -10,0; media -120/4 = -30,0
+    Casa/B, [-60, 0, 0, -10]:  mediana (-10 + 0) / 2 = -5,0;  media -70/4 = -17,5
+    Lazer (esporádica), [0, 0, -5, 0]: mediana 0,0; media -5/4 = -1,25
+      Sem os zeros, a «mediana mensal» do Lazer seria -5,0, um gasto que só
+      houve num mês em quatro.
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    sub_a = semear_subcategoria(session, "A", casa)
+    sub_b = semear_subcategoria(session, "B", casa)
+    lazer = semear_categoria(session, "Lazer", TipoCategoria.despesa)
+
+    semear_transacao(session, date(2025, 1, 5), "A1", -100.00, casa, sub_a)
+    semear_transacao(session, date(2025, 1, 6), "B1", -60.00, casa, sub_b)
+    semear_transacao(session, date(2025, 2, 7), "A2", -20.00, casa, sub_a)
+    semear_transacao(session, date(2025, 3, 8), "Cinema", -5.00, lazer)
+    semear_transacao(session, date(2025, 4, 9), "B2", -10.00, casa, sub_b)
+
+    r = client.get("/api/estatisticas/por-categoria")
+
+    assert r.status_code == 200
+    por_nome = {c["categoria_nome"]: c for c in r.json()}
+    assert set(por_nome) == {"Casa", "Lazer"}
+
+    assert por_nome["Casa"]["mediana"] == -15.0
+    assert por_nome["Casa"]["media"] == -47.5
+    assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
+            for s in por_nome["Casa"]["subcategorias"]} == {
+        "A": (-10.0, -30.0),
+        "B": (-5.0, -17.5),
+    }
+
+    assert por_nome["Lazer"]["mediana"] == 0.0
+    assert por_nome["Lazer"]["media"] == -1.25
+    assert [(s["subcategoria_nome"], s["mediana"], s["media"])
+            for s in por_nome["Lazer"]["subcategorias"]] == [
+        ("Sem subcategoria", 0.0, -1.25),
+    ]
 
 
 # ---------------------------------------------------------------------------

@@ -899,7 +899,7 @@ falhas simuladas por `monkeypatch`:
 `test_falha_a_meio_da_reposicao_nao_corta_a_bd`. Os dois últimos cobrem o
 rollback que a D6 deixou «por cobrir».
 
-## 🟡 D23 — Mediana por categoria do `/por-categoria` é sobre totais por (mês, subcategoria)
+## 🟡 D23 — Mediana por categoria do `/por-categoria` é sobre totais por (mês, subcategoria) — resolvido
 
 A mediana de cada categoria do `/por-categoria` é calculada sobre os totais
 da **linha** da query, e não sobre totais mensais. A query agrupa por
@@ -924,6 +924,27 @@ e o denominador é `meses_distintos` (linha 111).
 
 **Decisão pendente (utilizador):** qual é a mediana pretendida — por mês, ou por
 (mês, subcategoria)?
+
+**Resolvido (decisão do utilizador: por mês, com os meses vazios a zero):** a
+coluna chama-se «Mediana mensal» e aparece ao lado da «Média mensal»
+(`frontend/src/pages/Estatisticas.jsx:287-288`), por isso as duas passam a
+descrever os mesmos meses. Em `por_categoria` (`backend/routers/estatisticas.py`):
+
+- a categoria soma as linhas de cada mês antes de calcular a mediana
+  (`por_mes`, linha 108);
+- `_mediana_mensal` (linha 57) acrescenta um zero por cada mês do período sem
+  movimentos (`meses_distintos`), tal como a média já fazia pelo denominador;
+- o mesmo vale para as subcategorias.
+
+Isto também resolve o caso das categorias esporádicas: Férias com -1200,00 em
+2 meses de 12 tinha «mediana mensal» -1200,00; passa a 0,00, ao lado da média
+de -200,00. Pela convenção da D5, os meses só com transferências também
+contam como zero. Os dois testes do `/por-categoria` em
+`backend/tests/test_api_estatisticas.py` passaram a afirmar as medianas novas
+(Renda -70 → -20, Sem subcategoria -30 → -15; a Casa fica em -35 por
+coincidência), e o teste novo
+`test_por_categoria_mediana_por_mes_e_nao_por_subcategoria` usa um cenário em
+que as quatro maneiras de calcular dão valores diferentes.
 
 ## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400) — resolvido
 
