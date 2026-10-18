@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from database import get_db, Categoria, Subcategoria, Configuracao, TipoCategoria, TipoAtivo
-from dados_iniciais import CATEGORIAS_MINIMALISTA, CATEGORIAS_COMPLETO, TIPOS, PerfilCategorias, SEED_TIPOS_ATIVO
+from database import get_db, Configuracao
+from dados_iniciais import PerfilCategorias, semear_dados_iniciais
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
 
@@ -22,21 +22,7 @@ def inicializar(
     if config and config.inicializado:
         return {"ok": False, "mensagem": "Base de dados já inicializada"}
 
-    if com_categorias:
-        categorias = (
-            CATEGORIAS_MINIMALISTA if perfil == PerfilCategorias.minimalista else CATEGORIAS_COMPLETO
-        )
-        for nome_cat, subcategorias in categorias.items():
-            cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
-            db.add(cat)
-            db.flush()
-            for nome_sub, trata_patrimonio in subcategorias:
-                sub = Subcategoria(nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio)
-                db.add(sub)
-
-    if db.query(TipoAtivo).count() == 0:
-        for nome, tem_unidades in SEED_TIPOS_ATIVO:
-            db.add(TipoAtivo(nome=nome, tem_unidades=tem_unidades))
+    semear_dados_iniciais(db, perfil, com_categorias)
 
     if config:
         config.inicializado = True

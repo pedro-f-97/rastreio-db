@@ -672,10 +672,18 @@ isoladamente.
   editável na página Tipos de Ativo. Teste novo:
   `test_inicializar_cria_os_tipos_de_ativo_com_e_sem_unidades`
   (`backend/tests/test_api_configuracao.py`), com a lista inteira escrita à mão.
-- **D12g** — `popular_bd.py:151-173` — `popular()` não semeia
+- **D12g — resolvido** — `popular_bd.py:151-173` — `popular()` não semeia
   `SEED_TIPOS_ATIVO`, ao contrário de `routers/configuracao.py:29-39`. E o
   guard da linha 158 só olha para o número de categorias: se a BD já tiver
   categorias mas nenhum tipo de ativo, `popular()` sai sem os semear.
+  **Resolvido (decisão do utilizador, com a D25):** os dados iniciais ficaram
+  num só sítio. `popular_bd.py` passou a chamar-se `backend/dados_iniciais.py`
+  (commit `refactor` à parte) e guarda as listas e a função
+  `semear_dados_iniciais`, que o `/inicializar` chama. O `popular()` e o modo
+  de script (pergunta interactiva) saíram: a página de primeiro uso faz o
+  mesmo, com os tipos de ativo e a marca «inicializado», e funciona no
+  executável. A receita de recriar a BD no `NOTES.md` passou a usar a página de
+  primeiro uso.
 - **D12h — resolvido** — `routers/backups.py:104` — `filename.endswith(".db")` é
   case-sensitive: um ficheiro `BACKUP.DB` é rejeitado, e a recusa não diz
   porquê.
@@ -1191,7 +1199,7 @@ um teste do PUT com o próprio nome a 200:
 `test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200`
 (`backend/tests/test_api_tipos_ativo.py`).
 
-## ⚪ D25 — `/api/configuracao/inicializar` semeia categorias duplicadas e dá 500
+## ⚪ D25 — `/api/configuracao/inicializar` semeia categorias duplicadas e dá 500 — resolvido
 
 `POST /api/configuracao/inicializar` (`backend/routers/configuracao.py:15-48`)
 só guarda contra a re-semente quando existe uma linha `Configuracao` já marcada
@@ -1215,6 +1223,17 @@ Fixo por `test_inicializar_com_categorias_existentes_sem_config_integrity` em
 `backend/tests/test_api_configuracao.py`, que fixa o comportamento **actual**:
 com uma categoria "Casa" na BD e sem linha `Configuracao`, o pedido rebenta com
 `IntegrityError` e nada fica inicializado.
+
+**Resolvido (decisão do utilizador: semear de forma idempotente, com a
+D12g):** `semear_dados_iniciais` (`backend/dados_iniciais.py`) cria, pelo
+nome, só as categorias, subcategorias e tipos de ativo que faltam; o que já
+existe não é tocado, e o `/inicializar` deixa de poder dar 500 por nome
+duplicado. Isto cobre os dois caminhos que levavam ao erro: uma BD criada pelo
+antigo `popular_bd.py` (categorias sem configuração) e o restauro de um backup
+nesse estado. O teste de caracterização foi invertido
+(`test_inicializar_com_dados_existentes_cria_so_o_que_falta`, em
+`backend/tests/test_api_configuracao.py`), com uma categoria e um tipo da lista
+já existentes e uma subcategoria e um tipo fora dela.
 
 ## ⚪ D26 — Ativo com unidades e sem preço desaparece do património
 

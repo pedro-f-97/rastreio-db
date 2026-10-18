@@ -1,5 +1,6 @@
 from enum import Enum
-from database import SessionLocal, Categoria, Subcategoria, criar_tabelas, TipoCategoria
+from sqlalchemy.orm import Session
+from database import Categoria, Subcategoria, TipoAtivo, TipoCategoria
 
 
 class PerfilCategorias(str, Enum):
@@ -146,37 +147,30 @@ SEED_TIPOS_ATIVO = [
     ("Outro", False),
 ]
 
-def popular(perfil: PerfilCategorias = PerfilCategorias.completo):
-    categorias = (
-        CATEGORIAS_MINIMALISTA if perfil == PerfilCategorias.minimalista else CATEGORIAS_COMPLETO
-    )
+def semear_dados_iniciais(db: Session, perfil: PerfilCategorias, com_categorias: bool) -> None:
+    """Cria, pelo nome, só o que falta das listas iniciais (D12g, D25).
 
-    session = SessionLocal()
+    O que já existe não é tocado, pelo que pode correr sobre uma BD com dados
+    sem dar erro de nome duplicado. Não faz commit: quem chama decide.
+    """
+    if com_categorias:
+        categorias = (
+            CATEGORIAS_MINIMALISTA if perfil == PerfilCategorias.minimalista else CATEGORIAS_COMPLETO
+        )
+        existentes = {c.nome: c for c in db.query(Categoria).all()}
+        for nome_cat, subcategorias in categorias.items():
+            cat = existentes.get(nome_cat)
+            if cat is None:
+                cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
+                db.add(cat)
+                db.flush()
+            nomes_sub = {s.nome for s in cat.subcategorias}
+            for nome_sub, trata_patrimonio in subcategorias:
+                if nome_sub not in nomes_sub:
+                    db.add(Subcategoria(nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio))
+                    nomes_sub.add(nome_sub)
 
-    if session.query(Categoria).count() > 0:
-        print("A base de dados já tem categorias. Popular cancelado.")
-        session.close()
-        return
-
-    for nome_cat, subcategorias in categorias.items():
-        cat = Categoria(nome=nome_cat, tipo=TIPOS.get(nome_cat, TipoCategoria.despesa))
-        session.add(cat)
-        session.flush()
-        for nome_sub, trata_patrimonio in subcategorias:
-            sub = Subcategoria(nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio)
-            session.add(sub)
-
-    session.commit()
-    session.close()
-    print(f"Categorias e subcategorias criadas com sucesso! (perfil: {perfil.value})")
-
-
-def _perfil_via_input() -> PerfilCategorias:
-    resposta = input("Perfil de categorias [minimalista/completo] (default: completo): ").strip().lower()
-    if resposta == "minimalista":
-        return PerfilCategorias.minimalista
-    return PerfilCategorias.completo
-
-
-if __name__ == "__main__":
-    popular(_perfil_via_input())
+    tipos_existentes = {t.nome for t in db.query(TipoAtivo).all()}
+    for nome, tem_unidades in SEED_TIPOS_ATIVO:
+        if nome not in tipos_existentes:
+            db.add(TipoAtivo(nome=nome, tem_unidades=tem_unidades))

@@ -47,11 +47,9 @@ uvicorn main:app --reload --port 9742
 cd backend
 source venv/bin/activate
 export RASTREIO_DB_DIR=/tmp/rastreio-nova   # a BD fica em /tmp/rastreio-nova/dados/rastreio.db
-python database.py
-python dados_iniciais.py
-uvicorn main:app --reload --port 9742       # no mesmo terminal, para herdar a variável
+uvicorn main:app --reload --port 9742       # cria as tabelas no arranque
 ```
-`dados_iniciais.py` semeia apenas a estrutura de categorias/subcategorias — não é ponto de partida para dados de transações.
+Abrir a app: a BD vazia mostra a página de primeiro uso, que cria as categorias, as subcategorias e os tipos de ativo (`POST /api/configuracao/inicializar`). Não há dados de transações: importam-se pela página Importação.
 
 Para substituir mesmo a BD real, fazer primeiro um backup (botão de backup na página Transações, ou `cp backend/dados/rastreio.db ~/rastreio-backup-$(date +%F).db`) e só depois mexer no ficheiro.
 

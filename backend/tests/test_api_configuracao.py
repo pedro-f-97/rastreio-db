@@ -7,7 +7,8 @@ Cobre os três endpoints de `backend/routers/configuracao.py`:
 * `POST /inicializar` (`:15-48`) — com parâmetros `com_categorias` (True) e
   `perfil` (completo/minimalista). Ao inicializar com `perfil=completo`,
   semeia **15 categorias** e **53 subcategorias** (constantes lidas de
-  `backend/dados_iniciais.py`), e **9 tipos de ativo** quando a tabela está vazia;
+  `backend/dados_iniciais.py`) e **9 tipos de ativo**, criando só os que faltam
+  pelo nome (`semear_dados_iniciais`);
   devolve `200 {"ok": False, ...}` se já `inicializado`, e `200 {"ok": True,
   ...}` caso contrário;
 * `POST /tour-visto` (`:50-58`) — marca `tour_visto=True`; **comportamento
@@ -21,14 +22,9 @@ real (ver `conftest.py`). Como a fixture `client` e a fixture `session`
 partilham a sessão SQLAlchemy, as verificações de estado começam por
 `session.expire_all()`.
 
-Quando relevante (ex.: `IntegrityError`), segue-se `session.rollback()` antes de
-afirmar o estado.
 """
 
 from datetime import date
-
-import pytest
-from sqlalchemy.exc import IntegrityError
 
 from database import Categoria, Configuracao, Subcategoria, TipoAtivo, TipoCategoria
 
@@ -126,15 +122,50 @@ def test_inicializar_ja_inicializada_nao_faz_nada(client, session):
     assert session.query(Configuracao).count() == 1
 
 
-def test_inicializar_com_categorias_existentes_sem_config_integrity(client, session):
-    session.add(Categoria(nome="Casa", tipo=TipoCategoria.despesa))
+def test_inicializar_com_dados_existentes_cria_so_o_que_falta(client, session):
+    """Sem linha `Configuracao` mas com dados, o `/inicializar` completa-os.
+
+    Era a D25: com uma categoria "Casa" e sem configuração, o pedido
+    rebentava com `IntegrityError` (nome duplicado) e nada ficava inicializado.
+    Agora `semear_dados_iniciais` cria só o que falta, pelo nome.
+
+    Semente: categoria Casa com as subcategorias Renda (que está na lista) e
+    Jardim (que não está); tipos de ativo ETF (na lista) e Arte (fora dela).
+
+    Cálculo à mão, perfil completo (15 categorias, 53 subcategorias, 9 tipos):
+      categorias:    Casa já existe -> criadas 14 -> total 15, Casa com o mesmo id
+      subcategorias: a Casa da lista tem 9; Renda já existe -> criadas 8 na Casa;
+                     as outras 14 categorias trazem 53 - 9 = 44 -> criadas 52;
+                     total = 2 (Renda, Jardim) + 52 = 54; Casa fica com 10
+      tipos:         ETF já existe -> criados 8 -> total 2 + 8 = 10
+      configuração:  1 linha, inicializado = True
+    """
+    casa = Categoria(nome="Casa", tipo=TipoCategoria.despesa)
+    session.add(casa)
     session.commit()
-    with pytest.raises(IntegrityError, match="UNIQUE constraint failed: categorias.nome"):
-        client.post("/api/configuracao/inicializar")
-    session.rollback()
+    session.add_all([
+        Subcategoria(nome="Renda", categoria_id=casa.id),
+        Subcategoria(nome="Jardim", categoria_id=casa.id),
+        TipoAtivo(nome="ETF", tem_unidades=True),
+        TipoAtivo(nome="Arte", tem_unidades=False),
+    ])
+    session.commit()
+    casa_id = casa.id
+
+    r = client.post("/api/configuracao/inicializar")
+
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "mensagem": "Categorias e subcategorias criadas com sucesso"}
     session.expire_all()
-    assert session.query(Categoria).count() == 1
-    assert session.query(Configuracao).count() == 0
+    assert session.query(Categoria).count() == 15
+    assert session.query(Categoria).filter_by(nome="Casa").one().id == casa_id
+    assert session.query(Subcategoria).count() == 54
+    assert session.query(Subcategoria).filter_by(categoria_id=casa_id).count() == 10
+    assert session.query(Subcategoria).filter_by(categoria_id=casa_id, nome="Renda").count() == 1
+    assert session.query(TipoAtivo).count() == 10
+    assert session.query(TipoAtivo).filter_by(nome="ETF").count() == 1
+    assert session.query(Configuracao).count() == 1
+    assert session.query(Configuracao).first().inicializado is True
 
 
 # ---------------------------------------------------------------------------
