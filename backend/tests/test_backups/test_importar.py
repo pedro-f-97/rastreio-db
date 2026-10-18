@@ -22,12 +22,17 @@ O endpoint, lido por ordem
    `Base.metadata.sorted_tables`; qualquer falta → 400 com a mensagem
    genérica, sem dizer o que falta).
 6. `engine.dispose()` fecha as ligações antes de mexer no ficheiro.
-7. `shutil.copy2(DB_PATH, anterior_path)` cria ou substitui o `.anterior`.
+7. `shutil.copy2(DB_PATH, anterior_tmp)` seguido de
+   `os.replace(anterior_tmp, anterior_path)` cria ou substitui o `.anterior`
+   só quando a cópia está completa (D22).
 8. `os.replace(temp_path, DB_PATH)` — a BD é mesmo substituída.
 9. verificação pós-troca: `_validar_estrutura(DB_PATH)`, a MESMA validação de
    tabelas e colunas, agora sobre a BD trocada.
 10. em erro no bloco 7-9, rollback: `dispose`, repõe a BD a partir do
-    `.anterior` **sem o apagar**, e responde 500 `Falha ao restaurar: ...`.
+    `.anterior` **sem o apagar** — mas só se esse `.anterior` foi criado neste
+    pedido, e também por cópia ao lado seguida de `os.replace` —, remove o
+    `.tmp` e o `.anterior.tmp` que tenham ficado, e
+    responde 500 `Falha ao restaurar: ...`.
 11. no sucesso, o `.anterior` fica no disco até o restauro seguinte o
     substituir — o endpoint nunca o apaga.
 
@@ -45,19 +50,19 @@ Explicado no `conftest.py` desta pasta: o endpoint não usa `get_db` e trabalha
 com a `engine` de ficheiro do módulo, pelo que a BD em memória do conftest pai
 não chega.
 
-Rollback por cobrir
--------------------
-O caminho de erro que usa o `.anterior` a sério (o bloco `except Exception` de
-`importar_backup`) continua por cobrir, e depois do D6 a razão ficou mais
-estreita: a verificação pós-troca é a mesma `_validar_estrutura` e lê o mesmo
-ficheiro que acabou de passar a validação prévia (o `os.replace` é atómico),
-pelo que não pode falhar de forma natural. Forçá-la exigiria `monkeypatch` ao
-nome privado `routers.backups._validar_estrutura`, o que acopla o teste ao
-interior do router. A alternativa — sabotar o `os.replace` — só exercitaria o
-ramo em que a BD nunca chega a ser substituída, e aí o `.tmp` fica para trás,
-porque o rollback não o remove (D22, em `docs/divida-tecnica.md`).
+Rollback
+--------
+O bloco `except Exception` de `importar_backup` não falha de forma natural: a
+verificação pós-troca é a mesma `_validar_estrutura` que o ficheiro acabou de
+passar. Por isso os testes da D22, no fim deste ficheiro, provocam as falhas
+com `monkeypatch`: na cópia do `.anterior` (`shutil.copy2`), na troca
+(`os.replace`), na verificação pós-troca (`_validar_estrutura`, um nome
+privado do router — o acoplamento é o preço de cobrir o rollback a sério) e na
+reposição feita pelo próprio rollback.
 """
 
+import os
+import shutil
 import sqlite3
 from datetime import date
 from pathlib import Path
@@ -65,6 +70,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 
 from database import Ativo, Base, Conta, SessionLocal, engine
+from routers import backups
 from routers.backups import TABELAS_ESPERADAS
 
 
@@ -808,3 +814,201 @@ def test_extensao_errada_continua_a_ser_rejeitada(client, bd_em_ficheiro):
     assert resposta.json()["detail"] == "Ficheiro inválido"
     assert not existe(bd_em_ficheiro, ".tmp")
     assert nomes_das_contas() == [CONTA_REAL]
+
+
+# ---------------------------------------------------------------------------
+# D22 — cópia atómica do `.anterior` e rollback
+# ---------------------------------------------------------------------------
+
+def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
+    """Prepara o cenário dos testes da D22 e devolve os bytes do `.anterior`.
+
+    1. `Conta Real` na BD; exportar e importar o export (restauro bom), o que
+       deixa um `.anterior` só com a `Conta Real`.
+    2. Depois disso, cria-se `Conta Nova`: é o dado recente que um rollback
+       errado apagaria.
+
+    No fim, a BD tem as duas contas e o `.anterior` só a `Conta Real`.
+    """
+    semear_conta_real()
+    exportado = client.get("/api/backups/exportar")
+    assert importar(client, exportado.content).status_code == 200
+
+    db = sessao_nova()
+    try:
+        db.add(Conta(nome="Conta Nova", saldo_referencia=50.0,
+                     data_referencia=date(2024, 2, 1)))
+        db.commit()
+    finally:
+        db.close()
+
+    anterior = caminho_do(bd_em_ficheiro, ".anterior")
+    assert contas_em(anterior) == [CONTA_REAL]
+    assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
+    return exportado.content, anterior.read_bytes()
+
+
+def test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd(
+        client, bd_em_ficheiro, monkeypatch):
+    """Uma cópia do `.anterior` interrompida não toca no `.anterior` bom nem na BD.
+
+    Era a D22: a cópia escrevia no próprio `.anterior`, e uma falha a meio
+    (disco cheio) deixava-o cortado; o rollback repunha depois a BD a partir
+    dessa cópia cortada.
+
+    A falha simulada escreve metade dos bytes no destino e levanta `OSError`,
+    como um disco cheio. Só a cópia que parte da BD é sabotada.
+
+    Cálculo à mão:
+      * o pedido dá 500, porque a falha está dentro do bloco do rollback;
+      * o `.anterior` tem os mesmos bytes que antes (só a `Conta Real`): a cópia
+        cortada foi para o `.anterior.tmp`, que o rollback apaga;
+      * a BD continua com as duas contas: a troca nunca aconteceu, e o rollback
+        não a repõe a partir de um `.anterior` que não é deste pedido — se o
+        fizesse, a `Conta Nova` desaparecia;
+      * nenhum `.tmp` nem `.anterior.tmp` fica no disco.
+    """
+    exportado, anterior_antes = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
+    copia_real = shutil.copy2
+
+    def copia_cortada(origem, destino, *args, **kwargs):
+        if Path(origem).resolve() == bd_em_ficheiro:
+            dados = Path(origem).read_bytes()
+            Path(destino).write_bytes(dados[: len(dados) // 2])
+            raise OSError("disco cheio (simulado)")
+        return copia_real(origem, destino, *args, **kwargs)
+
+    monkeypatch.setattr(backups.shutil, "copy2", copia_cortada)
+
+    resposta = importar(client, exportado)
+
+    assert resposta.status_code == 500
+    assert resposta.json()["detail"] == "Falha ao restaurar: disco cheio (simulado)"
+    assert caminho_do(bd_em_ficheiro, ".anterior").read_bytes() == anterior_antes
+    assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
+    assert integridade(bd_em_ficheiro) == ("linha", "ok")
+    assert not existe(bd_em_ficheiro, ".tmp")
+    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+
+
+def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
+    """Se o `os.replace` do `.tmp` para a BD falhar, o `.tmp` não fica no disco.
+
+    Era a segunda parte da D22: o rollback não removia o `.tmp`, que só
+    desaparecia no pedido seguinte.
+
+    Só a troca `.tmp` → BD é sabotada; a do `.anterior.tmp` → `.anterior`
+    passa. Cálculo à mão:
+      * 500;
+      * a BD continua com as duas contas (o `os.replace` é atómico e falhou);
+      * o `.anterior` foi criado neste pedido, com as duas contas, e fica;
+      * o `.tmp` foi removido.
+    """
+    exportado, _ = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
+    troca_real = os.replace
+    tmp = str(caminho_do(bd_em_ficheiro, ".tmp"))
+
+    def troca_falhada(origem, destino, *args, **kwargs):
+        if str(origem) == tmp:
+            raise OSError("troca falhada (simulado)")
+        return troca_real(origem, destino, *args, **kwargs)
+
+    monkeypatch.setattr(backups.os, "replace", troca_falhada)
+
+    resposta = importar(client, exportado)
+
+    assert resposta.status_code == 500
+    assert resposta.json()["detail"] == "Falha ao restaurar: troca falhada (simulado)"
+    assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
+    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+        "Conta Nova", CONTA_REAL,
+    ]
+    assert not existe(bd_em_ficheiro, ".tmp")
+    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+
+
+def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(
+        client, bd_em_ficheiro, monkeypatch):
+    """Se a verificação pós-troca falhar, a BD volta ao estado de antes do pedido.
+
+    A troca já aconteceu (a BD passou a ser o export, só com a `Conta Real`), e
+    só aqui o rollback tem mesmo de repor a BD a partir do `.anterior` que este
+    pedido criou. A verificação pós-troca é sabotada só quando lê a BD; a
+    validação do `.tmp`, antes, passa.
+
+    Cálculo à mão:
+      * 500;
+      * a BD volta a ter as duas contas, tal como antes do pedido;
+      * o `.anterior` também tem as duas contas e fica no disco.
+    """
+    exportado, _ = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
+    validar_real = backups._validar_estrutura
+
+    def validar_falha_na_bd(caminho):
+        if Path(caminho).resolve() == bd_em_ficheiro:
+            raise RuntimeError("verificação falhada (simulado)")
+        return validar_real(caminho)
+
+    monkeypatch.setattr(backups, "_validar_estrutura", validar_falha_na_bd)
+
+    resposta = importar(client, exportado)
+
+    assert resposta.status_code == 500
+    assert resposta.json()["detail"] == (
+        "Falha ao restaurar: verificação falhada (simulado)"
+    )
+    assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
+    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+        "Conta Nova", CONTA_REAL,
+    ]
+    assert not existe(bd_em_ficheiro, ".tmp")
+
+
+def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkeypatch):
+    """Se a própria reposição do rollback falhar a meio, a BD não fica cortada.
+
+    Como no teste anterior, a verificação pós-troca falha e o rollback tenta
+    repor a BD a partir do `.anterior`. Aqui essa cópia também falha a meio
+    (metade dos bytes, depois `OSError`). A cópia cortada vai para o
+    `.anterior.tmp`, que é apagado; a BD nunca é escrita no lugar.
+
+    Cálculo à mão:
+      * 500, com a mensagem da falha **original** (a da verificação): a falha
+        do rollback é engolida para não a esconder;
+      * a BD é o export que a troca lá pôs (só a `Conta Real`) e está íntegra;
+        a reposição não chegou a acontecer, mas também não estragou nada;
+      * o `.anterior` está intacto, com as duas contas: é dele que se recupera
+        à mão;
+      * nenhum `.tmp` nem `.anterior.tmp` fica no disco.
+    """
+    exportado, _ = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
+    validar_real = backups._validar_estrutura
+    copia_real = shutil.copy2
+    anterior = caminho_do(bd_em_ficheiro, ".anterior")
+
+    def validar_falha_na_bd(caminho):
+        if Path(caminho).resolve() == bd_em_ficheiro:
+            raise RuntimeError("verificação falhada (simulado)")
+        return validar_real(caminho)
+
+    def reposicao_cortada(origem, destino, *args, **kwargs):
+        if Path(origem).resolve() == anterior:
+            dados = Path(origem).read_bytes()
+            Path(destino).write_bytes(dados[: len(dados) // 2])
+            raise OSError("disco cheio (simulado)")
+        return copia_real(origem, destino, *args, **kwargs)
+
+    monkeypatch.setattr(backups, "_validar_estrutura", validar_falha_na_bd)
+    monkeypatch.setattr(backups.shutil, "copy2", reposicao_cortada)
+
+    resposta = importar(client, exportado)
+
+    assert resposta.status_code == 500
+    assert resposta.json()["detail"] == (
+        "Falha ao restaurar: verificação falhada (simulado)"
+    )
+    assert integridade(bd_em_ficheiro) == ("linha", "ok")
+    assert nomes_das_contas() == [CONTA_REAL]
+    assert contas_em(anterior) == ["Conta Nova", CONTA_REAL]
+    assert not existe(bd_em_ficheiro, ".tmp")
+    assert not existe(bd_em_ficheiro, ".anterior.tmp")

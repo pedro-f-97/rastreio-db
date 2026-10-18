@@ -132,9 +132,15 @@ async def importar_backup(file: UploadFile = File(...)):
     # 2) Só agora mexemos no DB real
     engine.dispose()
 
+    anterior_tmp = anterior_path + ".tmp"
+    anterior_pronto = False
     try:
         if os.path.exists(DB_PATH):
-            shutil.copy2(DB_PATH, anterior_path)
+            # Copiar ao lado e renomear: o `.anterior` só é substituído quando
+            # a cópia nova está completa (D22)
+            shutil.copy2(DB_PATH, anterior_tmp)
+            os.replace(anterior_tmp, anterior_path)
+            anterior_pronto = True
 
         # Limpar WAL/SHM antes de mover
         _limpar_wal_shm(DB_PATH)
@@ -147,12 +153,21 @@ async def importar_backup(file: UploadFile = File(...)):
         # rollback
         engine.dispose()
         try:
-            if os.path.exists(anterior_path):
-                shutil.copy2(anterior_path, DB_PATH)
+            # Só o `.anterior` deste pedido serve para repor: se a cópia falhou,
+            # a BD ainda não foi tocada e um `.anterior` antigo apagaria dados (D22)
+            if anterior_pronto:
+                shutil.copy2(anterior_path, anterior_tmp)
+                os.replace(anterior_tmp, DB_PATH)
             _limpar_wal_shm(DB_PATH)
         except Exception:
             # rollback também falhou — pelo menos não esconder o erro original
             pass
+        for resto in (temp_path, anterior_tmp):
+            try:
+                if os.path.exists(resto):
+                    os.remove(resto)
+            except OSError:
+                pass
         _limpar_wal_shm(DB_PATH)
         raise HTTPException(status_code=500, detail=f"Falha ao restaurar: {e}")
 

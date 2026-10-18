@@ -818,7 +818,7 @@ continua a passar — a frase acima ("o teste passa a falhar de propósito") só
 valeria se a validação tivesse sido também no motor. A barreira `trim()` do
 formulário (`Regras.jsx:48` e 51) mantém-se.
 
-## ⚪ D22 — Cópia do `.anterior` e do `.tmp` feitas no lugar
+## ⚪ D22 — Cópia do `.anterior` e do `.tmp` feitas no lugar — resolvido
 
 `backend/routers/backups.py:137` — `shutil.copy2(DB_PATH, anterior_path)`
 escreve o `.anterior` **no lugar** (o `copy2` abre o destino e sobrescreve o
@@ -842,6 +842,30 @@ os.replace(anterior_tmp, anterior_path)
 ```
 
 — e remover também o `.tmp` no rollback.
+
+**Resolvido:** em `importar_backup` (`backend/routers/backups.py`):
+
+- a cópia vai para `.anterior.tmp` e só depois é renomeada para `.anterior`
+  (linhas 141-142): uma falha a meio da cópia não toca no `.anterior` bom;
+- o rollback só repõe a BD a partir do `.anterior` quando ele foi criado
+  **neste** pedido (`anterior_pronto`, linhas 136, 143 e 158). A correcção
+  proposta acima não chegava sozinha: com a cópia atómica, uma falha na cópia
+  deixava a BD intacta mas o rollback repunha-a na mesma, agora a partir do
+  `.anterior` de um restauro antigo, e apagava tudo o que tinha sido registado
+  desde então;
+- a reposição do rollback usa o mesmo padrão: copia o `.anterior` para
+  `.anterior.tmp` e renomeia-o para a BD (linhas 159-160), pelo que uma falha
+  a meio da reposição não deixa a BD cortada;
+- o rollback remove o `.tmp` e o `.anterior.tmp` que tenham ficado
+  (linhas 165-170).
+
+Testes novos no fim de `backend/tests/test_backups/test_importar.py`, todos com
+falhas simuladas por `monkeypatch`:
+`test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd`,
+`test_falha_na_troca_remove_o_tmp`,
+`test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior` e
+`test_falha_a_meio_da_reposicao_nao_corta_a_bd`. Os dois últimos cobrem o
+rollback que a D6 deixou «por cobrir».
 
 ## 🟡 D23 — Mediana por categoria do `/por-categoria` é sobre totais por (mês, subcategoria)
 
