@@ -166,10 +166,8 @@ def test_comparacao_ignora_maiusculas_nos_dois_sentidos():
 def test_regra_com_acento_casa_descricao_maiuscula():
     """`upper()` não deita fora os acentos: a palavra acentuada casa.
 
-    # DEVIDA-TECNICA: D8 (lado b) — a importação casa o "ç" e o "é", porque a
-    comparação é `upper()`; o backfill de `routers/regras.py:54` usa `ilike`,
-    que é ASCII-only e não casa. A mesma regra funciona na importação e falha
-    no backfill.
+    A comparação é `casa_palavra`, a mesma na importação, na pré-visualização
+    e no backfill (era a D8 b: o backfill usava `ilike` e não casava).
 
     Cálculo à mão:
       fase 2: palavra_chave "café" -> "CAFÉ"; descrição "CAFÉ PASTELARIA"

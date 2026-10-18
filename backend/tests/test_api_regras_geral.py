@@ -2,8 +2,8 @@
 
 Cobre o que faltava em `backend/routers/regras.py`:
 
-* `POST /` (`:33-73`) — pré-checagem de duplicado (`:35-37`, 400) e o backfill
-  `ilike` (`:50-67`);
+* `POST /` — pré-checagem de duplicado (400) e o backfill, que usa o mesmo
+  motor da importação (`casa_palavra` e as regras de exclusão);
 * `DELETE /{regra_id}` (`:75-82`);
 * `POST /pre-visualizar` (`:84-138`).
 
@@ -11,8 +11,11 @@ Ficam de fora, com ficheiro próprio: `aplicar-em-massa` (`:141-195`,
 `test_api_regras_massa.py`) e a listagem `GET /` (`:18-31`, já exercitada por
 `test_api_regras_criar.py`, que também cobre a validação da `palavra_chave`).
 
-Divergências entre o motor de regras e o backfill estão catalogadas como D8 em
-`docs/divida-tecnica.md` e são aqui assinaladas com `# DEVIDA-TECNICA: D8`.
+As divergências entre o motor de regras e o backfill eram a D8 de
+`docs/divida-tecnica.md`: desde a correcção, o backfill compara como a
+importação (`casa_palavra`) e respeita as regras de exclusão. Fica só a
+diferença do pré-filtro com transacções órfãs, que depende da D1 (chaves
+estrangeiras não forçadas) e está assinalada com essa etiqueta.
 Nenhum valor esperado foi copiado de uma execução: são calculados à mão no
 docstring de cada teste. As datas são fixas em 2025; nunca se usa a data de
 hoje. Os testes não tocam na base de dados real (ver `conftest.py`).
@@ -163,21 +166,17 @@ def test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria(client, sessio
 
 
 # ---------------------------------------------------------------------------
-# POST / — acentos e wildcards (D8 b e c)
+# POST / — acentos, "%" e "_" (era a D8 b e c)
 # ---------------------------------------------------------------------------
 
-def test_backfill_com_acento_nao_casa_descricao_maiuscula(client, session):
-    # DEVIDA-TECNICA: D8 (b) — a importação casa o acento via `upper()`, o
-    # backfill `ilike` não; a mesma regra funciona num lado e não no outro.
-    """A palavra "café" casa a descrição em minúsculas mas não em maiúsculas.
+def test_backfill_com_acento_casa_descricao_maiuscula(client, session):
+    """A palavra "café" casa a descrição em minúsculas e em maiúsculas.
 
-    Cálculo à mão (`:52-55`): a regra é "café" e o padrão de pesquisa é
-    "%café%". A transacção em minúsculas ("café pastelaria") contém "café" e
-    casa; a transacção em maiúsculas ("CAFÉ PASTELARIA") não casa. Esperado:
-    `transacoes_atualizadas = 1`, com a minúscula categorizada e a maiúscula
-    intacta.
-
-    Fixa-se o resultado observado; o mecanismo não faz parte do teste.
+    Era a D8 (b): o `ilike` do SQLite só ignora maiúsculas em letras ASCII, e
+    "CAFÉ" não casava. Agora a comparação é `casa_palavra`, a da importação:
+    "café".upper() = "CAFÉ" está em "CAFÉ PASTELARIA" e em
+    "café pastelaria".upper(). Esperado: `transacoes_atualizadas = 2`, as duas
+    categorizadas.
     """
     casa, _lazer, _sub = _categorias(session)
     t_min = _transacao(session, "café pastelaria", 1)
@@ -186,11 +185,11 @@ def test_backfill_com_acento_nao_casa_descricao_maiuscula(client, session):
     r = client.post("/api/regras/", json={"palavra_chave": "café", "categoria_id": casa.id})
 
     assert r.status_code == 200
-    assert r.json()["transacoes_atualizadas"] == 1
+    assert r.json()["transacoes_atualizadas"] == 2
 
     session.expire_all()
     assert session.get(Transacao, t_min.id).categoria_id == casa.id
-    assert session.get(Transacao, t_mai.id).categoria_id is None
+    assert session.get(Transacao, t_mai.id).categoria_id == casa.id
 
 
 def test_backfill_casa_descricao_em_maiusculas(client, session):
@@ -212,18 +211,16 @@ def test_backfill_casa_descricao_em_maiusculas(client, session):
     assert session.get(Transacao, t.id).categoria_id == casa.id
 
 
-def test_backfill_percent_e_wildcard(client, session):
-    # DEVIDA-TECNICA: D8 (c) — a palavra-chave é interpolada no padrão `ilike`
-    # sem escape, pelo que "%" e "_" funcionam como wildcards (linha 54).
-    """Um "%" na palavra-chave casa texto que não contém o literal "50%".
+def test_backfill_percent_e_texto_literal(client, session):
+    """Um "%" na palavra-chave só casa o literal "%".
 
-    Cálculo à mão (`:54`): a regra "50%" produz o padrão "%50%%", em que os
-    "%" valem por qualquer sequência. A descrição "PAGAMENTO 5000" contém "50"
-    e casa, apesar de não conter o literal "50%". Esperado:
-    `transacoes_atualizadas = 1` e a transacção categorizada.
+    Era a D8 (c): com `ilike`, a regra "50%" virava o padrão "%50%%" e casava
+    "PAGAMENTO 5000". Agora é texto: "50%" não está em "PAGAMENTO 5000" e está
+    em "DESCONTO 50%". Esperado: `transacoes_atualizadas = 1`, só a do desconto.
     """
     casa, _lazer, _sub = _categorias(session)
-    t = _transacao(session, "PAGAMENTO 5000", 1)
+    t_5000 = _transacao(session, "PAGAMENTO 5000", 1)
+    t_desc = _transacao(session, "DESCONTO 50%", 2)
 
     r = client.post("/api/regras/", json={"palavra_chave": "50%", "categoria_id": casa.id})
 
@@ -231,20 +228,20 @@ def test_backfill_percent_e_wildcard(client, session):
     assert r.json()["transacoes_atualizadas"] == 1
 
     session.expire_all()
-    assert session.get(Transacao, t.id).categoria_id == casa.id
+    assert session.get(Transacao, t_5000.id).categoria_id is None
+    assert session.get(Transacao, t_desc.id).categoria_id == casa.id
 
 
-def test_backfill_underscore_e_wildcard(client, session):
-    # DEVIDA-TECNICA: D8 (c) — idem para "_", que vale por um carácter.
-    """Um "_" na palavra-chave casa qualquer carácter naquela posição.
+def test_backfill_underscore_e_texto_literal(client, session):
+    """Um "_" na palavra-chave só casa o literal "_".
 
-    Cálculo à mão (`:54`): a regra "a_b" produz o padrão "%a_b%". A descrição
-    "PAGAMENTO AXB" não contém o literal "a_b", mas contém "axb" (em
-    minúsculas, "axb"), pelo que casa. Esperado: `transacoes_atualizadas = 1` e
-    a transacção categorizada.
+    Era a D8 (c): com `ilike`, "a_b" casava "PAGAMENTO AXB". Agora
+    "A_B" não está em "PAGAMENTO AXB" e está em "REF A_B 12". Esperado:
+    `transacoes_atualizadas = 1`, só a da referência.
     """
     casa, _lazer, _sub = _categorias(session)
-    t = _transacao(session, "PAGAMENTO AXB", 1)
+    t_axb = _transacao(session, "PAGAMENTO AXB", 1)
+    t_ref = _transacao(session, "REF A_B 12", 2)
 
     r = client.post("/api/regras/", json={"palavra_chave": "a_b", "categoria_id": casa.id})
 
@@ -252,15 +249,51 @@ def test_backfill_underscore_e_wildcard(client, session):
     assert r.json()["transacoes_atualizadas"] == 1
 
     session.expire_all()
-    assert session.get(Transacao, t.id).categoria_id == casa.id
+    assert session.get(Transacao, t_axb.id).categoria_id is None
+    assert session.get(Transacao, t_ref.id).categoria_id == casa.id
+
+
+def test_backfill_respeita_as_regras_de_exclusao(client, session):
+    """O que uma regra de exclusão apanha fica por tocar, como na importação.
+
+    Era uma divergência da D8: o backfill ignorava as regras de exclusão.
+    Cálculo à mão, com a exclusão "trf" já criada e a regra nova
+    "pingo" -> (Casa, Alimentação):
+      "PINGO DOCE" (sem categoria)       -> casa "pingo", não casa "trf" -> categoriza
+      "TRF PINGO" (sem categoria)        -> casa "trf" -> fica (None, None)
+      "TRF PINGO 2" (Casa, sem sub)      -> casa "trf" -> fica (Casa, None)
+      `transacoes_atualizadas = 1`
+    """
+    casa, _lazer, sub_alim = _categorias(session)
+    session.add(RegraCategorizacao(palavra_chave="trf", categoria_id=None))
+    session.commit()
+    t_ok = _transacao(session, "PINGO DOCE", 1)
+    t_trf = _transacao(session, "TRF PINGO", 2)
+    t_trf_casa = _transacao(session, "TRF PINGO 2", 3, categoria_id=casa.id)
+
+    r = client.post("/api/regras/", json={
+        "palavra_chave": "pingo",
+        "categoria_id": casa.id,
+        "subcategoria_id": sub_alim.id,
+    })
+
+    assert r.status_code == 200
+    assert r.json()["transacoes_atualizadas"] == 1
+
+    session.expire_all()
+    estado = lambda t: (session.get(Transacao, t.id).categoria_id,
+                        session.get(Transacao, t.id).subcategoria_id)
+    assert estado(t_ok) == (casa.id, sub_alim.id)
+    assert estado(t_trf) == (None, None)
+    assert estado(t_trf_casa) == (casa.id, None)
 
 
 # ---------------------------------------------------------------------------
-# POST /pre-visualizar vs backfill (D8 a)
+# POST /pre-visualizar vs backfill (com transacções órfãs, D1)
 # ---------------------------------------------------------------------------
 
 def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, session):
-    # DEVIDA-TECNICA: D8 (a) — a pré-visualização pré-filtra
+    # DEVIDA-TECNICA: D1 — a pré-visualização pré-filtra
     # `subcategoria_id IS NULL` (`:88`) e o backfill filtra por
     # `categoria_id == None` (1.ª query) e
     # `categoria_id == nova.categoria_id and subcategoria_id == None` (2.ª).
@@ -274,7 +307,7 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
     Esperado: `len(sem_conflito) = 2`, `len(com_conflito) = 0` e
     `transacoes_atualizadas = 2`.
 
-    A divergência que a D8(a) atribui ao pré-filtro só apareceria com uma
+    A divergência do pré-filtro (era a D8 a) só apareceria com uma
     transacção órfã (categoria None e subcategoria definida), um estado
     inválido; essa semente está no teste
     `test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria`.

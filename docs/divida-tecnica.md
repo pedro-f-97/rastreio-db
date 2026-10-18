@@ -426,7 +426,7 @@ As duas regras ficaram nas «Decisões de design» do `README.md`. Testes novos:
 (`backend/tests/test_api_regras_geral.py`). Os três testes do `break` deixaram
 de ter a etiqueta D7 e apontam para o README.
 
-## 🟡 D8 — Motor de regras duplicado com semântica divergente
+## 🟡 D8 — Motor de regras duplicado com semântica divergente — resolvido
 
 A mesma lógica de duas fases existe em três sítios:
 
@@ -465,6 +465,37 @@ casar com o acento — estão fixados por `test_regra_com_acento_casa_descricao_
 e `test_regra_sem_acento_nao_casa_descricao_com_acento` em
 `backend/tests/test_importador_regras.py`, ambos calculados à mão e com os
 valores esperados escritos como constantes.
+
+**Resolvido (decisão do utilizador: o backfill igual à importação, com
+exclusões):**
+
+- `casa_palavra` (`backend/importador_transacoes.py`) é a comparação única:
+  `palavra_chave.upper() in descricao.upper()`, que ignora maiúsculas também
+  nas letras acentuadas e trata a palavra-chave como texto literal. Usam-na a
+  importação (`aplicar_regras`), a pré-visualização e o backfill de
+  `criar_regra` (`backend/routers/regras.py`);
+- o backfill deixou de usar `ilike`: filtra em Python, pelo que (b) os acentos
+  casam e (c) `%` e `_` são texto;
+- o backfill passou a respeitar as regras de exclusão (`categoria_id` nulo),
+  como a importação: uma transacção que uma exclusão apanha não é tocada. Esta
+  divergência não estava listada acima e foi encontrada ao corrigir o item;
+- (a) a diferença do pré-filtro só existe com transacções órfãs, um estado que
+  só a D1 permite; os testes que a fixam passaram a ter a etiqueta D1.
+
+Verificado numa cópia da BD real (só leitura, apagada a seguir): 58 regras,
+nenhuma com acentos, `%` ou `_`, e o `ilike` e o `upper()` davam o mesmo
+resultado em todos os pares (regra, transacção); há uma regra de exclusão
+(`TRF`) e 4 transacções que casam com ela e com uma regra de categoria, que
+um backfill futuro passa a deixar por tocar. Os testes de caracterização foram
+invertidos (`test_backfill_com_acento_casa_descricao_maiuscula`,
+`test_backfill_percent_e_texto_literal`,
+`test_backfill_underscore_e_texto_literal`) e há um novo,
+`test_backfill_respeita_as_regras_de_exclusao`, em
+`backend/tests/test_api_regras_geral.py`.
+
+Fica de fora: a pesquisa por descrição da listagem de transacções
+(`routers/transacoes.py`, `ilike`) continua só ASCII; não faz parte do motor de
+regras (ver `test_listar_filtra_por_descricao_ascii`).
 
 ## ⚪ D9 — `detalhe-mensal` devolve HTTP 500 em mês inválido — resolvido
 
