@@ -295,16 +295,16 @@ def test_listar_filtra_por_sinal(client, session):
 
 
 def test_listar_filtra_por_descricao_ascii(client, session):
-    # DEVIDA-TECNICA: D8
-    """O filtro de descrição é `ilike` e é ASCII-only, como os restantes `ilike`.
+    # DEVIDA-TECNICA: D28
+    """O filtro de descrição é `ilike` e é ASCII-only.
 
     Cálculo à mão:
       descricao=far    casa "Farmácia" nas letras acii -> 1 (t3)
       descricao=farmacia (sem acento), contra "Farmácia": o `á` não casa o `a`
         sob o `LIKE` do SQLite, que só é case-insensitive para ASCII -> 0
 
-    Mesma limitação ASCII do `ilike` da D8 (o backfill das regras), aqui na
-    linha 46 de `transacoes.py`. Não é um defeito novo: fixa-se o que existe.
+    É a D28: a pesquisa (linha 46 de `transacoes.py`) ficou com o `ilike` que
+    o motor de regras deixou de usar na D8. Fixa-se o que existe.
 
     Estado final da BD: as 5 transacções continuam.
     """

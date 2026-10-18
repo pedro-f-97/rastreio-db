@@ -495,7 +495,7 @@ invertidos (`test_backfill_com_acento_casa_descricao_maiuscula`,
 
 Fica de fora: a pesquisa por descrição da listagem de transacções
 (`routers/transacoes.py`, `ilike`) continua só ASCII; não faz parte do motor de
-regras (ver `test_listar_filtra_por_descricao_ascii`).
+regras e foi registada como D28.
 
 ## ⚪ D9 — `detalhe-mensal` devolve HTTP 500 em mês inválido — resolvido
 
@@ -1235,6 +1235,27 @@ validada. Testes novos em `backend/tests/test_api_patrimonio.py`:
 `test_registar_preco_com_data_futura_da_422`,
 `test_listar_precos_do_mais_recente_para_o_mais_antigo` e
 `test_eliminar_preco_apaga_so_esse_preco`.
+
+## ⚪ D28 — A pesquisa por descrição só ignora maiúsculas em letras sem acento
+
+`backend/routers/transacoes.py:46` filtra a listagem de transacções com
+`Transacao.descricao.ilike(f"%{descricao}%")`. O `LIKE` do SQLite só ignora
+maiúsculas em letras ASCII, por isso:
+
+- «FARMÁCIA» não encontra «farmácia» (o «Á» e o «á» não são iguais);
+- «farmacia», sem acento, não encontra «Farmácia»;
+- `%` e `_` no texto pesquisado funcionam como curingas.
+
+É a mesma limitação que o backfill das regras tinha até à D8, mas numa
+pesquisa e não no motor de regras. Fixo por
+`test_listar_filtra_por_descricao_ascii` em
+`backend/tests/test_api_transacoes.py`, que fixa o comportamento **actual**.
+
+**Decisão pendente (utilizador):** igualar à comparação das regras
+(`casa_palavra`: ignora maiúsculas também nas letras acentuadas, texto
+literal), ou ir mais longe e ignorar também os acentos, para «farmacia»
+encontrar «Farmácia». Qualquer das duas tira o filtro do SQL, o que tem de ser
+feito antes da paginação (o `total` tem de contar só as que casam).
 
 ---
 
