@@ -228,6 +228,7 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
     return {
         "ativo_id": ativo_id,
         "quantidade": round(resultado["quantidade"], 6),
+        # Negativo por convenção: dinheiro que saiu (ver docs/modelo-dados.md)
         "custo_total": round(-custo_base, 2),
         "preco_atual": float(preco_atual.preco) if preco_atual else None,
         "data_preco": str(preco_atual.data) if preco_atual else None,

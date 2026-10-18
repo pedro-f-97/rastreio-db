@@ -520,11 +520,18 @@ isoladamente.
 
 ### Backend
 
-- **D12a** — `routers/patrimonio.py:198` devolve `custo_total` **com sinal
+- **D12a — resolvido** — `routers/patrimonio.py:198` devolve `custo_total` **com sinal
   negativo** (`-custo_base`). O comentário nas linhas 189-192 regista que já
   houve bugs aqui. O frontend tem de compensar: `Ativos.jsx:182` e
   `Patrimonio.jsx:54` lêem o campo e combinam-nos. Um sinal invertido aqui
   produz totais de mais-menos-valia errados sem qualquer aviso.
+  **Resolvido (decisão do utilizador: convenção):** o `custo_total` continua
+  negativo, coerente com as transacções, e é assim que a página Ativos o mostra.
+  A regra ficou escrita em `docs/modelo-dados.md` («Convenções de sinal»), com
+  um comentário no sítio onde é produzido (`routers/patrimonio.py`, no
+  `resumo_ativo`) e onde o frontend depende dele (`Patrimonio.jsx`, no
+  `totalMaisValia`). Os testes de `test_patrimonio_fifo.py` deixaram de citar a
+  D12a e apontam para a convenção.
 - **D12b** — `routers/patrimonio.py:184-193` — `latente` é `None` quando falta
   preço, e `mais_menos_valia` degrada silenciosamente para `realizado`.
   "Sem preço" fica indistinguível de "sem mais-valia".

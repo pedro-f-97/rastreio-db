@@ -19,7 +19,8 @@ O que a aplicação grava e o que a aplicação devolve não são a mesma coisa:
   -100,00 e +100,00 valem o mesmo custo de aquisição.
 * `custo_base` é interno e **sempre positivo**.
 * `custo_total` na resposta é `round(-custo_base, 2)`, portanto **negativo** por
-  convenção (ver `DEVIDA-TECNICA: D12a`, em `routers/patrimonio.py:198`).
+  convenção: o dinheiro que saiu é negativo, como nas transacções (ver
+  `docs/modelo-dados.md`, «Convenções de sinal»; era a D12a).
 * `latente = valor_atual - custo_base`.
 * `mais_menos_valia = round(realizado + latente, 2)`, em que `realizado` já
   traz o sinal: ganho positivo, perda negativa.
@@ -109,7 +110,7 @@ def confirmar_resumo(resumo, *, quantidade, custo_total, valor_atual,
         f"quantidade: esperado {quantidade}, veio {resumo['quantidade']}"
     )
     assert resumo["custo_total"] == custo_total, (
-        f"custo_total (negativo por convenção, D12a): esperado {custo_total}, "
+        f"custo_total (negativo por convenção): esperado {custo_total}, "
         f"veio {resumo['custo_total']}"
     )
     assert resumo["valor_atual"] == valor_atual, (
@@ -145,7 +146,7 @@ def test_lote_unico_sem_vendas(client, session):
     Calculo a mao:
       custo_unitario = abs(-100,00) / 10 = 10,00
       custo_base     = 10 x 10,00       = 100,00
-      custo_total    = -100,00  (negativo, D12a)
+      custo_total    = -100,00  (negativo, por convenção)
       valor_atual    = round(10 x 20,00, 2) = 200,00
       latente        = 200,00 - 100,00 = +100,00
       realizado      = 0,00  (nada foi vendido)
@@ -183,7 +184,7 @@ def test_multi_lote_soma_o_custo_das_compras(client, session):
       lote 1: custo_unitario = abs(-100,00) / 10 = 10,00
       lote 2: custo_unitario = abs(-300,00) / 10 = 30,00
       custo_base  = 10 x 10,00 + 10 x 30,00 = 100,00 + 300,00 = 400,00
-      custo_total = -400,00  (negativo, D12a)
+      custo_total = -400,00  (negativo, por convenção)
       valor_atual = round(20 x 20,00, 2) = 400,00
       latente     = 400,00 - 400,00 = 0,00
       mais_menos_valia = 0,00 + 0,00 = 0,00
@@ -228,7 +229,7 @@ def test_venda_atravessa_dois_lotes_consome_o_mais_antigo_primeiro(client, sessi
       valor_efetivo  = abs(450,00) x (15 / 15) = 450,00
       realizado      = 450,00 - 250,00 = +200,00
       resta o lote 2 com 5 unidades a 30,00: custo_base = 5 x 30,00 = 150,00
-      custo_total = -150,00  (negativo, D12a)
+      custo_total = -150,00  (negativo, por convenção)
       valor_atual = round(5 x 20,00, 2) = 100,00
       latente     = 100,00 - 150,00 = -50,00
         (perda nao realizada: as 5 que restam custaram 30,00 e valem 20,00)
@@ -270,7 +271,7 @@ def test_venda_parcial_dentro_de_um_lote(client, session):
       valor_efetivo  = abs(100,00) x (4 / 4) = 100,00
       realizado      = 100,00 - 40,00 = +60,00
       resta o lote com 6 unidades a 10,00: custo_base = 6 x 10,00 = 60,00
-      custo_total = -60,00  (negativo, D12a)
+      custo_total = -60,00  (negativo, por convenção)
       valor_atual = round(6 x 20,00, 2) = 120,00
       latente     = 120,00 - 60,00 = +60,00
       mais_menos_valia = 60,00 + 60,00 = +120,00
@@ -391,7 +392,7 @@ def test_dividendo_entra_no_realizado(client, session):
     Calculo a mao:
       o dividendo soma com abs(): realizado = abs(25,00) = +25,00
       o lote fica intacto: custo_base = 10 x 10,00 = 100,00
-      custo_total = -100,00  (negativo, D12a)
+      custo_total = -100,00  (negativo, por convenção)
       valor_atual = round(10 x 20,00, 2) = 200,00
       latente     = 200,00 - 100,00 = +100,00
       mais_menos_valia = 25,00 + 100,00 = +125,00
@@ -432,7 +433,7 @@ def test_ativo_sem_unidades_usa_o_valor_total_como_custo(client, session):
       custo_base = abs(-15000,00) = 15 000,00  (a compra soma o valor todo)
       nao houve venda, logo `vendido` e falso e o custo e positivo
       valor_atual = round(15 000,00, 2) = 15 000,00  (o preco, nao um unitario)
-      custo_total = -15 000,00  (negativo, D12a)
+      custo_total = -15 000,00  (negativo, por convenção)
       latente     = 15 000,00 - 15 000,00 = 0,00
       mais_menos_valia = 0,00 + 0,00 = 0,00
       quantidade = 0,0 sempre: este ramo nao conta unidades
@@ -467,7 +468,7 @@ def test_sem_preco_degrada_o_latente_para_nulo(client, session):
       custo_base = 10 x 10,00 = 100,00  (o FIFO corre todo)
       valor_atual = 0,0 porque nao ha preco (so ha valor quando ha preco e
                     quantidade maior que zero)
-      custo_total = -100,00  (negativo, D12a)
+      custo_total = -100,00  (negativo, por convenção)
       latente = None, porque `preco_atual` e None
       mais_menos_valia = round(0,00 + 0,0, 2) = 0,00, o `ou 0,0` converte
         o latente nulo em zero
@@ -512,7 +513,7 @@ def test_abs_normaliza_o_sinal_do_valor_total(client, session):
     Calculo a mao:
       abs(+100,00) = 100,00, logo custo_unitario = 100,00 / 10 = 10,00
       custo_base = 10 x 10,00 = 100,00
-      custo_total = -100,00  (negativo, D12a)
+      custo_total = -100,00  (negativo, por convenção)
       valor_atual = round(10 x 20,00, 2) = 200,00
       latente = 200,00 - 100,00 = +100,00
       mais_menos_valia = 0,00 + 100,00 = +100,00
@@ -551,7 +552,7 @@ def test_comissao_entra_no_custo_unitario(client, session):
     Calculo a mao:
       abs(-105,00) = 105,00, logo custo_unitario = 105,00 / 10 = 10,50
       custo_base = 10 x 10,50 = 105,00
-      custo_total = -105,00  (negativo, D12a)
+      custo_total = -105,00  (negativo, por convenção)
       valor_atual = round(10 x 20,00, 2) = 200,00
       latente = 200,00 - 105,00 = +95,00
       mais_menos_valia = 0,00 + 95,00 = +95,00
@@ -740,7 +741,7 @@ def test_duas_compras_na_mesma_data_resolvem_pelo_id(client, session):
       valor_efetivo = abs(450,00) x (15 / 15) = 450,00
       realizado = 450,00 - 250,00 = +200,00
       resta o lote 2 com 5 unidades a 30,00: custo_base = 150,00
-      custo_total = -150,00  (negativo, D12a)
+      custo_total = -150,00  (negativo, por convenção)
       valor_atual = round(5 x 20,00, 2) = 100,00
       latente = 100,00 - 150,00 = -50,00
       mais_menos_valia = 200,00 + (-50,00) = +150,00
@@ -783,7 +784,7 @@ def test_venda_com_quantidade_zero_e_ignorada(client, session):
     (`patrimonio_serv.py:75`), por isso o FIFO nao se mexe e o resultado e o do
     cenario 1:
       custo_base = 10 x 10,00 = 100,00
-      custo_total = -100,00  (negativo, D12a)
+      custo_total = -100,00  (negativo, por convenção)
       valor_atual = round(10 x 20,00, 2) = 200,00
       latente = 200,00 - 100,00 = +100,00
       realizado = 0,00
@@ -824,7 +825,7 @@ def test_bem_sem_unidades_e_sem_preco_vale_o_custo(client, session):
     Calculo a mao (ramo dos bens, `patrimonio_serv.py:53-56`):
       custo_base = abs(-15000,00) = 15 000,00
       nao houve venda e o custo e positivo; sem preco, o valor e o custo
-      custo_total = -15 000,00  (negativo, D12a)
+      custo_total = -15 000,00  (negativo, por convenção)
       valor_atual = round(15 000,00, 2) = 15 000,00
       latente = None, porque `preco_atual` e None
       mais_menos_valia = round(0,00 + 0,0, 2) = 0,00
@@ -934,7 +935,7 @@ def test_tres_lotes_consomem_do_mais_antigo_para_o_mais_recente(client, session)
       posição que fica
         quantidade = 5 + 10 = 15
         custo_base = 5 x 20,00 + 10 x 30,00 = 100,00 + 300,00 = 400,00
-        custo_total = -400,00  (negativo, D12a)
+        custo_total = -400,00  (negativo, por convenção)
         valor_atual = round(15 x 20,00, 2) = 300,00
         latente = 300,00 - 400,00 = -100,00
         mais_menos_valia = 250,00 - 100,00 = +150,00
@@ -991,7 +992,7 @@ def test_bem_sem_unidades_detido_valoriza_acima_do_custo(client, session):
       só houve compra, por isso `vendido` fica falso
       `vendido` é falso e `custo_base` é maior que zero, logo o preço conta:
         valor_atual = round(250000,00, 2) = 250 000,00  (o preço, não um unitário)
-      custo_total = round(-200 000,00, 2) = -200 000,00  (negativo, D12a)
+      custo_total = round(-200 000,00, 2) = -200 000,00  (negativo, por convenção)
       latente = valor_atual - custo_base = 250 000,00 - 200 000,00 = +50 000,00
       realizado = 0,00  (nada foi vendido)
       mais_menos_valia = realizado + latente = 0,00 + 50 000,00 = +50 000,00

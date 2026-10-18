@@ -2,6 +2,21 @@
 
 Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, ficheiro único em `dados/rastreio.db`.
 
+## Convenções de sinal
+
+O dinheiro que sai é **negativo** e o que entra é **positivo**, em todo o lado:
+
+- `Transacao.valor`: uma despesa é negativa, uma receita positiva;
+- o `custo_total` devolvido por `GET /api/patrimonio/ativos/{id}/resumo` é o
+  custo de aquisição com sinal negativo (`-200.00` para uma compra de 200 €), e
+  é assim que a página Ativos o mostra. O frontend **soma** o custo ao valor
+  actual para obter a mais-valia (`Patrimonio.jsx`: `totalInvestimentos +
+  totalCusto`); as percentagens usam `Math.abs(custo)`. Trocar o sinal de um
+  dos lados sem o outro dá uma mais-valia errada sem nenhum erro.
+
+`MovimentoAtivo.valor_total` é a excepção: o cálculo usa sempre `abs()`, pelo
+que o sinal gravado não altera nada.
+
 ## Enums
 
 | Enum | Valores |
