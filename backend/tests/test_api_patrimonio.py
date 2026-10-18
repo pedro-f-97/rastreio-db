@@ -534,6 +534,151 @@ def test_eliminar_movimento_apaga_so_o_movimento(client, session):
     assert session.query(PrecoAtivo).count() == 1
 
 
+# ---------------------------------------------------------------------------
+# Sobre-venda recusada (era a D15)
+# ---------------------------------------------------------------------------
+
+def _vender(client, ativo, data, quantidade, valor_total):
+    return client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "venda",
+            "data": data,
+            "quantidade": quantidade,
+            "valor_total": valor_total,
+        },
+    )
+
+
+def test_venda_acima_da_posicao_da_422_e_nao_grava(client, session):
+    """Vender 15 unidades tendo 10 é recusado, e nada fica gravado.
+
+    Era a D15: a venda era aceite e o FIFO reescalava o encaixe em silêncio.
+    Cálculo à mão: compra de 10 em 2025-01-10; venda de 15 em 2025-04-10 ->
+    15 - 10 = 5 > 0 -> 422. Fica só a compra (1 movimento).
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+
+    r = _vender(client, ativo, "2025-04-10", 15, 300.0)
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "A venda de 10/04/2025 (15 unidades) excede as 10 unidades em carteira "
+        "nessa data."
+    )
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 1
+
+
+def test_venda_de_toda_a_posicao_e_aceite(client, session):
+    """Vender exactamente as unidades em carteira continua a ser aceite.
+
+    Cálculo à mão: compras de 2,5 e 7,5 (total 10); venda de 10 -> 10 - 10 = 0,
+    não excede -> 200 e 3 movimentos.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-25.0, quantidade=2.5)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
+                     valor_total=-75.0, quantidade=7.5)
+
+    r = _vender(client, ativo, "2025-04-10", 10, 120.0)
+
+    assert r.status_code == 200
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 3
+
+
+def test_venda_antiga_que_deixa_uma_venda_posterior_sem_unidades_da_422(client, session):
+    """Uma venda inserida no passado é recusada se uma venda posterior deixar de caber.
+
+    Cálculo à mão: compra de 10 em 2025-01-10 e venda de 8 em 2025-03-01, já
+    gravadas. Nova venda de 5 em 2025-02-01: nessa data há 10, e a venda cabe;
+    mas a de 2025-03-01 passa a ter só 10 - 5 = 5 em carteira para vender 8 ->
+    422 a apontar a venda de 01/03/2025. Ficam os 2 movimentos de antes.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 1),
+                     valor_total=96.0, quantidade=8)
+
+    r = _vender(client, ativo, "2025-02-01", 5, 60.0)
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "A venda de 01/03/2025 (8 unidades) excede as 5 unidades em carteira "
+        "nessa data."
+    )
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 2
+
+
+def test_apagar_compra_que_deixa_uma_venda_sem_unidades_da_422(client, session):
+    """Apagar uma compra é recusado se uma venda deixar de ter unidades.
+
+    Cálculo à mão: compras de 10 (2025-01-10) e 0,5 (2025-02-10), venda de
+    10,5 (2025-03-01). Sem a compra de 0,5, a venda tem só 10 em carteira ->
+    422. A compra continua gravada (3 movimentos).
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+    compra = semear_movimento(session, ativo, TipoMovimento.compra,
+                              date(2025, 2, 10), valor_total=-5.0,
+                              quantidade=0.5)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 1),
+                     valor_total=126.0, quantidade=10.5)
+
+    r = client.delete(f"/api/patrimonio/movimentos/{compra.id}")
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "A venda de 01/03/2025 (10,5 unidades) excede as 10 unidades em "
+        "carteira nessa data."
+    )
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 3
+
+
+def test_apagar_venda_ou_vender_bem_sem_unidades_nao_e_verificado(client, session):
+    """A verificação só se aplica a ativos com unidades, e apagar uma venda passa sempre.
+
+    Cálculo à mão:
+      * bem sem unidades (casa), com uma compra sem quantidade: venda com
+        `quantidade=1` -> 200. Se o bem fosse verificado, a posição seria 0 e
+        a venda de 1 seria recusada; o ramo dos bens não tem posição;
+      * ativo com unidades: compra de 10 e venda de 4; apagar a venda -> 204,
+        e fica 1 movimento no ativo com unidades.
+    """
+    tipo_bem = semear_tipo(session, "Imovel", tem_unidades=False)
+    casa = semear_ativo(session, "Casa", tipo_bem)
+    semear_movimento(session, casa, TipoMovimento.compra, date(2024, 1, 1),
+                     valor_total=-150000.0)
+    r_bem = _vender(client, casa, "2025-05-01", 1, 200000.0)
+    assert r_bem.status_code == 200
+
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-100.0, quantidade=10)
+    venda = semear_movimento(session, ativo, TipoMovimento.venda,
+                             date(2025, 3, 1), valor_total=48.0, quantidade=4)
+
+    r = client.delete(f"/api/patrimonio/movimentos/{venda.id}")
+
+    assert r.status_code == 204
+    session.expire_all()
+    assert session.query(MovimentoAtivo).filter_by(ativo_id=ativo.id).count() == 1
+
+
 def test_eliminar_movimento_inexistente_da_404(client, session):
     """Apagar um movimento que não existe responde 404."""
     r = client.delete("/api/patrimonio/movimentos/999")

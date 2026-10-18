@@ -100,6 +100,27 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
     return {"quantidade": quantidade, "custo_base": custo_base, "realizado": realizado, "valor": valor}
 
 
+def primeira_sobre_venda(movimentos):
+    """Primeira venda que excede as unidades em carteira, pela ordem do FIFO.
+
+    `movimentos` vem ordenado por (data, id), como em `_resumo_valor_ativo`.
+    Devolve `(venda, posicao_antes_da_venda)`, ou `None` se nenhuma exceder.
+    Só faz sentido para ativos com unidades.
+    """
+    posicao = 0.0
+    for m in movimentos:
+        q = float(m.quantidade or 0)
+        if q <= 0:
+            continue
+        if m.tipo_movimento.value == "compra":
+            posicao += q
+        elif m.tipo_movimento.value == "venda":
+            if q - posicao > 1e-9:
+                return m, posicao
+            posicao -= q
+    return None
+
+
 def calcular_patrimonio_em(db: Session, data_alvo: date) -> dict:
     # --- Liquidez ---
     liquidez = 0.0

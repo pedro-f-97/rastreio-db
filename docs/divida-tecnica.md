@@ -719,7 +719,7 @@ Fixo por `test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas` em
 corrigido (`-45,50 + 30,00 = -15,5`, valor escrito à mão). Na altura, a D4 continuava aberta:
 a receita negativa continua sem ramo que a apanhe.
 
-## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado
+## 🟡 D15 — Sobre-venda aceite em silêncio, com o encaixe reescalado — resolvido
 
 `backend/servicos/patrimonio_serv.py:78-91` — o ciclo FIFO consome o que
 houver em lotes e pára quando a lista esgota. O que sobra de `por_consumir` não
@@ -745,6 +745,31 @@ posição.
 a operação. As duas são defensáveis e divergem no que fica gravado, por isso não
 se decide aqui. O teste `test_sobre_venda_escala_o_encaixe_e_nunca_avisa` fixa o
 comportamento **actual**, não o desejado.
+
+**Resolvido (decisão do utilizador: recusar):** nos ativos com unidades, a API
+recusa com 422 qualquer operação que deixe uma venda acima das unidades em
+carteira nessa data, com a mensagem «A venda de DD/MM/AAAA (N unidades) excede
+as M unidades em carteira nessa data.»
+
+- `primeira_sobre_venda` (`backend/servicos/patrimonio_serv.py:103`) percorre
+  os movimentos pela mesma ordem do FIFO, `(data, id)`, e devolve a primeira
+  venda que exceda a posição (com a mesma tolerância de `1e-9`);
+- `_recusar_sobre_venda` (`backend/routers/patrimonio.py:91`) chama-a sobre a
+  linha do tempo **inteira** do ativo, com a alteração já pendente na sessão, e
+  desfaz tudo se houver sobre-venda. Corre ao criar uma venda (linha 134),
+  porque uma venda inserida no passado pode deixar sem unidades uma venda
+  posterior, e ao apagar uma compra (linha 149);
+- os bens sem unidades não são verificados: o ramo deles não tem posição;
+- o frontend já mostrava o `detail` ao criar; ao apagar não havia tratamento
+  de erro e a recusa passaria em silêncio, por isso `MovimentosAtivo`
+  (`frontend/src/pages/Ativos.jsx`) passou a mostrá-lo num `alert`, como a
+  página de Importação.
+
+Verificado numa cópia da BD real (só leitura, apagada a seguir): ainda não há
+nenhuma venda registada, logo nenhuma sobre-venda nos dados. O teste de
+caracterização passou a `test_sobre_venda_ja_gravada_escala_o_encaixe` e fixa o
+que o núcleo do FIFO faz se uma sobre-venda já estiver gravada. Testes novos em
+`backend/tests/test_api_patrimonio.py`, na secção «Sobre-venda recusada».
 
 ## ⚪ D16 — Bem sem unidades e sem preço desaparece do património
 

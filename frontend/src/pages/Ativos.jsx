@@ -648,7 +648,12 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
   }, [ativoId]);
 
   async function handleEliminar(movimentoId) {
-    await eliminarMovimento(movimentoId);
+    try {
+      await eliminarMovimento(movimentoId);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Erro ao eliminar movimento.");
+      return;
+    }
     const res = await getMovimentos(ativoId);
     setMovimentos(res.data);
     onEliminar();

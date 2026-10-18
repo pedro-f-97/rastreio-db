@@ -341,8 +341,8 @@ def test_venda_total_zera_a_posicao(client, session):
 # 6. Sobre-venda
 # ---------------------------------------------------------------------------
 
-def test_sobre_venda_escala_o_encaixe_e_nunca_avisa(client, session):
-    """Vende 15 unidades tendo 10.
+def test_sobre_venda_ja_gravada_escala_o_encaixe(client, session):
+    """Uma venda de 15 unidades tendo 10, gravada directamente na BD.
 
     Calculo a mao:
       consome as 10 do lote: custo_vendido = 10 x 10,00 = 100,00
@@ -352,13 +352,13 @@ def test_sobre_venda_escala_o_encaixe_e_nunca_avisa(client, session):
       realizado      = 200,00 - 100,00 = +100,00
       lotes esgotados, logo quantidade = 0,0 e custo_base = 0,0
 
-    As 5 unidades que nao existiam e 100,00 de encaixe desaparecem sem erro,
-    sem aviso e sem registo: o resultado e identico ao de ter vendido 10
-    unidades por 200,00.
+    As 5 unidades que nao existiam e 100,00 de encaixe desaparecem: o
+    resultado e identico ao de ter vendido 10 unidades por 200,00.
 
-    DEVIDA-TECNICA: D15 (sobre-venda silenciosa). A decisao entre avisar e
-    recusar a operacao esta pendente, por isso este teste fixa o
-    comportamento actual e nao o desejado.
+    Desde a D15, a API recusa uma venda destas (422, ver os testes de
+    sobre-venda em test_api_patrimonio.py). O movimento e semeado
+    directamente na sessao para fixar o que o nucleo do FIFO faz se uma
+    sobre-venda ja estiver gravada (dados anteriores a validacao).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes U", tipo)
