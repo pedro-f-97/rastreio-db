@@ -868,7 +868,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
       * ativo de investimento (com unidades): compra `2025-01-10` de 10 un.
         por 200.00; preço `2025-01-20=25.00`; preço `2025-03-15=30.00`;
       * ativo físico (sem unidades): compra `2025-01-05` de 15000.00; preço
-        `2025-03-01=15000.00`.
+        `2025-03-01=14000.00` (diferente do custo, para distinguir os dois).
 
     Cálculo à mão, ponto a ponto (`gerar_evolucao` faz `min(fim do mês,
     data_fim)`):
@@ -881,20 +881,20 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
         `2025-02-01 > 2025-01-31`).
       - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
         `2025-03-15` é posterior, DEVIDA-TECNICA: D18) -> `10 x 25.00 = 250.00`.
-      - ativos_físicos: ainda sem preço até esta data -> `0.0`
-        (DEVIDA-TECNICA: D16).
-      - total: `800.00 + 250.00 + 0.0 = 1050.00`.
+      - ativos_físicos: ainda sem preço até esta data -> vale o custo,
+        `15000.00` (era 0.0 até à D16).
+      - total: `800.00 + 250.00 + 15000.00 = 16050.00`.
     * **2025-02-28**
       - liquidez: `800.00` (conta A) `+ 100.00` (conta B, cuja referência
         `2025-02-01` já passou e sem transações próprias) `= 900.00`.
       - investimentos: `250.00` (o preço de 30.00 só chega a `2025-03-15`).
-      - ativos_físicos: `0.0`.
-      - total: `900.00 + 250.00 + 0.0 = 1150.00`.
+      - ativos_físicos: ainda sem preço -> custo, `15000.00`.
+      - total: `900.00 + 250.00 + 15000.00 = 16150.00`.
     * **2025-03-20** (`min(2025-03-31, data_fim)`)
       - liquidez: `900.00`.
       - investimentos: `10 x 30.00 = 300.00`.
-      - ativos_físicos: `15000.00`.
-      - total: `900.00 + 300.00 + 15000.00 = 16200.00`.
+      - ativos_físicos: o preço de `2025-03-01` -> `14000.00`.
+      - total: `900.00 + 300.00 + 14000.00 = 15200.00`.
     """
     conta_a = semear_conta(session, "A", 1000.00, date(2025, 1, 1))
     semear_conta(session, "B", 100.00, date(2025, 2, 1))
@@ -917,7 +917,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
     ativo_fisico = semear_ativo(session, "Casa", tipo_bem)
     semear_movimento(session, ativo_fisico, TipoMovimento.compra,
                      date(2025, 1, 5), valor_total=-15000.0)
-    semear_preco(session, ativo_fisico, date(2025, 3, 1), 15000.00)
+    semear_preco(session, ativo_fisico, date(2025, 3, 1), 14000.00)
 
     r = client.get(
         "/api/patrimonio/evolucao",
@@ -932,22 +932,22 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
         "data": "2025-01-31",
         "liquidez": 800.00,
         "investimentos": 250.00,
-        "ativos_fisicos": 0.0,
-        "total": 1050.00,
+        "ativos_fisicos": 15000.00,
+        "total": 16050.00,
     }
     assert pontos[1] == {
         "data": "2025-02-28",
         "liquidez": 900.00,
         "investimentos": 250.00,
-        "ativos_fisicos": 0.0,
-        "total": 1150.00,
+        "ativos_fisicos": 15000.00,
+        "total": 16150.00,
     }
     assert pontos[2] == {
         "data": "2025-03-20",
         "liquidez": 900.00,
         "investimentos": 300.00,
-        "ativos_fisicos": 15000.00,
-        "total": 16200.00,
+        "ativos_fisicos": 14000.00,
+        "total": 15200.00,
     }
 
 
@@ -1059,19 +1059,19 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B27 — D16: bem sem preço não conta para o património
+# B27 — bem sem preço conta pelo custo (era a D16)
 # ---------------------------------------------------------------------------
 
-def test_evolucao_bem_sem_preco_contribui_zero(client, session):
-    """Um bem comprado e sem preço registado conta 0 para o total.
+def test_evolucao_bem_sem_preco_conta_pelo_custo(client, session):
+    """Um bem comprado e sem preço registado conta pelo custo de aquisição.
 
     Cálculo à mão: compra de `15000.00` num bem sem unidades e sem linha em
     `precos_ativo`. Para um `data_alvo` depois da compra, `_resumo_valor_ativo`
-    devolve `valor = 0.0` (o valor do ramo dos bens vem do preço, não do
-    custo), pelo que `ativos_fisicos = 0.0` e o `total` também é `0.0`.
+    devolve `valor = custo_base = 15000.00`, pelo que `ativos_fisicos` e o
+    `total` são `15000.00`.
 
-    DEVIDA-TECNICA: D16 — o bem desaparece do total apesar do custo de
-    `15000.00`.
+    Era a D16: o valor era 0.0 e o bem desaparecia do total. Decisão do
+    utilizador: o custo é o valor de recurso enquanto não houver avaliação.
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Terreno", tipo)
@@ -1086,8 +1086,8 @@ def test_evolucao_bem_sem_preco_contribui_zero(client, session):
     assert r.status_code == 200
     ponto = r.json()[0]
     assert ponto["investimentos"] == 0.0
-    assert ponto["ativos_fisicos"] == 0.0
-    assert ponto["total"] == 0.0
+    assert ponto["ativos_fisicos"] == 15000.0
+    assert ponto["total"] == 15000.0
 
 
 # ---------------------------------------------------------------------------

@@ -820,23 +820,20 @@ def test_venda_com_quantidade_zero_e_ignorada(client, session):
 # 17. Bem sem unidades e sem preco
 # ---------------------------------------------------------------------------
 
-def test_bem_sem_unidades_e_sem_preco_desaparece_do_patrimonio(client, session):
-    """Um bem sem preco vale zero, mesmo tendo 15 000,00 de custo.
+def test_bem_sem_unidades_e_sem_preco_vale_o_custo(client, session):
+    """Um bem sem preco vale o custo de aquisicao, 15 000,00.
 
     Calculo a mao (ramo dos bens, `patrimonio_serv.py:53-56`):
       custo_base = abs(-15000,00) = 15 000,00
-      nao houve venda e o custo e positivo, mas sem preco o valor e 0,0
+      nao houve venda e o custo e positivo; sem preco, o valor e o custo
       custo_total = -15 000,00  (negativo, D12a)
-      valor_atual = 0,0
+      valor_atual = round(15 000,00, 2) = 15 000,00
       latente = None, porque `preco_atual` e None
       mais_menos_valia = round(0,00 + 0,0, 2) = 0,00
       quantidade = 0,0
 
-    Os 15 000,00 de custo ficam visiveis no `custo_total` e nao aparecem em mais
-    nada: o bem vale zero, o latente e nulo e o mais/menos-valia e zero. Na
-    pratica, um bem sem registo de preco desaparece do patrimonio.
-
-    DEVIDA-TECNICA: D16 (bem sem preco desaparece do patrimonio).
+    Era a D16: sem preco o valor era 0,0 e o bem desaparecia do patrimonio.
+    Decisao do utilizador: sem avaliacao registada, o bem vale o custo.
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Terreno", tipo)
@@ -849,7 +846,7 @@ def test_bem_sem_unidades_e_sem_preco_desaparece_do_patrimonio(client, session):
         resumo,
         quantidade=0.0,
         custo_total=-15000.00,
-        valor_atual=0.0,
+        valor_atual=15000.00,
         realizado=0.0,
         latente=None,
         mais_menos_valia=0.0,

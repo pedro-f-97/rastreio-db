@@ -112,7 +112,7 @@ Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais 
 |---|---|---|
 | id | int | PK |
 | nome | str(100) | obrigatório, único |
-| tem_unidades | bool | default `False` — `True`: o custo segue FIFO por unidades; `False`: custo acumulado, e o valor actual vem do preço registado |
+| tem_unidades | bool | default `False` — `True`: o custo segue FIFO por unidades; `False`: custo acumulado, e o valor actual vem do último preço registado ou, sem preço, é o custo |
 
 **Relações:** 1:N com `Ativo` (`ativos`)
 

@@ -52,8 +52,11 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
 
         if vendido or custo_base <= 0:
             valor = 0.0
+        elif preco:
+            valor = round(float(preco.preco), 2)
         else:
-            valor = round(float(preco.preco), 2) if preco else 0.0
+            # Sem avaliação registada, o bem vale o custo de aquisição (D16)
+            valor = round(custo_base, 2)
 
         return {"quantidade": 0.0, "custo_base": custo_base, "realizado": realizado, "valor": valor}
 

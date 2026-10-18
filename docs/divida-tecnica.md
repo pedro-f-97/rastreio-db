@@ -771,7 +771,7 @@ caracterização passou a `test_sobre_venda_ja_gravada_escala_o_encaixe` e fixa 
 que o núcleo do FIFO faz se uma sobre-venda já estiver gravada. Testes novos em
 `backend/tests/test_api_patrimonio.py`, na secção «Sobre-venda recusada».
 
-## ⚪ D16 — Bem sem unidades e sem preço desaparece do património
+## ⚪ D16 — Bem sem unidades e sem preço desaparece do património — resolvido
 
 `backend/servicos/patrimonio_serv.py:56` — no ramo dos bens, o valor actual vem
 do preço registado e não do custo:
@@ -787,6 +787,21 @@ para o `total` de `calcular_patrimonio_em`. O preço de um bem é um valor total
 opcional, e nada obriga a registá-lo: o resultado é um activo que consta como
 comprado e não conta para o património. Coberto por
 `test_bem_sem_unidades_e_sem_preco_desaparece_do_patrimonio`.
+
+**Resolvido (decisão do utilizador: o custo como valor de recurso):** sem preço
+registado, um bem vale o custo de aquisição acumulado
+(`backend/servicos/patrimonio_serv.py:59`); assim que tiver um preço, vale
+esse preço, como antes. O custo é um facto e não uma estimativa; para um bem
+que desvaloriza (uma viatura), o valor real só aparece quando se regista um
+preço, e a depreciação automática por tipo de ativo fica como funcionalidade
+a ponderar depois da dívida técnica. Verificado numa cópia da BD real (só
+leitura, apagada a seguir): o Twingo 2020 tem 11 990,00 de compras e nenhum
+preço, e passa a contar esse valor nos Bens e no total, também no gráfico
+desde maio de 2024 (1 000,00) e junho de 2024 (11 990,00). Testes actualizados:
+`test_evolucao_bem_sem_preco_conta_pelo_custo`,
+`test_evolucao_calcula_por_mes_e_por_tipo` (cujo preço do bem passou a
+14 000,00, diferente do custo, para separar os dois casos) e
+`test_bem_sem_unidades_e_sem_preco_vale_o_custo`.
 
 ## ⚪ D17 — Venda parcial de um bem sem unidades tratada como venda total
 
