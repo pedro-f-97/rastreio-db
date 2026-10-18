@@ -476,7 +476,10 @@ def test_sem_preco_degrada_o_latente_para_nulo(client, session):
     Os 100,00 de custo nao aparecem em lado nenhum: nem no valor, nem no
     latente, nem no mais/menos-valia.
 
-    DEVIDA-TECNICA: D12b (latente nulo degrada o mais/menos-valia).
+    A API mantem o latente nulo e o mais/menos-valia igual ao realizado; e a
+    pagina Ativos que mostra «sem preco» para um ativo detido nestas
+    condicoes (era a D12b). O valor 0,0 de um ativo com unidades e sem preco
+    nao foi tocado pela D16, que so tratou dos bens.
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes S", tipo)

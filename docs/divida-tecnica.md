@@ -532,9 +532,18 @@ isoladamente.
   `resumo_ativo`) e onde o frontend depende dele (`Patrimonio.jsx`, no
   `totalMaisValia`). Os testes de `test_patrimonio_fifo.py` deixaram de citar a
   D12a e apontam para a convenção.
-- **D12b** — `routers/patrimonio.py:184-193` — `latente` é `None` quando falta
+- **D12b — resolvido** — `routers/patrimonio.py:184-193` — `latente` é `None` quando falta
   preço, e `mais_menos_valia` degrada silenciosamente para `realizado`.
   "Sem preço" fica indistinguível de "sem mais-valia".
+  **Resolvido (decisão do utilizador: só no ecrã):** a API não mudou. Na página
+  Ativos (`frontend/src/pages/Ativos.jsx`), a coluna da mais-valia mostra «sem
+  preço», com uma dica, quando o ativo **ainda é detido** (unidades em carteira,
+  ou um bem com custo por vender) e não tem preço registado, em vez de um
+  «0,00 €» que parecia «sem ganho nem perda». Um ativo já vendido continua a
+  mostrar o realizado, que é um valor real, e os totais por tipo continuam a
+  somar o realizado. Com a D16, é o caso do Twingo, que vale o custo por falta
+  de preço. Não há testes de frontend; a alteração foi verificada só com o
+  ESLint.
 - **D12c — resolvido** — `routers/patrimonio.py:94` e `:107` — dois `commit()` no mesmo
   endpoint (`criar_movimento`). Se o upsert de preço da linha 107 falhar, o
   movimento já foi gravado na linha 94: escrita parcial, sem rollback. Um

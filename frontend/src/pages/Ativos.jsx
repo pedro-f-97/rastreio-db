@@ -339,6 +339,9 @@ export default function Ativos({ onDadosAlterados }) {
                     const mmv = r?.mais_menos_valia;
                     const custo = r?.custo_total;
                     const pctAtivo = custo && custo !== 0 ? (mmv / Math.abs(custo)) * 100 : null;
+                    // Ainda detido e sem preço: a mais-valia não se sabe, não é zero (D12b)
+                    const semPreco = r != null && r.preco_atual == null &&
+                      (ativo.tipo.tem_unidades ? r.quantidade > 0 : r.custo_total !== 0);
                     return (
                       <Fragment key={ativo.id}>
                         <tr
@@ -400,8 +403,10 @@ export default function Ativos({ onDadosAlterados }) {
                               </div>
                             ) : "—"}
                           </td>
-                          <td className={`col-valor col-mono ${mmv != null ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
-                            {mmv != null ? (
+                          <td className={`col-valor col-mono ${mmv != null && !semPreco ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                            {semPreco ? (
+                              <span className="data-preco" title="Sem preço registado: regista um preço para ver a mais-valia.">sem preço</span>
+                            ) : mmv != null ? (
                               <div className="celula-valor-data">
                                 <span>{formatarEuros(mmv)}</span>
                                 {pctAtivo !== null && (
