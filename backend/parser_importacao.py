@@ -54,9 +54,22 @@ def _ler_linhas_xlsx(file_bytes: bytes, linha_inicio: int) -> list[tuple]:
         linhas.append(row)
     return linhas
 
+def _detectar_delimitador(linhas_de_dados: list[str]) -> str:
+    """O separador de colunas que divide as linhas de dados no mesmo número de
+    colunas, e no maior; vírgula se nenhum servir (D19). O `csv.Sniffer`
+    engana-se num CSV com `;` sem cabeçalho e vírgula decimal (`-3,20`)."""
+    amostra = "\n".join(l for l in linhas_de_dados if l.strip())
+    melhor, colunas = ",", 1
+    for delimitador in (",", ";", "\t"):
+        contagens = {len(r) for r in csv.reader(io.StringIO(amostra), delimiter=delimitador)}
+        if len(contagens) == 1 and (n := contagens.pop()) > colunas:
+            melhor, colunas = delimitador, n
+    return melhor
+
 def _ler_linhas_csv(file_bytes: bytes, linha_inicio: int, separador_decimal: str) -> list[tuple]:
     texto = file_bytes.decode("utf-8-sig")
-    reader = csv.reader(io.StringIO(texto))
+    delimitador = _detectar_delimitador(texto.splitlines()[linha_inicio - 1:linha_inicio + 19])
+    reader = csv.reader(io.StringIO(texto), delimiter=delimitador)
     linhas = []
     for i, row in enumerate(reader, start=1):
         if i < linha_inicio:

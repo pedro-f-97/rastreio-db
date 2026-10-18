@@ -40,13 +40,10 @@ Convenções que estes testes fixam
 * `total_linhas` conta as linhas que deram transacção ou erro. Linhas vazias e
   linhas de cabeçalho não contam. O `linha` que vai no erro é o número da linha
   do ficheiro, não o índice dentro do que foi lido.
-* `_ler_linhas_csv` usa o `csv.reader` sem `delimiter`, pelo que a vírgula é o
-  único separador aceite num CSV (ver `DEVIDA-TECNICA: D19`).
+* `_ler_linhas_csv` detecta o separador de colunas (`,`, `;` ou tabulação)
+  com `_detectar_delimitador`, sobre as linhas de dados (era a D19).
 * `openpyxl` é uma dependência de produção, não de teste: está em
   `backend/requirements.txt`. Estes testes geram um `.xlsx` verdadeiro com ele.
-
-Nota sobre `DEVIDA-TECNICA: D19` — o caso do CSV delimitado por ponto-e-vírgula
-está registado em `docs/divida-tecnica.md`.
 """
 
 from datetime import date, datetime
@@ -58,6 +55,7 @@ from openpyxl import Workbook
 from database import ModoValor, TipoFicheiro
 from parser_importacao import (
     ErroParsing,
+    _detectar_delimitador,
     _parse_data,
     _parse_valor,
     parse_ficheiro,
@@ -475,31 +473,76 @@ def test_ficheiro_so_com_linhas_vazias(tmp_path):
     assert resultado == {"transacoes": [], "total_linhas": 0, "erros": []}
 
 
-def test_csv_delimitado_por_ponto_e_virgula_e_lido_como_uma_coluna(tmp_path):
-    """Um CSV com ponto-e-vírgula é lido como se tivesse uma coluna só.
+def test_csv_delimitado_por_ponto_e_virgula_e_detectado(tmp_path):
+    """Um CSV com ponto e vírgula é lido com as colunas certas.
 
-    DEVIDA-TECNICA: D19
+    Era a D19: o `csv.reader` usava sempre a vírgula, e a linha inteira ficava
+    numa só célula. Agora `_detectar_delimitador` escolhe o separador que dá o
+    mesmo número de colunas em todas as linhas de dados, e o maior.
+
+    Cálculo à mão, linhas de dados a partir da linha 2, perfil em vírgula:
+      "31/01/2026;Supermercado;-45,60" e "01/02/2026;Renda;-650,00"
+        "," -> 2 colunas em cada (a vírgula decimal parte o valor)
+        ";" -> 3 colunas em cada -> escolhido
+      -45,60 e -650,00 lidos com a vírgula decimal do perfil
     """
     caminho = escrever_csv(
         tmp_path / "pontos_e_virgulas.csv",
-        ("Data;Descrição;Valor", "31/01/2026;Supermercado;-45.60"),
+        ("Data;Descrição;Valor",
+         "31/01/2026;Supermercado;-45,60",
+         "01/02/2026;Renda;-650,00"),
     )
-    resultado = parse_ficheiro(
-        caminho.read_bytes(),
-        perfil(linha_inicio_dados=2, separador_decimal="."),
-    )
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=2))
 
-    # `_ler_linhas_csv` chama o `csv.reader` sem `delimiter`, e o separador por
-    # omissão é a vírgula. Cada linha do ficheiro tem zero vírgulas, logo vem
-    # uma única célula com a linha inteira dentro, e a data nem sequer é
-    # parecida com uma data. A importação inteira falha linha a linha.
-    assert resultado["transacoes"] == []
-    assert resultado["erros"] == [{
-        "linha": 2,
-        "erro": "data inválida: '31/01/2026;Supermercado;-45.60' "
-                "(formato esperado: %d/%m/%Y)",
-    }]
-    assert resultado["total_linhas"] == 1
+    assert resultado["erros"] == []
+    assert [(t["descricao"], t["valor"]) for t in resultado["transacoes"]] == [
+        ("Supermercado", -45.6),
+        ("Renda", -650.0),
+    ]
+
+
+def test_delimitador_detectado_so_nas_linhas_de_dados(tmp_path):
+    """As linhas antes de `linha_inicio_dados` não entram na detecção.
+
+    Cálculo à mão, dados a partir da linha 3:
+      linha 1 "Banco X, extracto de conta" (preâmbulo do banco)
+      linha 2 "Data;Descrição;Valor"       (cabeçalho)
+      linhas 3-4 com ";" -> 3 colunas cada, com "," -> 2 colunas cada
+    Só com as linhas 3-4: ";" -> lidas -12,50 e -650,00. Se o preâmbulo
+    entrasse, nenhum separador daria colunas iguais e voltava a vírgula.
+    """
+    caminho = escrever_csv(
+        tmp_path / "com_preambulo.csv",
+        ("Banco X, extracto de conta",
+         "Data;Descrição;Valor",
+         "31/01/2026;Supermercado;-12,50",
+         "01/02/2026;Renda;-650,00"),
+    )
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=3))
+
+    assert resultado["erros"] == []
+    assert [t["valor"] for t in resultado["transacoes"]] == [-12.5, -650.0]
+
+
+@pytest.mark.parametrize(
+    "linhas, esperado, calculo",
+    [
+        (["31/01/2026;Café;-3,20", "01/02/2026;Renda;-650,00"], ";",
+         "sem cabeçalho: ';' dá 3 colunas, ',' dá 2 (o csv.Sniffer escolhia ',')"),
+        (['31/01/2026,Café,"-3,20"', '01/02/2026,Renda,"-650,00"'], ",",
+         "vírgula com o decimal entre aspas: ',' dá 3 colunas, ';' dá 1"),
+        (["2025-06-11,BUY,ETF X,-8612.0,-1", "2025-07-01,INTEREST,Juros,9.44,"], ",",
+         "formato do TradeRepublic: ',' dá 5 colunas em cada"),
+        (["31/01/2026\tCafé\t-3,20"], "\t",
+         "tabulação: 3 colunas, as outras dão 1 ou 2"),
+        (["31/01/2026,Café,-3", "01/02/2026,Renda"], ",",
+         "nenhum separador dá o mesmo número de colunas -> vírgula, como antes"),
+        (['31/01/2026,Compra a;b;c;d,"-3,20"', '01/02/2026,Renda,"-650,00"'], ",",
+         "';' numa descrição dá 5 e 1 colunas (desiguais, rejeitado); ',' dá 3 e 3"),
+    ],
+)
+def test_detectar_delimitador(linhas, esperado, calculo):
+    assert _detectar_delimitador(linhas) == esperado, calculo
 
 
 # ---------------------------------------------------------------------------

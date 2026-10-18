@@ -20,7 +20,7 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 - Histórico com totais por ano/mês e drill-down por categoria
 - Categorização automática por regras de substring, com sugestões automáticas de novas regras
 - Aplicação de regras em massa, com resolução individual de conflitos
-- Importação de Excel e CSV, com perfis de mapeamento de colunas por banco e conta, com deteção automática de duplicados
+- Importação de Excel e CSV (separado por vírgula, ponto e vírgula ou tabulação, detetado automaticamente), com perfis de mapeamento de colunas por banco e conta, com deteção automática de duplicados
 
 ### Análise
 - Estatísticas mensais: evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais

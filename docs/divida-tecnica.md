@@ -783,7 +783,7 @@ componente, ou remover a chamada.
 Importacao({ onDadosAlterados })`). `App.jsx:176` já a passava; quem faltava
 era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
 
-## ⚪ D19 — Leitura de CSV com delimitador diferente de vírgula
+## ⚪ D19 — Leitura de CSV com delimitador diferente de vírgula — resolvido
 
 - `parser_importacao.py:_ler_linhas_csv` (aprox. linha 48) usa
   `csv.reader` sem `delimiter` (o valor por omissão é a vírgula). Num CSV
@@ -794,6 +794,27 @@ era o componente. O ESLint deixa de acusar `no-undef` na linha 208.
   em `backend/tests/test_parser_importacao.py`. Não decidido o curso de acção (se
   detectar automaticamente, permitir configuração do delimitador, ou documentar o
   requisito). ⚪
+
+**Resolvido (decisão do utilizador: detectar automaticamente):**
+`_detectar_delimitador` (`backend/parser_importacao.py`) escolhe, entre `,`,
+`;` e tabulação, o separador que divide as linhas de dados (a partir de
+`linha_inicio_dados`, até 20) no mesmo número de colunas, e no maior; se nenhum
+servir, usa a vírgula, como antes. Não se usou o `csv.Sniffer`, que foi testado
+e se engana num CSV com `;`, sem cabeçalho e com vírgula decimal sem aspas
+(`-3,20`): escolhe a vírgula. O formato do TradeRepublic continua a ser lido
+com vírgula. Se a detecção falhar num ficheiro estranho, as linhas dão erro e,
+pela D29, a importação é recusada sem gravar nada. A pré-visualização usada
+para criar um perfil (`analisar_ficheiro`, `routers/perfis_importacao.py`)
+tinha o mesmo `csv.reader` com a vírgula fixa e passou a usar a mesma
+detecção, sobre as primeiras linhas do ficheiro (o perfil ainda não diz onde
+começam os dados, pelo que um preâmbulo do banco pode fazê-la voltar à
+vírgula). Testes em
+`backend/tests/test_parser_importacao.py`: o de caracterização foi invertido
+(`test_csv_delimitado_por_ponto_e_virgula_e_detectado`), e há
+`test_detectar_delimitador` (seis casos) e
+`test_delimitador_detectado_so_nas_linhas_de_dados`, e em
+`backend/tests/test_api_perfis_importacao.py`
+`test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas`.
 
 ## 🟡 D20 — Despesa positiva sem a marca de reembolso desaparece dos totais — resolvido
 

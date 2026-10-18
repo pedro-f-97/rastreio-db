@@ -4,6 +4,7 @@ from database import get_db, PerfilImportacao as PerfilImportacaoModel
 from schemas import PerfilImportacaoCreate, PerfilImportacao as PerfilImportacaoSchema
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from openpyxl import load_workbook
+from parser_importacao import _detectar_delimitador
 import schemas
 import io
 
@@ -31,7 +32,8 @@ async def analisar_ficheiro(file: UploadFile = File(...)):
     if nome.endswith(".csv"):
         import csv
         texto = conteudo.decode("utf-8-sig")
-        reader = csv.reader(io.StringIO(texto))
+        # O perfil ainda não existe: a amostra são as primeiras linhas do ficheiro (D19)
+        reader = csv.reader(io.StringIO(texto), delimiter=_detectar_delimitador(texto.splitlines()[:20]))
         linhas = [[str(c) for c in row] for _, row in zip(range(12), reader)]
     else:
         wb = load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
