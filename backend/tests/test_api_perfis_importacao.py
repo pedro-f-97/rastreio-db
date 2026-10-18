@@ -219,6 +219,22 @@ def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas(clie
     assert r.json()["linhas"] == [["a", "b"], ["1", "2"]]
 
 
+def test_analisar_ficheiro_csv_com_extensao_em_maiusculas(client):
+    """Um `EXTRACTO.CSV` é lido como CSV, e não aberto como Excel (D30).
+
+    Era a D30: a extensão era comparada com `.csv` em minúsculas, e um nome em
+    maiúsculas ia parar ao `openpyxl`, que falhava a abrir o ficheiro. Cálculo
+    à mão: `a,b / 1,2` -> 2 colunas por linha -> `[["a", "b"], ["1", "2"]]`.
+    """
+    r = client.post(
+        "/api/perfis-importacao/analisar-ficheiro",
+        files={"file": ("EXTRACTO.CSV", "a,b\n1,2\n".encode("utf-8"), "text/csv")},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["linhas"] == [["a", "b"], ["1", "2"]]
+
+
 def test_analisar_ficheiro_xlsx_converte_none_em_string_vazia(client):
     """Um XLSX e lido com `openpyxl` e as celulas vazias viram `""`.
 

@@ -29,7 +29,7 @@ def criar_perfil(perfil: PerfilImportacaoCreate, db: Session = Depends(get_db)):
 async def analisar_ficheiro(file: UploadFile = File(...)):
     conteudo = await file.read()
     nome = file.filename or ""
-    if nome.endswith(".csv"):
+    if nome.lower().endswith(".csv"):
         import csv
         texto = conteudo.decode("utf-8-sig")
         # O perfil ainda não existe: a amostra são as primeiras linhas do ficheiro (D19)

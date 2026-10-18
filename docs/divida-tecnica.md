@@ -1354,6 +1354,19 @@ Fica nas «Decisões de design» do `README.md`. Testes:
 `test_importar_com_uma_linha_com_erro_nao_importa_nenhuma`, em
 `backend/tests/test_api_importacao.py`.
 
+## ⚪ D30 — `.CSV` em maiúsculas tratado como Excel na criação de perfis — resolvido
+
+Encontrado ao corrigir a D19. `analisar_ficheiro`
+(`backend/routers/perfis_importacao.py:32`), a pré-visualização usada para
+criar um perfil, decidia o tipo com `nome.endswith(".csv")`, que distingue
+maiúsculas: um `EXTRACTO.CSV` era aberto com o `openpyxl` e falhava. É a mesma
+classe da D12h (extensão `.DB` nos backups).
+
+**Resolvido:** a comparação passou a `nome.lower().endswith(".csv")`. Teste
+novo: `test_analisar_ficheiro_csv_com_extensao_em_maiusculas`, em
+`backend/tests/test_api_perfis_importacao.py`. A importação em si não é
+afectada: usa o `tipo_ficheiro` do perfil, e não o nome do ficheiro.
+
 ---
 
 ## Regra a seguir
