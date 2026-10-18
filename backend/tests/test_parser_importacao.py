@@ -566,10 +566,12 @@ def test_xlsx_com_data_invalida_na_terceira_linha(tmp_path):
 # Secção G — a comissão (coluna fee) e o sinal com que é somada
 # ---------------------------------------------------------------------------
 
-def test_comissao_positiva_reduz_a_saida(tmp_path):
-    """Uma comissão positiva, somada como vem, empurra o valor para zero.
+def test_comissao_positiva_tambem_aumenta_a_saida(tmp_path):
+    """Uma comissão positiva no extracto entra negativa: é sempre um pagamento.
 
-    DEVIDA-TECNICA: D12e
+    Era a D12e: a comissão era somada com o sinal que vinha, e uma comissão
+    positiva fazia a compra parecer mais barata. Decisão do utilizador: a
+    comissão é sempre algo que se paga, por isso entra como `-abs(comissão)`.
     """
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(
@@ -577,36 +579,29 @@ def test_comissao_positiva_reduz_a_saida(tmp_path):
         coluna_fee=3,
     ))
 
-    # Linha 2 do ficheiro: -50,00 + 1,50 = -48,50. Uma comissão de 1,50 numa
-    # compra faz a compra parecer mais barata em 1,50.
-    assert resultado["transacoes"][0]["valor"] == -48.5
+    # Linha 2 do ficheiro: -50,00 - abs(1,50) = -51,50 (antes dava -48,50).
+    assert resultado["transacoes"][0]["valor"] == -51.5
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
 
 
 def test_comissao_negativa_aumenta_a_saida(tmp_path):
-    """Uma comissão negativa, somada como vem, aumenta a saída.
-
-    DEVIDA-TECNICA: D12e
-    """
+    """Uma comissão negativa (como no TradeRepublic) aumenta a saída."""
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(
         linha_inicio_dados=2,
         coluna_fee=3,
     ))
 
-    # Linha 3 do ficheiro: -50,00 + (-1,50) = -51,50. Uma comissão de 1,50 numa
-    # compra faz a compra parecer mais cara em 1,50.
+    # Linha 3 do ficheiro: -50,00 - abs(-1,50) = -51,50. Uma comissão de 1,50
+    # numa compra faz a compra custar mais 1,50.
     assert resultado["transacoes"][1]["valor"] == -51.5
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
 
 
 def test_comissao_vazia_e_ignorada(tmp_path):
-    """Uma célula de comissão vazia não mexe no valor.
-
-    DEVIDA-TECNICA: D12e
-    """
+    """Uma célula de comissão vazia não mexe no valor."""
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(
         linha_inicio_dados=2,
@@ -622,3 +617,24 @@ def test_comissao_vazia_e_ignorada(tmp_path):
     ]
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
+
+
+def test_comissao_numa_entrada_reduz_o_que_entra(tmp_path):
+    """Numa entrada de dinheiro (venda), a comissão também é paga: reduz o valor.
+
+    Cálculo à mão, perfil em vírgula e comissão na coluna 3:
+      +100,00 com comissão "1,00"  -> 100,00 - abs(1,00)  = 99,00
+      +100,00 com comissão "-1,00" -> 100,00 - abs(-1,00) = 99,00
+    """
+    caminho = escrever_csv(tmp_path / "venda.csv", (
+        "Data,Descrição,Valor,Comissão",
+        '31/01/2026,Venda de ações,"100,00","1,00"',
+        '01/02/2026,Venda de ações,"100,00","-1,00"',
+    ))
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
+        linha_inicio_dados=2,
+        coluna_fee=3,
+    ))
+
+    assert [t["valor"] for t in resultado["transacoes"]] == [99.0, 99.0]
+    assert resultado["erros"] == []

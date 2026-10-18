@@ -634,7 +634,7 @@ isoladamente.
   parênteses de contabilidade e os símbolos de moeda continuam sem suporte e
   dão erro visível. Testes na secção C de
   `backend/tests/test_parser_importacao.py`.
-- **D12e** — `parser_importacao.py:107` — `fee` é somado com o sinal tal como
+- **D12e — resolvido** — `parser_importacao.py:107` — `fee` é somado com o sinal tal como
   vem (`valor += _parse_valor(raw_fee, ...)`). **Confirmado pelo utilizador:** no
   extracto do Trade Republic a comissão vem NEGATIVA (por exemplo `-1`). Para
   esse banco o comportamento actual é o correcto: `-50,00 + -1,00 = -51,00`, a
@@ -644,6 +644,17 @@ isoladamente.
   **Relevante para os testes:**
   é uma linha, e o comportamento propaga-se a `transacoes.valor` e a tudo o que
   deriva dele — taxa de poupança, estatísticas, património.
+  **Resolvido (decisão do utilizador: a comissão é sempre paga):** na
+  importação, a comissão entra sempre negativa, venha com que sinal vier no
+  extracto: `valor -= abs(comissão)` (`backend/parser_importacao.py`, em
+  `parse_ficheiro`). Para o TradeRepublic nada muda (`-50,00` com comissão
+  `-1,00` continua `-51,00`); um banco que exporte a comissão positiva passa a
+  dar o mesmo resultado, e numa venda a comissão reduz o que entra. Fica nas
+  «Decisões de design» do `README.md`. Testes em
+  `backend/tests/test_parser_importacao.py`: o da comissão positiva foi
+  invertido (`test_comissao_positiva_tambem_aumenta_a_saida`, -51,50 em vez de
+  -48,50) e há um novo para a venda
+  (`test_comissao_numa_entrada_reduz_o_que_entra`).
 - **D12f** — `popular_bd.py:145` — `"Certificados de Aforro"` está marcado
   `tem_unidades=False`. A confirmar, sem evidência de ser erro: certificados de
   Aforro subscrevem-se por montante e o valor acumula com juros, não se

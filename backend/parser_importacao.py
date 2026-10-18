@@ -115,7 +115,9 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
             if perfil.coluna_fee is not None:
                 raw_fee = celula(perfil.coluna_fee)
                 if raw_fee not in (None, "", "None"):
-                    valor += _parse_valor(raw_fee, perfil.separador_decimal)
+                    # Uma comissão é sempre paga: entra negativa, venha o sinal
+                    # que vier no extracto (D12e)
+                    valor -= abs(_parse_valor(raw_fee, perfil.separador_decimal))
 
             saldo = None
             if perfil.tem_saldo and perfil.coluna_saldo is not None:
