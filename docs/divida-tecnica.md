@@ -1325,7 +1325,7 @@ validada. Testes novos em `backend/tests/test_api_patrimonio.py`:
 `test_listar_precos_do_mais_recente_para_o_mais_antigo` e
 `test_eliminar_preco_apaga_so_esse_preco`.
 
-## ⚪ D28 — A pesquisa por descrição só ignora maiúsculas em letras sem acento
+## ⚪ D28 — A pesquisa por descrição só ignora maiúsculas em letras sem acento — resolvido
 
 `backend/routers/transacoes.py:46` filtra a listagem de transacções com
 `Transacao.descricao.ilike(f"%{descricao}%")`. O `LIKE` do SQLite só ignora
@@ -1345,6 +1345,18 @@ pesquisa e não no motor de regras. Fixo por
 literal), ou ir mais longe e ignorar também os acentos, para «farmacia»
 encontrar «Farmácia». Qualquer das duas tira o filtro do SQL, o que tem de ser
 feito antes da paginação (o `total` tem de contar só as que casam).
+
+**Resolvido (decisão do utilizador: ignorar também os acentos):** a pesquisa
+compara a descrição e o texto procurado depois de `_para_pesquisa`
+(`backend/routers/transacoes.py`), que tira os acentos (decomposição NFKD) e as
+maiúsculas (`casefold`): «farmacia», «FARMÁCIA» e «Farmácia» encontram-se umas
+às outras, e `%` e `_` são texto. O filtro saiu do SQL e corre em Python sobre
+as transacções que passam os outros filtros, antes da paginação, pelo que o
+`total` e as páginas contam só as que casam. As regras de categorização não
+mudaram: continuam a distinguir acentos (D8). Testes em
+`backend/tests/test_api_transacoes.py`:
+`test_listar_filtra_por_descricao_sem_acentos_nem_maiusculas` (invertido) e
+`test_listar_por_descricao_pagina_so_as_que_casam`.
 
 ## 🟡 D29 — A importação ignorava as linhas com erro sem o dizer — resolvido
 

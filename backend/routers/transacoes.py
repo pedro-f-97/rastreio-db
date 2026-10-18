@@ -2,10 +2,17 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
 from typing import Optional
+import unicodedata
 from database import get_db, Transacao, Subcategoria
 from schemas import TransacaoUpdate
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
+
+
+def _para_pesquisa(texto: str) -> str:
+    """Sem acentos e sem maiúsculas, para a pesquisa por descrição (D28)."""
+    decomposto = unicodedata.normalize("NFKD", texto)
+    return "".join(c for c in decomposto if not unicodedata.combining(c)).casefold()
 
 @router.get("/por-categorizar/total")
 def total_por_categorizar(db: Session = Depends(get_db)):
@@ -42,8 +49,6 @@ def listar_transacoes(
         query = query.filter(Transacao.valor < 0)
     elif sinal == "positivo":
         query = query.filter(Transacao.valor > 0)
-    if descricao:
-        query = query.filter(Transacao.descricao.ilike(f"%{descricao}%"))
     if conta_id:
         query = query.filter(Transacao.conta_id == conta_id)
     if por_categorizar:
@@ -51,8 +56,15 @@ def listar_transacoes(
             (Transacao.categoria_id == None) | (Transacao.subcategoria_id == None)
         )
 
-    total = query.count()
-    items = query.offset((pagina - 1) * tamanho).limit(tamanho).all()
+    if descricao:
+        # Filtrado em Python, antes de paginar, para ignorar os acentos (D28)
+        procura = _para_pesquisa(descricao)
+        todas = [t for t in query.all() if procura in _para_pesquisa(t.descricao)]
+        total = len(todas)
+        items = todas[(pagina - 1) * tamanho:pagina * tamanho]
+    else:
+        total = query.count()
+        items = query.offset((pagina - 1) * tamanho).limit(tamanho).all()
 
     return {
         "total": total,
