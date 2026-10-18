@@ -22,8 +22,14 @@ def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
                 transacao.subcategoria_id = regra.subcategoria_id
             break
 
-def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: int | None = None) -> dict:
+def regras_por_precedencia(db: Session) -> list[RegraCategorizacao]:
+    """Regras pela ordem em que são avaliadas (D7): a palavra-chave mais longa
+    primeiro, porque é a mais específica, e em empate a mais antiga."""
     regras = db.query(RegraCategorizacao).all()
+    return sorted(regras, key=lambda r: (-len(r.palavra_chave), r.id))
+
+def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: int | None = None) -> dict:
+    regras = regras_por_precedencia(db)
     inseridas = 0
     duplicadas = 0
 

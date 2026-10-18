@@ -11,6 +11,7 @@ from schemas import (
     AplicarEmMassaResultado,
     RegraCreate,
 )
+from importador_transacoes import regras_por_precedencia
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/regras", tags=["regras"])
@@ -83,7 +84,7 @@ def apagar_regra(regra_id: int, db: Session = Depends(get_db)):
 
 @router.post("/pre-visualizar")
 def pre_visualizar_regras(db: Session = Depends(get_db)):
-    regras = db.query(RegraCategorizacao).all()
+    regras = regras_por_precedencia(db)
     transacoes = db.query(Transacao).filter(
         Transacao.subcategoria_id.is_(None),
     ).all()

@@ -318,6 +318,30 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
 # DELETE /{regra_id}
 # ---------------------------------------------------------------------------
 
+def test_pre_visualizar_avalia_primeiro_a_palavra_chave_mais_longa(client, session):
+    """A pré-visualização usa a mesma precedência que a importação (era a D7).
+
+    Cálculo à mão: "casa" -> Casa (criada primeiro) e "casa lazer" -> Lazer
+    (criada depois); "CASA LAZER LDA" casa as duas e está por categorizar.
+    A mais longa ("casa lazer", 10 caracteres) é avaliada primeiro -> a sugestão
+    é Lazer, sem conflito.
+    """
+    casa, lazer, _ = _categorias(session)
+    session.add(RegraCategorizacao(palavra_chave="casa", categoria_id=casa.id))
+    session.commit()
+    session.add(RegraCategorizacao(palavra_chave="casa lazer", categoria_id=lazer.id))
+    session.commit()
+    t = _transacao(session, "CASA LAZER LDA", 5)
+
+    r = client.post("/api/regras/pre-visualizar")
+
+    assert r.status_code == 200
+    assert [(x["id"], x["categoria_id"]) for x in r.json()["sem_conflito"]] == [
+        (t.id, lazer.id),
+    ]
+    assert r.json()["com_conflito"] == []
+
+
 def test_apagar_regra_existente_e_inexistente(client, session):
     """Apagar uma regra existente dá 200; uma inexistente dá 404.
 

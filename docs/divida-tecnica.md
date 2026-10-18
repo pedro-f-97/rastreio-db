@@ -364,7 +364,7 @@ validação prévia e o `os.replace` é atómico, por isso o ramo não falha de 
 natural. O docstring de `backend/tests/test_backups/test_importar.py` mantém
 «Rollback por cobrir» com essa justificação.
 
-## 🟡 D7 — Precedência das regras de categorização é não determinística
+## 🟡 D7 — Precedência das regras de categorização é não determinística — resolvido
 
 `backend/importador_transacoes.py:26` faz `db.query(RegraCategorizacao).all()`
 sem `ORDER BY`. A ordem das linhas devolvidas depende do plano de execução do
@@ -403,6 +403,28 @@ utilizador já tinha em `(5, None)`: a 1.ª regra casa com a categoria 2, `5 == 
 é falso, e a 2.ª regra — que traria a subcategoria 50 — nunca é avaliada. Nos
 dois testes a ausência do `break` mudaria o resultado: `(1, 20)` em vez de
 `(1, None)`, e `(5, 50)` em vez de `(5, None)`.
+
+**Resolvido (decisões do utilizador):**
+
+- **Ordem:** `regras_por_precedencia` (`backend/importador_transacoes.py`)
+  ordena as regras pela palavra-chave mais longa primeiro (a mais específica)
+  e, em empate, pela mais antiga (`id` menor). É usada na importação e na
+  pré-visualização da aplicação em massa (`routers/regras.py`), que deixam de
+  depender da ordem em que o SQLite devolve as linhas.
+- **`break`:** mantém-se: a primeira regra que casa decide sozinha, mesmo que
+  deixe a subcategoria por preencher. Na importação, o caso «casou mas não
+  atribuiu» nunca acontece (as transacções são novas e não têm categoria); o
+  caso que acontece é uma regra seguinte da mesma categoria que traria a
+  subcategoria, e a ordem nova já resolve o mais comum (palavras-chave contidas
+  uma na outra, como `MERCADO` / `MERCADO CENTRAL`).
+
+As duas regras ficaram nas «Decisões de design» do `README.md`. Testes novos:
+`test_importar_avalia_primeiro_a_palavra_chave_mais_longa` e
+`test_importar_com_o_mesmo_comprimento_ganha_a_regra_mais_antiga`
+(`backend/tests/test_importador_regras.py`) e
+`test_pre_visualizar_avalia_primeiro_a_palavra_chave_mais_longa`
+(`backend/tests/test_api_regras_geral.py`). Os três testes do `break` deixaram
+de ter a etiqueta D7 e apontam para o README.
 
 ## 🟡 D8 — Motor de regras duplicado com semântica divergente
 

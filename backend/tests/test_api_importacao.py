@@ -514,8 +514,8 @@ def test_importar_aplica_regras_de_categorizacao(client, session, tmp_path):
 
     `importar_transacoes` carrega todas as `RegraCategorizacao` (linha 26) e
     chama `aplicar_regras` por cada transacção nova (linha 57). Semeiam-se duas
-    regras desencontradas (os padrões não se cruzam, para não depender da ordem,
-    que é a D7):
+    regras desencontradas (os padrões não se cruzam, para não depender da ordem;
+    a precedência é testada em `test_importador_regras.py`):
       "supermercado" (categoria definida) -> categoriza
       "café"         (categoria_id None)  -> exclusão, deixa sem categoria
     O ficheiro traz "Supermercado" e "Café":

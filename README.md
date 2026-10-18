@@ -114,6 +114,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 - Um bem sem unidades (ex. imóvel, viatura) vende-se sempre por inteiro: qualquer venda desconta o custo acumulado todo e o bem deixa de contar para o património. Para vender partes de um bem, regista-se o bem com unidades (ex. 100 unidades = 100%), e as vendas parciais passam pelo FIFO
 - As médias mensais das estatísticas contam todos os meses que têm transações, incluindo os que só têm transferências ou transações por categorizar; pressupõe-se que as transações importadas são categorizadas logo a seguir à importação
 - O sistema de regras usa correspondência por substring intuitiva
+- Quando várias regras casam com a mesma descrição, ganha a de palavra-chave mais longa (a mais específica) e, em empate, a mais antiga; essa primeira regra decide sozinha a categoria e a subcategoria, mesmo que deixe a subcategoria por preencher
 - Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada
 - A base de dados fica em `dados/rastreio.db`, junto ao executável, para portabilidade e acesso fácil ao ficheiro
 
