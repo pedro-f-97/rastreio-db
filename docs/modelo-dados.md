@@ -27,7 +27,7 @@ Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, fic
 | id | int | PK |
 | nome | str(100) | obrigatório, único |
 | saldo_referencia | float | obrigatório, default `0` |
-| data_referencia | date | obrigatório |
+| data_referencia | date | obrigatório — o `saldo_referencia` é o saldo no fim deste dia: só as transacções posteriores (`data > data_referencia`) entram no saldo actual |
 | ativa | bool | default `True` |
 
 **Relações:** 1:N com `Transacao` (`transacoes`), 1:N com `PerfilImportacao` (`perfis_importacao`)

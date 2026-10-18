@@ -181,7 +181,7 @@ de 0.01) e há um teste novo para o ruído,
 `test_evolucao_total_sem_ruido_de_virgula_flutuante`, ambos em
 `backend/tests/test_api_patrimonio.py`. A passagem a `Decimal` fica para a D11.
 
-## 🟡 D3 — Boundary de data de referência diverge entre dois endpoints
+## 🟡 D3 — Boundary de data de referência diverge entre dois endpoints — resolvido
 
 A mesma conta é calculada de duas maneiras incompatíveis:
 
@@ -195,6 +195,19 @@ utilizador vê dois saldos diferentes para a mesma conta.
 É uma decisão de negócio, não um erro evidente: "saldo de referência" pode
 significar "antes desta data" ou "até esta data, exclusive". Tem de ser
 escolhido um dos dois e propagado.
+
+**Resolvido (decisão do utilizador: o saldo de referência é o do fim do
+dia):** já reflecte as transacções desse dia, que por isso não se somam outra
+vez. `backend/routers/contas.py:62` passou de `>=` para `>`, igual a
+`servicos/patrimonio_serv.py:112`; na página Património, o cartão Liquidez e a
+linha do gráfico passam a concordar. Verificado numa cópia da BD real (aberta
+só em leitura e apagada a seguir): nenhuma das duas contas tem transacções no
+dia de referência, ambas as datas são anteriores a todas as transacções, e o
+saldo de referência do ActivoBank bate ao cêntimo com o saldo do banco da
+primeira transacção (14 818,96 + 804,50 = 15 623,46). A mudança não altera
+nenhum número actual. O teste de caracterização foi invertido
+(`test_saldo_conta_e_evolucao_excluem_a_data_de_referencia`, saldo 130,0 em vez
+de 180,0, em `backend/tests/test_api_contas.py`).
 
 ## 🟡 D4 — Receita negativa desaparece de todos os totais — resolvido
 

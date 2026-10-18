@@ -731,7 +731,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
     * **2025-01-31**
       - liquidez: conta A `1000.00 + (-200.00) = 800.00`. A transação de
         `2025-01-01 +50.00` fica de fora: o filtro é `data >
-        conta.data_referencia` (estrito, DEVIDA-TECNICA: D3), e é exactamente a
+        conta.data_referencia` (estrito: o saldo de referência é o do fim do dia), e é exactamente a
         data de referência. A conta B ainda não entrou (referência
         `2025-02-01 > 2025-01-31`).
       - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
@@ -882,7 +882,7 @@ def test_evolucao_total_sem_ruido_de_virgula_flutuante(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B26 — D3: a fronteira da data de referência é estrita
+# B26 — a fronteira da data de referência é estrita (era a D3)
 # ---------------------------------------------------------------------------
 
 def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
@@ -893,9 +893,9 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
     conta.data_referencia` (`servicos/patrimonio_serv.py:112`), estrito, pelo
     que a liquidez é `100.00`.
 
-    DEVIDA-TECNICA: D3 — o `/api/contas/{id}/saldo`
-    (`routers/contas.py:62`) usa `data >= :data_referencia` e devolveria
-    `150.00` para a mesma conta. Divergem na mesma data.
+    O saldo de referência é o do fim desse dia, que já inclui as transacções
+    do dia. O `/api/contas/{id}/saldo` (`routers/contas.py:62`) usa o mesmo
+    `>` desde a D3; antes usava `>=` e devolvia `150.00` para esta conta.
     """
     conta = semear_conta(session, "A", 100.0, date(2025, 1, 1))
     session.add(Transacao(data=date(2025, 1, 1), descricao="No limite",
