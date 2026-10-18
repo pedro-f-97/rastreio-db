@@ -278,7 +278,7 @@ def test_receita_negativa_desaparece_dos_totais():
 def test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas():
     """Uma despesa positiva conta nas despesas mesmo sem a marca de reembolso.
 
-    Decisão do Pedro (o sinal manda): o valor não pode ser ignorado só porque
+    Decisão do utilizador (o sinal manda): o valor não pode ser ignorado só porque
     a marca está desligada — os totais seguem o sinal, pelo que a marca de
     reembolso já não é necessária para uma despesa entrar no cesto.
 

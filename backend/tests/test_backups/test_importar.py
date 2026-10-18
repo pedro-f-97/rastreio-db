@@ -1,6 +1,6 @@
 """Testes de `POST /api/backups/importar`.
 
-Portados do `test_backups.py` antigo (Pedro, 16 de Setembro, commit `398130b`),
+Portados do `test_backups.py` antigo (16 de Setembro, commit `398130b`),
 com as fixtures novas desta sub-pasta, e depois invertidos pelo D6: os testes
 que fixavam a validação fraca — só 3 tabelas, sem colunas, `.anterior` apagado
 no fim — afirmam agora a correcção.

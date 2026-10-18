@@ -91,7 +91,7 @@ que a migração seja repetível:
 | `sys._sqlite3` empacotado pelo PyInstaller | **por confirmar em cada build** |
 
 Coincidem hoje, o que torna a falha mais difícil de reproduzir noutro
-ambiente. O executável distributions não usa a CLI nem o `venv`, mas a
+ambiente. O executável distribuído não usa a CLI nem o `venv`, mas a
 biblioteca que o Python inclui — e essa muda com a versão do Python que gerou o
 build. Antes de correr a migração em produção, confirmar a versão embutida e
 testar o script contra ela, não contra o `venv`.
@@ -288,7 +288,7 @@ anotado como `xfail` no commit 398130b.
   falta rejeita.
 - `backend/routers/backups.py:20` — falha de estrutura responde sempre 400 com
   a mensagem única `"O ficheiro não corresponde a um backup válido do
-  Rastreio-DB"` (`MENSAGEM_ESTRUTURA`): por decisão do Pedro, o erro não diz o
+  Rastreio-DB"` (`MENSAGEM_ESTRUTURA`): por decisão do utilizador, o erro não diz o
   que falta (não expõe o esquema interno).
 - `backend/routers/backups.py:124-131` — validação ANTES de tocar no DB: a
   validação antiga (`_validar_sqlite`, linhas 49-68) e a nova
@@ -482,7 +482,7 @@ isoladamente.
   (`"1.234,56 €"`), que falham com `ErroParsing` — pelo menos esse caso é
   visível.
 - **D12e** — `parser_importacao.py:107` — `fee` é somado com o sinal tal como
-  vem (`valor += _parse_valor(raw_fee, ...)`). **Confirmado pelo Pedro:** no
+  vem (`valor += _parse_valor(raw_fee, ...)`). **Confirmado pelo utilizador:** no
   extracto do Trade Republic a comissão vem NEGATIVA (por exemplo `-1`). Para
   esse banco o comportamento actual é o correcto: `-50,00 + -1,00 = -51,00`, a
   comissão aumenta a saída, como deve ser. A convenção de sinal em geral continua
@@ -519,12 +519,18 @@ isoladamente.
 
 ### Documentação
 
-- **D12j** — `docs/modelo-dados.md:7` — descreve `TipoAtivo` como enum
+- **D12j — resolvido** — `docs/modelo-dados.md:7` — descreve `TipoAtivo` como enum
   (`etf/crypto/veiculo/imovel/outro`); em `database.py` é uma tabela, e
   `SEED_TIPOS_ATIVO` (`popular_bd.py:139`) é quem a popula.
-- **D12k** — `docs/arquitectura.md:20` — descreve uma regra de caminho da BD
+  **Resolvido:** `TipoAtivo` saiu da tabela de enums de `docs/modelo-dados.md`
+  e ganhou secção própria (`id`, `nome`, `tem_unidades`); na secção `Ativo`, o
+  campo `tipo` passou a `tipo_id` (FK → `tipos_ativo.id`), com a relação N:1.
+- **D12k — resolvido** — `docs/arquitectura.md:20` — descreve uma regra de caminho da BD
   anterior à actual (não menciona `RASTREIO_DB_DIR` nem a variante
   `sys.frozen`).
+  **Resolvido:** `docs/arquitectura.md:20` descreve agora a ordem de
+  `_resolver_base_dir()` (`backend/database.py`): `RASTREIO_DB_DIR`, depois
+  `sys.frozen`, depois `backend/`.
 
 ## ⚪ D13 — Qualidade de código (fora de âmbito por decisão)
 
@@ -621,7 +627,7 @@ Exemplo: `-45,50` seguido de `+30,00` sem marca fechavam o mês com despesas
 `-45,5` em vez de `-15,5`. A diferença na poupança é de 30,00, e a despesa
 recuperada nunca chegava a aparecer em lado nenhum.
 
-**Resolvido (decisão do Pedro: o sinal manda):** o correcto é uma despesa
+**Resolvido (decisão do utilizador: o sinal manda):** o correcto é uma despesa
 positiva estar marcada como reembolso; mas, como os valores seguem o sinal, a
 conta fica certa mesmo sem a marca — somar `+30,00` às despesas de `-45,50` dá
 `-15,5`, que é o valor certo. Por isso o valor **não pode ser ignorado**. Mudou
@@ -629,7 +635,7 @@ conta fica certa mesmo sem a marca — somar `+30,00` às despesas de `-45,50` d
 passou de `elif t.valor > 0 and t.reembolso:` para `elif t.valor > 0:`. Como é
 o ramo final, qualquer valor positivo que não case com os três anteriores conta
 em despesas com o sinal que tem, e a marca de reembolso deixa de ser necessária
-para uma despesa entrar no cesto. Verificação nos dados reais (Pedro): existia
+para uma despesa entrar no cesto. Verificação nos dados reais (utilizador): existia
 1 caso, de 6,15 EUR, tratado pelo próprio.
 
 Fixo por `test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas` em
@@ -659,7 +665,7 @@ corresponde desaparecem sem erro. A quantidade registada no movimento continua a
 ser a que o utilizador escreveu, e não há validação que a confronte com a
 posição.
 
-**Decisão pendente (Pedro):** avisar no momento de registar a venda, ou recusar
+**Decisão pendente (utilizador):** avisar no momento de registar a venda, ou recusar
 a operação. As duas são defensáveis e divergem no que fica gravado, por isso não
 se decide aqui. O teste `test_sobre_venda_escala_o_encaixe_e_nunca_avisa` fixa o
 comportamento **actual**, não o desejado.
@@ -706,7 +712,7 @@ custo e não sobre a parte vendida.
 teste. Fica registado porque o mesmo código trata a venda total e a parcial sem
 distinção alguma, e o ramo não tem forma de representar uma posição parcial. É o
 cenário 13 de `test_patrimonio_fifo.py`, que ficou sem etiqueta à espera de
-decisão. **Decisão pendente (Pedro):** se é erro a corrigir ou convenção a
+decisão. **Decisão pendente (utilizador):** se é erro a corrigir ou convenção a
 documentar.
 
 ## ⚪ D18 — Os dois pontos de entrada do cálculo escolhem preços diferentes
@@ -755,7 +761,7 @@ transações e passa a categorizá-las todas com a sua categoria. Uma palavra-ch
 só com espaços é mais discreta e mais difícil de notar, porque `"   "` não casa
 em `""` mas casa em qualquer descrição que tenha três espaços seguidos.
 
-**Decisão pendente (Pedro):** validar no schema, no motor, ou nos dois. As três
+**Decisão pendente (utilizador):** validar no schema, no motor, ou nos dois. As três
 são defensáveis e não são equivalentes — no schema fecha-se a entrada pela API e
 ficam de fora as linhas `importador_transacoes.py:10` e `:17`; no motor trata-se
 de uma guarda nas duas fases; nos dois, a palavra-chave vazia deixa de ser um
@@ -829,7 +835,7 @@ subcategorias Renda e (sem subcategoria) a dividirem março:
 A média não é afectada: soma por (mês, subcategoria) ou por mês dá o mesmo,
 e o denominador é `meses_distintos` (linha 111).
 
-**Decisão pendente (Pedro):** qual é a mediana pretendida — por mês, ou por
+**Decisão pendente (utilizador):** qual é a mediana pretendida — por mês, ou por
 (mês, subcategoria)?
 
 ## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400) — resolvido
@@ -858,10 +864,10 @@ Os mesmos casos noutros routers devolvem um 4xx explícito:
 
 Possível defeito de consistência: a mesma condição de negócio (nome/palavra-chave
 repetida) responde 409 numa rota, 400 noutra e 500 nas categorias. **Decisão
-pendente (Pedro):** alinhar categorias por pré-checagem (e com que código), ou
+pendente (utilizador):** alinhar categorias por pré-checagem (e com que código), ou
 deixar a excepção subir.
 
-**Resolvido:** decisão do Pedro — pré-checagem e **409** nos três sítios, com
+**Resolvido:** decisão do utilizador — pré-checagem e **409** nos três sítios, com
 mensagem em PT-PT no estilo de `contas.py` e do POST de tipos de ativo. As
 linhas abaixo são as de **antes** da correcção (a descrição acima ficou como
 está); as que se seguem foram lidas no código depois dela:
@@ -907,7 +913,7 @@ o número de categorias (`popular_bd.py:158`) e não para `Configuracao`. As dua
 vias divergem no que consideram "base já semeada": `inicializar` olha para
 `Configuracao`, `popular` olha para `categorias`.
 
-**Decisão pendente (Pedro):** o guard de `inicializar` deve olhar também para as
+**Decisão pendente (utilizador):** o guard de `inicializar` deve olhar também para as
 categorias existentes, ou semear de forma idempotente?
 
 Fixo por `test_inicializar_com_categorias_existentes_sem_config_integrity` em

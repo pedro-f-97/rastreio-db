@@ -1,5 +1,12 @@
 # Notas de Desenvolvimento
 
+> **Apontamentos pessoais do utilizador.** Não são instruções para agentes nem
+> documentação do projecto: as regras para agentes estão em `AGENTS.md` e o
+> guia de desenvolvimento em `docs/desenvolvimento.md`.
+>
+> Em dev, `backend/dados/rastreio.db` **é a BD real**. Os comandos que a apagam
+> ou alteram usam uma pasta à parte via `RASTREIO_DB_DIR`.
+
 ## Onde estou?
 ```bash
 pwd
@@ -7,7 +14,7 @@ pwd
 
 ## Navegar para o projeto
 ```bash
-cd /home/pedrof/Documents/Projectos/rastreio-db
+cd ~/Documents/Projectos/rastreio-db
 ```
 
 ## Ativar o ambiente virtual
@@ -35,27 +42,31 @@ uvicorn main:app --reload --port 9742
 - Documentação interativa: `http://localhost:9742/docs`
 - O `--reload` reinicia automaticamente quando guardas ficheiros
 
-## Recriar a base de dados (apaga tudo!)
+## Criar uma base de dados nova (sem tocar na real)
 ```bash
 cd backend
-rm dados/rastreio.db
+source venv/bin/activate
+export RASTREIO_DB_DIR=/tmp/rastreio-nova   # a BD fica em /tmp/rastreio-nova/dados/rastreio.db
 python database.py
 python popular_bd.py
+uvicorn main:app --reload --port 9742       # no mesmo terminal, para herdar a variável
 ```
 `popular_bd.py` semeia apenas a estrutura de categorias/subcategorias — não é ponto de partida para dados de transações.
 
-Se necessário, corre também as migrações relevantes (ver lista abaixo) ou usa `dados_demo.py` para gerar ficheiros xlsx de dados fictícios para importar via UI.
+Para substituir mesmo a BD real, fazer primeiro um backup (botão de backup na página Transações, ou `cp backend/dados/rastreio.db ~/rastreio-backup-$(date +%F).db`) e só depois mexer no ficheiro.
 
 ## Comandos SQL
+Sobre uma cópia, nunca sobre a BD real (um `DELETE` ou `UPDATE` escrito à mão não tem rollback):
 ```bash
-sqlite3 /home/pedrof/Documents/Projectos/rastreio-db/backend/dados/rastreio.db "SELECT * FROM precos_ativo;"
+cp ~/Documents/Projectos/rastreio-db/backend/dados/rastreio.db /tmp/rastreio-copia.db
+sqlite3 /tmp/rastreio-copia.db "SELECT * FROM precos_ativo;"
 ```
 
 ## Gerar executável
 
 ### Linux
 ```bash
-cd /home/pedrof/Documents/Projectos/rastreio-db
+cd ~/Documents/Projectos/rastreio-db
 ./build.sh
 ```
 
@@ -67,7 +78,7 @@ build.bat
 
 - Executável gerado em: `dist_executavel/rastreio-db` (Linux) ou `dist_executavel\rastreio-db.exe` (Windows)
 - Base de dados em: `dist_executavel/dados/rastreio.db`
-- Para testar com BD nova: `rm dist_executavel/dados/rastreio.db`
+- Para testar com BD nova sem perder a actual: `mv dist_executavel/dados/rastreio.db dist_executavel/dados/rastreio.db.guardada` (repor com o `mv` inverso)
 - O ícone da janela tkinter (`tray.py`) é carregado a partir de `backend/assets/icon.ico` / `icon.png`, incluídos no executável via `--add-data`
 - No Windows, o build usa `--windowed`, o que esconde a consola cmd mas também suprime qualquer `print()` — não usar para debug de arranque no Windows
 
@@ -79,12 +90,12 @@ pkill -f rastreio-db
 ## Git
 Dar commit de alterações
 ```bash
-cd /home/pedrof/Documents/Projectos/rastreio-db
+cd ~/Documents/Projectos/rastreio-db
 git add backend/ficheiro.py
 git commit -m "descrição do que fizeste"
 ```
 Marcar para release (gera executáveis)
 ```bash
-git tag -a v0.2.7 -m "v0.2.7: Novo gráfico de evolução do património. Melhorias na interface da página Ativos. Ajustes visuais e de consistência entre páginas."
-git push origin v0.2.2
+git tag -a vX.Y.Z -m "vX.Y.Z: resumo das alterações"
+git push origin vX.Y.Z
 ```

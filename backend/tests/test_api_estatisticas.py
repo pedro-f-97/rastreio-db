@@ -82,7 +82,7 @@ def test_detalhe_mensal_ano_0_da_422(client):
 
     Cálculo à mão: `0 < 2000`, logo o `Query(ge=2000, le=9999)` falha no
     limite de baixo. Antes da correcção `date(0, 6, 1)` levantava
-    `ValueError: year must be in 1..9999` — é o valor que Pedro mediu na
+    `ValueError: year must be in 1..9999` — é o valor que o utilizador mediu na
     sonda e que estoura o 500.
 
     Não pede `session`, pela mesma razão dos anteriores.

@@ -62,7 +62,7 @@ Corre os testes sempre que mexeres em `backend/`. O `test.sh` propaga o código 
 > **Nota:** o `pytest.ini` já traz `-q` nos `addopts`. Não repitas `-q` na linha de comandos: dois `-q` somam-se em `-qq` e escondem a linha final com o resumo.
 
 ## Estrutura do projeto
-Ver [arquitetura.md](./arquitetura.md).
+Ver [arquitectura.md](./arquitectura.md).
 
 ## Build
 A aplicação é distribuída como executável portable, gerado com PyInstaller. O build é específico para o sistema operativo onde é executado — não há cross-compilation.

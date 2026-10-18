@@ -1,6 +1,6 @@
 """Testes de API de `POST /api/regras/aplicar-em-massa`.
 
-Portados do `test_regras.py` antigo (Pedro, 16 de Setembro, commit `398130b`),
+Portados do `test_regras.py` antigo (16 de Setembro, commit `398130b`),
 que foi escrito contra outro `conftest`: usava a fixture `db_session` e importava
 `main`. Aqui usam-se as fixtures `session` e `client` do `conftest.py` actual, que
 põem a base de dados em memória e montam a app a partir de `routers/` — o `main`

@@ -7,7 +7,6 @@ Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, fic
 | Enum | Valores |
 |---|---|
 | `TipoCategoria` | `despesa`, `receita`, `investimento`, `transferencia` |
-| `TipoAtivo` | `etf`, `crypto`, `veiculo`, `imovel`, `outro` |
 | `TipoMovimento` | `compra`, `venda`, `dividendo` |
 | `TipoContabilizacao` | `investimento`, `patrimonio` |
 | `ModoValor` | `coluna_unica`, `duas_colunas` |
@@ -105,19 +104,31 @@ Modelos SQLAlchemy definidos em `backend/database.py`. Base de dados SQLite, fic
 
 **Relações:** N:1 com `Conta` (`conta`)
 
+## TipoAtivo
+
+Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais vêm de `SEED_TIPOS_ATIVO` (`popular_bd.py`), semeados por `POST /api/configuracao/inicializar`.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | int | PK |
+| nome | str(100) | obrigatório, único |
+| tem_unidades | bool | default `False` — `True`: o custo segue FIFO por unidades; `False`: custo acumulado, e o valor actual vem do preço registado |
+
+**Relações:** 1:N com `Ativo` (`ativos`)
+
 ## Ativo
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | id | int | PK |
 | nome | str(100) | obrigatório |
-| tipo | `TipoAtivo` | obrigatório |
+| tipo_id | int | FK → `tipos_ativo.id`, obrigatório |
 | simbolo | str(20) | opcional, único |
 | moeda | str(10) | default `"EUR"` |
 | notas | str(500) | opcional |
-| contabilizacao | `TipoContabilizacao` | obrigatório — determina se entra no cálculo FIFO (`investimento`) ou é tratado como património puro (`patrimonio`) |
+| contabilizacao | `TipoContabilizacao` | obrigatório — determina onde o valor do ativo conta no património: em investimentos (`investimento`) ou em bens (`patrimonio`). O ramo de cálculo (FIFO ou custo acumulado) é decidido por `TipoAtivo.tem_unidades` |
 
-**Relações:** 1:N com `MovimentoAtivo` (`movimentos`), 1:N com `PrecoAtivo` (`precos`)
+**Relações:** N:1 com `TipoAtivo` (`tipo`), 1:N com `MovimentoAtivo` (`movimentos`), 1:N com `PrecoAtivo` (`precos`)
 
 ## MovimentoAtivo
 

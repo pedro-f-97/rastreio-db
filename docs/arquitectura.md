@@ -17,7 +17,7 @@ docs/       # Documentação (este ficheiro, modelo de dados, guia de desenvolvi
 ## Backend
 
 - **`main.py`**: ponto de entrada, configuração de CORS, montagem dos routers
-- **`database.py`**: modelos SQLAlchemy e ligação à BD. Caminho da BD resolvido via `dirname(sys.executable)` quando empacotado, para manter `dados/rastreio.db` junto ao executável
+- **`database.py`**: modelos SQLAlchemy e ligação à BD. A BD é `dados/rastreio.db` dentro de uma pasta-base resolvida por `_resolver_base_dir()`, por esta ordem: a variável de ambiente `RASTREIO_DB_DIR`, se definida (instalações sem permissões de escrita junto ao executável, e os testes); `dirname(sys.executable)` quando empacotado (`sys.frozen`), para manter os dados junto ao executável; e `backend/` em dev
 - **`schemas.py`**: schemas Pydantic para validação de entrada/saída da API
 - **`routers/`**: um ficheiro por domínio (categorias, contas, transações, património, etc.). Cada novo domínio funcional ganha o seu próprio router, montado em `main.py`
 - **Migrações**: alterações de schema não-triviais (ex. coluna não-nula, recriação de tabela) são feitas via scripts manuais `migrar_*.py` na raiz do backend, usando recriação de tabela para preservar IDs e FKs. Scripts já aplicados são arquivados em `backend/old/`

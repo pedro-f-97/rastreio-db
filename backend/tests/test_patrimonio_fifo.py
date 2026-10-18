@@ -643,7 +643,7 @@ def test_bem_sem_unidades_trata_venda_parcial_como_venda_total(client, session):
       a parte que ficou por vender passou a ter custo zero e valor zero, ou
       seja, desaparece do patrimonio.
 
-    Sem etiqueta de correccao: o Pedro ainda nao decidiu se isto e erro, por isso
+    Sem etiqueta de correccao: o utilizador ainda nao decidiu se isto e erro, por isso
     este teste fixa o comportamento actual e nao o desejado. O cenario 12
     mostra o mesmo codigo com uma venda que e mesmo total.
 
