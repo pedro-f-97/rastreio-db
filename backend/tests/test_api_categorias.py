@@ -4,10 +4,10 @@ Cobre os oito endpoints de `backend/routers/categorias.py`:
 
 * `GET /` (linha 8) — lista as categorias com as subcategorias aninhadas;
 * `GET /{id}/subcategorias` (linha 24);
-* `POST /` (linha 31) e `PUT /{id}` (linha 63) — criação e renomeação;
-* `POST /{id}/subcategorias` (linha 39) e
-  `PUT /{id}/subcategorias/{sub_id}` (linha 74);
-* `DELETE /{id}` (linha 54) e `DELETE /{id}/subcategorias/{sub_id}` (linha 86).
+* `POST /` (linha 31) e `PUT /{id}` (linha 66) — criação e renomeação;
+* `POST /{id}/subcategorias` (linha 42) e
+  `PUT /{id}/subcategorias/{sub_id}` (linha 80);
+* `DELETE /{id}` (linha 57) e `DELETE /{id}/subcategorias/{sub_id}` (linha 92).
 
 Os valores esperados são calculados à mão e escritos como constantes, com o
 cálculo exposto no docstring de cada teste. Nenhum teste toca na base de dados
@@ -17,8 +17,11 @@ A fixture `client` e a fixture `session` partilham a mesma sessão SQLAlchemy.
 Os pedidos que rebentam com `IntegrityError` (o `commit()` do router falha e a
 excepção sobe até ao teste) deixam a sessão à espera de rollback, por isso cada
 `pytest.raises` é seguido de `session.rollback()` antes de afirmar o estado da
-BD. Em produção esse `IntegrityError` não é apanhado e o resultado é um **500**;
-o teste fixa o comportamento real, não o desejável.
+BD. Depois do D24 esses casos são só os do D1 (apagar sem `cascade`), em que
+produção continua a dar **500** — o teste fixa o comportamento real, não o
+desejável. Nome duplicado já não chega a `commit()`: o POST e o PUT de
+categorias pré-checam e respondem **409**, e os testes respectivos afirmam o
+código, o corpo (`detail`) e o estado final da BD com `session.expire_all()`.
 
 Onde o comportamento é questionável fica a etiqueta `# DEVIDA-TECNICA: Dn`,
 a remeter para `docs/divida-tecnica.md`.
@@ -175,27 +178,28 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
 
 
 # ---------------------------------------------------------------------------
-# POST e PUT de categorias — nome duplicado (IntegrityError, não um 4xx)
+# POST e PUT de categorias — nome duplicado (D24: 409 antes de escrever)
 # ---------------------------------------------------------------------------
 
-def test_criar_categoria_e_nome_duplicado_integrity(client, session):
-    """Criar uma categoria funciona; um nome repetido rebenta em `commit()`.
+def test_criar_categoria_e_nome_duplicado_da_409(client, session):
+    """Criar uma categoria funciona; um nome repetido é recusado com 409.
+
+    D24 (`docs/divida-tecnica.md`): o POST pré-checa `Categoria.nome` antes de
+    escrever (`backend/routers/categorias.py:33-35`), pelo que um nome repetido
+    já não chega a `commit()` — em produção deixou de ser um 500 por
+    `IntegrityError`.
 
     Cálculo à mão:
-      POST {"nome": "Lazer", "tipo": "despesa"} -> a linha 33 cria, as linhas
-        35-36 gravam e refrescam; o `id` é 4 (três já existem) e a resposta
-        ecoa {nome, tipo, id} — sem `subcategorias`
-      POST com o nome "Casa" (já existente): `categorias.nome` é `unique=True`
-        (database.py:155), o `db.commit()` (linha 35) falha com
-        IntegrityError: UNIQUE constraint failed: categorias.nome
+      POST {"nome": "Lazer", "tipo": "despesa"} -> cria, grava e refresca; o
+        `id` é 4 (três já existem) e a resposta ecoa {nome, tipo, id} — sem
+        `subcategorias`
+      POST com o nome "Casa" (já existente): a pré-checagem encontra a linha e
+        responde 409 {"detail": "Já existe uma categoria com este nome."} — a
+        mesma forma de `routers/contas.py:21` (contas) e do POST de tipos de
+        ativo
 
-    Inconsistente com contas (routers/contas.py:21 responde 409 "Já existe uma
-    conta com este nome.") e regras (routers/regras.py:37 responde 400 "Já
-    existe uma regra com esta palavra-chave"): aqui não há pré-checagem e o
-    IntegrityError sobe, ou seja, **em produção é um 500**. Possível defeito;
-
-    Estado final da BD: o rollback do teste desfaz a tentativa e ficam as 4
-    categorias (as 3 da semente + "Lazer", cujo commit já tinha passado).
+    Estado final da BD: a tentativa rejeitada não escreve nada — ficam 4
+    categorias (as 3 da semente + "Lazer"), e "Casa" mantém o tipo `despesa`.
     """
     _semear(session)
 
@@ -205,27 +209,35 @@ def test_criar_categoria_e_nome_duplicado_integrity(client, session):
     assert r.json() == {"nome": "Lazer", "tipo": "despesa", "id": 4}
     assert session.query(Categoria).count() == 4
 
-    with pytest.raises(IntegrityError,
-                       match="UNIQUE constraint failed: categorias.nome"):
-        client.post("/api/categorias/", json={"nome": "Casa", "tipo": "despesa"})
-    session.rollback()
+    r_dup = client.post("/api/categorias/", json={"nome": "Casa", "tipo": "despesa"})
 
+    assert r_dup.status_code == 409
+    assert r_dup.json() == {"detail": "Já existe uma categoria com este nome."}
+
+    session.expire_all()
     assert session.query(Categoria).count() == 4
+    casa = session.query(Categoria).filter_by(nome="Casa").one()
+    assert casa.tipo is TipoCategoria.despesa
 
 
-def test_renomear_categoria_duplicado_e_404(client, session):
-    """Renomear funciona; renomear para um nome existente rebenta; id errado 404.
+def test_renomear_categoria_duplicado_da_409_e_404(client, session):
+    """Renomear funciona; renomear para um nome existente dá 409; id errado 404.
+
+    D24 (`docs/divida-tecnica.md`): o PUT pré-checa o nome contra as **outras**
+    categorias (`Categoria.id != categoria_id`,
+    `backend/routers/categorias.py:71-73`), pelo que a colisão é recusada antes
+    de escrever — em produção deixou de ser um 500 por `IntegrityError`.
 
     Cálculo à mão:
-      PUT {"nome": "Lar", "tipo": "receita"} em Casa -> a linha 68 e a 69
-        escrevem nome e tipo, a 70-71 gravam; resposta {nome, tipo, id}
-      segundo PUT em Casa com o nome "Receita" (já existente) -> o commit
-        (linha 70) falha com UNIQUE constraint failed: categorias.nome
-      PUT em 9999 -> a `first()` (linha 65) devolve None -> 404
+      PUT {"nome": "Lar", "tipo": "receita"} em Casa -> escreve nome e tipo,
+        grava e devolve {nome, tipo, id}
+      segundo PUT em Casa com o nome "Receita" (já existente noutra linha) ->
+        409 {"detail": "Já existe uma categoria com este nome."}, sem escrita
+      PUT em 9999 -> a `first()` devolve None -> 404
         {"detail": "Categoria não encontrada"}
 
-    Estado final da BD: o rollback reverte a segunda tentativa, por isso Casa
-    fica "Lar"/receita; contam-se 3 categorias.
+    Estado final da BD: a tentativa rejeitada não mexe em nada, por isso Casa
+    fica "Lar"/receita e contam-se 3 categorias.
     """
     d = _semear(session)
 
@@ -236,11 +248,11 @@ def test_renomear_categoria_duplicado_e_404(client, session):
         "nome": "Lar", "tipo": "receita", "id": d["cat_casa"].id,
     }
 
-    with pytest.raises(IntegrityError,
-                       match="UNIQUE constraint failed: categorias.nome"):
-        client.put(f"/api/categorias/{d['cat_casa'].id}",
-                   json={"nome": "Receita", "tipo": "despesa"})
-    session.rollback()
+    r_dup = client.put(f"/api/categorias/{d['cat_casa'].id}",
+                       json={"nome": "Receita", "tipo": "despesa"})
+
+    assert r_dup.status_code == 409
+    assert r_dup.json() == {"detail": "Já existe uma categoria com este nome."}
 
     session.expire_all()
     casa = session.get(Categoria, d["cat_casa"].id)
@@ -252,6 +264,37 @@ def test_renomear_categoria_duplicado_e_404(client, session):
                        json={"nome": "X", "tipo": "despesa"})
     assert r_404.status_code == 404
     assert r_404.json() == {"detail": "Categoria não encontrada"}
+
+
+def test_renomear_categoria_mantendo_o_proprio_nome_e_200(client, session):
+    """Guardar uma categoria sem mudar o nome não é duplicado: 200.
+
+    D24 (`docs/divida-tecnica.md`): a pré-checagem do PUT exclui o próprio
+    `id`, por isso o nome de uma categoria continua a poder ser re-submetido
+    tal e qual.
+
+    Cálculo à mão:
+      PUT em Casa {"nome": "Casa", "tipo": "despesa"} -> a query não encontra
+        OUTRA linha com esse nome -> escreve os mesmos valores de antes e
+        responde 200 {"nome": "Casa", "tipo": "despesa", "id": 1}
+
+    Estado final da BD: nada muda — 3 categorias, 2 subcategorias e 3
+    transacções.
+    """
+    d = _semear(session)
+
+    r = client.put(f"/api/categorias/{d['cat_casa'].id}",
+                   json={"nome": "Casa", "tipo": "despesa"})
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "nome": "Casa", "tipo": "despesa", "id": d["cat_casa"].id,
+    }
+
+    session.expire_all()
+    assert session.query(Categoria).count() == 3
+    assert session.query(Subcategoria).count() == 2
+    assert session.query(Transacao).count() == 3
 
 
 # ---------------------------------------------------------------------------

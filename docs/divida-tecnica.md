@@ -830,7 +830,7 @@ e o denominador é `meses_distintos` (linha 111).
 **Decisão pendente (Pedro):** qual é a mediana pretendida — por mês, ou por
 (mês, subcategoria)?
 
-## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400)
+## ⚪ D24 — Nome duplicado de categoria dá 500, ao contrário de contas (409) e regras (400) — resolvido
 
 `POST /api/categorias/` (`backend/routers/categorias.py:33-35`) e
 `PUT /api/categorias/{id}` (`backend/routers/categorias.py:63-70`) não têm
@@ -857,12 +857,36 @@ Os mesmos casos noutros routers devolvem um 4xx explícito:
 Possível defeito de consistência: a mesma condição de negócio (nome/palavra-chave
 repetida) responde 409 numa rota, 400 noutra e 500 nas categorias. **Decisão
 pendente (Pedro):** alinhar categorias por pré-checagem (e com que código), ou
-deixar a excepção subir. Fixo por
-`test_criar_categoria_e_nome_duplicado_integrity` (POST de categorias) e
-`test_renomear_categoria_duplicado_e_404` (PUT de categorias) em
-`backend/tests/test_api_categorias.py`, e por
-`test_renomear_tipo_ativo_para_nome_duplicado_integrity` (PUT de tipos de ativo)
-em `backend/tests/test_api_tipos_ativo.py`.
+deixar a excepção subir.
+
+**Resolvido:** decisão do Pedro — pré-checagem e **409** nos três sítios, com
+mensagem em PT-PT no estilo de `contas.py` e do POST de tipos de ativo. As
+linhas abaixo são as de **antes** da correcção (a descrição acima ficou como
+está); as que se seguem foram lidas no código depois dela:
+
+- `backend/routers/categorias.py:33-35` — `criar_categoria` pré-checa
+  `Categoria.nome` e responde 409 `"Já existe uma categoria com este nome."`
+  (`:35`);
+- `backend/routers/categorias.py:71-73` — `renomear_categoria` pré-checa contra
+  as **outras** categorias (`Categoria.id != categoria_id`, `:71`) e responde o
+  mesmo 409 (`:73`): re-submeter o próprio nome não é duplicado e continua 200;
+- `backend/routers/tipos_ativo.py:28-30` — `renomear_tipo_ativo` pré-checa
+  contra os **outros** tipos (`TipoAtivo.id != tipo_id`, `:28`) e responde 409
+  `"Já existe um tipo de ativo com este nome."` (`:30`), a mesma frase do POST
+  (`backend/routers/tipos_ativo.py:16`).
+
+A diferença de código com `regras.py` fica como estava: `routers/regras.py:37`
+continua a responder **400** pela palavra-chave — não fez parte desta decisão.
+Os testes que fixavam o 500 passaram a afirmar o 409, o corpo (`detail`) e o
+estado final da BD (`session.expire_all()`, nada alterado), e cada router ganhou
+um teste do PUT com o próprio nome a 200:
+`test_criar_categoria_e_nome_duplicado_da_409`,
+`test_renomear_categoria_duplicado_da_409_e_404` e
+`test_renomear_categoria_mantendo_o_proprio_nome_e_200`
+(`backend/tests/test_api_categorias.py`);
+`test_renomear_tipo_ativo_para_nome_duplicado_da_409` e
+`test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200`
+(`backend/tests/test_api_tipos_ativo.py`).
 
 ## ⚪ D25 — `/api/configuracao/inicializar` semeia categorias duplicadas e dá 500
 

@@ -30,6 +30,9 @@ def listar_subcategorias(categoria_id: int, db: Session = Depends(get_db)):
 
 @router.post("/")
 def criar_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
+    existente = db.query(Categoria).filter(Categoria.nome == categoria.nome).first()
+    if existente:
+        raise HTTPException(status_code=409, detail="Já existe uma categoria com este nome.")
     nova = Categoria(nome=categoria.nome, tipo=categoria.tipo)
     db.add(nova)
     db.commit()
@@ -65,6 +68,9 @@ def renomear_categoria(categoria_id: int, categoria: CategoriaCreate, db: Sessio
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    duplicado = db.query(Categoria).filter(Categoria.nome == categoria.nome, Categoria.id != categoria_id).first()
+    if duplicado:
+        raise HTTPException(status_code=409, detail="Já existe uma categoria com este nome.")
     cat.nome = categoria.nome
     cat.tipo = categoria.tipo
     db.commit()

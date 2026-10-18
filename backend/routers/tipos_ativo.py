@@ -25,6 +25,9 @@ def renomear_tipo_ativo(tipo_id: int, tipo: TipoAtivoCreate, db: Session = Depen
     existente = db.query(TipoAtivo).filter(TipoAtivo.id == tipo_id).first()
     if not existente:
         raise HTTPException(status_code=404, detail="Tipo de ativo não encontrado.")
+    duplicado = db.query(TipoAtivo).filter(TipoAtivo.nome == tipo.nome, TipoAtivo.id != tipo_id).first()
+    if duplicado:
+        raise HTTPException(status_code=409, detail="Já existe um tipo de ativo com este nome.")
     existente.nome = tipo.nome
     existente.tem_unidades = tipo.tem_unidades
     db.commit()
