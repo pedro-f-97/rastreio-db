@@ -1,24 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import extract, func
-from database import get_db, Transacao, Categoria, Subcategoria, TipoCategoria
-from statistics import median
-from decimal import Decimal
-from servicos.dinheiro import arredondar, exato
 import calendar
 from datetime import date
+from decimal import Decimal
+from statistics import median
 from typing import Optional
 
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import extract, func
+from sqlalchemy.orm import Session
+
+from database import Categoria, Subcategoria, TipoCategoria, Transacao, get_db
+from servicos.dinheiro import arredondar, exato
+
 router = APIRouter(prefix="/estatisticas", tags=["estatisticas"])
+
 
 @router.get("/resumo-mensal")
 def resumo_mensal(db: Session = Depends(get_db)):
     transacoes = db.query(Transacao).join(Categoria, Transacao.categoria_id == Categoria.id).all()
 
-    todos_meses = db.query(
-        extract('year', Transacao.data).label('ano'),
-        extract('month', Transacao.data).label('mes'),
-    ).distinct().all()
+    todos_meses = (
+        db.query(
+            extract("year", Transacao.data).label("ano"),
+            extract("month", Transacao.data).label("mes"),
+        )
+        .distinct()
+        .all()
+    )
 
     meses = _calculate_totals(transacoes)
 
@@ -37,14 +44,16 @@ def resumo_mensal(db: Session = Depends(get_db)):
         poupanca = arredondar(receitas + despesas)
         totais_despesas.append(exato(despesas))
 
-        resultados.append({
-            "ano": ano,
-            "mes": mes,
-            "receitas": receitas,
-            "despesas": despesas,
-            "investimento": investimento,
-            "poupanca": poupanca,
-        })
+        resultados.append(
+            {
+                "ano": ano,
+                "mes": mes,
+                "receitas": receitas,
+                "despesas": despesas,
+                "investimento": investimento,
+                "poupanca": poupanca,
+            }
+        )
 
     # Média e mediana em Decimal: um empate no meio cêntimo arredonda sempre
     # para longe de zero, e não ao sabor do binário do float (D11)
@@ -69,31 +78,36 @@ def _mediana_mensal(totais, meses_distintos):
 @router.get("/por-categoria")
 def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
     q_meses = db.query(
-        extract('year', Transacao.data).label('ano'),
-        extract('month', Transacao.data).label('mes'),
+        extract("year", Transacao.data).label("ano"),
+        extract("month", Transacao.data).label("mes"),
     ).distinct()
     if ano:
-        q_meses = q_meses.filter(extract('year', Transacao.data) == ano)
+        q_meses = q_meses.filter(extract("year", Transacao.data) == ano)
     meses_distintos = q_meses.count()
 
-    q = db.query(
-        extract('year', Transacao.data).label('ano'),
-        extract('month', Transacao.data).label('mes'),
-        Transacao.categoria_id,
-        Categoria.nome.label('categoria_nome'),
-        Transacao.subcategoria_id,
-        Subcategoria.nome.label('subcategoria_nome'),
-        func.sum(Transacao.valor).label('total'),
-    ).join(Categoria, Transacao.categoria_id == Categoria.id)\
-        .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
+    q = (
+        db.query(
+            extract("year", Transacao.data).label("ano"),
+            extract("month", Transacao.data).label("mes"),
+            Transacao.categoria_id,
+            Categoria.nome.label("categoria_nome"),
+            Transacao.subcategoria_id,
+            Subcategoria.nome.label("subcategoria_nome"),
+            func.sum(Transacao.valor).label("total"),
+        )
+        .join(Categoria, Transacao.categoria_id == Categoria.id)
+        .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)
         .filter(Categoria.tipo != TipoCategoria.transferencia)
+    )
 
     if ano:
-        q = q.filter(extract('year', Transacao.data) == ano)
+        q = q.filter(extract("year", Transacao.data) == ano)
 
-    resultados = q.group_by('ano', 'mes', Transacao.categoria_id, Transacao.subcategoria_id)\
-        .order_by('ano', 'mes')\
+    resultados = (
+        q.group_by("ano", "mes", Transacao.categoria_id, Transacao.subcategoria_id)
+        .order_by("ano", "mes")
         .all()
+    )
 
     por_cat = {}
     for r in resultados:
@@ -125,11 +139,17 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
     for cat in por_cat.values():
         totais = list(cat.pop("por_mes").values())
         cat["mediana"] = _mediana_mensal(totais, meses_distintos)
-        cat["media"] = arredondar(sum(map(exato, totais)) / meses_distintos) if meses_distintos else 0
+        cat["media"] = (
+            arredondar(sum(map(exato, totais)) / meses_distintos) if meses_distintos else 0
+        )
 
         for sub in cat["subcategorias"].values():
             sub["mediana"] = _mediana_mensal(sub["totais"], meses_distintos)
-            sub["media"] = arredondar(sum(map(exato, sub["totais"])) / meses_distintos) if meses_distintos else 0
+            sub["media"] = (
+                arredondar(sum(map(exato, sub["totais"])) / meses_distintos)
+                if meses_distintos
+                else 0
+            )
             del sub["totais"]
 
         cat["subcategorias"] = list(cat["subcategorias"].values())
@@ -139,21 +159,24 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
 
 @router.get("/por-subcategoria")
 def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
-    q = db.query(
-        Transacao.categoria_id,
-        Categoria.nome.label('categoria_nome'),
-        Transacao.subcategoria_id,
-        Subcategoria.nome.label('subcategoria_nome'),
-        Transacao.valor,
-    ).join(Categoria, Transacao.categoria_id == Categoria.id)\
-        .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
+    q = (
+        db.query(
+            Transacao.categoria_id,
+            Categoria.nome.label("categoria_nome"),
+            Transacao.subcategoria_id,
+            Subcategoria.nome.label("subcategoria_nome"),
+            Transacao.valor,
+        )
+        .join(Categoria, Transacao.categoria_id == Categoria.id)
+        .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)
         .filter(
             Categoria.tipo != TipoCategoria.transferencia,
             Transacao.categoria_id != None,
         )
+    )
 
     if ano:
-        q = q.filter(extract('year', Transacao.data) == ano)
+        q = q.filter(extract("year", Transacao.data) == ano)
 
     resultados = q.all()
 
@@ -186,37 +209,45 @@ def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
         for sub in cat["subcategorias"].values():
             total_sub = sub["total_centimos"] / 100
             if abs(total_sub) > 0:
-                subcategorias.append({
-                    "subcategoria_nome": sub["subcategoria_nome"],
-                    "total": total_sub,
-                })
+                subcategorias.append(
+                    {
+                        "subcategoria_nome": sub["subcategoria_nome"],
+                        "total": total_sub,
+                    }
+                )
         if abs(total_cat) > 0:
-            resultado.append({
-                "categoria_id": cat["categoria_id"],
-                "categoria_nome": cat["categoria_nome"],
-                "total": total_cat,
-                "subcategorias": subcategorias,
-            })
+            resultado.append(
+                {
+                    "categoria_id": cat["categoria_id"],
+                    "categoria_nome": cat["categoria_nome"],
+                    "total": total_cat,
+                    "subcategorias": subcategorias,
+                }
+            )
     return sorted(resultado, key=lambda c: c["total"], reverse=True)
 
 
 def _query_transacoes_mes(db: Session, inicio, fim):
-    return db.query(
-        Transacao.categoria_id,
-        Categoria.nome.label('categoria_nome'),
-        Categoria.tipo.label('categoria_tipo'),
-        Transacao.subcategoria_id,
-        Subcategoria.nome.label('subcategoria_nome'),
-        Transacao.valor,
-    ).join(Categoria, Transacao.categoria_id == Categoria.id)\
-     .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)\
-     .filter(
-         Transacao.data >= inicio,
-         Transacao.data <= fim,
-         Transacao.categoria_id != None,
-         Categoria.tipo != TipoCategoria.transferencia,
-     )\
-     .all()
+    return (
+        db.query(
+            Transacao.categoria_id,
+            Categoria.nome.label("categoria_nome"),
+            Categoria.tipo.label("categoria_tipo"),
+            Transacao.subcategoria_id,
+            Subcategoria.nome.label("subcategoria_nome"),
+            Transacao.valor,
+        )
+        .join(Categoria, Transacao.categoria_id == Categoria.id)
+        .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)
+        .filter(
+            Transacao.data >= inicio,
+            Transacao.data <= fim,
+            Transacao.categoria_id != None,
+            Categoria.tipo != TipoCategoria.transferencia,
+        )
+        .all()
+    )
+
 
 def _agregar_por_categoria(rows):
     por_cat = {}
@@ -244,6 +275,7 @@ def _agregar_por_categoria(rows):
 
     return por_cat
 
+
 @router.get("/detalhe-mensal")
 def detalhe_mensal(
     ano: int = Query(ge=2000, le=9999),
@@ -260,7 +292,9 @@ def detalhe_mensal(
     for cat in por_cat.values():
         tipo = cat["categoria_tipo"].value
         total_cat = cat["total_centimos"] / 100
-        subcategorias_valores = [(s, s["total_centimos"] / 100) for s in cat["subcategorias"].values()]
+        subcategorias_valores = [
+            (s, s["total_centimos"] / 100) for s in cat["subcategorias"].values()
+        ]
 
         subcategorias = sorted(
             [
@@ -271,13 +305,15 @@ def detalhe_mensal(
             reverse=True,
         )
 
-        resultado_final.append({
-            "categoria_id": cat["categoria_id"],
-            "categoria_nome": cat["categoria_nome"],
-            "tipo": tipo,
-            "total": total_cat,
-            "subcategorias": subcategorias,
-        })
+        resultado_final.append(
+            {
+                "categoria_id": cat["categoria_id"],
+                "categoria_nome": cat["categoria_nome"],
+                "tipo": tipo,
+                "total": total_cat,
+                "subcategorias": subcategorias,
+            }
+        )
 
     return sorted(resultado_final, key=lambda c: c["total"], reverse=True)
 

@@ -24,10 +24,7 @@ partilham a sessão SQLAlchemy, as verificações de estado começam por
 
 """
 
-from datetime import date
-
 from database import Categoria, Configuracao, Subcategoria, TipoAtivo, TipoCategoria
-
 
 # Constantes obtidas por leitura de `dados_iniciais.py` (perfil completo)
 CATEGORIAS_COMPLETO_COUNT = 15
@@ -38,6 +35,7 @@ SEED_TIPOS_ATIVO_COUNT = 9
 # ---------------------------------------------------------------------------
 # GET /estado
 # ---------------------------------------------------------------------------
+
 
 def test_estado_sem_configuracao(client, session):
     session.expire_all()
@@ -59,6 +57,7 @@ def test_estado_com_configuracao(client, session):
 # ---------------------------------------------------------------------------
 # POST /inicializar
 # ---------------------------------------------------------------------------
+
 
 def test_inicializar_default_cria_categorias_tipos_e_configuracao(client, session):
     r = client.post("/api/configuracao/inicializar")
@@ -143,12 +142,14 @@ def test_inicializar_com_dados_existentes_cria_so_o_que_falta(client, session):
     casa = Categoria(nome="Casa", tipo=TipoCategoria.despesa)
     session.add(casa)
     session.commit()
-    session.add_all([
-        Subcategoria(nome="Renda", categoria_id=casa.id),
-        Subcategoria(nome="Jardim", categoria_id=casa.id),
-        TipoAtivo(nome="ETF", tem_unidades=True),
-        TipoAtivo(nome="Arte", tem_unidades=False),
-    ])
+    session.add_all(
+        [
+            Subcategoria(nome="Renda", categoria_id=casa.id),
+            Subcategoria(nome="Jardim", categoria_id=casa.id),
+            TipoAtivo(nome="ETF", tem_unidades=True),
+            TipoAtivo(nome="Arte", tem_unidades=False),
+        ]
+    )
     session.commit()
     casa_id = casa.id
 
@@ -171,6 +172,7 @@ def test_inicializar_com_dados_existentes_cria_so_o_que_falta(client, session):
 # ---------------------------------------------------------------------------
 # POST /tour-visto
 # ---------------------------------------------------------------------------
+
 
 def test_tour_visto_sem_configuracao_marca_inicializado_e_tour_visto(client, session):
     r = client.post("/api/configuracao/tour-visto")

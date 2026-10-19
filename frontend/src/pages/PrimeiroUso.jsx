@@ -13,7 +13,7 @@ function PrimeiroUso({ onInicializado }) {
     try {
       await inicializar(comCategorias, perfil)
       onInicializado()
-    } catch (e) {
+    } catch {
       setErro('Erro ao inicializar. Tenta novamente.')
       setLoading(false)
     }

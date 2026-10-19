@@ -12,14 +12,16 @@ export default function Categorias() {
     const [editando, setEditando] = useState({}); // { tipo: 'categoria'|'subcategoria', id, categoriaId, valor }
     const [erro, setErro] = useState('');
 
-    useEffect(() => {
-        carregar();
-    }, []);
-
     async function carregar() {
         const res = await listarCategorias();
         setCategorias(res.data);
     }
+
+    useEffect(() => {
+        // Falso positivo: o setState de carregar() corre depois do await (D13a)
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        carregar();
+    }, []);
 
     async function aoAdicionarCategoria() {
         if (!novaCategoria.nome.trim()) return;

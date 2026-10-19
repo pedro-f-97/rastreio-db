@@ -1,12 +1,15 @@
-from datetime import datetime
-from openpyxl import load_workbook
 import csv
 import io
 import math
 import re
+from datetime import datetime
+
+from openpyxl import load_workbook
+
 
 class ErroParsing(Exception):
     pass
+
 
 def _parse_valor(raw, separador_decimal: str) -> float:
     if raw is None:
@@ -17,9 +20,7 @@ def _parse_valor(raw, separador_decimal: str) -> float:
     # Um número com separadores tem de bater com o perfil: o decimal só uma vez
     # e no fim, e o outro separador só em grupos de milhares de 3 dígitos (D12d)
     milhares = "." if separador_decimal == "," else ","
-    coerente = (
-        rf"[+-]?(\d{{1,3}}(\{milhares}\d{{3}})+|\d*)(\{separador_decimal}\d+)?"
-    )
+    coerente = rf"[+-]?(\d{{1,3}}(\{milhares}\d{{3}})+|\d*)(\{separador_decimal}\d+)?"
     if re.fullmatch(r"[+-]?[\d.,]+", texto) and not re.fullmatch(coerente, texto):
         raise ErroParsing(
             f"valor '{raw}' não corresponde ao separador decimal do perfil ('{separador_decimal}')"
@@ -37,6 +38,7 @@ def _parse_valor(raw, separador_decimal: str) -> float:
         raise ErroParsing(f"valor inválido: '{raw}'")
     return valor
 
+
 def _parse_data(raw, formato_data: str):
     if raw is None:
         raise ErroParsing("data em falta")
@@ -46,6 +48,7 @@ def _parse_data(raw, formato_data: str):
         return datetime.strptime(str(raw).strip(), formato_data).date()
     except ValueError:
         raise ErroParsing(f"data inválida: '{raw}' (formato esperado: {formato_data})")
+
 
 def _ler_linhas_xlsx(file_bytes: bytes, linha_inicio: int) -> list[tuple]:
     wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
@@ -59,11 +62,12 @@ def _ler_linhas_xlsx(file_bytes: bytes, linha_inicio: int) -> list[tuple]:
         linhas.append(row)
     return linhas
 
+
 def _detectar_delimitador(linhas_de_dados: list[str]) -> str:
     """O separador de colunas que divide as linhas de dados no mesmo número de
     colunas, e no maior; vírgula se nenhum servir (D19). O `csv.Sniffer`
     engana-se num CSV com `;` sem cabeçalho e vírgula decimal (`-3,20`)."""
-    amostra = "\n".join(l for l in linhas_de_dados if l.strip())
+    amostra = "\n".join(linha for linha in linhas_de_dados if linha.strip())
     melhor, colunas = ",", 1
     for delimitador in (",", ";", "\t"):
         contagens = {len(r) for r in csv.reader(io.StringIO(amostra), delimiter=delimitador)}
@@ -71,9 +75,10 @@ def _detectar_delimitador(linhas_de_dados: list[str]) -> str:
             melhor, colunas = delimitador, n
     return melhor
 
+
 def _ler_linhas_csv(file_bytes: bytes, linha_inicio: int, separador_decimal: str) -> list[tuple]:
     texto = file_bytes.decode("utf-8-sig")
-    delimitador = _detectar_delimitador(texto.splitlines()[linha_inicio - 1:linha_inicio + 19])
+    delimitador = _detectar_delimitador(texto.splitlines()[linha_inicio - 1 : linha_inicio + 19])
     reader = csv.reader(io.StringIO(texto), delimiter=delimitador)
     linhas = []
     for i, row in enumerate(reader, start=1):
@@ -81,6 +86,7 @@ def _ler_linhas_csv(file_bytes: bytes, linha_inicio: int, separador_decimal: str
             continue
         linhas.append(tuple(row))
     return linhas
+
 
 def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
     """
@@ -123,11 +129,21 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
                 valor = _parse_valor(celula(perfil.coluna_valor), perfil.separador_decimal)
             else:
                 if perfil.coluna_debito is None or perfil.coluna_credito is None:
-                    raise ErroParsing("coluna_debito/coluna_credito não definidas para modo duas_colunas")
+                    raise ErroParsing(
+                        "coluna_debito/coluna_credito não definidas para modo duas_colunas"
+                    )
                 raw_debito = celula(perfil.coluna_debito)
                 raw_credito = celula(perfil.coluna_credito)
-                debito = _parse_valor(raw_debito, perfil.separador_decimal) if raw_debito not in (None, "", "None") else 0.0
-                credito = _parse_valor(raw_credito, perfil.separador_decimal) if raw_credito not in (None, "", "None") else 0.0
+                debito = (
+                    _parse_valor(raw_debito, perfil.separador_decimal)
+                    if raw_debito not in (None, "", "None")
+                    else 0.0
+                )
+                credito = (
+                    _parse_valor(raw_credito, perfil.separador_decimal)
+                    if raw_credito not in (None, "", "None")
+                    else 0.0
+                )
                 valor = credito - debito
 
             if perfil.coluna_fee is not None:
@@ -143,12 +159,14 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
                 if raw_saldo not in (None, "", "None"):
                     saldo = _parse_valor(raw_saldo, perfil.separador_decimal)
 
-            transacoes.append({
-                "data": data,
-                "descricao": descricao,
-                "valor": valor,
-                "saldo": saldo,
-            })
+            transacoes.append(
+                {
+                    "data": data,
+                    "descricao": descricao,
+                    "valor": valor,
+                    "saldo": saldo,
+                }
+            )
 
         except ErroParsing as e:
             erros.append({"linha": numero_linha_atual, "erro": str(e)})

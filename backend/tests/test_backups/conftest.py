@@ -70,17 +70,12 @@ BD_DE_PRODUCAO = (BACKEND / "dados" / "rastreio.db").resolve()
 # anterior ao restauro, criado a cada sucesso e substituído no seguinte, e por
 # isso sobreviver a um teste é comportamento esperado — quem o limpa entre
 # testes é a fixture `bd_em_ficheiro` (ver `limpar_bd_e_irmaos`).
-LIXO = ("*.tmp", "*.tmp-wal", "*.tmp-shm", "*-wal", "*-shm",
-        "*-journal", "_fixture_*")
+LIXO = ("*.tmp", "*.tmp-wal", "*.tmp-shm", "*-wal", "*-shm", "*-journal", "_fixture_*")
 
 
 def listar_tudo(directorio: Path) -> set[str]:
     """Todos os ficheiros sob `directorio`, com caminho relativo e ordenados."""
-    return {
-        str(p.relative_to(directorio))
-        for p in directorio.rglob("*")
-        if p.is_file()
-    }
+    return {str(p.relative_to(directorio)) for p in directorio.rglob("*") if p.is_file()}
 
 
 def sem_anteriores(ficheiros: set[str]) -> set[str]:
@@ -127,9 +122,7 @@ def bd_em_ficheiro():
         f"A BD de teste está dentro da pasta backend/: {caminho}. "
         f"Isto arriscaria tocar em {BD_DE_PRODUCAO}."
     )
-    assert caminho != BD_DE_PRODUCAO, (
-        f"A BD de teste é a BD de produção: {caminho}."
-    )
+    assert caminho != BD_DE_PRODUCAO, f"A BD de teste é a BD de produção: {caminho}."
 
     database.garantir_pasta_dados()
     database.engine.dispose()

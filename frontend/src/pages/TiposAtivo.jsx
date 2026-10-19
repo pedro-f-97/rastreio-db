@@ -11,14 +11,16 @@ export default function TiposAtivo() {
     const [editando, setEditando] = useState({}); // { id, valor, temUnidades }
     const [erro, setErro] = useState('');
 
-    useEffect(() => {
-        carregar();
-    }, []);
-
     async function carregar() {
         const res = await listarTiposAtivo();
         setTipos(res.data);
     }
+
+    useEffect(() => {
+        // Falso positivo: o setState de carregar() corre depois do await (D13a)
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        carregar();
+    }, []);
 
     async function aoAdicionar() {
         if (!novoTipo.nome.trim()) return;

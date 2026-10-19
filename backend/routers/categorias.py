@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, Categoria, RegraCategorizacao, Subcategoria, Transacao
+
+from database import Categoria, RegraCategorizacao, Subcategoria, Transacao, get_db
 from schemas import CategoriaCreate, SubcategoriaCreate
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])
+
 
 @router.get("/")
 def listar_categorias(db: Session = Depends(get_db)):
@@ -16,10 +18,11 @@ def listar_categorias(db: Session = Depends(get_db)):
             "subcategorias": [
                 {"id": sub.id, "nome": sub.nome, "trata_patrimonio": sub.trata_patrimonio}
                 for sub in cat.subcategorias
-            ]
+            ],
         }
         for cat in categorias
     ]
+
 
 @router.get("/{categoria_id}/subcategorias")
 def listar_subcategorias(categoria_id: int, db: Session = Depends(get_db)):
@@ -27,6 +30,7 @@ def listar_subcategorias(categoria_id: int, db: Session = Depends(get_db)):
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     return cat.subcategorias
+
 
 @router.post("/")
 def criar_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
@@ -39,8 +43,11 @@ def criar_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
     db.refresh(nova)
     return nova
 
+
 @router.post("/{categoria_id}/subcategorias")
-def criar_subcategoria(categoria_id: int, subcategoria: SubcategoriaCreate, db: Session = Depends(get_db)):
+def criar_subcategoria(
+    categoria_id: int, subcategoria: SubcategoriaCreate, db: Session = Depends(get_db)
+):
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
@@ -54,6 +61,7 @@ def criar_subcategoria(categoria_id: int, subcategoria: SubcategoriaCreate, db: 
     db.refresh(nova)
     return nova
 
+
 @router.delete("/{categoria_id}")
 def apagar_categoria(categoria_id: int, db: Session = Depends(get_db)):
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
@@ -61,14 +69,19 @@ def apagar_categoria(categoria_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     # Com transações, recusa: sem elas, vão-se as subcategorias e as regras (D1)
     ids_sub = [s.id for s in cat.subcategorias]
-    n = db.query(Transacao).filter(
-        (Transacao.categoria_id == categoria_id) | Transacao.subcategoria_id.in_(ids_sub)
-    ).count()
+    n = (
+        db.query(Transacao)
+        .filter((Transacao.categoria_id == categoria_id) | Transacao.subcategoria_id.in_(ids_sub))
+        .count()
+    )
     if n:
-        raise HTTPException(status_code=409, detail=(
-            f"A categoria tem {n} {'transação' if n == 1 else 'transações'}; "
-            "muda-as de categoria antes de a apagar."
-        ))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"A categoria tem {n} {'transação' if n == 1 else 'transações'}; "
+                "muda-as de categoria antes de a apagar."
+            ),
+        )
     db.query(RegraCategorizacao).filter(
         (RegraCategorizacao.categoria_id == categoria_id)
         | RegraCategorizacao.subcategoria_id.in_(ids_sub)
@@ -79,12 +92,19 @@ def apagar_categoria(categoria_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True}
 
+
 @router.put("/{categoria_id}")
-def renomear_categoria(categoria_id: int, categoria: CategoriaCreate, db: Session = Depends(get_db)):
+def renomear_categoria(
+    categoria_id: int, categoria: CategoriaCreate, db: Session = Depends(get_db)
+):
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    duplicado = db.query(Categoria).filter(Categoria.nome == categoria.nome, Categoria.id != categoria_id).first()
+    duplicado = (
+        db.query(Categoria)
+        .filter(Categoria.nome == categoria.nome, Categoria.id != categoria_id)
+        .first()
+    )
     if duplicado:
         raise HTTPException(status_code=409, detail="Já existe uma categoria com este nome.")
     cat.nome = categoria.nome
@@ -93,9 +113,19 @@ def renomear_categoria(categoria_id: int, categoria: CategoriaCreate, db: Sessio
     db.refresh(cat)
     return cat
 
+
 @router.put("/{categoria_id}/subcategorias/{subcategoria_id}")
-def renomear_subcategoria(categoria_id: int, subcategoria_id: int, subcategoria: SubcategoriaCreate, db: Session = Depends(get_db)):
-    sub = db.query(Subcategoria).filter(Subcategoria.id == subcategoria_id, Subcategoria.categoria_id == categoria_id).first()
+def renomear_subcategoria(
+    categoria_id: int,
+    subcategoria_id: int,
+    subcategoria: SubcategoriaCreate,
+    db: Session = Depends(get_db),
+):
+    sub = (
+        db.query(Subcategoria)
+        .filter(Subcategoria.id == subcategoria_id, Subcategoria.categoria_id == categoria_id)
+        .first()
+    )
     if not sub:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
     sub.nome = subcategoria.nome
@@ -105,16 +135,21 @@ def renomear_subcategoria(categoria_id: int, subcategoria_id: int, subcategoria:
     db.refresh(sub)
     return sub
 
+
 @router.delete("/{categoria_id}/subcategorias/{subcategoria_id}")
 def apagar_subcategoria(categoria_id: int, subcategoria_id: int, db: Session = Depends(get_db)):
-    sub = db.query(Subcategoria).filter(Subcategoria.id == subcategoria_id, Subcategoria.categoria_id == categoria_id).first()
+    sub = (
+        db.query(Subcategoria)
+        .filter(Subcategoria.id == subcategoria_id, Subcategoria.categoria_id == categoria_id)
+        .first()
+    )
     if not sub:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
     # As transações ficam por categorizar na mesma categoria (pela relationship);
     # as regras perdem a subcategoria (D1)
-    db.query(RegraCategorizacao).filter(RegraCategorizacao.subcategoria_id == subcategoria_id).update(
-        {RegraCategorizacao.subcategoria_id: None}, synchronize_session=False
-    )
+    db.query(RegraCategorizacao).filter(
+        RegraCategorizacao.subcategoria_id == subcategoria_id
+    ).update({RegraCategorizacao.subcategoria_id: None}, synchronize_session=False)
     db.delete(sub)
     db.commit()
     return {"ok": True}

@@ -57,10 +57,10 @@ from database import (
 )
 from routers import patrimonio as patrimonio_router
 
-
 # ---------------------------------------------------------------------------
 # Auxiliares
 # ---------------------------------------------------------------------------
+
 
 def semear_tipo(session, nome, tem_unidades):
     tipo = TipoAtivo(nome=nome, tem_unidades=tem_unidades)
@@ -71,9 +71,7 @@ def semear_tipo(session, nome, tem_unidades):
 
 def semear_ativo(session, nome, tipo, simbolo=None):
     contabilizacao = (
-        TipoContabilizacao.investimento
-        if tipo.tem_unidades
-        else TipoContabilizacao.patrimonio
+        TipoContabilizacao.investimento if tipo.tem_unidades else TipoContabilizacao.patrimonio
     )
     ativo = Ativo(
         nome=nome,
@@ -86,8 +84,9 @@ def semear_ativo(session, nome, tipo, simbolo=None):
     return ativo
 
 
-def semear_movimento(session, ativo, tipo_movimento, data, valor_total,
-                     quantidade=None, preco_unitario=None):
+def semear_movimento(
+    session, ativo, tipo_movimento, data, valor_total, quantidade=None, preco_unitario=None
+):
     movimento = MovimentoAtivo(
         ativo_id=ativo.id,
         tipo_movimento=tipo_movimento,
@@ -124,6 +123,7 @@ def semear_conta(session, nome, saldo_referencia, data_referencia):
 # B2/B3 — GET /api/patrimonio/ativos
 # ---------------------------------------------------------------------------
 
+
 def test_listar_ativos_sem_ativos_devolve_lista_vazia(client, session):
     """Sem ativos, a resposta e `[]` (200) e a BD fica a zero linhas."""
     r = client.get("/api/patrimonio/ativos")
@@ -157,6 +157,7 @@ def test_listar_ativos_ordena_por_tipo_e_nome(client, session):
 # ---------------------------------------------------------------------------
 # B4/B5/B6 — POST /api/patrimonio/ativos
 # ---------------------------------------------------------------------------
+
 
 def test_criar_ativo_grava_e_embute_o_tipo(client, session):
     """Um ativo válido é gravado e a resposta traz o tipo embutido.
@@ -236,6 +237,7 @@ def test_criar_dois_ativos_sem_simbolo_e_aceite(client, session):
 # B7/B8/B9 — PUT /api/patrimonio/ativos/{id}
 # ---------------------------------------------------------------------------
 
+
 def test_editar_ativo_muda_apenas_o_nome(client, session):
     """Editar só o nome deixa o símbolo intacto.
 
@@ -289,6 +291,7 @@ def test_editar_ativo_inexistente_da_404(client, session):
 # B10/B11 — DELETE /api/patrimonio/ativos/{id}
 # ---------------------------------------------------------------------------
 
+
 def test_eliminar_ativo_apaga_movimentos_e_precos(client, session):
     """Apagar um ativo remove também os seus movimentos e preços.
 
@@ -299,8 +302,9 @@ def test_eliminar_ativo_apaga_movimentos_e_precos(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-200.0, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
     semear_preco(session, ativo, date(2025, 1, 10), 20.0)
     semear_preco(session, ativo, date(2025, 2, 10), 25.0)
 
@@ -324,6 +328,7 @@ def test_eliminar_ativo_inexistente_da_404(client, session):
 # ---------------------------------------------------------------------------
 # B12..B16 — POST /api/patrimonio/movimentos
 # ---------------------------------------------------------------------------
+
 
 def test_criar_movimento_de_compra_grava_e_cria_preco(client, session):
     """Compra com `preco_unitario`: grava o movimento e cria o preço do dia.
@@ -375,10 +380,12 @@ def test_criar_movimento_falha_no_preco_nao_grava_o_movimento(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    session.execute(text(
-        "CREATE TRIGGER recusa_preco BEFORE INSERT ON precos_ativo "
-        "BEGIN SELECT RAISE(ABORT, 'falha simulada no preço'); END"
-    ))
+    session.execute(
+        text(
+            "CREATE TRIGGER recusa_preco BEFORE INSERT ON precos_ativo "
+            "BEGIN SELECT RAISE(ABORT, 'falha simulada no preço'); END"
+        )
+    )
     session.commit()
 
     with pytest.raises(IntegrityError):
@@ -512,6 +519,7 @@ def test_criar_movimento_em_ativo_inexistente_da_404(client, session):
 # B17/B18 — DELETE /api/patrimonio/movimentos/{id}
 # ---------------------------------------------------------------------------
 
+
 def test_eliminar_movimento_apaga_so_o_movimento(client, session):
     """Apagar um movimento não toca nos preços.
 
@@ -521,9 +529,9 @@ def test_eliminar_movimento_apaga_so_o_movimento(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    movimento = semear_movimento(session, ativo, TipoMovimento.compra,
-                                 date(2025, 1, 10), valor_total=-200.0,
-                                 quantidade=10)
+    movimento = semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
     semear_preco(session, ativo, date(2025, 1, 10), 20.0)
 
     r = client.delete(f"/api/patrimonio/movimentos/{movimento.id}")
@@ -537,6 +545,7 @@ def test_eliminar_movimento_apaga_so_o_movimento(client, session):
 # ---------------------------------------------------------------------------
 # Sobre-venda recusada (era a D15)
 # ---------------------------------------------------------------------------
+
 
 def _vender(client, ativo, data, quantidade, valor_total):
     return client.post(
@@ -560,15 +569,15 @@ def test_venda_acima_da_posicao_da_422_e_nao_grava(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.0, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.0, quantidade=10
+    )
 
     r = _vender(client, ativo, "2025-04-10", 15, 300.0)
 
     assert r.status_code == 422
     assert r.json()["detail"] == (
-        "A venda de 10/04/2025 (15 unidades) excede as 10 unidades em carteira "
-        "nessa data."
+        "A venda de 10/04/2025 (15 unidades) excede as 10 unidades em carteira nessa data."
     )
     session.expire_all()
     assert session.query(MovimentoAtivo).count() == 1
@@ -582,10 +591,12 @@ def test_venda_de_toda_a_posicao_e_aceite(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-25.0, quantidade=2.5)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
-                     valor_total=-75.0, quantidade=7.5)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-25.0, quantidade=2.5
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 2, 10), valor_total=-75.0, quantidade=7.5
+    )
 
     r = _vender(client, ativo, "2025-04-10", 10, 120.0)
 
@@ -604,17 +615,18 @@ def test_venda_antiga_que_deixa_uma_venda_posterior_sem_unidades_da_422(client, 
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.0, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 1),
-                     valor_total=96.0, quantidade=8)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.0, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 3, 1), valor_total=96.0, quantidade=8
+    )
 
     r = _vender(client, ativo, "2025-02-01", 5, 60.0)
 
     assert r.status_code == 422
     assert r.json()["detail"] == (
-        "A venda de 01/03/2025 (8 unidades) excede as 5 unidades em carteira "
-        "nessa data."
+        "A venda de 01/03/2025 (8 unidades) excede as 5 unidades em carteira nessa data."
     )
     session.expire_all()
     assert session.query(MovimentoAtivo).count() == 2
@@ -629,20 +641,21 @@ def test_apagar_compra_que_deixa_uma_venda_sem_unidades_da_422(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.0, quantidade=10)
-    compra = semear_movimento(session, ativo, TipoMovimento.compra,
-                              date(2025, 2, 10), valor_total=-5.0,
-                              quantidade=0.5)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 1),
-                     valor_total=126.0, quantidade=10.5)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.0, quantidade=10
+    )
+    compra = semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 2, 10), valor_total=-5.0, quantidade=0.5
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 3, 1), valor_total=126.0, quantidade=10.5
+    )
 
     r = client.delete(f"/api/patrimonio/movimentos/{compra.id}")
 
     assert r.status_code == 422
     assert r.json()["detail"] == (
-        "A venda de 01/03/2025 (10,5 unidades) excede as 10 unidades em "
-        "carteira nessa data."
+        "A venda de 01/03/2025 (10,5 unidades) excede as 10 unidades em carteira nessa data."
     )
     session.expire_all()
     assert session.query(MovimentoAtivo).count() == 3
@@ -660,17 +673,18 @@ def test_apagar_venda_ou_vender_bem_sem_unidades_nao_e_verificado(client, sessio
     """
     tipo_bem = semear_tipo(session, "Imovel", tem_unidades=False)
     casa = semear_ativo(session, "Casa", tipo_bem)
-    semear_movimento(session, casa, TipoMovimento.compra, date(2024, 1, 1),
-                     valor_total=-150000.0)
+    semear_movimento(session, casa, TipoMovimento.compra, date(2024, 1, 1), valor_total=-150000.0)
     r_bem = _vender(client, casa, "2025-05-01", 1, 200000.0)
     assert r_bem.status_code == 200
 
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.0, quantidade=10)
-    venda = semear_movimento(session, ativo, TipoMovimento.venda,
-                             date(2025, 3, 1), valor_total=48.0, quantidade=4)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.0, quantidade=10
+    )
+    venda = semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 3, 1), valor_total=48.0, quantidade=4
+    )
 
     r = client.delete(f"/api/patrimonio/movimentos/{venda.id}")
 
@@ -691,6 +705,7 @@ def test_eliminar_movimento_inexistente_da_404(client, session):
 # B19 — GET /api/patrimonio/ativos/{id}/movimentos
 # ---------------------------------------------------------------------------
 
+
 def test_listar_movimentos_ordena_por_data(client, session):
     """Os movimentos vêm por `data` ascendente.
 
@@ -700,10 +715,12 @@ def test_listar_movimentos_ordena_por_data(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 1),
-                     valor_total=-200.0, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 1),
-                     valor_total=-100.0, quantidade=5)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 2, 1), valor_total=-200.0, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 1), valor_total=-100.0, quantidade=5
+    )
 
     r = client.get(f"/api/patrimonio/ativos/{ativo.id}/movimentos")
 
@@ -722,6 +739,7 @@ def test_listar_movimentos_de_ativo_inexistente_da_404(client, session):
 # ---------------------------------------------------------------------------
 # B20/B21/B22 — POST /api/patrimonio/precos
 # ---------------------------------------------------------------------------
+
 
 def test_registar_preco_cria_o_registo(client, session):
     """Um preço novo é gravado.
@@ -832,6 +850,7 @@ def test_criar_movimento_com_quantidade_nan_e_recusado_sem_gravar(client, sessio
 # B23 — GET /api/patrimonio/ativos/{id}/resumo (só o 404)
 # ---------------------------------------------------------------------------
 
+
 def _hoje_fixo(monkeypatch, ano, mes, dia):
     """Fixa o `date.today()` do router, como em
     `test_evolucao_sem_parametros_usa_hoje_como_data_fim`."""
@@ -856,15 +875,17 @@ def test_registar_preco_com_data_futura_da_422(client, session, monkeypatch):
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
 
-    r_futuro = client.post("/api/patrimonio/precos",
-                           json={"ativo_id": ativo.id, "data": "2025-07-01", "preco": 20.0})
+    r_futuro = client.post(
+        "/api/patrimonio/precos", json={"ativo_id": ativo.id, "data": "2025-07-01", "preco": 20.0}
+    )
     assert r_futuro.status_code == 422
     assert r_futuro.json()["detail"] == "A data do preço não pode ser futura."
     session.expire_all()
     assert session.query(PrecoAtivo).count() == 0
 
-    r_hoje = client.post("/api/patrimonio/precos",
-                         json={"ativo_id": ativo.id, "data": "2025-06-30", "preco": 20.0})
+    r_hoje = client.post(
+        "/api/patrimonio/precos", json={"ativo_id": ativo.id, "data": "2025-06-30", "preco": 20.0}
+    )
     assert r_hoje.status_code == 200
     session.expire_all()
     assert session.query(PrecoAtivo).count() == 1
@@ -903,8 +924,9 @@ def test_eliminar_preco_apaga_so_esse_preco(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-200.0, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
     semear_preco(session, ativo, date(2025, 1, 10), 20.0)
     recente = semear_preco(session, ativo, date(2025, 3, 1), 25.0)
 
@@ -936,6 +958,7 @@ def test_resumo_de_ativo_inexistente_da_404(client, session):
 # B1 — GET /api/patrimonio/pendentes
 # ---------------------------------------------------------------------------
 
+
 def test_pendentes_so_transacoes_de_patrimonio_sem_movimento(client, session):
     """Só entram transações de subcategoria de património e sem movimento.
 
@@ -954,25 +977,40 @@ def test_pendentes_so_transacoes_de_patrimonio_sem_movimento(client, session):
     categoria_patrimonio = Subcategoria(
         nome="Acoes", categoria_id=categoria.id, trata_patrimonio=True
     )
-    categoria_normal = Subcategoria(
-        nome="Casa", categoria_id=categoria.id, trata_patrimonio=False
-    )
+    categoria_normal = Subcategoria(nome="Casa", categoria_id=categoria.id, trata_patrimonio=False)
     session.add_all([categoria_patrimonio, categoria_normal])
     session.commit()
 
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
 
-    t1 = Transacao(data=date(2025, 1, 10), descricao="Compra ETF",
-                   valor=-300.0, subcategoria_id=categoria_patrimonio.id)
-    t2 = Transacao(data=date(2025, 1, 20), descricao="Compra acoes",
-                   valor=-200.0, subcategoria_id=categoria_patrimonio.id)
-    t3 = Transacao(data=date(2025, 1, 15), descricao="Venda",
-                   valor=150.0, subcategoria_id=categoria_patrimonio.id)
-    t4 = Transacao(data=date(2025, 1, 5), descricao="Supermercado",
-                   valor=-50.0, subcategoria_id=categoria_normal.id)
-    t5 = Transacao(data=date(2025, 1, 1), descricao="Sem subcategoria",
-                   valor=-10.0, subcategoria_id=None)
+    t1 = Transacao(
+        data=date(2025, 1, 10),
+        descricao="Compra ETF",
+        valor=-300.0,
+        subcategoria_id=categoria_patrimonio.id,
+    )
+    t2 = Transacao(
+        data=date(2025, 1, 20),
+        descricao="Compra acoes",
+        valor=-200.0,
+        subcategoria_id=categoria_patrimonio.id,
+    )
+    t3 = Transacao(
+        data=date(2025, 1, 15),
+        descricao="Venda",
+        valor=150.0,
+        subcategoria_id=categoria_patrimonio.id,
+    )
+    t4 = Transacao(
+        data=date(2025, 1, 5),
+        descricao="Supermercado",
+        valor=-50.0,
+        subcategoria_id=categoria_normal.id,
+    )
+    t5 = Transacao(
+        data=date(2025, 1, 1), descricao="Sem subcategoria", valor=-10.0, subcategoria_id=None
+    )
     session.add_all([t1, t2, t3, t4, t5])
     session.commit()
 
@@ -1000,6 +1038,7 @@ def test_pendentes_so_transacoes_de_patrimonio_sem_movimento(client, session):
 # ---------------------------------------------------------------------------
 # B24 — GET /api/patrimonio/evolucao (cenário completo)
 # ---------------------------------------------------------------------------
+
 
 def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
     """Evolução de 2025-01-15 a 2025-03-20, com liquidez e dois tipos de ativo.
@@ -1041,25 +1080,32 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
     """
     conta_a = semear_conta(session, "A", 1000.00, date(2025, 1, 1))
     semear_conta(session, "B", 100.00, date(2025, 2, 1))
-    session.add_all([
-        Transacao(data=date(2025, 1, 1), descricao="Entrada",
-                  valor=50.0, conta_id=conta_a.id),
-        Transacao(data=date(2025, 1, 15), descricao="Saída",
-                  valor=-200.0, conta_id=conta_a.id),
-    ])
+    session.add_all(
+        [
+            Transacao(data=date(2025, 1, 1), descricao="Entrada", valor=50.0, conta_id=conta_a.id),
+            Transacao(data=date(2025, 1, 15), descricao="Saída", valor=-200.0, conta_id=conta_a.id),
+        ]
+    )
     session.commit()
 
     tipo_unidades = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo_invest = semear_ativo(session, "Acao", tipo_unidades)
-    semear_movimento(session, ativo_invest, TipoMovimento.compra,
-                     date(2025, 1, 10), valor_total=-200.0, quantidade=10)
+    semear_movimento(
+        session,
+        ativo_invest,
+        TipoMovimento.compra,
+        date(2025, 1, 10),
+        valor_total=-200.0,
+        quantidade=10,
+    )
     semear_preco(session, ativo_invest, date(2025, 1, 20), 25.00)
     semear_preco(session, ativo_invest, date(2025, 3, 15), 30.00)
 
     tipo_bem = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo_fisico = semear_ativo(session, "Casa", tipo_bem)
-    semear_movimento(session, ativo_fisico, TipoMovimento.compra,
-                     date(2025, 1, 5), valor_total=-15000.0)
+    semear_movimento(
+        session, ativo_fisico, TipoMovimento.compra, date(2025, 1, 5), valor_total=-15000.0
+    )
     semear_preco(session, ativo_fisico, date(2025, 3, 1), 14000.00)
 
     r = client.get(
@@ -1098,6 +1144,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
 # B25 — o total é a soma dos componentes apresentados (era a D2)
 # ---------------------------------------------------------------------------
 
+
 def test_evolucao_total_e_a_soma_dos_componentes_arredondados(client, session):
     """O `total` é a soma dos três componentes já arredondados.
 
@@ -1119,8 +1166,7 @@ def test_evolucao_total_e_a_soma_dos_componentes_arredondados(client, session):
     semear_conta(session, "A", 0.005, date(2025, 1, 1))
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Terreno", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra,
-                     date(2025, 1, 1), valor_total=-1.0)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 1), valor_total=-1.0)
     semear_preco(session, ativo, date(2025, 1, 2), 0.01)
 
     r = client.get(
@@ -1152,8 +1198,7 @@ def test_evolucao_total_sem_ruido_de_virgula_flutuante(client, session):
     semear_conta(session, "A", 0.10, date(2025, 1, 1))
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Terreno", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra,
-                     date(2025, 1, 1), valor_total=-1.0)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 1), valor_total=-1.0)
     semear_preco(session, ativo, date(2025, 1, 2), 0.20)
 
     r = client.get(
@@ -1173,6 +1218,7 @@ def test_evolucao_total_sem_ruido_de_virgula_flutuante(client, session):
 # B26 — a fronteira da data de referência é estrita (era a D3)
 # ---------------------------------------------------------------------------
 
+
 def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
     """Uma transação exactamente na data de referência fica de fora.
 
@@ -1186,8 +1232,9 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
     `>` desde a D3; antes usava `>=` e devolvia `150.00` para esta conta.
     """
     conta = semear_conta(session, "A", 100.0, date(2025, 1, 1))
-    session.add(Transacao(data=date(2025, 1, 1), descricao="No limite",
-                          valor=50.0, conta_id=conta.id))
+    session.add(
+        Transacao(data=date(2025, 1, 1), descricao="No limite", valor=50.0, conta_id=conta.id)
+    )
     session.commit()
 
     r = client.get(
@@ -1205,6 +1252,7 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
 # B27 — bem sem preço conta pelo custo (era a D16)
 # ---------------------------------------------------------------------------
 
+
 def test_evolucao_bem_sem_preco_conta_pelo_custo(client, session):
     """Um bem comprado e sem preço registado conta pelo custo de aquisição.
 
@@ -1218,8 +1266,7 @@ def test_evolucao_bem_sem_preco_conta_pelo_custo(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Terreno", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra,
-                     date(2025, 1, 10), valor_total=-15000.0)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-15000.0)
 
     r = client.get(
         "/api/patrimonio/evolucao",
@@ -1237,6 +1284,7 @@ def test_evolucao_bem_sem_preco_conta_pelo_custo(client, session):
 # B28 — D18: a evolução ignora preços posteriores ao data_alvo
 # ---------------------------------------------------------------------------
 
+
 def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
     """Um preço registado depois do `data_alvo` não entra no cálculo.
 
@@ -1252,8 +1300,9 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra,
-                     date(2025, 1, 10), valor_total=-100.0, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.0, quantidade=10
+    )
     semear_preco(session, ativo, date(2025, 6, 1), 20.00)
 
     r = client.get(
@@ -1268,7 +1317,8 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
 
 
 def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
-        client, session, monkeypatch):
+    client, session, monkeypatch
+):
     """O ponto de hoje usa o preço mais recente, mesmo com data futura.
 
     Decisão do utilizador (era a D18): o resumo do ativo e o ponto de hoje do
@@ -1297,8 +1347,9 @@ def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
 
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra,
-                     date(2025, 1, 10), valor_total=-100.0, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.0, quantidade=10
+    )
     semear_preco(session, ativo, date(2025, 5, 1), 20.00)
     semear_preco(session, ativo, date(2025, 8, 1), 30.00)
 
@@ -1319,6 +1370,7 @@ def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
 # B29 — dividendo num bem sem unidades
 # ---------------------------------------------------------------------------
 
+
 def test_evolucao_dividendo_de_bem_nao_chega_ao_total(client, session):
     """O dividendo de um bem sem unidades não entra no total do património.
 
@@ -1330,10 +1382,8 @@ def test_evolucao_dividendo_de_bem_nao_chega_ao_total(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Casa", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra,
-                     date(2025, 1, 10), valor_total=-10000.0)
-    semear_movimento(session, ativo, TipoMovimento.dividendo,
-                     date(2025, 2, 10), valor_total=500.0)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-10000.0)
+    semear_movimento(session, ativo, TipoMovimento.dividendo, date(2025, 2, 10), valor_total=500.0)
     semear_preco(session, ativo, date(2025, 2, 15), 10000.0)
 
     r = client.get(
@@ -1351,8 +1401,9 @@ def test_evolucao_dividendo_de_bem_nao_chega_ao_total(client, session):
 # B30 — datas por omissão de /evolucao
 # ---------------------------------------------------------------------------
 
+
 def test_evolucao_sem_parametros_usa_hoje_como_data_fim(client, session, monkeypatch):
-    """"Hoje" é injectado, para fixar as linhas 213-218 sem usar a data real.
+    """ "Hoje" é injectado, para fixar as linhas 213-218 sem usar a data real.
 
     Sem parâmetros, `data_fim = date.today()` e, sem transações,
     `data_inicio = data_fim` (`routers/patrimonio.py:213-218`). Em vez de
@@ -1389,6 +1440,7 @@ def test_evolucao_sem_parametros_usa_hoje_como_data_fim(client, session, monkeyp
 # IDs inexistentes (D1)
 # ---------------------------------------------------------------------------
 
+
 def test_criar_ativo_com_tipo_inexistente_da_404_e_nao_grava(client, session):
     """Um `tipo_id` que não existe dá 404 e o ativo não é gravado (D1).
 
@@ -1400,9 +1452,14 @@ def test_criar_ativo_com_tipo_inexistente_da_404_e_nao_grava(client, session):
 
     Estado final da BD: 0 ativos.
     """
-    r = client.post("/api/patrimonio/ativos", json={
-        "nome": "Acao X", "tipo_id": 999, "contabilizacao": "investimento",
-    })
+    r = client.post(
+        "/api/patrimonio/ativos",
+        json={
+            "nome": "Acao X",
+            "tipo_id": 999,
+            "contabilizacao": "investimento",
+        },
+    )
 
     assert r.status_code == 404
     assert r.json() == {"detail": "Tipo de ativo não encontrado."}
@@ -1422,11 +1479,18 @@ def test_criar_movimento_com_transacao_inexistente_da_404_e_nao_grava(client, se
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
 
-    r = client.post("/api/patrimonio/movimentos", json={
-        "ativo_id": ativo.id, "transacao_id": 999, "tipo_movimento": "compra",
-        "data": "2025-01-10", "quantidade": 10, "preco_unitario": 20.0,
-        "valor_total": -200.0,
-    })
+    r = client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "transacao_id": 999,
+            "tipo_movimento": "compra",
+            "data": "2025-01-10",
+            "quantidade": 10,
+            "preco_unitario": 20.0,
+            "valor_total": -200.0,
+        },
+    )
 
     assert r.status_code == 404
     assert r.json() == {"detail": "Transação não encontrada."}

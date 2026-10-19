@@ -1,0 +1,17 @@
+# Configuração do ruff (D13b). Corre a partir de backend/, para que database,
+# schemas, routers e servicos sejam reconhecidos como módulos do projecto.
+target-version = "py314"
+line-length = 100
+# Scripts de migração já aplicados; não voltam a ser alterados.
+extend-exclude = ["old"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]
+# O SQLAlchemy precisa de `== None` / `== True` para gerar IS NULL / = 1;
+# trocar por `is None` faria a comparação em Python e partiria as queries.
+ignore = ["E711", "E712"]
+
+[lint.isort]
+# Mantém `from database import (Ativo as AtivoModel, Conta as ContaModel, ...)`
+# num só import, em vez de um por alias.
+combine-as-imports = true

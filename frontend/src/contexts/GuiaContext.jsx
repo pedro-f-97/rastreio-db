@@ -88,6 +88,8 @@ export function GuiaProvider({ children }) {
   return <GuiaContext.Provider value={valor}>{children}</GuiaContext.Provider>
 }
 
+// Provider e hook juntos: só custa um recarregamento completo ao editar em dev (D13a)
+// eslint-disable-next-line react-refresh/only-export-components
 export function useGuia() {
   const contexto = useContext(GuiaContext)
   if (!contexto) {

@@ -34,8 +34,9 @@ toca na base de dados real.
 import io
 from datetime import date
 
-from database import Conta, ModoValor, PerfilImportacao, TipoFicheiro
 from openpyxl import Workbook
+
+from database import Conta, ModoValor, PerfilImportacao, TipoFicheiro
 
 # Payload minimo valido para `PerfilImportacaoCreate` (schema, linhas 71-100):
 # os restantes campos tem valores por omissao. `coluna_valor` e obrigatoria
@@ -92,6 +93,7 @@ def semear_conta(session, nome):
 # A1/A2 — GET /api/perfis-importacao/
 # ---------------------------------------------------------------------------
 
+
 def test_listar_perfis_ordena_por_nome(client, session):
     """A listagem vem ordenada por `nome`, nao pela ordem de insercao.
 
@@ -121,6 +123,7 @@ def test_listar_perfis_sem_perfis_devolve_lista_vazia(client, session):
 # ---------------------------------------------------------------------------
 # A3/A4/A5 — POST /api/perfis-importacao/
 # ---------------------------------------------------------------------------
+
 
 def test_criar_perfil_grava_e_devolve_201(client, session):
     """Um payload valido cria uma linha e responde 201 (nao 200).
@@ -176,17 +179,16 @@ def test_criar_perfil_sem_coluna_valor_da_422(client, session):
 # A6..A9 — POST /api/perfis-importacao/analisar-ficheiro
 # ---------------------------------------------------------------------------
 
+
 def test_analisar_ficheiro_csv_devolve_as_linhas_como_texto(client):
     """CSV com BOM: o `utf-8-sig` retira-o e cada celula vem como string.
 
     Cálculo à mão: tres linhas, tres colunas; o `csv.reader` usa a virgula por
     omissao. O valor numerico `-10` vem como a string `"-10"`.
     """
-    conteudo = (
-        "\ufeffdata,descricao,valor\n"
-        "2025-01-01,Compra,-10\n"
-        "2025-01-02,Venda,20\n"
-    ).encode("utf-8")
+    conteudo = ("\ufeffdata,descricao,valor\n2025-01-01,Compra,-10\n2025-01-02,Venda,20\n").encode(
+        "utf-8"
+    )
 
     r = client.post(
         "/api/perfis-importacao/analisar-ficheiro",
@@ -294,6 +296,7 @@ def test_analisar_ficheiro_csv_limita_a_12_linhas(client):
 # A10..A14 — PUT /api/perfis-importacao/{id}
 # ---------------------------------------------------------------------------
 
+
 def test_atualizar_perfil_grava_os_campos(client, session):
     """Editar um perfil actualiza os campos enviados.
 
@@ -396,6 +399,7 @@ def test_atualizar_perfil_reescreve_conta_id_para_none(client, session):
 # A15/A16 — DELETE /api/perfis-importacao/{id}
 # ---------------------------------------------------------------------------
 
+
 def test_eliminar_perfil_apaga_a_linha(client, session):
     """Apagar responde 204 sem corpo e remove a linha.
 
@@ -421,6 +425,7 @@ def test_eliminar_perfil_inexistente_da_404(client, session):
 # ---------------------------------------------------------------------------
 # A17..A20 — PATCH /api/perfis-importacao/{id}/conta
 # ---------------------------------------------------------------------------
+
 
 def test_associar_conta_grava_o_conta_id(client, session):
     """Associar uma conta devolve `ok` e grava o `conta_id`.

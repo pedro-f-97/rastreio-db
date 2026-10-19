@@ -15,10 +15,6 @@ export default function Patrimonio() {
   const { ativos, resumos } = useAtivos();
   const [contas, setContas] = useState([]);
 
-  useEffect(() => {
-    carregarContas();
-  }, []);
-
   const [evolucao, setEvolucao] = useState([]);
 
   useEffect(() => {
@@ -35,6 +31,12 @@ export default function Patrimonio() {
     );
     setContas(contasComSaldo);
   }
+
+  useEffect(() => {
+    // Falso positivo: o setState de carregarContas() corre depois do await (D13a)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    carregarContas();
+  }, []);
 
   // --- Totais ---
   const totalLiquidez = contas.reduce((acc, c) => acc + (c.saldo_atual ?? 0), 0);

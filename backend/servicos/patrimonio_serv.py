@@ -1,12 +1,14 @@
 from datetime import date
 from decimal import Decimal
-from sqlalchemy.orm import Session
+
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from database import (
     Ativo as AtivoModel,
+    Conta as ContaModel,
     MovimentoAtivo as MovimentoAtivoModel,
     PrecoAtivo as PrecoAtivoModel,
-    Conta as ContaModel,
     Transacao as TransacaoModel,
 )
 from servicos.dinheiro import arredondar, exato
@@ -67,7 +69,12 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
             # Sem avaliação registada, o bem vale o custo de aquisição (D16)
             valor = arredondar(custo_base)
 
-        return {"quantidade": 0.0, "custo_base": float(custo_base), "realizado": float(realizado), "valor": valor}
+        return {
+            "quantidade": 0.0,
+            "custo_base": float(custo_base),
+            "realizado": float(realizado),
+            "valor": valor,
+        }
 
     # --- RAMO COM UNIDADES (FIFO) ---
     # Pressuposto: valor_total já inclui a comissão (confirmado nos dados:
@@ -109,8 +116,8 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
         elif m.tipo_movimento.value == "dividendo":
             realizado += valor_m
 
-    quantidade = sum((l["quantidade"] for l in lotes), Decimal(0))
-    custo_base = sum((l["custo"] for l in lotes), Decimal(0))
+    quantidade = sum((lote["quantidade"] for lote in lotes), Decimal(0))
+    custo_base = sum((lote["custo"] for lote in lotes), Decimal(0))
     if quantidade <= 0:
         valor = 0.0
     elif preco:
@@ -131,7 +138,8 @@ def primeira_sobre_venda(movimentos):
     """Primeira venda que excede as unidades em carteira, pela ordem do FIFO.
 
     `movimentos` vem ordenado por (data, id), como em `_resumo_valor_ativo`.
-    Devolve `(venda, posicao_antes_da_venda)`, ou `None` se nenhuma exceder.
+    Devolve `(venda, quantidade_vendida, posicao_antes_da_venda)`, ou `None` se
+    nenhuma exceder.
     Só faz sentido para ativos com unidades.
     """
     posicao = 0.0
@@ -143,7 +151,7 @@ def primeira_sobre_venda(movimentos):
             posicao += q
         elif m.tipo_movimento.value == "venda":
             if q - posicao > 1e-9:
-                return m, posicao
+                return m, q, posicao
             posicao -= q
     return None
 
@@ -155,11 +163,16 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
     for conta in contas:
         if conta.data_referencia > data_alvo:
             continue
-        soma_transacoes = db.query(func.sum(TransacaoModel.valor)).filter(
-            TransacaoModel.conta_id == conta.id,
-            TransacaoModel.data > conta.data_referencia,
-            TransacaoModel.data <= data_alvo,
-        ).scalar() or 0.0
+        soma_transacoes = (
+            db.query(func.sum(TransacaoModel.valor))
+            .filter(
+                TransacaoModel.conta_id == conta.id,
+                TransacaoModel.data > conta.data_referencia,
+                TransacaoModel.data <= data_alvo,
+            )
+            .scalar()
+            or 0.0
+        )
         liquidez += conta.saldo_referencia + soma_transacoes
 
     # --- Investimentos e Ativos físicos ---

@@ -16,10 +16,7 @@ export default function GuiaDestaque() {
       elementoActualRef.current = null
     }
 
-    if (!passo.dataTour) {
-      setPosicao(null)
-      return
-    }
+    if (!passo.dataTour) return
 
     let tentativas = 0
     let cancelado = false
@@ -31,8 +28,8 @@ export default function GuiaDestaque() {
 
       setPosicao(
         noTopo
-          ? { left: rect.left, top: rect.bottom + 12, modo: 'baixo' }
-          : { left: rect.left, bottom: window.innerHeight - rect.top + 12, modo: 'cima' }
+          ? { dataTour: passo.dataTour, left: rect.left, top: rect.bottom + 12, modo: 'baixo' }
+          : { dataTour: passo.dataTour, left: rect.left, bottom: window.innerHeight - rect.top + 12, modo: 'cima' }
       )
     }
 
@@ -72,14 +69,16 @@ export default function GuiaDestaque() {
   if (!activo) return null
 
   const centrado = !passo.dataTour
+  // Uma posição de outro passo não vale para este (D13a)
+  const pos = posicao?.dataTour === passo.dataTour ? posicao : null
 
   const estiloCaixa = centrado
     ? undefined
     : {
-        left: posicao?.left ?? -9999,
-        ...(posicao?.modo === 'cima'
-          ? { bottom: posicao.bottom }
-          : { top: posicao?.top ?? -9999 }),
+        left: pos?.left ?? -9999,
+        ...(pos?.modo === 'cima'
+          ? { bottom: pos.bottom }
+          : { top: pos?.top ?? -9999 }),
       }
 
   return (

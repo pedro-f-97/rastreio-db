@@ -1,3 +1,6 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
 from database import (
     Categoria,
     RegraCategorizacao,
@@ -5,16 +8,15 @@ from database import (
     Transacao,
     get_db,
 )
-from fastapi import APIRouter, Depends, HTTPException
+from importador_transacoes import casa_palavra, regras_por_precedencia
 from schemas import (
     AplicarEmMassaPayload,
     AplicarEmMassaResultado,
     RegraCreate,
 )
-from importador_transacoes import casa_palavra, regras_por_precedencia
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/regras", tags=["regras"])
+
 
 @router.get("/")
 def listar_regras(db: Session = Depends(get_db)):
@@ -30,6 +32,7 @@ def listar_regras(db: Session = Depends(get_db)):
         }
         for r in regras
     ]
+
 
 @router.post("/")
 def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
@@ -53,7 +56,9 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
     com_categoria = []
 
     if nova.categoria_id is not None:
-        exclusoes = db.query(RegraCategorizacao).filter(RegraCategorizacao.categoria_id == None).all()
+        exclusoes = (
+            db.query(RegraCategorizacao).filter(RegraCategorizacao.categoria_id == None).all()
+        )
 
         def apanha(t):
             # O mesmo motor da importação: uma regra de exclusão ganha (D8)
@@ -63,8 +68,7 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
 
         # Transações sem categoria
         sem_categoria = [
-            t for t in db.query(Transacao).filter(Transacao.categoria_id == None).all()
-            if apanha(t)
+            t for t in db.query(Transacao).filter(Transacao.categoria_id == None).all() if apanha(t)
         ]
         for t in sem_categoria:
             t.categoria_id = nova.categoria_id
@@ -72,10 +76,13 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
 
         # Transações com categoria coincidente mas sem subcategoria
         com_categoria = [
-            t for t in db.query(Transacao).filter(
+            t
+            for t in db.query(Transacao)
+            .filter(
                 Transacao.categoria_id == nova.categoria_id,
                 Transacao.subcategoria_id == None,
-            ).all()
+            )
+            .all()
             if apanha(t)
         ]
         for t in com_categoria:
@@ -87,6 +94,7 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
     atualizadas = len(sem_categoria) + len(com_categoria)
     return {"regra": nova, "transacoes_atualizadas": atualizadas}
 
+
 @router.delete("/{regra_id}")
 def apagar_regra(regra_id: int, db: Session = Depends(get_db)):
     regra = db.query(RegraCategorizacao).filter(RegraCategorizacao.id == regra_id).first()
@@ -96,12 +104,17 @@ def apagar_regra(regra_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True}
 
+
 @router.post("/pre-visualizar")
 def pre_visualizar_regras(db: Session = Depends(get_db)):
     regras = regras_por_precedencia(db)
-    transacoes = db.query(Transacao).filter(
-        Transacao.subcategoria_id.is_(None),
-    ).all()
+    transacoes = (
+        db.query(Transacao)
+        .filter(
+            Transacao.subcategoria_id.is_(None),
+        )
+        .all()
+    )
 
     sem_conflito = []
     com_conflito = []
@@ -117,7 +130,7 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
                 break
 
         if ignorada:
-            continue                              # ← transação fica sem categoria, não aparece no preview
+            continue  # ← transação fica sem categoria, não aparece no preview
 
         # Fase 2: procurar regras de categorização
         for regra in regras:
@@ -125,29 +138,43 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
                 continue
             if casa_palavra(regra.palavra_chave, t.descricao):
                 if t.categoria_id is None or t.categoria_id == regra.categoria_id:
-                    sem_conflito.append({
-                        "id": t.id,
-                        "descricao": t.descricao,
-                        "categoria_id": regra.categoria_id,
-                        "categoria_nome": regra.categoria.nome if regra.categoria else None,
-                        "subcategoria_actual_id": t.subcategoria_id,
-                        "subcategoria_actual_nome": t.subcategoria.nome if t.subcategoria else None,
-                        "subcategoria_sugerida_id": regra.subcategoria_id,
-                        "subcategoria_sugerida_nome": regra.subcategoria.nome if regra.subcategoria else None,
-                    })
+                    sem_conflito.append(
+                        {
+                            "id": t.id,
+                            "descricao": t.descricao,
+                            "categoria_id": regra.categoria_id,
+                            "categoria_nome": regra.categoria.nome if regra.categoria else None,
+                            "subcategoria_actual_id": t.subcategoria_id,
+                            "subcategoria_actual_nome": t.subcategoria.nome
+                            if t.subcategoria
+                            else None,
+                            "subcategoria_sugerida_id": regra.subcategoria_id,
+                            "subcategoria_sugerida_nome": regra.subcategoria.nome
+                            if regra.subcategoria
+                            else None,
+                        }
+                    )
                 else:
-                    com_conflito.append({
-                        "id": t.id,
-                        "descricao": t.descricao,
-                        "categoria_atual_id": t.categoria_id,
-                        "categoria_atual_nome": t.categoria.nome if t.categoria else None,
-                        "categoria_sugerida_id": regra.categoria_id,
-                        "categoria_sugerida_nome": regra.categoria.nome if regra.categoria else None,
-                        "subcategoria_actual_id": t.subcategoria_id,
-                        "subcategoria_actual_nome": t.subcategoria.nome if t.subcategoria else None,
-                        "subcategoria_sugerida_id": regra.subcategoria_id,
-                        "subcategoria_sugerida_nome": regra.subcategoria.nome if regra.subcategoria else None,
-                    })
+                    com_conflito.append(
+                        {
+                            "id": t.id,
+                            "descricao": t.descricao,
+                            "categoria_atual_id": t.categoria_id,
+                            "categoria_atual_nome": t.categoria.nome if t.categoria else None,
+                            "categoria_sugerida_id": regra.categoria_id,
+                            "categoria_sugerida_nome": regra.categoria.nome
+                            if regra.categoria
+                            else None,
+                            "subcategoria_actual_id": t.subcategoria_id,
+                            "subcategoria_actual_nome": t.subcategoria.nome
+                            if t.subcategoria
+                            else None,
+                            "subcategoria_sugerida_id": regra.subcategoria_id,
+                            "subcategoria_sugerida_nome": regra.subcategoria.nome
+                            if regra.subcategoria
+                            else None,
+                        }
+                    )
                 break
 
     return {"sem_conflito": sem_conflito, "com_conflito": com_conflito}
@@ -165,22 +192,19 @@ def aplicar_em_massa(
 
     # Batch query — evita N+1
     transacoes = {
-        t.id: t
-        for t in db.query(Transacao).filter(Transacao.id.in_(itens_pedidos)).all()
+        t.id: t for t in db.query(Transacao).filter(Transacao.id.in_(itens_pedidos)).all()
     }
 
     # Validar que todas as categorias/subcategorias referidas existem
     cat_ids = {item.categoria_id for item in dados.itens}
     sub_ids = {item.subcategoria_id for item in dados.itens if item.subcategoria_id is not None}
 
-    cats_ok = {
-        c.id
-        for c in db.query(Categoria).filter(Categoria.id.in_(cat_ids)).all()
-    }
-    subs_ok = {
-        s.id: s
-        for s in db.query(Subcategoria).filter(Subcategoria.id.in_(sub_ids)).all()
-    } if sub_ids else {}
+    cats_ok = {c.id for c in db.query(Categoria).filter(Categoria.id.in_(cat_ids)).all()}
+    subs_ok = (
+        {s.id: s for s in db.query(Subcategoria).filter(Subcategoria.id.in_(sub_ids)).all()}
+        if sub_ids
+        else {}
+    )
 
     aplicadas = 0
     ignoradas: list[int] = []

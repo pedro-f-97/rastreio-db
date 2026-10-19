@@ -29,6 +29,9 @@ export function useAtivos() {
   }, []);
 
   useEffect(() => {
+    // O setLoading(true) inicial é preciso para o recarregar; aqui não muda nada,
+    // porque o estado já começa a true (D13a)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     carregar();
   }, [carregar]);
 

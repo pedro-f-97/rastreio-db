@@ -40,8 +40,7 @@ def test_abrir_no_browser_usa_a_porta_recebida(monkeypatch):
 
     abertos = []
     monkeypatch.setattr(tray.sys, "platform", "linux")
-    monkeypatch.setattr(tray.subprocess, "Popen",
-                        lambda args, **kwargs: abertos.append(args))
+    monkeypatch.setattr(tray.subprocess, "Popen", lambda args, **kwargs: abertos.append(args))
 
     tray.iniciar_tray(lambda: None, 12345)
     _comando_do_botao(tk_falso, "Abrir no browser")()
@@ -61,9 +60,9 @@ def test_main_passa_a_porta_a_tray():
         arvore = ast.parse(f.read())
 
     chamadas = [
-        n for n in ast.walk(arvore)
-        if isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Name) and n.func.id == "iniciar_tray"
+        n
+        for n in ast.walk(arvore)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "iniciar_tray"
     ]
 
     assert len(chamadas) == 1

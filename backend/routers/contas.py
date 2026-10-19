@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 from typing import List
-from database import get_db, Conta as ContaModel, Transacao as TransacaoModel
-from servicos.dinheiro import arredondar
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 import schemas
+from database import Conta as ContaModel, Transacao as TransacaoModel, get_db
+from servicos.dinheiro import arredondar
 
 router = APIRouter(prefix="/contas", tags=["contas"])
+
 
 @router.get("/", response_model=List[schemas.Conta])
 def listar_contas(incluir_inativas: bool = Query(False), db: Session = Depends(get_db)):
@@ -14,6 +17,7 @@ def listar_contas(incluir_inativas: bool = Query(False), db: Session = Depends(g
     if not incluir_inativas:
         q = q.filter(ContaModel.ativa == True)
     return q.order_by(ContaModel.nome).all()
+
 
 @router.post("/", response_model=schemas.Conta)
 def criar_conta(payload: schemas.ContaCreate, db: Session = Depends(get_db)):
@@ -26,6 +30,7 @@ def criar_conta(payload: schemas.ContaCreate, db: Session = Depends(get_db)):
     db.refresh(conta)
     return conta
 
+
 @router.put("/{conta_id}", response_model=schemas.Conta)
 def actualizar_conta(conta_id: int, payload: schemas.ContaUpdate, db: Session = Depends(get_db)):
     conta = db.query(ContaModel).filter(ContaModel.id == conta_id).first()
@@ -36,6 +41,7 @@ def actualizar_conta(conta_id: int, payload: schemas.ContaUpdate, db: Session = 
     db.commit()
     db.refresh(conta)
     return conta
+
 
 @router.delete("/{conta_id}")
 def apagar_ou_desativar_conta(conta_id: int, db: Session = Depends(get_db)):
@@ -51,17 +57,21 @@ def apagar_ou_desativar_conta(conta_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"acao": "eliminada", "conta_id": conta_id}
 
+
 @router.get("/{conta_id}/saldo")
 def saldo_conta(conta_id: int, db: Session = Depends(get_db)):
     conta = db.query(ContaModel).filter(ContaModel.id == conta_id).first()
     if not conta:
         raise HTTPException(status_code=404, detail="Conta não encontrada.")
-    resultado = db.execute(text("""
+    resultado = db.execute(
+        text("""
         SELECT COALESCE(SUM(valor), 0)
         FROM transacoes
         WHERE conta_id = :conta_id
         AND data > :data_referencia
-    """), {"conta_id": conta_id, "data_referencia": str(conta.data_referencia)}).scalar()
+    """),
+        {"conta_id": conta_id, "data_referencia": str(conta.data_referencia)},
+    ).scalar()
     saldo = arredondar(float(conta.saldo_referencia) + float(resultado or 0))
     return {
         "conta_id": conta_id,

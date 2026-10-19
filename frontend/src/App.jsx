@@ -74,7 +74,7 @@ function App() {
     document.documentElement.setAttribute('data-theme', novoTema)
     try {
       localStorage.setItem('tema', novoTema)
-    } catch (e) {
+    } catch {
       // localStorage indisponível - o tema não persiste, mas continua a funcionar nesta sessão
     }
     setTema(novoTema)

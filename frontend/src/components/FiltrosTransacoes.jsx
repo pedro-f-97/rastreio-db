@@ -15,14 +15,15 @@ export default function FiltrosTransacoes({ filtros, categorias, contas = [], on
 
     const [subcategorias, setSubcategorias] = useState([]);
 
+    // O <select> da categoria já limpa a subcategoria ao mudar (D13a)
     useEffect(() => {
         if (filtros.categoria_id) {
             listarSubcategorias(filtros.categoria_id).then(res => setSubcategorias(res.data));
-        } else {
-            setSubcategorias([]);
-            onChange({ subcategoria_id: null });
         }
     }, [filtros.categoria_id]);
+
+    // Sem categoria não há subcategorias a mostrar (D13a)
+    const subcategoriasVisiveis = filtros.categoria_id ? subcategorias : [];
 
     return (
         <div className="filtros">
@@ -50,10 +51,10 @@ export default function FiltrosTransacoes({ filtros, categorias, contas = [], on
             <select
                 value={filtros.subcategoria_id ?? ''}
                 onChange={e => onChange({ subcategoria_id: e.target.value ? Number(e.target.value) : null })}
-                disabled={!filtros.categoria_id || subcategorias.length === 0}
+                disabled={!filtros.categoria_id || subcategoriasVisiveis.length === 0}
             >
                 <option value="">Todas as subcategorias</option>
-                {subcategorias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                {subcategoriasVisiveis.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
             </select>
             <select
                 value={filtros.conta_id ?? ''}

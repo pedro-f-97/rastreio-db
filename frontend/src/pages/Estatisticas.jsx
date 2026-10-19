@@ -62,15 +62,14 @@ export default function Estatisticas() {
     }, []);
 
     useEffect(() => {
-        setCategoriaExpandida(null);
         obterPorCategoria(anoSeleccionado).then(res => setPorCategoria(res.data));
     }, [anoSeleccionado]);
 
     const MULTIPLICADOR_EXTREMO = 4;
 
-    const { dadosGrafico, dadosGraficoFiltrados, dominioValores, totalExtremos } = useMemo(() => {
+    const { dadosGraficoFiltrados, dominioValores, totalExtremos } = useMemo(() => {
         if (!resumo) {
-            return { dadosGrafico: [], dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
+            return { dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
         }
 
         const dadosGrafico = resumo.meses.map(m => ({
@@ -104,7 +103,6 @@ export default function Estatisticas() {
             : ['auto', 'auto'];
 
         return {
-            dadosGrafico,
             dadosGraficoFiltrados: filtrados,
             dominioValores: dominio,
             totalExtremos: extremos,
@@ -148,7 +146,10 @@ export default function Estatisticas() {
                 <h1 className="titulo-pagina">Estatísticas</h1>
                 <select
                     value={anoSeleccionado}
-                    onChange={e => setAnoSeleccionado(e.target.value)}
+                    onChange={e => {
+                        setAnoSeleccionado(e.target.value);
+                        setCategoriaExpandida(null);
+                    }}
                     className="filtro-ano"
                 >
                     <option value="todos">Todos</option>

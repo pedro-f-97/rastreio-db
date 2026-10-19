@@ -7,11 +7,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import uvicorn
-from database import BASE_DIR, criar_tabelas
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from database import BASE_DIR, criar_tabelas
 from routers import (
     backups,
     categorias,
@@ -25,7 +27,6 @@ from routers import (
     tipos_ativo,
     transacoes,
 )
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # ---------------------------------------------------------------------------
 # Arranque: logging e streams
@@ -34,6 +35,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 # `open(os.devnull, "w")` — o que descartava silenciosamente TODA a informação
 # de erro. Agora redireccionamos para um ficheiro de log, para que haja sempre
 # rasto do que aconteceu (ver B4).
+
 
 def _caminho_log() -> str | None:
     """Encontra um sítio com permissão de escrita para o log de arranque."""
@@ -126,6 +128,7 @@ else:
 # App FastAPI
 # ---------------------------------------------------------------------------
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # criar_tabelas é idempotente. Em dev (uvicorn main:app) é o que garante
@@ -140,10 +143,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.exception_handler(StarletteHTTPException)
 async def spa_fallback(request, exc):
-    if (
-        exc.status_code == 404
-        and not request.url.path.startswith("/api")
-    ):
+    if exc.status_code == 404 and not request.url.path.startswith("/api"):
         return FileResponse(
             os.path.join(PASTA_FRONTEND, "index.html"),
             headers={
@@ -189,11 +189,14 @@ for router in ROUTERS:
 @app.get("/")
 async def servir_index():
     caminho = os.path.join(PASTA_FRONTEND, "index.html")
-    return FileResponse(caminho, headers={
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0",
-    })
+    return FileResponse(
+        caminho,
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 if os.path.exists(PASTA_FRONTEND):
@@ -212,6 +215,7 @@ def _preflight() -> None:
     para poder ser chamado de testes."""
     # 1) garantir pasta de dados (permite detectar PermissionError cedo)
     from database import anunciar_bd_ativa, garantir_pasta_dados
+
     try:
         garantir_pasta_dados()
     except RuntimeError as e:
@@ -232,12 +236,19 @@ def _preflight() -> None:
 def _main() -> None:
     _preflight()
 
-    servidor = uvicorn.Server(uvicorn.Config(
-        app, host="127.0.0.1", port=PORTA, log_level="warning", log_config=None,
-    ))
+    servidor = uvicorn.Server(
+        uvicorn.Config(
+            app,
+            host="127.0.0.1",
+            port=PORTA,
+            log_level="warning",
+            log_config=None,
+        )
+    )
 
     def iniciar_servidor():
         import asyncio
+
         try:
             asyncio.run(servidor.serve())
         except Exception as e:
@@ -248,7 +259,9 @@ def _main() -> None:
         servidor.should_exit = True
 
     def abrir_browser():
-        import time, webbrowser
+        import time
+        import webbrowser
+
         time.sleep(1.5)
         try:
             webbrowser.open(f"http://localhost:{PORTA}")
@@ -265,6 +278,7 @@ def _main() -> None:
     # utilizador pode aceder pelo browser.
     try:
         from tray import iniciar_tray
+
         iniciar_tray(parar_servidor, PORTA)
         # Se chegámos aqui, a tray fechou-se (o utilizador fez quit no ícone).
         # O servidor deve terminar também.

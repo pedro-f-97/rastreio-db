@@ -49,12 +49,12 @@ vazia. Nenhum toca no `main`, na base de dados real, nem no sistema de ficheiros
 
 from datetime import date
 
-from database import Categoria, Subcategoria, Transacao, TipoCategoria
-
+from database import Categoria, Subcategoria, TipoCategoria, Transacao
 
 # ---------------------------------------------------------------------------
 # Auxiliares
 # ---------------------------------------------------------------------------
+
 
 def _semeia_categoria_subcategoria_transacao(session):
     """Semeia uma categoria, uma subcategoria dessa categoria e uma transacção.
@@ -86,6 +86,7 @@ def _semeia_categoria_subcategoria_transacao(session):
 # ---------------------------------------------------------------------------
 # Os seis testes
 # ---------------------------------------------------------------------------
+
 
 def test_payload_sem_categoria_id_da_422(client):
     """Um item sem `categoria_id` é rejeitado pelo Pydantic, com 422.
@@ -124,13 +125,18 @@ def test_subcategoria_de_outra_categoria_e_invalida(client, session):
     session.commit()
     session.refresh(outra)
 
-    r = client.post("/api/regras/aplicar-em-massa", json={
-        "itens": [{
-            "id": transacao.id,
-            "categoria_id": outra.id,
-            "subcategoria_id": sub.id,
-        }]
-    })
+    r = client.post(
+        "/api/regras/aplicar-em-massa",
+        json={
+            "itens": [
+                {
+                    "id": transacao.id,
+                    "categoria_id": outra.id,
+                    "subcategoria_id": sub.id,
+                }
+            ]
+        },
+    )
 
     assert r.status_code == 200
     assert r.json() == {"aplicadas": 0, "ignoradas": [], "invalidas": [transacao.id]}
@@ -151,13 +157,18 @@ def test_payload_valido_aplica_categoria_e_subcategoria(client, session):
     """
     transacao, cat, sub = _semeia_categoria_subcategoria_transacao(session)
 
-    r = client.post("/api/regras/aplicar-em-massa", json={
-        "itens": [{
-            "id": transacao.id,
-            "categoria_id": cat.id,
-            "subcategoria_id": sub.id,
-        }]
-    })
+    r = client.post(
+        "/api/regras/aplicar-em-massa",
+        json={
+            "itens": [
+                {
+                    "id": transacao.id,
+                    "categoria_id": cat.id,
+                    "subcategoria_id": sub.id,
+                }
+            ]
+        },
+    )
 
     assert r.status_code == 200
     assert r.json() == {"aplicadas": 1, "ignoradas": [], "invalidas": []}
@@ -181,9 +192,9 @@ def test_id_inexistente_vai_para_ignoradas(client, session):
     """
     _transacao, cat, _sub = _semeia_categoria_subcategoria_transacao(session)
 
-    r = client.post("/api/regras/aplicar-em-massa", json={
-        "itens": [{"id": 999999, "categoria_id": cat.id}]
-    })
+    r = client.post(
+        "/api/regras/aplicar-em-massa", json={"itens": [{"id": 999999, "categoria_id": cat.id}]}
+    )
 
     assert r.status_code == 200
     assert r.json() == {"aplicadas": 0, "ignoradas": [999999], "invalidas": []}
@@ -203,9 +214,10 @@ def test_categoria_inexistente_e_invalida(client, session):
     """
     transacao, _cat, _sub = _semeia_categoria_subcategoria_transacao(session)
 
-    r = client.post("/api/regras/aplicar-em-massa", json={
-        "itens": [{"id": transacao.id, "categoria_id": 999999}]
-    })
+    r = client.post(
+        "/api/regras/aplicar-em-massa",
+        json={"itens": [{"id": transacao.id, "categoria_id": 999999}]},
+    )
 
     assert r.status_code == 200
     assert r.json() == {"aplicadas": 0, "ignoradas": [], "invalidas": [transacao.id]}

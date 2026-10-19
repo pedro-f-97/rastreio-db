@@ -69,12 +69,12 @@ export default function Transacoes({ onDadosAlterados }) {
         try {
             // Remove nulls antes de enviar — axios não envia params null
             const params = Object.fromEntries(
-                Object.entries(filtros).filter(([_, v]) => v !== null)
+                Object.entries(filtros).filter(([, v]) => v !== null)
             );
             const res = await listarTransacoes(params);
             setTransacoes(res.data.items);
             setTotal(res.data.total);
-        } catch (e) {
+        } catch {
             setErro('Erro ao carregar transações.');
         } finally {
             setCarregando(false);

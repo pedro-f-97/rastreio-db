@@ -44,9 +44,7 @@ def ligar(caminho, chaves=False):
 
 def ddl(caminho, tabela):
     with ligar(caminho) as con:
-        return con.execute(
-            "SELECT sql FROM sqlite_master WHERE name = ?", (tabela,)
-        ).fetchone()[0]
+        return con.execute("SELECT sql FROM sqlite_master WHERE name = ?", (tabela,)).fetchone()[0]
 
 
 def linhas(caminho, tabela):
@@ -193,8 +191,10 @@ def test_ativos_old_noutra_tabela_e_recusado_sem_mexer_em_nada(bd_partida):
     função levanta a nomeá-la, e as duas tabelas conhecidas ficam por reparar.
     """
     with ligar(bd_partida) as con:
-        con.execute("CREATE TABLE outra (id INTEGER PRIMARY KEY, "
-                    "ativo_id INTEGER REFERENCES ativos_old(id))")
+        con.execute(
+            "CREATE TABLE outra (id INTEGER PRIMARY KEY, "
+            "ativo_id INTEGER REFERENCES ativos_old(id))"
+        )
     ddl_precos = ddl(bd_partida, "precos_ativo")
 
     with pytest.raises(RuntimeError, match=r"\['outra'\]"):
