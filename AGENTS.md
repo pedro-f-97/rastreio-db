@@ -150,7 +150,8 @@ build.bat           # Windows
   every commit: the edit tool may accept approximate matches and apply something
   different from what was intended.
 * Before every commit, run `npm run lint -- --max-warnings 0` in `frontend/` and
-  `venv/bin/ruff check && venv/bin/ruff format --check` in `backend/`, and only
+  `venv/bin/ruff check && venv/bin/ruff format --check && venv/bin/pyright` in
+  `backend/`, and only
   commit when they pass. CI (`test.yml`) runs the same commands, so a warning
   fails the PR too. Never `ruff check --fix --unsafe-fixes` and never "fix"
   `E711`/`E712`: `== None` in a SQLAlchemy filter is what generates `IS NULL`.
