@@ -150,8 +150,10 @@ build.bat           # Windows
   every commit: the edit tool may accept approximate matches and apply something
   different from what was intended.
 * Before every commit, run `npm run lint -- --max-warnings 0` in `frontend/` and
-  only commit when it passes. CI (`test.yml`) runs the same command, so a
-  warning fails the PR too.
+  `venv/bin/ruff check && venv/bin/ruff format --check` in `backend/`, and only
+  commit when they pass. CI (`test.yml`) runs the same commands, so a warning
+  fails the PR too. Never `ruff check --fix --unsafe-fixes` and never "fix"
+  `E711`/`E712`: `== None` in a SQLAlchemy filter is what generates `IS NULL`.
 * One commit per concern. Types: `feat`, `fix`, `refactor`, `chore`, `test`, `docs`.
   Messages in PT-PT, with accents.
 * Check for non-Latin characters only on versioned files, never with `grep -r` over
