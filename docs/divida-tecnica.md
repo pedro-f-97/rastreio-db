@@ -716,7 +716,7 @@ há testes novos em `test_dinheiro.py`, `test_api_estatisticas.py`,
 `test_patrimonio_fifo.py` (cenários 22 e 23), `test_api_patrimonio.py` e
 `test_parser_importacao.py`.
 
-## ⚪ D12 — Assinaturas e convenções por confirmar
+## ⚪ D12 — Assinaturas e convenções por confirmar — resolvido
 
 Itens independentes, na ordem dos ficheiros. Cada um é referenciável
 isoladamente.
