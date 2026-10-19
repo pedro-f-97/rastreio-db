@@ -8,7 +8,7 @@ nenhum destes testes assenta na data de hoje nem toca na base de dados real
 
 from datetime import date
 
-from database import Conta, Transacao
+from database import Conta, ModoValor, PerfilImportacao, Transacao
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +181,36 @@ def test_apagar_conta_sem_transacoes_elimina(client, session):
     assert session.query(Conta).filter_by(id=conta.id).count() == 0
     assert session.query(Transacao).count() == 0
     assert client.get("/api/contas/").json() == []
+
+
+def test_apagar_conta_sem_transacoes_desassocia_os_perfis(client, session):
+    """Sem transacções, a conta apaga-se e o perfil que a usava fica sem conta.
+
+    Cenário: conta "Poupança" sem transacções e um perfil "Banco" associado.
+
+    Cálculo à mão: `tem_transacoes` é None e `db.delete(conta)` corre; a
+    `relationship` `Conta.perfis_importacao` (sem `cascade` de delete) põe
+    `perfis_importacao.conta_id` a NULL antes do `DELETE`. Com a pragma
+    `foreign_keys` ligada (D1), é isso que deixa o `DELETE` passar.
+
+    Estado final da BD: 0 contas, 1 perfil com `conta_id` None.
+    """
+    conta = semear_conta(session, "Poupança", 0.0, date(2025, 1, 1))
+    perfil = PerfilImportacao(
+        nome="Banco", linha_inicio_dados=1, coluna_data=0, formato_data="%d/%m/%Y",
+        coluna_descricao=1, modo_valor=ModoValor.coluna_unica, coluna_valor=2,
+        conta_id=conta.id,
+    )
+    session.add(perfil)
+    session.commit()
+
+    r = client.delete(f"/api/contas/{conta.id}")
+
+    assert r.status_code == 200
+    assert r.json() == {"acao": "eliminada", "conta_id": conta.id}
+    session.expire_all()
+    assert session.query(Conta).count() == 0
+    assert session.get(PerfilImportacao, perfil.id).conta_id is None
 
 
 def test_apagar_conta_com_transacoes_desativa(client, session):

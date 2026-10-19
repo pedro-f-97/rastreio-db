@@ -14,8 +14,9 @@ Ficam de fora, com ficheiro próprio: `aplicar-em-massa` (`:141-195`,
 As divergências entre o motor de regras e o backfill eram a D8 de
 `docs/divida-tecnica.md`: desde a correcção, o backfill compara como a
 importação (`casa_palavra`) e respeita as regras de exclusão. Fica só a
-diferença do pré-filtro com transacções órfãs, que depende da D1 (chaves
-estrangeiras não forçadas) e está assinalada com essa etiqueta.
+diferença do pré-filtro com transacções órfãs (subcategoria sem categoria),
+um estado que as chaves estrangeiras não impedem: a subcategoria existe, só não
+pertence à categoria da transacção.
 Nenhum valor esperado foi copiado de uma execução: são calculados à mão no
 docstring de cada teste. As datas são fixas em 2025; nunca se usa a data de
 hoje. Os testes não tocam na base de dados real (ver `conftest.py`).
@@ -38,7 +39,7 @@ def _categorias(session):
     """Semeia Casa (despesa), Lazer (despesa) e Alimentação (de Casa).
 
     Devolve `(casa, lazer, sub_alim)` já com `id`. A subcategoria existe para
-    o backfill lhe poder apontar (o router não valida a sua existência).
+    o backfill lhe poder apontar (o router valida a sua existência, D1).
     """
     casa = Categoria(nome="Casa", tipo=TipoCategoria.despesa)
     lazer = Categoria(nome="Lazer", tipo=TipoCategoria.despesa)
@@ -289,13 +290,12 @@ def test_backfill_respeita_as_regras_de_exclusao(client, session):
 
 
 # ---------------------------------------------------------------------------
-# POST /pre-visualizar vs backfill (com transacções órfãs, D1)
+# POST /pre-visualizar vs backfill (com transacções órfãs)
 # ---------------------------------------------------------------------------
 
 def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, session):
-    # DEVIDA-TECNICA: D1 — a pré-visualização pré-filtra
-    # `subcategoria_id IS NULL` (`:88`) e o backfill filtra por
-    # `categoria_id == None` (1.ª query) e
+    # A pré-visualização pré-filtra `subcategoria_id IS NULL` e o backfill
+    # filtra por `categoria_id == None` (1.ª query) e
     # `categoria_id == nova.categoria_id and subcategoria_id == None` (2.ª).
     """Com dados válidos, as duas contagens coincidem (2 e 2).
 
@@ -400,3 +400,49 @@ def test_apagar_regra_existente_e_inexistente(client, session):
     assert r.status_code == 200
     assert r.json() == {"ok": True}
     assert session.query(RegraCategorizacao).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# POST / com IDs inexistentes (D1)
+# ---------------------------------------------------------------------------
+
+def test_criar_regra_com_categoria_inexistente_da_400(client, session):
+    """Uma categoria que não existe dá 400 e a regra não é gravada (D1).
+
+    Cálculo à mão: `db.get(Categoria, 999)` devolve None, logo `criar_regra`
+    responde 400 com "Categoria não encontrada." antes do `db.add`. A
+    transacção "PINGO DOCE", sem categoria, não é tocada pelo backfill.
+
+    Estado final da BD: 0 regras; a transacção continua sem categoria.
+    """
+    t = _transacao(session, "PINGO DOCE", 1)
+
+    r = client.post("/api/regras/", json={"palavra_chave": "PINGO", "categoria_id": 999})
+
+    assert r.status_code == 400
+    assert r.json() == {"detail": "Categoria não encontrada."}
+    session.expire_all()
+    assert session.query(RegraCategorizacao).count() == 0
+    assert session.get(Transacao, t.id).categoria_id is None
+
+
+def test_criar_regra_com_subcategoria_inexistente_da_400(client, session):
+    """Uma subcategoria que não existe dá 400 e a regra não é gravada (D1).
+
+    Cálculo à mão: Casa existe, `db.get(Subcategoria, 999)` devolve None, logo
+    `criar_regra` responde 400 com "Subcategoria não encontrada.".
+
+    Estado final da BD: 0 regras; a transacção continua sem categoria.
+    """
+    casa, _lazer, _sub = _categorias(session)
+    t = _transacao(session, "PINGO DOCE", 1)
+
+    r = client.post("/api/regras/", json={
+        "palavra_chave": "PINGO", "categoria_id": casa.id, "subcategoria_id": 999,
+    })
+
+    assert r.status_code == 400
+    assert r.json() == {"detail": "Subcategoria não encontrada."}
+    session.expire_all()
+    assert session.query(RegraCategorizacao).count() == 0
+    assert session.get(Transacao, t.id).categoria_id is None

@@ -61,11 +61,11 @@ def session():
     `StaticPool` é obrigatório: sem ele, cada conexão da pool abriria o seu
     próprio banco in-memory e as tabelas criadas numa sumiriam na seguinte.
     """
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, event
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
 
-    from database import Base
+    from database import Base, ligar_chaves_estrangeiras
     import database  # noqa: F401  — importa todos os modelos antes do create_all
 
     engine = create_engine(
@@ -73,6 +73,8 @@ def session():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    # Como a engine da app: os testes vêem as chaves estrangeiras forçadas (D1)
+    event.listen(engine, "connect", ligar_chaves_estrangeiras)
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

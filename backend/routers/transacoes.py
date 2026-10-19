@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import extract
 from typing import Optional
 import unicodedata
-from database import get_db, Transacao, Subcategoria
+from database import get_db, Categoria, Transacao, Subcategoria
 from schemas import TransacaoUpdate
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
@@ -115,6 +115,9 @@ def atualizar_transacao(
         if "subcategoria_id" in dados.model_fields_set
         else t.subcategoria_id
     )
+
+    if dados.categoria_id is not None and db.get(Categoria, dados.categoria_id) is None:
+        raise HTTPException(400, "Categoria não encontrada.")
 
     # Validar invariante: subcategoria pertence à categoria
     if subcategoria_alvo is not None:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, PerfilImportacao as PerfilImportacaoModel
+from database import get_db, Conta, PerfilImportacao as PerfilImportacaoModel
 from schemas import PerfilImportacaoCreate, PerfilImportacao as PerfilImportacaoSchema
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from openpyxl import load_workbook
@@ -9,6 +9,11 @@ import schemas
 import io
 
 router = APIRouter(prefix="/perfis-importacao", tags=["perfis-importacao"])
+
+def _validar_conta(db: Session, conta_id: int | None) -> None:
+    # Com a pragma ligada, uma conta inexistente daria 500 no commit (D1)
+    if conta_id is not None and db.get(Conta, conta_id) is None:
+        raise HTTPException(status_code=400, detail="Conta não encontrada.")
 
 @router.get("/", response_model=list[PerfilImportacaoSchema])
 def listar_perfis(db: Session = Depends(get_db)):
@@ -19,6 +24,7 @@ def criar_perfil(perfil: PerfilImportacaoCreate, db: Session = Depends(get_db)):
     existente = db.query(PerfilImportacaoModel).filter(PerfilImportacaoModel.nome == perfil.nome).first()
     if existente:
         raise HTTPException(status_code=409, detail="Já existe um perfil com esse nome.")
+    _validar_conta(db, perfil.conta_id)
     novo = PerfilImportacaoModel(**perfil.model_dump())
     db.add(novo)
     db.commit()
@@ -56,6 +62,7 @@ def atualizar_perfil(perfil_id: int, dados: PerfilImportacaoCreate, db: Session 
     ).first()
     if conflito:
         raise HTTPException(status_code=409, detail="Já existe um perfil com esse nome.")
+    _validar_conta(db, dados.conta_id)
     for campo, valor in dados.model_dump().items():
         setattr(perfil, campo, valor)
     db.commit()
@@ -75,6 +82,7 @@ def associar_conta(perfil_id: int, dados: schemas.AssociarConta, db: Session = D
     perfil = db.query(PerfilImportacaoModel).filter(PerfilImportacaoModel.id == perfil_id).first()
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    _validar_conta(db, dados.conta_id)
     perfil.conta_id = dados.conta_id
     db.commit()
     db.refresh(perfil)
