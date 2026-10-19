@@ -40,3 +40,27 @@ jobs:
       - name: Correr os testes
         run: python -m pytest
         working-directory: backend
+
+  # O frontend não tem testes; o lint é a única verificação. Com
+  # --max-warnings 0 os avisos também falham, para não voltarem a acumular-se
+  # (D13a).
+  lint-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Retirar o código
+        uses: actions/checkout@v4
+
+      # Mesma versão que o build.yml usa nos dois trabalhos.
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependências
+        run: npm ci
+        working-directory: frontend
+
+      - name: Correr o lint
+        run: npm run lint -- --max-warnings 0
+        working-directory: frontend

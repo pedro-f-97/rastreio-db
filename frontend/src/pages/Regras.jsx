@@ -24,15 +24,17 @@ export default function Regras() {
     const [fase, setFase] = useState('resumo'); // 'resumo' | 'conflitos' | 'concluido'
     const [resultado, setResultado] = useState(null);
 
-    useEffect(() => {
-        carregar();
-        listarCategorias().then(res => setCategorias(res.data));
-    }, []);
-
     async function carregar() {
         const res = await listarRegras();
         setRegras(res.data);
     }
+
+    useEffect(() => {
+        // Falso positivo: o setState de carregar() corre depois do await (D13a)
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        carregar();
+        listarCategorias().then(res => setCategorias(res.data));
+    }, []);
 
     async function aoMudarCategoria(categoriaId) {
         setForm(prev => ({ ...prev, categoria_id: categoriaId, subcategoria_id: '' }));

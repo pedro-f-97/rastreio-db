@@ -48,18 +48,12 @@ export default function TabelaTransacoes({
         }
 
         carregarSubcategorias();
-    }, [transacoes, listarSubcategorias]);
+    }, [transacoes, subcategorias, listarSubcategorias]);
 
     // =========================
     // HANDLERS
     // =========================
     async function aoMudarCategoria(t, novaCatId) {
-        const updated = {
-            ...t,
-            categoria_id: novaCatId,
-            subcategoria_id: null
-        };
-
         await onGuardar(t.id, 'categoria_id', novaCatId);
         await onGuardar(t.id, 'subcategoria_id', null);
     }

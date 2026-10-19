@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { listarPerfis, criarPerfil, eliminarPerfil, analisarFicheiro, associarContaPerfil } from '../api/perfisImportacao'
+import { listarPerfis, criarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
 import { previewExtrato, importarExtrato } from '../api/importacao'
 import { getContas } from '../api/contas'
 import '../componentes.css'

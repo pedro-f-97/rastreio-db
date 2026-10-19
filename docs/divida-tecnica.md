@@ -873,28 +873,75 @@ isoladamente.
   `_resolver_base_dir()` (`backend/database.py`): `RASTREIO_DB_DIR`, depois
   `sys.frozen`, depois `backend/`.
 
-## ⚪ D13 — Qualidade de código (fora de âmbito por decisão)
+## ⚪ D13 — Qualidade de código
 
-Registado para quando se decidir introduzir linting. Não é bug.
+Não é bug. Dividido em sub-itens, cada um com o seu commit:
 
-- **Frontend:** 20 problemas do ESLint (17 erros, 3 avisos). O único que é bug
-  real foi promovido a **D14**. Os restantes são: `useEffect` a chamar
-  `carregar()` antes da declaração da função (7 ficheiros — `Categorias.jsx:15`,
-  `Contas.jsx:14-15`, `Patrimonio.jsx:19`, `Regras.jsx:28`, `TiposAtivo.jsx:15`
-  e outros), `setState` síncrono dentro de efeito (5 ficheiros), exports
-  mistos num ficheiro de componente (`contexts/GuiaContext.jsx:91`), e
-  variáveis não usadas (4). **Nota:** os `useEffect` que chamam `carregar()`
-  antes da declaração funcionam hoje por hoisting de `function`, e o aviso do
-  lint vem das regras do compilador React 19, não de um bug vivo. A correcção
-  é mover a função para cima da linha do `useEffect`.
-- **Backend:** sem `ruff`, sem `pyright`, sem anotações de tipo. Introduzidos
-  em 2026-10-01: `pytest` + `httpx` (`backend/requirements-dev.txt`), a
-  primeira suite de testes de guarda (`backend/tests/`). Lint e tipos ficam
-  para quando a caracterização estiver feita.
-- **N+1** em `calcular_patrimonio_em` — 1 query por conta + 2 por ativo
-  (`servicos/patrimonio_serv.py:110-140`) — e sem índices em nenhuma coluna de
-  data ou FK (`grep` por índices na BD actual devolve vazio). `gerar_evolucao`
-  repete o cálculo completo por mês.
+- **D13a — resolvido** — ESLint no frontend.
+- **D13b** — `ruff` no backend.
+- **D13c** — `pyright` (tipos) no backend.
+- **D13d** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
+- **D13e** — índices nas colunas de data e FK, com migração da BD real e dos
+  backups.
+
+### D13a — ESLint no frontend — resolvido
+
+Descrição original: 20 problemas do ESLint (17 erros, 3 avisos). A contagem
+de 2026-10-19 era ainda 20, já sem a D14, por regra:
+
+| Regra | Nº | Correcção |
+|---|---|---|
+| `no-unused-vars` | 7 | `catch {` sem variável (3), `([, v])` (1) e código morto apagado (3) |
+| `react-hooks/immutability` | 5 | Função de carregamento movida para cima do `useEffect` |
+| `react-hooks/set-state-in-effect` | 4 | Reset no handler (`Estatisticas`) ou estado derivado no render (`GuiaDestaque`, `FiltrosTransacoes`) |
+| `react-hooks/exhaustive-deps` | 3 | Ver abaixo |
+| `react-refresh/only-export-components` | 1 | Excepção comentada em `contexts/GuiaContext.jsx` |
+
+A nota original dizia que bastava mover a função para cima do `useEffect`.
+Não basta: o compilador do React passa a acusar `set-state-in-effect`, mesmo
+com `useCallback`, porque não vê que o `setState` corre depois do `await`.
+É um falso positivo, deixado como `eslint-disable-next-line` comentado nas
+cinco páginas (`Categorias`, `Contas`, `Patrimonio`, `Regras`, `TiposAtivo`)
+e em `hooks/useAtivos.js`, onde o `setLoading(true)` é preciso para o
+`recarregar`.
+
+`exhaustive-deps`:
+
+- `FiltrosTransacoes.jsx` — o efeito chamava `onChange({ subcategoria_id: null })`
+  sem categoria. Era redundante (o `<select>` da categoria já o envia) e, no
+  arranque, gerava um segundo pedido de transacções igual ao primeiro. Saiu.
+- `TabelaTransacoes.jsx` — `subcategorias` entrou nas dependências; a segunda
+  passagem encontra tudo em cache e não faz pedidos.
+- `Contas.jsx` — `carregar` passou a `useCallback([incluirInativas])`.
+
+O CI (`test.yml`, trabalho `lint-frontend`) corre `npm run lint -- --max-warnings 0`
+em cada push e pedido de integração. Os scripts de build não correm o lint.
+
+### D13b — `ruff` no backend
+
+Sem `ruff` no `venv` nem no `requirements-dev.txt`.
+
+### D13c — `pyright` no backend
+
+Sem `pyright` e quase sem anotações de tipo.
+
+### D13d — N+1 no cálculo do património
+
+`calcular_patrimonio_em` (`servicos/patrimonio_serv.py:151`) faz
+`1 + C + 1 + 2·A` queries por ponto (contas, uma soma por conta activa, ativos,
+e movimentos + preço por ativo). `gerar_evolucao` repete o cálculo por mês:
+com 3 contas e 4 ativos, 13 queries por ponto e 156 para 12 meses (medido
+numa BD vazia em 2026-10-19). Com os volumes desta aplicação o custo deve
+ser de milissegundos: medir numa cópia da BD real antes de decidir.
+
+### D13e — Índices
+
+Nos modelos não há `index=True` nem `Index(...)`. `transacoes.data`,
+`transacoes.conta_id`, `categoria_id`, `subcategoria_id`,
+`movimentos_ativo.ativo_id`, `movimentos_ativo.data` e
+`subcategorias.categoria_id` não têm índice. A excepção é `precos_ativo`,
+cujo `UniqueConstraint("ativo_id", "data")` cria um índice implícito que serve
+a query do preço (por confirmar numa cópia se a BD real o tem).
 
 ## 🔴 D14 — `ReferenceError` ao terminar cada importação — resolvido
 

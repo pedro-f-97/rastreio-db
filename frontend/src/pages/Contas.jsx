@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getContas, criarConta, actualizarConta, apagarConta } from '../api/contas';
 import './Contas.css';
 import { formatarEuros } from '../utils/formatacao';
@@ -10,14 +10,16 @@ export default function Contas() {
     const [editando, setEditando] = useState(null); // { id, nome, saldo_referencia, data_referencia }
     const [erro, setErro] = useState('');
 
-    useEffect(() => {
-        carregar();
-    }, [incluirInativas]);
-
-    async function carregar() {
+    const carregar = useCallback(async () => {
         const res = await getContas(incluirInativas);
         setContas(res.data);
-    }
+    }, [incluirInativas]);
+
+    useEffect(() => {
+        // Falso positivo: o setState de carregar() corre depois do await (D13a)
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        carregar();
+    }, [carregar]);
 
     async function aoAdicionarConta() {
         const { nome, saldo_referencia, data_referencia } = novaConta;
