@@ -716,3 +716,27 @@ def test_put_transacao_inexistente_da_404(client, session):
     assert r.status_code == 404
     assert r.json() == {"detail": "Transação não encontrada"}
     assert session.query(Transacao).count() == 5
+
+
+def test_put_categoria_inexistente_da_400(client, session):
+    """Uma categoria que não existe dá 400 e não é gravada (D1).
+
+    Cálculo à mão: `db.get(Categoria, 9999)` devolve None, logo a validação de
+    `atualizar_transacao` responde 400 com "Categoria não encontrada." antes de
+    escrever. Sem ela, a pragma `foreign_keys` recusaria o `commit` com 500.
+
+    Estado final da BD: t4 continua Casa e subcategoria None.
+    """
+    d = _semear(session)
+    t4 = d["t4"]
+
+    r = client.put(f"/api/transacoes/{t4.id}", json={"categoria_id": 9999})
+
+    assert r.status_code == 400
+    assert r.json() == {"detail": "Categoria não encontrada."}
+    assert _estado(session, t4.id) == {
+        "categoria_id": d["cat_despesa"].id,
+        "subcategoria_id": None,
+        "reembolso": False,
+        "notas": None,
+    }

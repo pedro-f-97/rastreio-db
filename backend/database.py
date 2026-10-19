@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     create_engine,
+    event,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import (
@@ -87,7 +88,15 @@ def anunciar_bd_ativa() -> None:
             pass
 
 
+def ligar_chaves_estrangeiras(con, _registo) -> None:
+    """O SQLite só aplica as chaves estrangeiras com esta pragma, e é por
+    conexão (D1). Sem `ON DELETE`: apagar um pai com filhos é recusado, e cada
+    endpoint trata dos filhos antes."""
+    con.execute("PRAGMA foreign_keys = ON")
+
+
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+event.listen(engine, "connect", ligar_chaves_estrangeiras)
 
 class Base(DeclarativeBase):
     pass

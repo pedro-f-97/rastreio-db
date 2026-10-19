@@ -36,6 +36,10 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
     existente = db.query(RegraCategorizacao).filter_by(palavra_chave=regra.palavra_chave).first()
     if existente:
         raise HTTPException(status_code=400, detail="Já existe uma regra com esta palavra-chave")
+    if regra.categoria_id is not None and db.get(Categoria, regra.categoria_id) is None:
+        raise HTTPException(status_code=400, detail="Categoria não encontrada.")
+    if regra.subcategoria_id is not None and db.get(Subcategoria, regra.subcategoria_id) is None:
+        raise HTTPException(status_code=400, detail="Subcategoria não encontrada.")
 
     nova = RegraCategorizacao(
         palavra_chave=regra.palavra_chave,

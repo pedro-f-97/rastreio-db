@@ -24,8 +24,9 @@ calculados à mão e escritos como constantes.
 Notas de comportamento (sem correcção)
 --------------------------------------
 * `DELETE /api/patrimonio/ativos/{id}` apaga à mão os movimentos e os preços do
-  ativo antes de apagar o ativo (`routers/patrimonio.py:79-81`), porque o
-  SQLite não aplica as chaves estrangeiras (D1).
+  ativo antes de apagar o ativo (`routers/patrimonio.py:79-81`): com a pragma
+  `foreign_keys` ligada e sem `ON DELETE` (D1), a BD recusaria apagá-lo com
+  filhos.
 * `POST /api/patrimonio/movimentos` grava o movimento e o preço num só
   `commit()` (`routers/patrimonio.py:107`): se a gravação do preço falhar, o
   movimento também não fica gravado (ver
@@ -162,10 +163,8 @@ def test_criar_ativo_grava_e_embute_o_tipo(client, session):
     Cálculo à mão: um `POST` -> uma linha. A rota não declara `status_code`,
     por isso a resposta é 200.
 
-    Nota: não se testa o caso de `tipo_id` inexistente. A resposta
-    `schemas.Ativo` exige `tipo: TipoAtivo` e, sem linha correspondente, o
-    `None` reprova a serialização — daria 500. Possível defeito ligado à D1
-    (chaves estrangeiras desligadas); fica como nota, não como teste.
+    O `tipo_id` inexistente está em
+    `test_criar_ativo_com_tipo_inexistente_da_404_e_nao_grava`.
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
 
@@ -294,8 +293,8 @@ def test_eliminar_ativo_apaga_movimentos_e_precos(client, session):
 
     Cálculo à mão: ativo com 1 movimento e 2 preços -> depois do `DELETE`,
     0 ativos, 0 movimentos e 0 preços. A cascata é feita à mão
-    (`routers/patrimonio.py:79-81`), porque o SQLite não aplica as chaves
-    estrangeiras (D1).
+    (`routers/patrimonio.py:79-81`), porque a BD não a faz: as chaves não têm
+    `ON DELETE` (D1).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
@@ -1328,3 +1327,53 @@ def test_evolucao_sem_parametros_usa_hoje_como_data_fim(client, session, monkeyp
     assert pontos[0]["data"] == "2025-06-30"
     assert pontos[0]["liquidez"] == 100.00
     assert pontos[0]["total"] == 100.00
+
+
+# ---------------------------------------------------------------------------
+# IDs inexistentes (D1)
+# ---------------------------------------------------------------------------
+
+def test_criar_ativo_com_tipo_inexistente_da_404_e_nao_grava(client, session):
+    """Um `tipo_id` que não existe dá 404 e o ativo não é gravado (D1).
+
+    Era um 500 que deixava o ativo gravado e órfão: o `commit` passava, e só a
+    serialização de `schemas.Ativo` (que exige `tipo`) falhava.
+
+    Cálculo à mão: `db.get(TipoAtivo, 999)` devolve None, logo `criar_ativo`
+    responde 404 com "Tipo de ativo não encontrado." antes do `db.add`.
+
+    Estado final da BD: 0 ativos.
+    """
+    r = client.post("/api/patrimonio/ativos", json={
+        "nome": "Acao X", "tipo_id": 999, "contabilizacao": "investimento",
+    })
+
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Tipo de ativo não encontrado."}
+    session.expire_all()
+    assert session.query(Ativo).count() == 0
+
+
+def test_criar_movimento_com_transacao_inexistente_da_404_e_nao_grava(client, session):
+    """Um `transacao_id` que não existe dá 404 e nada é gravado (D1).
+
+    Cálculo à mão: o ativo existe, `db.get(Transacao, 999)` devolve None, logo
+    `criar_movimento` responde 404 com "Transação não encontrada." antes do
+    `db.add`; o upsert do preço (compra com `preco_unitario`) também não corre.
+
+    Estado final da BD: 0 movimentos e 0 preços.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+
+    r = client.post("/api/patrimonio/movimentos", json={
+        "ativo_id": ativo.id, "transacao_id": 999, "tipo_movimento": "compra",
+        "data": "2025-01-10", "quantidade": 10, "preco_unitario": 20.0,
+        "valor_total": -200.0,
+    })
+
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Transação não encontrada."}
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 0
+    assert session.query(PrecoAtivo).count() == 0

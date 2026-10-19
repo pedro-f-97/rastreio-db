@@ -11,9 +11,10 @@ Cobre os quatro endpoints de `backend/routers/tipos_ativo.py`:
 * `DELETE /{tipo_id}` (`apagar_tipo_ativo`) — 404 se não existir, 409 se tiver
   ativos (`if tipo.ativos:`), senão apaga.
 
-Etiquetas: `# DEVIDA-TECNICA: D1` no apagar com ativos (a pré-checagem protege
-por via da `relationship`, não da pragma). O nome duplicado no PUT, que era um
-500 por `IntegrityError` e estava anotado como D24, passou a 409 — ver
+O apagar com ativos é pré-checado (`if tipo.ativos:`) e responde 409; a
+pragma `foreign_keys` (D1) só recusaria o `DELETE` com 500. O nome duplicado
+no PUT, que era um 500 por `IntegrityError` e estava anotado como D24, passou
+a 409 — ver
 `docs/divida-tecnica.md`.
 
 Valores esperados calculados à mão e escritos como constantes; datas fixas em
@@ -192,9 +193,8 @@ def test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200(client, session):
 # ---------------------------------------------------------------------------
 
 def test_apagar_tipo_ativo_com_ativos_da_409(client, session):
-    # DEVIDA-TECNICA: D1 — a pré-checagem `if tipo.ativos:` de
-    # `apagar_tipo_ativo` protege por via da `relationship`, não da pragma
-    # `foreign_keys`; `ativos.tipo_id` é `NOT NULL` no modelo `Ativo`.
+    # A pré-checagem `if tipo.ativos:` dá 409 antes de a pragma
+    # `foreign_keys` recusar o `DELETE` (D1).
     """Um tipo com ativos associados não é apagado: 409.
 
     Cálculo à mão (o ramo dos ativos de `apagar_tipo_ativo`): o tipo ETF tem um

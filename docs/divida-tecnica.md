@@ -24,18 +24,20 @@ separados para que o `grep` por `D12e` aponte para um só sítio.
 
 ---
 
-## 🔴 D1 — Chaves estrangeiras não são forçadas pelo SQLite
+## 🔴 D1 — Chaves estrangeiras não são forçadas pelo SQLite — resolvido
 
-`backend/database.py:88` cria a engine sem `PRAGMA foreign_keys=ON`, e não há
+`backend/database.py` criava a engine sem `PRAGMA foreign_keys=ON`, e não há
 `ON DELETE` nem cascade nas `ForeignKey` declaradas
-(`database.py:167, 184-187, 199-200, 236, 244, 259-260, 277`). O SQLite não
+(`database.py:178, 195-198, 210-211, 247, 255, 270-271, 288`). O SQLite não
 aplica chaves estrangeiras por omissão, e as `relationship()` também não
-declaram `cascade` (`database.py:158, 251-252`).
+declaram `cascade` (`database.py:169, 262-263`).
 
 Na prática, apagar uma categoria **pode** deixar as transações a apontar para
 linhas que já não existem, sem erro. Essas transações desapareceriam das
-estatísticas (os joins são `INNER`), apareceriam sem nome na listagem, e não
-seriam contadas em `/transacoes/por-categorizar/total`.
+estatísticas (os joins são `INNER`), apareceriam sem nome na listagem, e só
+seriam contadas em `/transacoes/por-categorizar/total` se não tivessem
+subcategoria (o filtro é `categoria_id IS NULL OR subcategoria_id IS NULL`, e
+o `categoria_id` órfão não é NULL).
 
 **O que os testes de caracterização mediam antes da política de apagar** (ver
 a secção «Política de apagar», mais abaixo):
@@ -45,13 +47,13 @@ a secção «Política de apagar», mais abaixo):
   subcategorias.categoria_id`) e, em produção, **500**, mesmo com as chaves
   estrangeiras desligadas: sem `ON DELETE` nem `cascade`, o SQLAlchemy tenta
   desassociar as subcategorias pondo `subcategorias.categoria_id` a `NULL`, e a
-  coluna é `NOT NULL` (`database.py:167`).
+  coluna é `NOT NULL` (`database.py:178`).
 - `test_apagar_categoria_deixa_transacao_orfa` — apagar uma categoria só com
   transacções directas dá **200** e deixa `transacoes.categoria_id` pendente.
   É este o caso que passaria a falhar se a pragma fosse ligada.
 - `test_apagar_subcategoria_desassocia_transacoes` — apagar uma subcategoria com
   transacções dá **200** e põe `transacoes.subcategoria_id` a `NULL` (coluna
-  `nullable=True`, `database.py:185`), mantendo a categoria.
+  `nullable=True`, `database.py:196`), mantendo a categoria.
 
 ### 🔴 D1a — O schema da BD actual aponta para uma tabela que não existe — resolvido
 
@@ -189,8 +191,56 @@ substituídos por `test_apagar_categoria_com_transacoes_da_409_e_nada_muda`,
 `test_apagar_categoria_conta_transacoes_das_suas_subcategorias`, e
 `test_apagar_subcategoria_desassocia_transacoes` passou a verificar a regra.
 
-**A D1 continua aberta:** a BD ainda não garante nada disto (sem
-`PRAGMA foreign_keys` nem `ON DELETE`). A D1a, de que dependia, está resolvida.
+### Resolvido
+
+**Decisão do utilizador:** ligar a pragma e **não declarar `ON DELETE`** (fica
+o `NO ACTION` do SQLite, que recusa). A política de apagar continua nos
+handlers, e a BD é a rede de segurança: um esquecimento num endpoint, um
+script de migração ou uma edição à mão passam a falhar em vez de deixarem
+órfãos. Foram afastados o `CASCADE` (um esquecimento apagaria transações) e o
+`SET NULL` (apagaria a categoria das transações e, em `regras.categoria_id`,
+transformaria a regra numa regra de exclusão; nas colunas `NOT NULL` nem é
+possível). Ambos obrigariam também a recriar tabelas na BD real e nos backups,
+porque o SQLite não altera o `ON DELETE` de uma chave existente; a pragma não
+mexe no ficheiro.
+
+- `ligar_chaves_estrangeiras` (`backend/database.py`) faz
+  `PRAGMA foreign_keys = ON` em cada conexão nova da engine, por
+  `event.listen(engine, "connect", ...)`. O `conftest.py` liga-a também na
+  engine in-memory dos testes, pelo que a suite inteira corre com a pragma.
+  `reparar_fk_ativos` continua a desligá-la na sua própria conexão `sqlite3`.
+- Os `DELETE` não mudam: todos tratam os filhos antes do pai (categorias e
+  subcategorias pela política acima, `tipos_ativo` com 409, `ativos` apagando
+  movimentos e preços, `contas` desactivando ou, sem transações, deixando os
+  perfis sem conta pela `relationship`).
+- **Encontrado ao ensaiar:** oito escritas aceitavam um ID inexistente e
+  criavam órfãos com a pragma desligada (com ela, dariam 500).
+  **Decisão do utilizador:** validar em cada handler, com a mensagem do
+  padrão existente:
+  - `PUT /transacoes/{id}` com `categoria_id` → 400 «Categoria não encontrada.»;
+  - `POST /regras` com `categoria_id` ou `subcategoria_id` → 400 «Categoria /
+    Subcategoria não encontrada.»;
+  - `POST /patrimonio/ativos` com `tipo_id` → 404 «Tipo de ativo não
+    encontrado.» (antes gravava o ativo órfão **e** respondia 500, porque a
+    resposta `schemas.Ativo` exige o tipo);
+  - `POST /patrimonio/movimentos` com `transacao_id` → 404 «Transação não
+    encontrada.»;
+  - `POST`, `PUT` e `PATCH .../conta` de `/perfis-importacao` com `conta_id` →
+    400 «Conta não encontrada.» (`_validar_conta`).
+
+Testes: `backend/tests/test_chaves_estrangeiras.py` (a engine da app liga a
+pragma; a BD recusa apagar um pai com filhos e gravar um filho sem pai), um
+teste por escrita validada nos ficheiros de cada router,
+`test_apagar_conta_sem_transacoes_desassocia_os_perfis` em
+`test_api_contas.py`, e o de caracterização
+`test_associar_conta_inexistente_grava_por_fk_desligada` invertido para
+`test_associar_conta_inexistente_da_400_e_nao_grava`. Verificados por
+mutação: 12 mutantes, todos mortos.
+
+Fica de fora, por não ser uma chave estrangeira: nada impede uma transação ou
+uma regra com uma subcategoria que não pertence à sua categoria (ver D8 a).
+`POST /regras` não o verifica; `PUT /transacoes/{id}` e `aplicar-em-massa`
+verificam.
 
 ## 🟡 D2 — `total` do património não bate com a soma dos componentes — resolvido
 
@@ -489,9 +539,9 @@ Consequências:
   Os dois conjuntos só divergem no estado órfão — `categoria_id` a NULL com
   `subcategoria_id` definida: a 1.ª query do backfill (`regras.py:52-55`) filtra
   só `categoria_id == None` e apanha-o, enquanto a pré-visualização pré-filtra
-  `subcategoria_id IS NULL` (`regras.py:87-89`) e descarta-o. Esse estado só
-  chega à BD por causa da D1 (chaves estrangeiras não forçadas) ou por edição
-  directa. Fixado por
+  `subcategoria_id IS NULL` (`regras.py:87-89`) e descarta-o. As chaves
+  estrangeiras não impedem esse estado (a subcategoria existe), mesmo com a D1
+  resolvida; chega à BD por edição directa. Fixado por
   `test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos` e
   `test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria` em
   `backend/tests/test_api_regras_geral.py`.
@@ -526,7 +576,8 @@ exclusões):**
   como a importação: uma transacção que uma exclusão apanha não é tocada. Esta
   divergência não estava listada acima e foi encontrada ao corrigir o item;
 - (a) a diferença do pré-filtro só existe com transacções órfãs, um estado que
-  só a D1 permite; os testes que a fixam passaram a ter a etiqueta D1.
+  as chaves estrangeiras não impedem; os testes que a fixam tiveram a etiqueta
+  D1 até a D1 ser resolvida.
 
 Verificado numa cópia da BD real (só leitura, apagada a seguir): 58 regras,
 nenhuma com acentos, `%` ou `_`, e o `ilike` e o `upper()` davam o mesmo

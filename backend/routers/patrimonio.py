@@ -5,6 +5,7 @@ import schemas
 from database import Ativo as AtivoModel
 from database import MovimentoAtivo as MovimentoAtivoModel
 from database import PrecoAtivo as PrecoAtivoModel
+from database import TipoAtivo as TipoAtivoModel
 from database import Transacao as TransacaoModel
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException
@@ -44,6 +45,8 @@ def criar_ativo(payload: schemas.AtivoCreate, db: Session = Depends(get_db)):
         existente = db.query(AtivoModel).filter(AtivoModel.simbolo == payload.simbolo).first()
         if existente:
             raise HTTPException(status_code=409, detail="Já existe um ativo com este símbolo.")
+    if db.get(TipoAtivoModel, payload.tipo_id) is None:
+        raise HTTPException(status_code=404, detail="Tipo de ativo não encontrado.")
     ativo = AtivoModel(**payload.model_dump())
     db.add(ativo)
     db.commit()
@@ -116,6 +119,8 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
     ativo = db.query(AtivoModel).filter(AtivoModel.id == payload.ativo_id).first()
     if not ativo:
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    if payload.transacao_id is not None and db.get(TransacaoModel, payload.transacao_id) is None:
+        raise HTTPException(status_code=404, detail="Transação não encontrada.")
     movimento = MovimentoAtivoModel(**payload.model_dump())
     db.add(movimento)
 

@@ -475,16 +475,16 @@ def test_associar_conta_perfil_inexistente_da_404(client, session):
     assert r.json()["detail"] == "Perfil não encontrado."
 
 
-def test_associar_conta_inexistente_grava_por_fk_desligada(client, session):
-    """Um `conta_id` que nao existe e gravado tal e qual.
+def test_associar_conta_inexistente_da_400_e_nao_grava(client, session):
+    """Um `conta_id` que nao existe da 400 e nao e gravado (D1).
 
-    Cálculo à mão: `PATCH {"conta_id": 999}` num perfil existente -> 200 com
-    `conta_id=999`, mesmo nao havendo conta 999.
+    Era gravado tal e qual (200 com `conta_id=999`), porque o SQLite nao
+    aplicava as chaves estrangeiras e o handler nao validava a conta.
 
-    DEVIDA-TECNICA: D1 — o SQLite nao aplica chaves estrangeiras por omissao
-    (`database.py:88`, sem `PRAGMA foreign_keys=ON`), e o handler
-    (`routers/perfis_importacao.py:76`) nao valida a conta. O valor fica
-    gravado.
+    Cálculo à mão: `PATCH {"conta_id": 999}` num perfil sem conta ->
+    `db.get(Conta, 999)` devolve None -> 400 "Conta não encontrada.".
+
+    Estado final da BD: o perfil continua sem conta.
     """
     perfil = semear_perfil(session, "Demo")
 
@@ -493,7 +493,42 @@ def test_associar_conta_inexistente_grava_por_fk_desligada(client, session):
         json={"conta_id": 999},
     )
 
-    assert r.status_code == 200
-    assert r.json() == {"ok": True, "conta_id": 999}
-    session.refresh(perfil)
-    assert perfil.conta_id == 999
+    assert r.status_code == 400
+    assert r.json() == {"detail": "Conta não encontrada."}
+    session.expire_all()
+    assert session.get(PerfilImportacao, perfil.id).conta_id is None
+
+
+def test_criar_perfil_com_conta_inexistente_da_400_e_nao_grava(client, session):
+    """`POST` com `conta_id` que nao existe: 400 e nenhum perfil (D1).
+
+    Cálculo à mão: nome livre, `db.get(Conta, 999)` devolve None -> 400
+    "Conta não encontrada." antes do `db.add`. Estado final: 0 perfis.
+    """
+    r = client.post("/api/perfis-importacao/", json=payload(conta_id=999))
+
+    assert r.status_code == 400
+    assert r.json() == {"detail": "Conta não encontrada."}
+    session.expire_all()
+    assert session.query(PerfilImportacao).count() == 0
+
+
+def test_atualizar_perfil_com_conta_inexistente_da_400_e_nao_grava(client, session):
+    """`PUT` com `conta_id` que nao existe: 400 e o perfil fica como estava (D1).
+
+    Cálculo à mão: o perfil "Demo" existe, o corpo muda o nome para "Outro" e
+    a conta para 999; `db.get(Conta, 999)` devolve None -> 400 "Conta não
+    encontrada." antes do `setattr`. Estado final: nome "Demo", sem conta.
+    """
+    perfil = semear_perfil(session, "Demo")
+
+    r = client.put(
+        f"/api/perfis-importacao/{perfil.id}",
+        json=payload(nome="Outro", conta_id=999),
+    )
+
+    assert r.status_code == 400
+    assert r.json() == {"detail": "Conta não encontrada."}
+    session.expire_all()
+    guardado = session.get(PerfilImportacao, perfil.id)
+    assert (guardado.nome, guardado.conta_id) == ("Demo", None)
