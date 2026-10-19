@@ -53,7 +53,7 @@ a secção «Política de apagar», mais abaixo):
   transacções dá **200** e põe `transacoes.subcategoria_id` a `NULL` (coluna
   `nullable=True`, `database.py:185`), mantendo a categoria.
 
-### 🔴 D1a — O schema da BD actual aponta para uma tabela que não existe
+### 🔴 D1a — O schema da BD actual aponta para uma tabela que não existe — resolvido
 
 Isto não é hipotético, é o estado actual, e só apareceu com
 `PRAGMA foreign_key_check` (consulta que compara as *definições* das chaves, ao
@@ -61,7 +61,7 @@ contrário de um `JOIN`, que não encontra a tabela e por isso reporta zero).
 
 `precos_ativo` e `movimentos_ativo` têm `FOREIGN KEY(ativo_id) REFERENCES
 "ativos_old" (id)`, e **`ativos_old` não existe**. A tabela `ativos` existe e
-está preenchida (5 linhas, 19 preços, 41 movimentos), mas nenhuma referência
+está preenchida (5 linhas, 19 preços, 41 movimentos; 18 preços em 2026-10-19), mas nenhuma referência
 deixa de apontar para ela.
 
 Causa: `old/migrar_tipos_ativo.py:63` faz `ALTER TABLE ativos RENAME TO
@@ -78,6 +78,27 @@ para o vazio, não há nada que as faça falhar.
 
 A correcção é recriar as duas tabelas com a referência certa, preservando os
 IDs, e só depois avaliar a pragma. Isto é trabalho de script, não de pragma.
+
+**Resolvido.** Não com um script manual, porque os backups antigos têm o mesmo
+schema e o restauro substitui o ficheiro inteiro: a correcção é
+`reparar_fk_ativos()` em `backend/database.py`, chamada por `criar_tabelas()`
+(no arranque, em dev e no executável) e por `importar_backup` depois da troca
+(`backend/routers/backups.py`). Se nenhum DDL mencionar `ativos_old`, não
+escreve nada. Se mencionar, recria cada tabela com o seu próprio DDL, mudando
+só a referência, numa transacção, e compara as linhas antes e depois; segue o
+procedimento da documentação do SQLite (só a tabela nova é renomeada, e nada
+aponta para ela), pelo que não depende da regra de reescrita do `RENAME` que
+partiu o schema. Uma falha no restauro repõe a BD anterior; uma falha no
+arranque impede a app de arrancar, sem mexer nos dados. Quando repara, escreve
+no log a versão do SQLite em uso, o que responde à linha «por confirmar» da
+tabela abaixo.
+
+Ensaiado numa cópia da BD real: as 11 tabelas com as mesmas contagens e o
+mesmo conteúdo, `foreign_key_check` de 59 violações para 0, `integrity_check`
+`ok`. Testes em `backend/tests/test_reparar_fk_ativos.py` (a fixture
+`criar_bd_com_fk_partida`, no `conftest.py`, reproduz a migração que partiu o
+schema) e, para o restauro e o arranque, no fim de
+`backend/tests/test_backups/test_importar.py`.
 
 **Versões do SQLite relevantes.** A regra de reescrever as referências das
 chaves estrangeiras num `RENAME` depende da versão, e por isso o mesmo script
@@ -143,7 +164,7 @@ vias, e a versão do SQLite não entra na questão.
 
 Para activar: `PRAGMA foreign_keys=ON` por conexão, via
 `event.listens_for(engine, "connect")` em `database.py` (é por conexão, e o
-pool recicla). Antes disso é preciso corrigir D1a e decidir a política de
+pool recicla). A D1a já está corrigida; falta decidir a política de
 `ON DELETE`, porque `ON DELETE CASCADE` muda o comportamento dos endpoints.
 
 ### Política de apagar — decidida e aplicada na aplicação
@@ -169,7 +190,7 @@ substituídos por `test_apagar_categoria_com_transacoes_da_409_e_nada_muda`,
 `test_apagar_subcategoria_desassocia_transacoes` passou a verificar a regra.
 
 **A D1 continua aberta:** a BD ainda não garante nada disto (sem
-`PRAGMA foreign_keys` nem `ON DELETE`), o que depende de corrigir a D1a.
+`PRAGMA foreign_keys` nem `ON DELETE`). A D1a, de que dependia, está resolvida.
 
 ## 🟡 D2 — `total` do património não bate com a soma dos componentes — resolvido
 

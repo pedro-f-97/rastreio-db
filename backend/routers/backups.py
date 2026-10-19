@@ -4,7 +4,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from database import Base, DB_PATH, engine
+from database import Base, DB_PATH, engine, reparar_fk_ativos
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import text
@@ -148,6 +148,10 @@ async def importar_backup(file: UploadFile = File(...)):
 
         # 3) Verificação pós-troca: a MESMA validação sobre a BD trocada
         _validar_estrutura(DB_PATH)
+
+        # Um backup antigo traz o schema partido da D1a. Se a reparação
+        # falhar, o rollback abaixo repõe a BD anterior.
+        reparar_fk_ativos(DB_PATH)
 
     except Exception as e:
         # rollback

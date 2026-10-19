@@ -221,9 +221,9 @@ def _preflight() -> None:
 
     # 2) criar tabelas ANTES de arrancar o uvicorn, para o erro não se perder
     #    dentro da thread daemon do lifespan.
-    from database import Base, engine
+    #    Inclui a reparação do schema da D1a.
     try:
-        Base.metadata.create_all(bind=engine)
+        criar_tabelas()
     except Exception as e:
         _log(f"Erro a criar tabelas: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         sys.exit(3)

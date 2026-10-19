@@ -146,3 +146,68 @@ def client(session):
     with TestClient(app) as c:
         yield c
 
+
+
+# ---------------------------------------------------------------------------
+# BD com o schema partido da D1a
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def criar_bd_com_fk_partida():
+    """Devolve uma função que cria, num caminho, uma BD com o schema da D1a.
+
+    O schema não é escrito à mão: é reproduzido como aconteceu na BD real.
+    Cria-se o modelo actual, semeiam-se dados, e repete-se o que
+    `old/migrar_tipos_ativo.py` fez a `ativos` — RENAME para `ativos_old`,
+    tabela nova, cópia, DROP. O SQLite (>= 3.26) reescreve no RENAME as chaves
+    de `precos_ativo` e `movimentos_ativo` para `ativos_old`, e o DROP deixa-as
+    assim. Os testes confirmam esse estado antes de o reparar.
+
+    Os IDs não são seguidos (ativos 3 e 7, preços 5, 9 e 12, movimentos 2 e
+    8), para que um ID renumerado na cópia se note.
+    """
+    import sqlite3
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.dialects import sqlite as dialecto_sqlite
+    from sqlalchemy.schema import CreateTable
+
+    from database import (
+        Ativo, Base, TipoContabilizacao, TipoMovimento,
+    )
+
+    def criar(caminho):
+        engine = create_engine(f"sqlite:///{caminho}")
+        Base.metadata.create_all(bind=engine)
+        engine.dispose()
+
+        compra = TipoMovimento.compra.name
+        investimento = TipoContabilizacao.investimento.name
+        con = sqlite3.connect(caminho, autocommit=True)
+        try:
+            con.execute("INSERT INTO tipos_ativo VALUES (1, 'Ações', 1)")
+            con.executemany(
+                "INSERT INTO ativos VALUES (?, ?, 1, ?, 'EUR', NULL, ?)",
+                [(3, "Alfa", "ALF", investimento), (7, "Beta", "BET", investimento)],
+            )
+            con.executemany(
+                "INSERT INTO precos_ativo VALUES (?, ?, ?, ?)",
+                [(5, 3, "2024-01-31", 10.5), (9, 3, "2024-02-29", 11.25),
+                 (12, 7, "2024-01-31", 2.0)],
+            )
+            con.executemany(
+                "INSERT INTO movimentos_ativo VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+                [(2, 3, compra, "2024-01-10", 4.0, 10.0, 1.5, 41.5, None),
+                 (8, 7, compra, "2024-01-15", 10.0, 2.0, 0.0, 20.0, "nota")],
+            )
+
+            # O que old/migrar_tipos_ativo.py fez, passo a passo.
+            con.execute("ALTER TABLE ativos RENAME TO ativos_old")
+            con.execute(str(CreateTable(Ativo.__table__).compile(
+                dialect=dialecto_sqlite.dialect())))
+            con.execute("INSERT INTO ativos SELECT * FROM ativos_old")
+            con.execute("DROP TABLE ativos_old")
+        finally:
+            con.close()
+
+    return criar
