@@ -119,6 +119,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 - O sistema de regras usa correspondência por substring intuitiva
 - Quando várias regras casam com a mesma descrição, ganha a de palavra-chave mais longa (a mais específica) e, em empate, a mais antiga; essa primeira regra decide sozinha a categoria e a subcategoria, mesmo que deixe a subcategoria por preencher
 - Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada
+- Os valores em euros arredondam ao cêntimo com a metade para longe de zero, como o ARRED do Excel: 2,345 dá 2,35 e -2,345 dá -2,35. Quantidades e preços guardam a precisão com que foram introduzidos, e valores não numéricos (NaN, infinito) são recusados
 - A base de dados fica em `dados/rastreio.db`, junto ao executável, para portabilidade e acesso fácil ao ficheiro
 
 ## Limitações

@@ -38,6 +38,7 @@ Notas de comportamento (sem correcção)
 from datetime import date
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -770,6 +771,61 @@ def test_registar_preco_em_ativo_inexistente_da_404(client, session):
     assert r.status_code == 404
     assert r.json()["detail"] == "Ativo não encontrado."
     assert session.query(PrecoAtivo).count() == 0
+
+
+def test_registar_preco_infinito_e_recusado_sem_gravar(client, session):
+    """Um preço Infinity é recusado à entrada e não fica gravado (D11).
+
+    O JSON não tem o literal `Infinity`, mas o `json` do Python aceita-o, por
+    isso o corpo vai escrito à mão. Antes da D11 era gravado, e o resumo e a
+    evolução do património passavam a dar 500, porque a resposta não se
+    serializa.
+
+    Cálculo à mão: o `FiniteFloat` do schema recusa-o, e nada é gravado. A
+    resposta é 500 e não 422: o handler de validação do FastAPI repete o valor
+    recebido no corpo do erro (`"input": inf`), e o JSON não o aceita. Pelo
+    browser isto não acontece, porque `JSON.stringify(Infinity)` dá `null`, e
+    `null` dá 422.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    cliente = TestClient(client.app, raise_server_exceptions=False)
+
+    r = cliente.post(
+        "/api/patrimonio/precos",
+        content=f'{{"ativo_id": {ativo.id}, "data": "2025-01-10", "preco": Infinity}}',
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert r.status_code == 500
+    assert session.query(PrecoAtivo).count() == 0
+
+
+def test_criar_movimento_com_quantidade_nan_e_recusado_sem_gravar(client, session):
+    """Uma quantidade NaN é recusada à entrada e o movimento não fica gravado (D11).
+
+    Antes da D11, o SQLite gravava o NaN como NULL, e numa coluna que aceita
+    NULL o movimento ficava gravado em silêncio, com a quantidade a 0 para o
+    FIFO. A resposta é 500 e não 422, pela mesma razão do teste do preço
+    infinito (o erro repete `"input": nan`).
+
+    Cálculo à mão: o `FiniteFloat` recusa o NaN -> 0 movimentos.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    cliente = TestClient(client.app, raise_server_exceptions=False)
+
+    r = cliente.post(
+        "/api/patrimonio/movimentos",
+        content=(
+            f'{{"ativo_id": {ativo.id}, "tipo_movimento": "compra", '
+            '"data": "2025-01-10", "quantidade": NaN, "valor_total": -200.0}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert r.status_code == 500
+    assert session.query(MovimentoAtivo).count() == 0
 
 
 # ---------------------------------------------------------------------------

@@ -14,10 +14,8 @@ por isso que nenhum teste pede a `session` nem a `client`. O `poupanca` de
 assunto para os testes de API, mais tarde.
 
 Onde o comportamento é questionável, fica marcado com `# DEVIDA-TECNICA: Dn`,
-a remeter para `docs/divida-tecnica.md`. A `D11` continua aberta e os testes
-fixam o comportamento **actual**, pelo que a sua correcção os faz falhar de
-propósito. A `D20` e a `D4` já estão resolvidas (o sinal manda): os seus testes
-afirmam o comportamento corrigido.
+a remeter para `docs/divida-tecnica.md`. A `D20`, a `D4` e a `D11` já estão
+resolvidas: os seus testes afirmam o comportamento corrigido.
 
 Os objectos que entram nas funções são `SimpleNamespace` com os mesmos nomes
 de campo dos modelos, e o `tipo` é sempre o enum `TipoCategoria` — nunca uma
@@ -463,28 +461,20 @@ def test_agrega_duas_categorias_e_as_respectivas_subcategorias():
     }
 
 
-def test_arredondamento_em_centimos_perde_meio_centimo():
-    # DEVIDA-TECNICA: D11
-    """Metade de um cêntimo perde-se na conversão para cêntimos inteiros.
+def test_arredondamento_em_centimos_arredonda_meio_centimo_para_longe_de_zero():
+    """Meio cêntimo arredonda para longe de zero na conversão para cêntimos (D11).
 
     Cálculo à mão:
-      0,125 é exactamente 1/8 em vírgula flutuante, e 0,125 x 100 = 12,5
-      exactamente, sem ruído nenhum
-      round(12,5) = 12, porque o `round` do Python arredonda a par e 12 é par
-      total_centimos = 12, e o chamador divide por 100 e apresenta 0,12
+      0,125 em cêntimos são 12,5, um empate exacto no meio cêntimo
+      metade para longe de zero (a regra do ARRED do Excel): 12,5 -> 13
+      total_centimos = 13, e o chamador divide por 100 e apresenta 0,13
       (`detalhe_mensal`, que faz `total_centimos / 100`)
 
-    Com 13 cêntimos, por arredondamento para cima, seriam 0,13. A diferença é
-    de meio cêntimo, e o valor guardado na base de dados é fiel — a perda é
-    só na apresentação.
-
-    Este resultado vai mudar quando a moeda passar a `Numeric` (ver
-    `DEVIDA-TECNICA: D11`): os testes de arredondamento passam a valer outra
-    coisa, e é o que se espera que aconteça.
+    Antes da D11 dava 12: `round(0,125 x 100)` arredonda a par, e 12 é par.
     """
     agregado = _agregar_por_categoria([
         linha(1, "Casa", TipoCategoria.despesa, 0.125, 10, "Renda"),
     ])
 
-    assert agregado[1]["total_centimos"] == 12
-    assert agregado[1]["subcategorias"][10]["total_centimos"] == 12
+    assert agregado[1]["total_centimos"] == 13
+    assert agregado[1]["subcategorias"][10]["total_centimos"] == 13

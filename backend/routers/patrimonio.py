@@ -9,6 +9,7 @@ from database import TipoAtivo as TipoAtivoModel
 from database import Transacao as TransacaoModel
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException
+from servicos.dinheiro import arredondar, exato
 from servicos.patrimonio_serv import gerar_evolucao, primeira_sobre_venda, _resumo_valor_ativo
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -238,12 +239,12 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
     # Chama a função partilhada — zero duplicação de FIFO
     resultado = _resumo_valor_ativo(ativo, movimentos, preco_atual)
 
-    realizado = round(resultado["realizado"], 2)
+    realizado = arredondar(resultado["realizado"])
     valor_atual = resultado["valor"]
     custo_base = resultado["custo_base"]
 
     if preco_atual and valor_atual is not None:
-        latente = round(valor_atual - custo_base, 2)
+        latente = arredondar(exato(valor_atual) - exato(custo_base))
     else:
         latente = None
 
@@ -251,13 +252,13 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
     # (o antigo era valor_atual + custo_total, onde custo_total era negativo).
     # Esta fórmula mantém a invariante: valor total do ativo =
     #   realizado (vendas concretizadas) + latente (valorização não realizada).
-    mais_menos_valia = round(realizado + (latente or 0.0), 2)
+    mais_menos_valia = arredondar(realizado + (latente or 0.0))
 
     return {
         "ativo_id": ativo_id,
         "quantidade": round(resultado["quantidade"], 6),
         # Negativo por convenção: dinheiro que saiu (ver docs/modelo-dados.md)
-        "custo_total": round(-custo_base, 2),
+        "custo_total": arredondar(-custo_base),
         "preco_atual": float(preco_atual.preco) if preco_atual else None,
         "data_preco": str(preco_atual.data) if preco_atual else None,
         "valor_atual": valor_atual,

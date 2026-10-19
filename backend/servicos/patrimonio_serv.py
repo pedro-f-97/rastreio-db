@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import (
@@ -8,6 +9,10 @@ from database import (
     Conta as ContaModel,
     Transacao as TransacaoModel,
 )
+from servicos.dinheiro import arredondar, exato
+
+# Abaixo disto, um lote ou uma venda consideram-se esgotados
+TOLERANCIA = Decimal("1e-9")
 
 
 def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
@@ -25,16 +30,20 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
     Retorna
     -------
     dict com: quantidade, custo_base, realizado, valor
+
+    As contas são feitas em `Decimal`, a partir do valor escrito de cada
+    campo, para que um empate no meio cêntimo seja visto como tal ao
+    arredondar (D11). O resultado volta em float.
     """
     if not ativo.tipo.tem_unidades:
         # --- RAMO SEM UNIDADES (casa, carro, bem) ---
         # O preço registado é o valor total do ativo, não um preço unitário.
-        custo_base = 0.0
-        realizado = 0.0
+        custo_base = Decimal(0)
+        realizado = Decimal(0)
         vendido = False
 
         for m in movimentos:
-            valor_m = abs(float(m.valor_total or 0))
+            valor_m = abs(exato(m.valor_total or 0))
 
             if m.tipo_movimento.value == "compra":
                 custo_base += valor_m
@@ -43,7 +52,7 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
             elif m.tipo_movimento.value == "venda":
                 # Venda total de uma só vez. Ganho = encaixe menos custo.
                 realizado += valor_m - custo_base
-                custo_base = 0.0
+                custo_base = Decimal(0)
                 vendido = True
 
             elif m.tipo_movimento.value == "dividendo":
@@ -53,60 +62,69 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
         if vendido or custo_base <= 0:
             valor = 0.0
         elif preco:
-            valor = round(float(preco.preco), 2)
+            valor = arredondar(preco.preco)
         else:
             # Sem avaliação registada, o bem vale o custo de aquisição (D16)
-            valor = round(custo_base, 2)
+            valor = arredondar(custo_base)
 
-        return {"quantidade": 0.0, "custo_base": custo_base, "realizado": realizado, "valor": valor}
+        return {"quantidade": 0.0, "custo_base": float(custo_base), "realizado": float(realizado), "valor": valor}
 
     # --- RAMO COM UNIDADES (FIFO) ---
     # Pressuposto: valor_total já inclui a comissão (confirmado nos dados:
     # valor_total ≈ preco_unitario × quantidade + comissao).
+    # Cada lote guarda o custo total e não o unitário: a divisão só se faz ao
+    # consumir, depois de multiplicar, para não perder exatidão (D11).
     lotes = []
-    realizado = 0.0
+    realizado = Decimal(0)
 
     for m in movimentos:
-        q = float(m.quantidade or 0)
-        valor_m = abs(float(m.valor_total or 0))
+        q = exato(m.quantidade or 0)
+        valor_m = abs(exato(m.valor_total or 0))
 
         if m.tipo_movimento.value == "compra":
             if q > 0:
-                lotes.append({"quantidade": q, "custo_unitario": valor_m / q})
+                lotes.append({"quantidade": q, "custo": valor_m})
 
         elif m.tipo_movimento.value == "venda":
             if q <= 0:
                 continue
 
             por_consumir = q
-            custo_vendido = 0.0
-            while por_consumir > 1e-9 and lotes:
+            custo_vendido = Decimal(0)
+            while por_consumir > TOLERANCIA and lotes:
                 lote = lotes[0]
                 consumida = min(por_consumir, lote["quantidade"])
-                custo_vendido += consumida * lote["custo_unitario"]
+                custo_consumido = lote["custo"] * consumida / lote["quantidade"]
+                custo_vendido += custo_consumido
+                lote["custo"] -= custo_consumido
                 lote["quantidade"] -= consumida
                 por_consumir -= consumida
-                if lote["quantidade"] <= 1e-9:
+                if lote["quantidade"] <= TOLERANCIA:
                     lotes.pop(0)
 
             q_efetiva = q - por_consumir
-            valor_efetivo = valor_m * (q_efetiva / q) if q > 0 else 0.0
+            valor_efetivo = valor_m * q_efetiva / q if q > 0 else Decimal(0)
             realizado += valor_efetivo - custo_vendido
 
         elif m.tipo_movimento.value == "dividendo":
             realizado += valor_m
 
-    quantidade = sum(l["quantidade"] for l in lotes)
-    custo_base = sum(l["quantidade"] * l["custo_unitario"] for l in lotes)
+    quantidade = sum((l["quantidade"] for l in lotes), Decimal(0))
+    custo_base = sum((l["custo"] for l in lotes), Decimal(0))
     if quantidade <= 0:
         valor = 0.0
     elif preco:
-        valor = round(quantidade * float(preco.preco), 2)
+        valor = arredondar(quantidade * exato(preco.preco))
     else:
         # Sem preço registado, vale o custo das unidades em carteira (D26)
-        valor = round(custo_base, 2)
+        valor = arredondar(custo_base)
 
-    return {"quantidade": quantidade, "custo_base": custo_base, "realizado": realizado, "valor": valor}
+    return {
+        "quantidade": float(quantidade),
+        "custo_base": float(custo_base),
+        "realizado": float(realizado),
+        "valor": valor,
+    }
 
 
 def primeira_sobre_venda(movimentos):
@@ -177,15 +195,15 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
             ativos_fisicos += valor
 
     # O total soma os componentes já arredondados, para bater certo com eles (D2)
-    liquidez = round(liquidez, 2)
-    investimentos = round(investimentos, 2)
-    ativos_fisicos = round(ativos_fisicos, 2)
+    liquidez = arredondar(liquidez)
+    investimentos = arredondar(investimentos)
+    ativos_fisicos = arredondar(ativos_fisicos)
     return {
         "data": str(data_alvo),
         "liquidez": liquidez,
         "investimentos": investimentos,
         "ativos_fisicos": ativos_fisicos,
-        "total": round(liquidez + investimentos + ativos_fisicos, 2),
+        "total": arredondar(liquidez + investimentos + ativos_fisicos),
     }
 
 

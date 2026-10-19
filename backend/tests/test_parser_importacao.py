@@ -681,3 +681,29 @@ def test_comissao_numa_entrada_reduz_o_que_entra(tmp_path):
 
     assert [t["valor"] for t in resultado["transacoes"]] == [99.0, 99.0]
     assert resultado["erros"] == []
+
+
+# ---------------------------------------------------------------------------
+# NaN e Infinity não são dinheiro (D11)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "entrada, nota",
+    [
+        ("nan", 'float("nan") é aceite pelo Python'),
+        ("inf", 'float("inf") também'),
+        ("-Infinity", "e com sinal e por extenso"),
+        ("1e400", "é finito como texto, mas passa do maior float e dá inf"),
+    ],
+)
+def test_valor_nao_finito_levanta_erro_de_parsing(entrada, nota):
+    """Um valor que não é um número finito é uma linha com erro.
+
+    Cálculo à mão: nenhum destes textos tem separadores, por isso passa a
+    verificação do perfil e chega ao `float()`, que os aceita; a verificação
+    de finitude é que os recusa, com a mesma mensagem de um valor inválido.
+    """
+    with pytest.raises(ErroParsing) as erro:
+        _parse_valor(entrada, ",")
+
+    assert str(erro.value) == f"valor inválido: '{entrada}'", nota

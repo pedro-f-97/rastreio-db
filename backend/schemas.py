@@ -2,7 +2,7 @@ from datetime import date
 from typing import Annotated, Optional
 
 from database import TipoCategoria, TipoContabilizacao, TipoMovimento
-from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, FiniteFloat, StringConstraints, model_validator
 
 
 # --- SCHEMAS DE CATEGORIA ---
@@ -35,8 +35,9 @@ class Subcategoria(SubcategoriaBase):
 class TransacaoBase(BaseModel):
     data: date
     descricao: str
-    valor: float
-    saldo: Optional[float] = None
+    # FiniteFloat recusa NaN e Infinity, aqui e nos outros campos numéricos (D11)
+    valor: FiniteFloat
+    saldo: Optional[FiniteFloat] = None
     reembolso: bool = False
     notas: Optional[str] = None
     categoria_id: Optional[int] = None
@@ -144,10 +145,10 @@ class MovimentoAtivoBase(BaseModel):
     transacao_id: Optional[int] = None
     tipo_movimento: TipoMovimento
     data: date
-    quantidade: Optional[float] = None
-    preco_unitario: Optional[float] = None
-    comissao: Optional[float] = 0
-    valor_total: float
+    quantidade: Optional[FiniteFloat] = None
+    preco_unitario: Optional[FiniteFloat] = None
+    comissao: Optional[FiniteFloat] = 0
+    valor_total: FiniteFloat
     notas: Optional[str] = None
 
 class MovimentoAtivoCreate(MovimentoAtivoBase):
@@ -161,7 +162,7 @@ class MovimentoAtivo(MovimentoAtivoBase):
 class PrecoAtivoBase(BaseModel):
     ativo_id: int
     data: date
-    preco: float
+    preco: FiniteFloat
 
 class PrecoAtivoCreate(PrecoAtivoBase):
     pass
@@ -175,14 +176,14 @@ class TransacaoPendente(BaseModel):
     id: int
     data: date
     descricao: str
-    valor: float
+    valor: FiniteFloat
     subcategoria_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
 # --- SCHEMAS DE CONTA ---
 class ContaBase(BaseModel):
     nome: str
-    saldo_referencia: float = 0.0
+    saldo_referencia: FiniteFloat = 0.0
     data_referencia: date
     ativa: bool = True
 
@@ -191,7 +192,7 @@ class ContaCreate(ContaBase):
 
 class ContaUpdate(BaseModel):
     nome: Optional[str] = None
-    saldo_referencia: Optional[float] = None
+    saldo_referencia: Optional[FiniteFloat] = None
     data_referencia: Optional[date] = None
     ativa: Optional[bool] = None
 
