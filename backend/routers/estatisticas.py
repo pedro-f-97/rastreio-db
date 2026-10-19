@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
 from database import get_db, Transacao, Categoria, Subcategoria, TipoCategoria
 from statistics import median
+from decimal import Decimal
+from servicos.dinheiro import arredondar, exato
 import calendar
 from datetime import date
 from typing import Optional
@@ -29,11 +31,11 @@ def resumo_mensal(db: Session = Depends(get_db)):
     totais_despesas = []
 
     for (ano, mes), v in sorted(meses.items()):
-        despesas = round(v["despesas"], 2)
-        receitas = round(v["receitas"], 2)
-        investimento = round(v["investimento"], 2)
-        poupanca = round(receitas + despesas, 2)
-        totais_despesas.append(despesas)
+        despesas = arredondar(v["despesas"])
+        receitas = arredondar(v["receitas"])
+        investimento = arredondar(v["investimento"])
+        poupanca = arredondar(receitas + despesas)
+        totais_despesas.append(exato(despesas))
 
         resultados.append({
             "ano": ano,
@@ -44,8 +46,10 @@ def resumo_mensal(db: Session = Depends(get_db)):
             "poupanca": poupanca,
         })
 
-    media = round(sum(totais_despesas) / len(totais_despesas), 2) if totais_despesas else 0
-    mediana = round(median(totais_despesas), 2) if totais_despesas else 0
+    # Média e mediana em Decimal: um empate no meio cêntimo arredonda sempre
+    # para longe de zero, e não ao sabor do binário do float (D11)
+    media = arredondar(sum(totais_despesas) / len(totais_despesas)) if totais_despesas else 0
+    mediana = arredondar(median(totais_despesas)) if totais_despesas else 0
 
     return {
         "meses": resultados,
@@ -58,7 +62,8 @@ def _mediana_mensal(totais, meses_distintos):
     """Mediana dos totais mensais, com os meses sem movimentos a contar como zero."""
     if not meses_distintos:
         return 0
-    return round(median(totais + [0] * (meses_distintos - len(totais))), 2)
+    totais = [exato(t) for t in totais]
+    return arredondar(median(totais + [Decimal(0)] * (meses_distintos - len(totais))))
 
 
 @router.get("/por-categoria")
@@ -101,11 +106,11 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
                 "subcategorias": {},
             }
 
-        total = round(r.total or 0, 2)
+        total = arredondar(r.total or 0)
         # Uma linha por (mês, subcategoria): a categoria soma-as por mês (D23)
         mes = (r.ano, r.mes)
         por_mes = por_cat[cat_id]["por_mes"]
-        por_mes[mes] = round(por_mes.get(mes, 0) + total, 2)
+        por_mes[mes] = arredondar(por_mes.get(mes, 0) + total)
 
         sub_id = r.subcategoria_id or 0
         if sub_id not in por_cat[cat_id]["subcategorias"]:
@@ -120,11 +125,11 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
     for cat in por_cat.values():
         totais = list(cat.pop("por_mes").values())
         cat["mediana"] = _mediana_mensal(totais, meses_distintos)
-        cat["media"] = round(sum(totais) / meses_distintos, 2) if meses_distintos else 0
+        cat["media"] = arredondar(sum(map(exato, totais)) / meses_distintos) if meses_distintos else 0
 
         for sub in cat["subcategorias"].values():
             sub["mediana"] = _mediana_mensal(sub["totais"], meses_distintos)
-            sub["media"] = round(sum(sub["totais"]) / meses_distintos, 2) if meses_distintos else 0
+            sub["media"] = arredondar(sum(map(exato, sub["totais"])) / meses_distintos) if meses_distintos else 0
             del sub["totais"]
 
         cat["subcategorias"] = list(cat["subcategorias"].values())
@@ -170,7 +175,7 @@ def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
                 "total_centimos": 0,
             }
 
-        contribuicao = round(r.valor * 100)
+        contribuicao = round(arredondar(r.valor) * 100)
         por_cat[cat_id]["total_centimos"] += contribuicao
         por_cat[cat_id]["subcategorias"][sub_key]["total_centimos"] += contribuicao
 
@@ -233,7 +238,7 @@ def _agregar_por_categoria(rows):
                 "total_centimos": 0,
             }
 
-        contribuicao = round(r.valor * 100)
+        contribuicao = round(arredondar(r.valor) * 100)
         por_cat[cat_id]["total_centimos"] += contribuicao
         por_cat[cat_id]["subcategorias"][sub_key]["total_centimos"] += contribuicao
 

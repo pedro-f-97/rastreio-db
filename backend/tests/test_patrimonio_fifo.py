@@ -29,10 +29,10 @@ Os valores esperados são calculados à mão e escritos como constantes; o cálc
 está no comentário de cada teste. Entra-se pelo endpoint real, e não pela função
 interna, para que a convenção de sinais fique fixada também.
 
-Há uma excepção, no cenário 18: chama a função interna de propósito. A
-tolerância de `1e-9` que esgota os lotes vive dentro dela, e o router arredonda
-`quantidade` a 6 casas e `custo_base` a 2, o que oculta esse efeito. Um teste
-pelo endpoint não a conseguiria ver.
+Há uma excepção, no cenário 18: chama a função interna de propósito. O
+resíduo que deixa um lote por esgotar só se vê dentro dela, porque o router
+arredonda `quantidade` a 6 casas e `custo_base` a 2. Um teste pelo endpoint
+não o conseguiria ver.
 """
 
 from datetime import date
@@ -861,28 +861,26 @@ def test_fraccoes_esgotam_os_lotes_sem_deixar_residuo(session):
 
     Este é o único teste do ficheiro que não entra pelo endpoint. A razão está
     no arredondamento: o router devolve `round(quantidade, 6)` e
-    `round(-custo_base, 2)` (`routers/patrimonio.py:197-198`), e o resíduo que
-    fica quando a tolerância é removida é de 2,78e-17. Qualquer arredondamento
-    o transforma em 0,0, pelo que pelo endpoint o comportamento errado e o certo
-    são indistinguíveis. Afirma-se o valor bruto da função.
+    `arredondar(-custo_base)`, e um resíduo como o de 2,78e-17 que o float
+    deixava passa a 0,0 em qualquer arredondamento, pelo que pelo endpoint o
+    comportamento errado e o certo são indistinguíveis. Afirma-se o valor
+    bruto da função.
 
-    Cálculo à mão (ramo das unidades, `patrimonio_serv.py:60-100`):
-      compras: abs(-1,00) / 0,1 = 10,00 e abs(-4,00) / 0,2 = 20,00 por unidade
+    Cálculo à mão (ramo das unidades, `_resumo_valor_ativo`):
+      compras: lote de 0,1 com custo 1,00 e lote de 0,2 com custo 4,00
       venda de 0,3 consome 0,1 do primeiro lote e 0,2 do segundo
         0,1 - 0,1 = 0,0  -> lote esgotado e removido
         0,2 - 0,2 = 0,0  -> lote esgotado e removido
-      em vírgula flutuante a subtração acima dá 2,78e-17, e a tolerância de 1e-9
-      das linhas 80 e 86 é a que a deita fora
-      custo vendido = 0,1 x 10,00 + 0,2 x 20,00 = 5,00
+      em vírgula flutuante a subtração dava 2,78e-17, e era a tolerância de
+      1e-9 que a deitava fora; desde a D11 as contas são em Decimal e a
+      subtração dá 0 exacto, ficando a tolerância só como rede
+      custo vendido = 1,00 x 0,1 / 0,1 + 4,00 x 0,2 / 0,2 = 5,00
       valor efetivo  = abs(6,00) x (0,3 / 0,3)   = 6,00
       realizado      = 6,00 - 5,00 = +1,00
       sem lotes, a soma das quantidades e a soma dos custos dão 0
         quantidade = 0  e  custo_base = 0
 
-    Note-se que `quantidade` e `custo_base` são somas de uma lista vazia, e por
-    isso vêm como o inteiro 0. `0 == 0.0` é verdadeiro, por isso as constantes
-    estão escritas como 0.0 e a comparação é a mesma que se fizesse com o
-    inteiro.
+    Sem lotes, `quantidade` e `custo_base` vêm como 0.0.
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes Fraccionadas", tipo)
@@ -1077,3 +1075,83 @@ def test_bem_sem_unidades_vendido_ignora_preco_posterior(client, session):
     )
     assert resumo["preco_atual"] == 99999.00
     assert resumo["data_preco"] == "2025-07-01"
+
+
+# ---------------------------------------------------------------------------
+# 22. Quantidade x preço no meio cêntimo (D11)
+# ---------------------------------------------------------------------------
+
+def test_valor_de_quantidade_vezes_preco_no_meio_centimo(client, session):
+    """0,5 unidades a 10,01 valem 5,005, que arredonda para 5,01.
+
+    Cálculo à mão (ramo das unidades):
+      compra de 0,5 unidades por 5,00 -> custo_base 5,00
+      valor_atual = 0,5 x 10,01 = 5,005 -> empate, longe de zero -> 5,01
+      latente     = 5,01 - 5,00 = 0,01
+      realizado   = 0, e mais_menos_valia = 0 + 0,01 = 0,01
+
+    Antes da D11 dava valor_atual 5,0 e latente 0,0: em float, 0,5 x 10,01 é
+    5,00499999...
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Meia Acao", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-5.00, quantidade=0.5)
+    semear_preco(session, ativo, DATA_PRECO, 10.01)
+
+    resumo = pedir_resumo(client, ativo)
+
+    confirmar_resumo(
+        resumo,
+        quantidade=0.5,
+        custo_total=-5.00,
+        valor_atual=5.01,
+        realizado=0.0,
+        latente=0.01,
+        mais_menos_valia=0.01,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 23. Venda parcial com o custo vendido no meio cêntimo (D11)
+# ---------------------------------------------------------------------------
+
+def test_venda_parcial_com_custo_no_meio_centimo(client, session):
+    """Vender 1 de 2 unidades compradas por 10,01 deixa meio cêntimo de cada lado.
+
+    Cálculo à mão (ramo das unidades, FIFO):
+      compra de 2 unidades por 10,01
+      venda de 1 unidade por 6,00
+        custo vendido = 10,01 x 1 / 2 = 5,005
+        realizado     = 6,00 - 5,005 = 0,995 -> 1,00
+      fica 1 unidade com custo 10,01 - 5,005 = 5,005
+        custo_total = -5,005 -> -5,01 (longe de zero)
+      preço 3,00 -> valor_atual = 1 x 3,00 = 3,00
+        latente = 3,00 - 5,005 = -2,005 -> -2,01
+      mais_menos_valia = 1,00 + (-2,01) = -1,01
+      (confere: saíram 10,01, entraram 6,00 e a unidade vale 3,00, -1,01)
+
+    Antes da D11, em float: custo_total -5,0, latente -2,0 e
+    mais_menos_valia -1,0, que já não conferia; o realizado dava 1,0 por
+    acaso (0,9950000000000001 em float).
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao Partida", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
+                     valor_total=-10.01, quantidade=2)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 10),
+                     valor_total=6.00, quantidade=1)
+    semear_preco(session, ativo, DATA_PRECO, 3.00)
+
+    resumo = pedir_resumo(client, ativo)
+
+    confirmar_resumo(
+        resumo,
+        quantidade=1.0,
+        custo_total=-5.01,
+        valor_atual=3.00,
+        realizado=1.00,
+        latente=-2.01,
+        mais_menos_valia=-1.01,
+    )
+

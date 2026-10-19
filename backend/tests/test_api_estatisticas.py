@@ -600,3 +600,81 @@ def test_detalhe_mensal_agrega_subcategorias_e_ordena_por_total(client, session)
         },
     ]
     assert session.query(Transacao).count() == 8
+
+
+# ---------------------------------------------------------------------------
+# D11 — empates no meio cêntimo arredondam para longe de zero
+# ---------------------------------------------------------------------------
+
+def test_por_categoria_media_e_mediana_no_meio_centimo(client, session):
+    """Os números da categoria Entretenimento em 2025, nos dados reais (D11).
+
+    Cenário semeado: dois meses, um com -96,70 e outro com -62,99.
+
+    Cálculo à mão:
+      meses_distintos = 2, totais mensais [-96,70, -62,99]
+      mediana = (-96,70 + -62,99) / 2 = -159,69 / 2 = -79,845
+      media   = -159,69 / 2 = -79,845
+      empate no meio cêntimo, metade para longe de zero -> -79,85
+
+    Antes da D11 ambas davam -79,84: em float, -79,845 é -79,84499999...
+    """
+    lazer = semear_categoria(session, "Entretenimento", TipoCategoria.despesa)
+    semear_transacao(session, date(2025, 3, 10), "Cinema", -96.70, lazer)
+    semear_transacao(session, date(2025, 4, 10), "Concerto", -62.99, lazer)
+
+    r = client.get("/api/estatisticas/por-categoria")
+
+    assert r.status_code == 200
+    assert r.json()[0]["mediana"] == -79.85
+    assert r.json()[0]["media"] == -79.85
+    assert r.json()[0]["subcategorias"] == [
+        {"subcategoria_nome": "Sem subcategoria", "mediana": -79.85, "media": -79.85},
+    ]
+
+
+def test_resumo_mensal_media_e_mediana_no_meio_centimo(client, session):
+    """A média e a mediana das despesas mensais arredondam o empate para longe de zero.
+
+    Cenário semeado: março com -10,01 e abril com -10,00 de despesa.
+
+    Cálculo à mão:
+      totais_despesas = [-10,01, -10,00]
+      media   = (-10,01 + -10,00) / 2 = -20,01 / 2 = -10,005 -> -10,01
+      mediana = (-10,01 + -10,00) / 2 = -10,005              -> -10,01
+
+    Antes da D11 ambas davam -10,0: em float, -10,005 é -10,00499999...
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    semear_transacao(session, date(2025, 3, 10), "Luz", -10.01, casa)
+    semear_transacao(session, date(2025, 4, 10), "Luz", -10.00, casa)
+
+    r = client.get("/api/estatisticas/resumo-mensal")
+
+    assert r.status_code == 200
+    assert r.json()["media_mensal"] == -10.01
+    assert r.json()["mediana_mensal"] == -10.01
+
+
+def test_por_categoria_mediana_sem_ruido_da_soma_em_float(client, session):
+    """A mediana é calculada em Decimal, e não sobre o ruído da soma em float (D11).
+
+    Cenário semeado: dois meses, um com -200,00 e outro com -197,79.
+
+    Cálculo à mão:
+      mediana = (-200,00 + -197,79) / 2 = -397,79 / 2 = -198,895
+      empate no meio cêntimo, metade para longe de zero -> -198,90
+      media   = -397,79 / 2 = -198,895 -> -198,90
+
+    A mediana sobre os floats daria -198,89499999999998, que nem o
+    arredondamento pelo valor escrito salva: ficaria -198,89.
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    semear_transacao(session, date(2025, 3, 10), "Renda", -200.00, casa)
+    semear_transacao(session, date(2025, 4, 10), "Renda", -197.79, casa)
+
+    r = client.get("/api/estatisticas/por-categoria")
+
+    assert r.status_code == 200
+    assert r.json()[0]["mediana"] == -198.90
+    assert r.json()[0]["media"] == -198.90

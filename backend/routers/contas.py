@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
 from database import get_db, Conta as ContaModel, Transacao as TransacaoModel
+from servicos.dinheiro import arredondar
 import schemas
 
 router = APIRouter(prefix="/contas", tags=["contas"])
@@ -61,7 +62,7 @@ def saldo_conta(conta_id: int, db: Session = Depends(get_db)):
         WHERE conta_id = :conta_id
         AND data > :data_referencia
     """), {"conta_id": conta_id, "data_referencia": str(conta.data_referencia)}).scalar()
-    saldo = round(float(conta.saldo_referencia) + float(resultado or 0), 2)
+    saldo = arredondar(float(conta.saldo_referencia) + float(resultado or 0))
     return {
         "conta_id": conta_id,
         "nome": conta.nome,

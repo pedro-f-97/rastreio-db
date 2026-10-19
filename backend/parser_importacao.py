@@ -2,6 +2,7 @@ from datetime import datetime
 from openpyxl import load_workbook
 import csv
 import io
+import math
 import re
 
 class ErroParsing(Exception):
@@ -28,9 +29,13 @@ def _parse_valor(raw, separador_decimal: str) -> float:
     else:
         texto = texto.replace(",", "")
     try:
-        return float(texto)
+        valor = float(texto)
     except ValueError:
         raise ErroParsing(f"valor inválido: '{raw}'")
+    # float() aceita "nan", "inf" e "1e400" (que dá inf), e nenhum é dinheiro (D11)
+    if not math.isfinite(valor):
+        raise ErroParsing(f"valor inválido: '{raw}'")
+    return valor
 
 def _parse_data(raw, formato_data: str):
     if raw is None:

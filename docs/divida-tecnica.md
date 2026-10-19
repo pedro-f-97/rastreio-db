@@ -275,7 +275,8 @@ passa a bater sempre com a soma das três séries do gráfico. O teste de caract
 (`test_evolucao_total_e_a_soma_dos_componentes_arredondados`: total 0.02 em vez
 de 0.01) e há um teste novo para o ruído,
 `test_evolucao_total_sem_ruido_de_virgula_flutuante`, ambos em
-`backend/tests/test_api_patrimonio.py`. A passagem a `Decimal` fica para a D11.
+`backend/tests/test_api_patrimonio.py`. A passagem a `Decimal` fica para a D11
+(resolvida sem mudar o tipo das colunas; ver lá).
 
 ## 🟡 D3 — Boundary de data de referência diverge entre dois endpoints — resolvido
 
@@ -642,11 +643,11 @@ separador), e o efeito é o `total` não bater certo com os itens até ao pedido
 seguinte. Numa app local de um só utilizador não justifica mexer na forma como
 a sessão SQLite abre transacções.
 
-## ⚪ D11 — Dinheiro em `float` e sem verificação de finitude
+## ⚪ D11 — Dinheiro em `float` e sem verificação de finitude — resolvido
 
 `grep -n "Float\|Numeric" backend/database.py` devolve **zero `Numeric`** e 8
-colunas `Float` (`database.py:144, 179, 180, 263, 264, 265, 266, 279`; a 9.ª
-ocorrência é o `import` da linha 10). Todos os campos monetários e quantidades
+colunas `Float` (`database.py:155, 190, 191, 274, 275, 276, 277, 290`; a 9.ª
+ocorrência é o `import` da linha 12). Todos os campos monetários e quantidades
 são `float` IEEE 754, com erro de representação binária.
 
 Os schemas Pydantic não têm `Field(..., ge=0)` nem verificação de
@@ -654,7 +655,7 @@ Os schemas Pydantic não têm `Field(..., ge=0)` nem verificação de
 `NaN` num único `valor` propaga-se a todos os `SUM()` e `median()` derivados.
 
 Os scripts de estatísticas já contornam a imprecisão com cêntimos inteiros
-(`round(valor * 100)`, `estatisticas.py:164`), mas o truque tem o limite do
+(`round(valor * 100)`, `estatisticas.py:173` e `:236`), mas o truque tem o limite do
 seu tipo: `1.005 * 100 == 100.49999999999999` em IEEE 754, e o `round()` do
 Python é *banker's rounding* (arredonda para par), pelo que `round(0.125 * 100)`
 dá `12` e não `13`. `Numeric(18,6)` no schema eliminaria as duas coisas de uma
@@ -662,6 +663,58 @@ vez, ao custo de converter a leitura/escrita para `Decimal`.
 
 **Nota para os testes:** ao migrar para `Numeric`, os testes de arredondamento
 mudarão de resultado, o que é esperado.
+
+**O que se verificou** (numa cópia da BD real, aberta só em leitura): o
+`Numeric` não teria resolvido nada no armazenamento, porque o SQLite não tem
+tipo decimal e uma coluna `NUMERIC` continua a guardar `REAL`. Todas as
+transacções, saldos e valores totais têm no máximo 2 casas, e com 2 casas a
+conversão para cêntimos dá sempre o número certo. O erro que se via era outro,
+o dos empates no meio cêntimo, cujo sentido ficava ao acaso do binário: das
+médias e medianas dos dados reais, seis vinham 1 cêntimo ao lado (por
+exemplo Entretenimento em 2025: (-96,70 - 62,99) / 2 = -79,845 aparecia
+-79,84). Não havia valores não finitos, mas um `NaN` numa
+coluna obrigatória dava 500, numa opcional (`quantidade`) era gravado como
+NULL em silêncio, e um `Infinity` num preço era gravado e deixava o resumo do
+ativo e a evolução do património a dar 500. O parser de importação aceitava
+`"nan"`, `"inf"` e `"1e400"`.
+
+**Resolvido (decisões do utilizador: as colunas continuam `REAL`, o
+arredondamento é ao cêntimo com a metade para longe de zero, os valores não
+finitos são recusados à entrada, e quantidades e preços mantêm a precisão com
+que foram introduzidos):** não há mudança de schema nem migração da BD ou dos
+backups.
+
+- `backend/servicos/dinheiro.py` tem o arredondamento único: `exato` lê o
+  float pelo valor escrito (`Decimal(repr(x))`) e `arredondar` arredonda ao
+  cêntimo com `ROUND_HALF_UP`, como o ARRED do Excel. Substitui os
+  `round(..., 2)` das estatísticas, do saldo da conta, do resumo do ativo e da
+  evolução do património, e os cêntimos inteiros passam a
+  `round(arredondar(r.valor) * 100)`.
+- As médias e medianas das estatísticas são calculadas em `Decimal`, e o FIFO
+  de `_resumo_valor_ativo` também: cada lote guarda o custo total e o custo
+  vendido multiplica antes de dividir. O valor de um ativo com unidades é
+  `quantidade x preço` em `Decimal`. A função continua a devolver floats.
+- Os campos numéricos dos schemas passaram a `FiniteFloat`, e o
+  `_parse_valor` recusa um valor não finito como «valor inválido». Pela API,
+  um `NaN` ou `Infinity` escrito à mão no JSON dá 500 e não 422, porque o
+  handler de validação do FastAPI repete o valor no corpo do erro e o JSON não
+  o aceita; nada é gravado. Pelo browser não acontece: `JSON.stringify(NaN)`
+  dá `null`, que dá 422.
+
+Comparadas todas as respostas de leitura (estatísticas, património, saldos)
+numa cópia da BD real, antes e depois, mudam só esses seis valores, todos
+empates exactos no `/por-categoria`: em 2024, as médias de Restauração
+(-155,48 / 8 = -19,435 -> -19,44) e de Portagens (-88,36 / 8 = -11,045 ->
+-11,05); em 2025, as medianas de Entretenimento (-79,845 -> -79,85),
+Transporte (-108,565 -> -108,57), Salário (854,155 -> 854,16) e Portagens
+(-33,365 -> -33,37). Os zeros de algumas médias e totais passam de `0` a
+`0.0` no JSON, que é o mesmo número para o frontend. O
+teste de caracterização foi invertido
+(`test_arredondamento_em_centimos_arredonda_meio_centimo_para_longe_de_zero`,
+13 cêntimos em vez de 12, em `backend/tests/test_estatisticas_totais.py`), e
+há testes novos em `test_dinheiro.py`, `test_api_estatisticas.py`,
+`test_patrimonio_fifo.py` (cenários 22 e 23), `test_api_patrimonio.py` e
+`test_parser_importacao.py`.
 
 ## ⚪ D12 — Assinaturas e convenções por confirmar
 
