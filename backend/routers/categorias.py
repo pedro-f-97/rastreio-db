@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, Categoria, RegraCategorizacao, Subcategoria, Transacao
+
+from database import Categoria, RegraCategorizacao, Subcategoria, Transacao, get_db
 from schemas import CategoriaCreate, SubcategoriaCreate
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])

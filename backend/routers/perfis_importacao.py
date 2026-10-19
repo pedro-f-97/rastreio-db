@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from database import get_db, Conta, PerfilImportacao as PerfilImportacaoModel
-from schemas import PerfilImportacaoCreate, PerfilImportacao as PerfilImportacaoSchema
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from openpyxl import load_workbook
-from parser_importacao import _detectar_delimitador
-import schemas
 import io
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from openpyxl import load_workbook
+from sqlalchemy.orm import Session
+
+import schemas
+from database import Conta, PerfilImportacao as PerfilImportacaoModel, get_db
+from parser_importacao import _detectar_delimitador
+from schemas import PerfilImportacao as PerfilImportacaoSchema, PerfilImportacaoCreate
 
 router = APIRouter(prefix="/perfis-importacao", tags=["perfis-importacao"])
 

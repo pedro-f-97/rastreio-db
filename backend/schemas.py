@@ -1,8 +1,9 @@
 from datetime import date
 from typing import Annotated, Optional
 
-from database import TipoCategoria, TipoContabilizacao, TipoMovimento
 from pydantic import BaseModel, ConfigDict, FiniteFloat, StringConstraints, model_validator
+
+from database import ModoValor, TipoCategoria, TipoContabilizacao, TipoFicheiro, TipoMovimento
 
 
 # --- SCHEMAS DE CATEGORIA ---
@@ -65,8 +66,6 @@ class RegraCreate(RegraBase):
 class Regra(RegraBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
-
-from database import ModoValor, TipoFicheiro
 
 
 class PerfilImportacaoBase(BaseModel):

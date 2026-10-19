@@ -76,7 +76,6 @@ from types import SimpleNamespace
 from database import Categoria, RegraCategorizacao, TipoCategoria, Transacao
 from importador_transacoes import aplicar_regras, importar_transacoes
 
-
 # ---------------------------------------------------------------------------
 # Auxiliares
 # ---------------------------------------------------------------------------

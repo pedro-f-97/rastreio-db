@@ -1,6 +1,6 @@
-import sys
 import os
 import subprocess
+import sys
 
 
 def iniciar_tray(parar_servidor_fn, porta):

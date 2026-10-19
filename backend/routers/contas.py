@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 from typing import List
-from database import get_db, Conta as ContaModel, Transacao as TransacaoModel
-from servicos.dinheiro import arredondar
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 import schemas
+from database import Conta as ContaModel, Transacao as TransacaoModel, get_db
+from servicos.dinheiro import arredondar
 
 router = APIRouter(prefix="/contas", tags=["contas"])
 

@@ -36,6 +36,11 @@ jobs:
         run: pip install -r requirements-dev.txt
         working-directory: backend
 
+      # A partir de backend/, que é onde o ruff.toml está (D13b).
+      - name: Correr o ruff
+        run: ruff check
+        working-directory: backend
+
       # A partir de backend/, que é onde o pytest.ini está.
       - name: Correr os testes
         run: python -m pytest

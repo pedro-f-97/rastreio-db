@@ -878,7 +878,7 @@ isoladamente.
 Não é bug. Dividido em sub-itens, cada um com o seu commit:
 
 - **D13a — resolvido** — ESLint no frontend.
-- **D13b** — `ruff` no backend.
+- **D13b — resolvido** — `ruff` no backend.
 - **D13c** — `pyright` (tipos) no backend.
 - **D13d** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
 - **D13e** — índices nas colunas de data e FK, com migração da BD real e dos
@@ -917,9 +917,28 @@ e em `hooks/useAtivos.js`, onde o `setLoading(true)` é preciso para o
 O CI (`test.yml`, trabalho `lint-frontend`) corre `npm run lint -- --max-warnings 0`
 em cada push e pedido de integração. Os scripts de build não correm o lint.
 
-### D13b — `ruff` no backend
+### D13b — `ruff` no backend — resolvido
 
-Sem `ruff` no `venv` nem no `requirements-dev.txt`.
+Descrição original: sem `ruff` no `venv` nem no `requirements-dev.txt`.
+
+O `ruff` 0.17.1 (fixado no `requirements-dev.txt`) corre a partir de
+`backend/` com a configuração em `backend/ruff.toml`: `E4`, `E7`, `E9`, `F` e
+`I`, `line-length = 100`, `old/` excluído. Com o conjunto predefinido desta
+versão havia 230 achados, sobretudo de estilo (`UP`) e 56 `B008` que são os
+`Depends()` do FastAPI; com `E4,E7,E9,F` havia 26:
+
+- 15 corrigidos à mão: imports e variáveis não usados, imports repetidos em
+  `routers/perfis_importacao.py`, um import a meio de `schemas.py`, `l` como
+  nome de variável, dois imports numa linha e um `lambda` atribuído num teste.
+- 11 `E711`/`E712` ignorados na configuração: são filtros do SQLAlchemy
+  (`Transacao.categoria_id == None`), onde o `==` gera `IS NULL`; a correcção
+  sugerida, `is None`, compara em Python e partiria as queries.
+
+A ordenação de imports (`I`) foi aplicada com `ruff check --fix`, com
+`combine-as-imports` para manter os `from database import (X as XModel, ...)`
+num só import. O `ruff format` foi aplicado em commit à parte, registado no
+`.git-blame-ignore-revs`. O CI (`test.yml`, trabalho `testes`) corre
+`ruff check` antes do pytest.
 
 ### D13c — `pyright` no backend
 

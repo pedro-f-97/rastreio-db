@@ -48,7 +48,6 @@ atexit.register(shutil.rmtree, _TMP_DIR, ignore_errors=True)
 
 import pytest  # noqa: E402  (tem de vir depois do setup de ambiente acima)
 
-
 # ---------------------------------------------------------------------------
 # Sessões de teste
 # ---------------------------------------------------------------------------
@@ -65,8 +64,8 @@ def session():
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
 
-    from database import Base, ligar_chaves_estrangeiras
     import database  # noqa: F401  — importa todos os modelos antes do create_all
+    from database import Base, ligar_chaves_estrangeiras
 
     engine = create_engine(
         "sqlite://",
@@ -105,7 +104,6 @@ from routers import (  # noqa: E402
     tipos_ativo,
     transacoes,
 )
-
 
 ROUTERS = (
     categorias.router,
@@ -175,7 +173,10 @@ def criar_bd_com_fk_partida():
     from sqlalchemy.schema import CreateTable
 
     from database import (
-        Ativo, Base, TipoContabilizacao, TipoMovimento,
+        Ativo,
+        Base,
+        TipoContabilizacao,
+        TipoMovimento,
     )
 
     def criar(caminho):

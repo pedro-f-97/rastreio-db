@@ -1,3 +1,6 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
 from database import (
     Categoria,
     RegraCategorizacao,
@@ -5,14 +8,12 @@ from database import (
     Transacao,
     get_db,
 )
-from fastapi import APIRouter, Depends, HTTPException
+from importador_transacoes import casa_palavra, regras_por_precedencia
 from schemas import (
     AplicarEmMassaPayload,
     AplicarEmMassaResultado,
     RegraCreate,
 )
-from importador_transacoes import casa_palavra, regras_por_precedencia
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/regras", tags=["regras"])
 

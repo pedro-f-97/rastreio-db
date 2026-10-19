@@ -82,7 +82,6 @@ import pytest
 from database import TipoCategoria
 from routers.estatisticas import _agregar_por_categoria, _calculate_totals
 
-
 # ---------------------------------------------------------------------------
 # Auxiliares
 # ---------------------------------------------------------------------------

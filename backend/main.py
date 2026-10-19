@@ -7,11 +7,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import uvicorn
-from database import BASE_DIR, criar_tabelas
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from database import BASE_DIR, criar_tabelas
 from routers import (
     backups,
     categorias,
@@ -25,7 +27,6 @@ from routers import (
     tipos_ativo,
     transacoes,
 )
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # ---------------------------------------------------------------------------
 # Arranque: logging e streams
@@ -248,7 +249,8 @@ def _main() -> None:
         servidor.should_exit = True
 
     def abrir_browser():
-        import time, webbrowser
+        import time
+        import webbrowser
         time.sleep(1.5)
         try:
             webbrowser.open(f"http://localhost:{PORTA}")

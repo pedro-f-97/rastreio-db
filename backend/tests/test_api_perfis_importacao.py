@@ -34,8 +34,9 @@ toca na base de dados real.
 import io
 from datetime import date
 
-from database import Conta, ModoValor, PerfilImportacao, TipoFicheiro
 from openpyxl import Workbook
+
+from database import Conta, ModoValor, PerfilImportacao, TipoFicheiro
 
 # Payload minimo valido para `PerfilImportacaoCreate` (schema, linhas 71-100):
 # os restantes campos tem valores por omissao. `coluna_valor` e obrigatoria

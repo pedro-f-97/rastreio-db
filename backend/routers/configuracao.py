@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from database import get_db, Configuracao
+
 from dados_iniciais import PerfilCategorias, semear_dados_iniciais
+from database import Configuracao, get_db
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
 

@@ -1,12 +1,14 @@
 from datetime import date
 from decimal import Decimal
-from sqlalchemy.orm import Session
+
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from database import (
     Ativo as AtivoModel,
+    Conta as ContaModel,
     MovimentoAtivo as MovimentoAtivoModel,
     PrecoAtivo as PrecoAtivoModel,
-    Conta as ContaModel,
     Transacao as TransacaoModel,
 )
 from servicos.dinheiro import arredondar, exato
@@ -109,8 +111,8 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
         elif m.tipo_movimento.value == "dividendo":
             realizado += valor_m
 
-    quantidade = sum((l["quantidade"] for l in lotes), Decimal(0))
-    custo_base = sum((l["custo"] for l in lotes), Decimal(0))
+    quantidade = sum((lote["quantidade"] for lote in lotes), Decimal(0))
+    custo_base = sum((lote["custo"] for lote in lotes), Decimal(0))
     if quantidade <= 0:
         valor = 0.0
     elif preco:

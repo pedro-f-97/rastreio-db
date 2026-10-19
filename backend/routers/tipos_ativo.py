@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, TipoAtivo
+
+from database import TipoAtivo, get_db
 from schemas import TipoAtivoCreate
 
 router = APIRouter(prefix="/tipos-ativo", tags=["tipos-ativo"])

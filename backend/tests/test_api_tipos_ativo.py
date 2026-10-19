@@ -23,10 +23,7 @@ fixture `client` e a fixture `session` partilham a sessão SQLAlchemy, as
 verificações de estado começam por `session.expire_all()`.
 """
 
-from datetime import date
-
 from database import Ativo, TipoAtivo, TipoContabilizacao
-
 
 # ---------------------------------------------------------------------------
 # Auxiliares

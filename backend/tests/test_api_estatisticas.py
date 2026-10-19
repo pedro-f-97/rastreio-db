@@ -43,7 +43,7 @@ assenta na data de hoje nem toca na base de dados real.
 
 from datetime import date
 
-from database import Categoria, Subcategoria, Transacao, TipoCategoria
+from database import Categoria, Subcategoria, TipoCategoria, Transacao
 
 
 def test_detalhe_mensal_mes_13_da_422(client):

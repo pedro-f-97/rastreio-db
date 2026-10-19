@@ -1,18 +1,21 @@
 from datetime import date
 from typing import List
 
-import schemas
-from database import Ativo as AtivoModel
-from database import MovimentoAtivo as MovimentoAtivoModel
-from database import PrecoAtivo as PrecoAtivoModel
-from database import TipoAtivo as TipoAtivoModel
-from database import Transacao as TransacaoModel
-from database import get_db
 from fastapi import APIRouter, Depends, HTTPException
-from servicos.dinheiro import arredondar, exato
-from servicos.patrimonio_serv import gerar_evolucao, primeira_sobre_venda, _resumo_valor_ativo
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
+
+import schemas
+from database import (
+    Ativo as AtivoModel,
+    MovimentoAtivo as MovimentoAtivoModel,
+    PrecoAtivo as PrecoAtivoModel,
+    TipoAtivo as TipoAtivoModel,
+    Transacao as TransacaoModel,
+    get_db,
+)
+from servicos.dinheiro import arredondar, exato
+from servicos.patrimonio_serv import _resumo_valor_ativo, gerar_evolucao, primeira_sobre_venda
 
 router = APIRouter(prefix="/patrimonio", tags=["patrimonio"])
 

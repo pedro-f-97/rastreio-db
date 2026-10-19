@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import extract, func
-from database import get_db, Transacao, Categoria, Subcategoria, TipoCategoria
-from statistics import median
-from decimal import Decimal
-from servicos.dinheiro import arredondar, exato
 import calendar
 from datetime import date
+from decimal import Decimal
+from statistics import median
 from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import extract, func
+from sqlalchemy.orm import Session
+
+from database import Categoria, Subcategoria, TipoCategoria, Transacao, get_db
+from servicos.dinheiro import arredondar, exato
 
 router = APIRouter(prefix="/estatisticas", tags=["estatisticas"])
 

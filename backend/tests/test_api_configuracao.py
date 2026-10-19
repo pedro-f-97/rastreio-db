@@ -24,10 +24,7 @@ partilham a sessão SQLAlchemy, as verificações de estado começam por
 
 """
 
-from datetime import date
-
 from database import Categoria, Configuracao, Subcategoria, TipoAtivo, TipoCategoria
-
 
 # Constantes obtidas por leitura de `dados_iniciais.py` (perfil completo)
 CATEGORIAS_COMPLETO_COUNT = 15

@@ -10,7 +10,6 @@ from datetime import date
 
 from database import Conta, ModoValor, PerfilImportacao, Transacao
 
-
 # ---------------------------------------------------------------------------
 # Auxiliares
 # ---------------------------------------------------------------------------

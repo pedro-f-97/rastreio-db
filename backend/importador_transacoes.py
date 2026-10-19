@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
-from database import Transacao, RegraCategorizacao, DB_PATH
-from sqlalchemy import or_
+
+from database import RegraCategorizacao, Transacao
+
 
 def casa_palavra(palavra_chave: str, descricao: str) -> bool:
     """A comparação única das regras (D8): ignora maiúsculas, também nas letras
@@ -70,7 +71,7 @@ def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: in
             inseridas += 1
 
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise
 

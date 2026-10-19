@@ -1,9 +1,11 @@
-from datetime import datetime
-from openpyxl import load_workbook
 import csv
 import io
 import math
 import re
+from datetime import datetime
+
+from openpyxl import load_workbook
+
 
 class ErroParsing(Exception):
     pass
@@ -63,7 +65,7 @@ def _detectar_delimitador(linhas_de_dados: list[str]) -> str:
     """O separador de colunas que divide as linhas de dados no mesmo número de
     colunas, e no maior; vírgula se nenhum servir (D19). O `csv.Sniffer`
     engana-se num CSV com `;` sem cabeçalho e vírgula decimal (`-3,20`)."""
-    amostra = "\n".join(l for l in linhas_de_dados if l.strip())
+    amostra = "\n".join(linha for linha in linhas_de_dados if linha.strip())
     melhor, colunas = ",", 1
     for delimitador in (",", ";", "\t"):
         contagens = {len(r) for r in csv.reader(io.StringIO(amostra), delimiter=delimitador)}

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
-from database import get_db, PerfilImportacao as PerfilImportacaoModel
-from parser_importacao import parse_ficheiro
+
+from database import PerfilImportacao as PerfilImportacaoModel, get_db
 from importador_transacoes import importar_transacoes
+from parser_importacao import parse_ficheiro
 
 router = APIRouter(prefix="/importacao", tags=["importacao"])
 

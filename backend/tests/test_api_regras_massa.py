@@ -49,8 +49,7 @@ vazia. Nenhum toca no `main`, na base de dados real, nem no sistema de ficheiros
 
 from datetime import date
 
-from database import Categoria, Subcategoria, Transacao, TipoCategoria
-
+from database import Categoria, Subcategoria, TipoCategoria, Transacao
 
 # ---------------------------------------------------------------------------
 # Auxiliares

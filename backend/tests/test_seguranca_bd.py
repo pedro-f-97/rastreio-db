@@ -107,6 +107,7 @@ def test_app_de_testes_cobre_os_mesmos_routers_que_o_main():
     lista de routers diferente, podem passar todos enquanto a app real tem um
     router partido. Este teste amarra as duas listas.
     """
+    import main
     from routers import (
         backups,
         categorias,
@@ -120,7 +121,6 @@ def test_app_de_testes_cobre_os_mesmos_routers_que_o_main():
         tipos_ativo,
         transacoes,
     )
-    import main
 
     dos_testes = [
         categorias.router, transacoes.router, regras.router, importacao.router,

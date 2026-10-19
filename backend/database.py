@@ -9,6 +9,7 @@ from typing import List, Optional
 from sqlalchemy import (
     Boolean,
     Date,
+    Enum as SAEnum,
     Float,
     ForeignKey,
     String,
@@ -16,7 +17,6 @@ from sqlalchemy import (
     create_engine,
     event,
 )
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,

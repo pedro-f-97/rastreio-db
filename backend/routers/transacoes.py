@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import extract
-from typing import Optional
 import unicodedata
-from database import get_db, Categoria, Transacao, Subcategoria
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import extract
+from sqlalchemy.orm import Session
+
+from database import Categoria, Subcategoria, Transacao, get_db
 from schemas import TransacaoUpdate
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])

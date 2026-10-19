@@ -11,3 +11,5 @@ pytest==9.0.1
 # O TestClient do Starlette 1.0 assenta em httpx; sem isto os testes de API
 # não correm.
 httpx==0.28.1
+# Lint do backend; a configuração está em ruff.toml (D13b).
+ruff==0.17.1

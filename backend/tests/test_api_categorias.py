@@ -27,8 +27,7 @@ a remeter para `docs/divida-tecnica.md`.
 
 from datetime import date
 
-from database import Categoria, RegraCategorizacao, Subcategoria, Transacao, TipoCategoria
-
+from database import Categoria, RegraCategorizacao, Subcategoria, TipoCategoria, Transacao
 
 # ---------------------------------------------------------------------------
 # Auxiliares

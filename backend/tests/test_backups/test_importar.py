@@ -73,7 +73,6 @@ from database import Ativo, Base, Conta, SessionLocal, engine
 from routers import backups
 from routers.backups import TABELAS_ESPERADAS
 
-
 # ---------------------------------------------------------------------------
 # Auxiliares
 # ---------------------------------------------------------------------------

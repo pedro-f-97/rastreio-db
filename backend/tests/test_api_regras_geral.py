@@ -28,8 +28,7 @@ leitura depois de um pedido começa sempre por `session.expire_all()`.
 
 from datetime import date
 
-from database import Categoria, RegraCategorizacao, Subcategoria, Transacao, TipoCategoria
-
+from database import Categoria, RegraCategorizacao, Subcategoria, TipoCategoria, Transacao
 
 # ---------------------------------------------------------------------------
 # Auxiliares
@@ -282,8 +281,10 @@ def test_backfill_respeita_as_regras_de_exclusao(client, session):
     assert r.json()["transacoes_atualizadas"] == 1
 
     session.expire_all()
-    estado = lambda t: (session.get(Transacao, t.id).categoria_id,
-                        session.get(Transacao, t.id).subcategoria_id)
+    def estado(t):
+        return (session.get(Transacao, t.id).categoria_id,
+                session.get(Transacao, t.id).subcategoria_id)
+
     assert estado(t_ok) == (casa.id, sub_alim.id)
     assert estado(t_trf) == (None, None)
     assert estado(t_trf_casa) == (casa.id, None)

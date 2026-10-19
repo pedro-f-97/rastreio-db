@@ -4,10 +4,11 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from database import Base, DB_PATH, engine, reparar_fk_ativos
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import text
+
+from database import DB_PATH, Base, engine, reparar_fk_ativos
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 

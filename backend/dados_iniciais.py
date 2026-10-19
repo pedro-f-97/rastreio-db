@@ -1,5 +1,7 @@
 from enum import Enum
+
 from sqlalchemy.orm import Session
+
 from database import Categoria, Subcategoria, TipoAtivo, TipoCategoria
 
 
