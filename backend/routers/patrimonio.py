@@ -120,9 +120,9 @@ def _recusar_sobre_venda(db: Session, ativo: AtivoModel) -> None:
     )
     sobre_venda = primeira_sobre_venda(movimentos)
     if sobre_venda:
-        venda, posicao = sobre_venda
+        venda, quantidade, posicao = sobre_venda
         detalhe = (
-            f"A venda de {venda.data:%d/%m/%Y} ({_unidades(venda.quantidade)} unidades) "
+            f"A venda de {venda.data:%d/%m/%Y} ({_unidades(quantidade)} unidades) "
             f"excede as {_unidades(posicao)} unidades em carteira nessa data."
         )
         db.rollback()

@@ -36,11 +36,14 @@ jobs:
         run: pip install -r requirements-dev.txt
         working-directory: backend
 
-      # A partir de backend/, que é onde o ruff.toml está (D13b).
-      - name: Correr o ruff
+      # A partir de backend/, que é onde o ruff.toml (D13b) e o
+      # pyrightconfig.json (D13c) estão. Sem a pasta venv, o pyright usa o
+      # Python do runner, onde o requirements-dev.txt já foi instalado.
+      - name: Correr o ruff e o pyright
         run: |
           ruff check
           ruff format --check
+          pyright
         working-directory: backend
 
       # A partir de backend/, que é onde o pytest.ini está.

@@ -138,7 +138,8 @@ def primeira_sobre_venda(movimentos):
     """Primeira venda que excede as unidades em carteira, pela ordem do FIFO.
 
     `movimentos` vem ordenado por (data, id), como em `_resumo_valor_ativo`.
-    Devolve `(venda, posicao_antes_da_venda)`, ou `None` se nenhuma exceder.
+    Devolve `(venda, quantidade_vendida, posicao_antes_da_venda)`, ou `None` se
+    nenhuma exceder.
     Só faz sentido para ativos com unidades.
     """
     posicao = 0.0
@@ -150,7 +151,7 @@ def primeira_sobre_venda(movimentos):
             posicao += q
         elif m.tipo_movimento.value == "venda":
             if q - posicao > 1e-9:
-                return m, posicao
+                return m, q, posicao
             posicao -= q
     return None
 

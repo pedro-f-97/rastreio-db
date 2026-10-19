@@ -879,7 +879,7 @@ Não é bug. Dividido em sub-itens, cada um com o seu commit:
 
 - **D13a — resolvido** — ESLint no frontend.
 - **D13b — resolvido** — `ruff` no backend.
-- **D13c** — `pyright` (tipos) no backend.
+- **D13c — resolvido** — `pyright` (tipos) no backend.
 - **D13d** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
 - **D13e** — índices nas colunas de data e FK, com migração da BD real e dos
   backups.
@@ -940,9 +940,27 @@ num só import. O `ruff format` foi aplicado em commit à parte, registado no
 `.git-blame-ignore-revs`. O CI (`test.yml`, trabalho `testes`) corre
 `ruff check` antes do pytest.
 
-### D13c — `pyright` no backend
+### D13c — `pyright` no backend — resolvido
 
-Sem `pyright` e quase sem anotações de tipo.
+Descrição original: sem `pyright` e quase sem anotações de tipo.
+
+Medido com o `pyright` 1.1.414 sobre os 46 ficheiros do backend: 39 erros em
+modo `standard` e 4816 em `strict` (quase todos por falta de anotações).
+Nenhum dos 39 era bug real: 38 estavam nos testes (duplos `SimpleNamespace`
+em `test_importador_regras.py`, `Workbook().active` que pode ser `None`
+segundo os tipos do `openpyxl`, `Ativo.__table__` tipado como `FromClause`).
+
+Corre em modo `standard` só sobre o código de produção
+(`backend/pyrightconfig.json` exclui `tests/` e `old/`). O único achado,
+`_unidades(venda.quantidade)` em `routers/patrimonio.py`, recebia um
+`float | None`. Era falso positivo, porque `primeira_sobre_venda` só devolve
+vendas com quantidade positiva, e ficou resolvido na origem:
+`primeira_sobre_venda` devolve `(venda, quantidade, posicao)`, a quantidade
+que o próprio FIFO usou.
+
+`pyright[nodejs]==1.1.414` fixado no `requirements-dev.txt` (o extra traz o
+Node como pacote). O CI (`test.yml`, trabalho `testes`) corre `pyright` a
+seguir ao `ruff`.
 
 ### D13d — N+1 no cálculo do património
 
