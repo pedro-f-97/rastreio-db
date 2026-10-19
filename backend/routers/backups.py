@@ -18,9 +18,7 @@ TABELAS_ESPERADAS = {tabela.name for tabela in Base.metadata.sorted_tables}
 
 # Mensagem única para qualquer problema de estrutura — tabela ou coluna em
 # falta. Não diz o que falta: é propositado (D6).
-MENSAGEM_ESTRUTURA = (
-    "O ficheiro não corresponde a um backup válido do Rastreio-DB"
-)
+MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
 
 
 def _limpar_wal_shm(db_path: str) -> None:
@@ -55,12 +53,7 @@ def _validar_sqlite(path: str) -> set[str]:
         if not row or row[0] != "ok":
             raise HTTPException(400, "Base de dados corrompida (integrity_check).")
 
-        tabelas = {
-            r[0]
-            for r in con.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
-        }
+        tabelas = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     except sqlite3.DatabaseError as e:
         raise HTTPException(400, f"O ficheiro não é uma base de dados SQLite válida: {e}")
     finally:

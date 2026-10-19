@@ -56,6 +56,7 @@ DATA_PRECO = date(2025, 6, 1)
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def semear_tipo(session, nome, tem_unidades):
     tipo = TipoAtivo(nome=nome, tem_unidades=tem_unidades)
     session.add(tipo)
@@ -65,9 +66,7 @@ def semear_tipo(session, nome, tem_unidades):
 
 def semear_ativo(session, nome, tipo):
     contabilizacao = (
-        TipoContabilizacao.investimento
-        if tipo.tem_unidades
-        else TipoContabilizacao.patrimonio
+        TipoContabilizacao.investimento if tipo.tem_unidades else TipoContabilizacao.patrimonio
     )
     ativo = Ativo(nome=nome, tipo_id=tipo.id, contabilizacao=contabilizacao)
     session.add(ativo)
@@ -75,8 +74,9 @@ def semear_ativo(session, nome, tipo):
     return ativo
 
 
-def semear_movimento(session, ativo, tipo_movimento, data, valor_total,
-                     quantidade=None, comissao=None):
+def semear_movimento(
+    session, ativo, tipo_movimento, data, valor_total, quantidade=None, comissao=None
+):
     """Grava um movimento com o sinal que o frontend realmente envia."""
     movimento = MovimentoAtivo(
         ativo_id=ativo.id,
@@ -99,8 +99,9 @@ def semear_preco(session, ativo, data, preco):
     return registo
 
 
-def confirmar_resumo(resumo, *, quantidade, custo_total, valor_atual,
-                     realizado, latente, mais_menos_valia):
+def confirmar_resumo(
+    resumo, *, quantidade, custo_total, valor_atual, realizado, latente, mais_menos_valia
+):
     """Confirma cada campo contra uma constante calculada à mão.
 
     Os argumentos têm nome explícito e em separado, para que o sinal de cada um
@@ -119,12 +120,9 @@ def confirmar_resumo(resumo, *, quantidade, custo_total, valor_atual,
     assert resumo["realizado"] == realizado, (
         f"realizado: esperado {realizado}, veio {resumo['realizado']}"
     )
-    assert resumo["latente"] == latente, (
-        f"latente: esperado {latente}, veio {resumo['latente']}"
-    )
+    assert resumo["latente"] == latente, f"latente: esperado {latente}, veio {resumo['latente']}"
     assert resumo["mais_menos_valia"] == mais_menos_valia, (
-        f"mais_menos_valia: esperado {mais_menos_valia}, veio "
-        f"{resumo['mais_menos_valia']}"
+        f"mais_menos_valia: esperado {mais_menos_valia}, veio {resumo['mais_menos_valia']}"
     )
 
 
@@ -140,6 +138,7 @@ def pedir_resumo(client, ativo):
 # 1. Lote unico
 # ---------------------------------------------------------------------------
 
+
 def test_lote_unico_sem_vendas(client, session):
     """Uma compra e nenhuma venda: a posicao inteira esta no lote.
 
@@ -154,8 +153,9 @@ def test_lote_unico_sem_vendas(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes X", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -177,6 +177,7 @@ def test_lote_unico_sem_vendas(client, session):
 # 2. Multi-lote
 # ---------------------------------------------------------------------------
 
+
 def test_multi_lote_soma_o_custo_das_compras(client, session):
     """Duas compras a precos diferentes, ainda sem vendas.
 
@@ -195,10 +196,12 @@ def test_multi_lote_soma_o_custo_das_compras(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes Y", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 3, 10),
-                     valor_total=-300.00, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 3, 10), valor_total=-300.00, quantidade=10
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -217,6 +220,7 @@ def test_multi_lote_soma_o_custo_das_compras(client, session):
 # ---------------------------------------------------------------------------
 # 3. Venda que atravessa dois lotes
 # ---------------------------------------------------------------------------
+
 
 def test_venda_atravessa_dois_lotes_consome_o_mais_antigo_primeiro(client, session):
     """Vende 15 unidades com 10 num lote e 10 noutro.
@@ -237,12 +241,15 @@ def test_venda_atravessa_dois_lotes_consome_o_mais_antigo_primeiro(client, sessi
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes Z", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 3, 10),
-                     valor_total=-300.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 4, 10),
-                     valor_total=450.00, quantidade=15)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 3, 10), valor_total=-300.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 4, 10), valor_total=450.00, quantidade=15
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -262,6 +269,7 @@ def test_venda_atravessa_dois_lotes_consome_o_mais_antigo_primeiro(client, sessi
 # 4. Venda parcial dentro de um unico lote
 # ---------------------------------------------------------------------------
 
+
 def test_venda_parcial_dentro_de_um_lote(client, session):
     """Vende 4 das 10 unidades de um so lote.
 
@@ -278,10 +286,12 @@ def test_venda_parcial_dentro_de_um_lote(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes W", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 4, 10),
-                     valor_total=100.00, quantidade=4)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 4, 10), valor_total=100.00, quantidade=4
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -301,6 +311,7 @@ def test_venda_parcial_dentro_de_um_lote(client, session):
 # 5. Venda total
 # ---------------------------------------------------------------------------
 
+
 def test_venda_total_zera_a_posicao(client, session):
     """Vende tudo: a posicao vai a zero, mas o realizado fica registado.
 
@@ -319,10 +330,12 @@ def test_venda_total_zera_a_posicao(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes V", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 4, 10),
-                     valor_total=250.00, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 4, 10), valor_total=250.00, quantidade=10
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -341,6 +354,7 @@ def test_venda_total_zera_a_posicao(client, session):
 # ---------------------------------------------------------------------------
 # 6. Sobre-venda
 # ---------------------------------------------------------------------------
+
 
 def test_sobre_venda_ja_gravada_escala_o_encaixe(client, session):
     """Uma venda de 15 unidades tendo 10, gravada directamente na BD.
@@ -363,10 +377,12 @@ def test_sobre_venda_ja_gravada_escala_o_encaixe(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes U", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 4, 10),
-                     valor_total=300.00, quantidade=15)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 4, 10), valor_total=300.00, quantidade=15
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -386,6 +402,7 @@ def test_sobre_venda_ja_gravada_escala_o_encaixe(client, session):
 # 7. Dividendo
 # ---------------------------------------------------------------------------
 
+
 def test_dividendo_entra_no_realizado(client, session):
     """Um dividendo soma ao realizado e nao toca nos lotes.
 
@@ -403,10 +420,10 @@ def test_dividendo_entra_no_realizado(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes T", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.dividendo, date(2025, 5, 10),
-                     valor_total=25.00)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(session, ativo, TipoMovimento.dividendo, date(2025, 5, 10), valor_total=25.00)
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -426,6 +443,7 @@ def test_dividendo_entra_no_realizado(client, session):
 # 8. Ativo sem unidades
 # ---------------------------------------------------------------------------
 
+
 def test_ativo_sem_unidades_usa_o_valor_total_como_custo(client, session):
     """Um bem sem unidades: o preco registado e o valor do bem inteiro.
 
@@ -440,8 +458,7 @@ def test_ativo_sem_unidades_usa_o_valor_total_como_custo(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Casa", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-15000.00)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-15000.00)
     semear_preco(session, ativo, DATA_PRECO, 15000.00)
 
     resumo = pedir_resumo(client, ativo)
@@ -461,6 +478,7 @@ def test_ativo_sem_unidades_usa_o_valor_total_como_custo(client, session):
 # 9. Sem preco disponivel
 # ---------------------------------------------------------------------------
 
+
 def test_sem_preco_vale_o_custo_e_o_latente_e_nulo(client, session):
     """Sem registo de preco: o ativo vale o custo das unidades, latente nulo.
 
@@ -479,8 +497,9 @@ def test_sem_preco_vale_o_custo_e_o_latente_e_nulo(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes S", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
 
     resumo = pedir_resumo(client, ativo)
 
@@ -501,6 +520,7 @@ def test_sem_preco_vale_o_custo_e_o_latente_e_nulo(client, session):
 # 10. O abs() normaliza o sinal
 # ---------------------------------------------------------------------------
 
+
 def test_abs_normaliza_o_sinal_do_valor_total(client, session):
     """Uma compra com sinal oposto ao da aplicacao da o mesmo resultado.
 
@@ -519,8 +539,9 @@ def test_abs_normaliza_o_sinal_do_valor_total(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes R", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=100.00, quantidade=10)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=100.00, quantidade=10
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -539,6 +560,7 @@ def test_abs_normaliza_o_sinal_do_valor_total(client, session):
 # ---------------------------------------------------------------------------
 # 11. A comissao entra no custo unitario
 # ---------------------------------------------------------------------------
+
 
 def test_comissao_entra_no_custo_unitario(client, session):
     """Compra de 10 por 100,00 mais 5,00 de comissao.
@@ -562,8 +584,15 @@ def test_comissao_entra_no_custo_unitario(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes Q", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-105.00, quantidade=10, comissao=5.00)
+    semear_movimento(
+        session,
+        ativo,
+        TipoMovimento.compra,
+        date(2025, 1, 10),
+        valor_total=-105.00,
+        quantidade=10,
+        comissao=5.00,
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -583,6 +612,7 @@ def test_comissao_entra_no_custo_unitario(client, session):
 # 12. Sem unidades, duas compras e venda total
 # ---------------------------------------------------------------------------
 
+
 def test_bem_sem_unidades_com_duas_compras_e_venda_total(client, session):
     """Um bem sem unidades comprado em duas partes e depois vendido.
 
@@ -599,12 +629,9 @@ def test_bem_sem_unidades_com_duas_compras_e_venda_total(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Apartamento", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-10000.00)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
-                     valor_total=-5000.00)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 15),
-                     valor_total=18000.00)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-10000.00)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10), valor_total=-5000.00)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 15), valor_total=18000.00)
     semear_preco(session, ativo, DATA_PRECO, 18000.00)
 
     resumo = pedir_resumo(client, ativo)
@@ -623,6 +650,7 @@ def test_bem_sem_unidades_com_duas_compras_e_venda_total(client, session):
 # ---------------------------------------------------------------------------
 # 13. Sem unidades, venda parcial
 # ---------------------------------------------------------------------------
+
 
 def test_bem_sem_unidades_trata_venda_parcial_como_venda_total(client, session):
     """Vender parte de um bem sem unidades zera a posicao toda.
@@ -650,12 +678,9 @@ def test_bem_sem_unidades_trata_venda_parcial_como_venda_total(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Loja", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-10000.00)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
-                     valor_total=-5000.00)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 15),
-                     valor_total=20000.00)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-10000.00)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10), valor_total=-5000.00)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 15), valor_total=20000.00)
     semear_preco(session, ativo, DATA_PRECO, 20000.00)
 
     resumo = pedir_resumo(client, ativo)
@@ -674,6 +699,7 @@ def test_bem_sem_unidades_trata_venda_parcial_como_venda_total(client, session):
 # ---------------------------------------------------------------------------
 # 14. Fracoes e a tolerancia de lote esgotado
 # ---------------------------------------------------------------------------
+
 
 def test_fracoes_esgotam_os_lotes_pela_tolerancia(client, session):
     """Vender 0,3 unidades de 0,1 + 0,2 esgota os dois lotes.
@@ -704,12 +730,15 @@ def test_fracoes_esgotam_os_lotes_pela_tolerancia(client, session):
     """
     tipo = semear_tipo(session, "Crypto", tem_unidades=True)
     ativo = semear_ativo(session, "Bitcoin", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-10.00, quantidade=0.1)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
-                     valor_total=-40.00, quantidade=0.2)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 10),
-                     valor_total=90.00, quantidade=0.3)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-10.00, quantidade=0.1
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 2, 10), valor_total=-40.00, quantidade=0.2
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 3, 10), valor_total=90.00, quantidade=0.3
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -728,6 +757,7 @@ def test_fracoes_esgotam_os_lotes_pela_tolerancia(client, session):
 # ---------------------------------------------------------------------------
 # 15. Duas compras na mesma data
 # ---------------------------------------------------------------------------
+
 
 def test_duas_compras_na_mesma_data_resolvem_pelo_id(client, session):
     """Duas compras no mesmo dia: o FIFO desempata pelo id.
@@ -751,12 +781,15 @@ def test_duas_compras_na_mesma_data_resolvem_pelo_id(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes P", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-300.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 2, 10),
-                     valor_total=450.00, quantidade=15)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-300.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 2, 10), valor_total=450.00, quantidade=15
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -775,6 +808,7 @@ def test_duas_compras_na_mesma_data_resolvem_pelo_id(client, session):
 # ---------------------------------------------------------------------------
 # 16. Venda com quantidade zero
 # ---------------------------------------------------------------------------
+
 
 def test_venda_com_quantidade_zero_e_ignorada(client, session):
     """Uma venda de 0 unidades nao entra no calculo.
@@ -795,10 +829,12 @@ def test_venda_com_quantidade_zero_e_ignorada(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes O", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 4, 10),
-                     valor_total=50.00, quantidade=0)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 4, 10), valor_total=50.00, quantidade=0
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -818,6 +854,7 @@ def test_venda_com_quantidade_zero_e_ignorada(client, session):
 # 17. Bem sem unidades e sem preco
 # ---------------------------------------------------------------------------
 
+
 def test_bem_sem_unidades_e_sem_preco_vale_o_custo(client, session):
     """Um bem sem preco vale o custo de aquisicao, 15 000,00.
 
@@ -835,8 +872,7 @@ def test_bem_sem_unidades_e_sem_preco_vale_o_custo(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Terreno", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-15000.00)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-15000.00)
 
     resumo = pedir_resumo(client, ativo)
 
@@ -855,6 +891,7 @@ def test_bem_sem_unidades_e_sem_preco_vale_o_custo(client, session):
 # ---------------------------------------------------------------------------
 # 18. Fracções: a tolerância tem de esgotar os lotes até zero
 # ---------------------------------------------------------------------------
+
 
 def test_fraccoes_esgotam_os_lotes_sem_deixar_residuo(session):
     """0,1 + 0,2 vendidas em 0,3: não pode ficar resíduo de nenhuma das duas.
@@ -884,12 +921,15 @@ def test_fraccoes_esgotam_os_lotes_sem_deixar_residuo(session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes Fraccionadas", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-1.00, quantidade=0.1)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
-                     valor_total=-4.00, quantidade=0.2)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 10),
-                     valor_total=6.00, quantidade=0.3)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-1.00, quantidade=0.1
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 2, 10), valor_total=-4.00, quantidade=0.2
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 3, 10), valor_total=6.00, quantidade=0.3
+    )
     preco = semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     movimentos = (
@@ -915,6 +955,7 @@ def test_fraccoes_esgotam_os_lotes_sem_deixar_residuo(session):
 # ---------------------------------------------------------------------------
 # 19. Três lotes: a ordem de consumo não se deduz do mais/menos-valia
 # ---------------------------------------------------------------------------
+
 
 def test_tres_lotes_consomem_do_mais_antigo_para_o_mais_recente(client, session):
     """Vender 15 unidades com três lotes em carteira, a saída depende da ordem.
@@ -954,14 +995,18 @@ def test_tres_lotes_consomem_do_mais_antigo_para_o_mais_recente(client, session)
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes Tres Lotes", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-100.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 2, 10),
-                     valor_total=-200.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 3, 10),
-                     valor_total=-300.00, quantidade=10)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 10),
-                     valor_total=450.00, quantidade=15)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-100.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 2, 10), valor_total=-200.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 3, 10), valor_total=-300.00, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 6, 10), valor_total=450.00, quantidade=15
+    )
     semear_preco(session, ativo, DATA_PRECO, PRECO_UNITARIO)
 
     resumo = pedir_resumo(client, ativo)
@@ -980,6 +1025,7 @@ def test_tres_lotes_consomem_do_mais_antigo_para_o_mais_recente(client, session)
 # ---------------------------------------------------------------------------
 # 20. Sem unidades, detido e com preço acima do custo
 # ---------------------------------------------------------------------------
+
 
 def test_bem_sem_unidades_detido_valoriza_acima_do_custo(client, session):
     """Um bem sem unidades detido, com o preço registado acima do que custou.
@@ -1002,8 +1048,9 @@ def test_bem_sem_unidades_detido_valoriza_acima_do_custo(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Moradia", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-200000.00)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200000.00
+    )
     semear_preco(session, ativo, DATA_PRECO, 250000.00)
 
     resumo = pedir_resumo(client, ativo)
@@ -1024,6 +1071,7 @@ def test_bem_sem_unidades_detido_valoriza_acima_do_custo(client, session):
 # ---------------------------------------------------------------------------
 # 21. Sem unidades, vendido e com preço registado depois da venda
 # ---------------------------------------------------------------------------
+
 
 def test_bem_sem_unidades_vendido_ignora_preco_posterior(client, session):
     """Vendido a perda, e um preço registado depois da venda não ressuscita o bem.
@@ -1056,10 +1104,8 @@ def test_bem_sem_unidades_vendido_ignora_preco_posterior(client, session):
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
     ativo = semear_ativo(session, "Armazem", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-20000.00)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 15),
-                     valor_total=12000.00)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-20000.00)
+    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 6, 15), valor_total=12000.00)
     semear_preco(session, ativo, date(2025, 7, 1), 99999.00)
 
     resumo = pedir_resumo(client, ativo)
@@ -1081,6 +1127,7 @@ def test_bem_sem_unidades_vendido_ignora_preco_posterior(client, session):
 # 22. Quantidade x preço no meio cêntimo (D11)
 # ---------------------------------------------------------------------------
 
+
 def test_valor_de_quantidade_vezes_preco_no_meio_centimo(client, session):
     """0,5 unidades a 10,01 valem 5,005, que arredonda para 5,01.
 
@@ -1095,8 +1142,9 @@ def test_valor_de_quantidade_vezes_preco_no_meio_centimo(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Meia Acao", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-5.00, quantidade=0.5)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-5.00, quantidade=0.5
+    )
     semear_preco(session, ativo, DATA_PRECO, 10.01)
 
     resumo = pedir_resumo(client, ativo)
@@ -1115,6 +1163,7 @@ def test_valor_de_quantidade_vezes_preco_no_meio_centimo(client, session):
 # ---------------------------------------------------------------------------
 # 23. Venda parcial com o custo vendido no meio cêntimo (D11)
 # ---------------------------------------------------------------------------
+
 
 def test_venda_parcial_com_custo_no_meio_centimo(client, session):
     """Vender 1 de 2 unidades compradas por 10,01 deixa meio cêntimo de cada lado.
@@ -1137,10 +1186,12 @@ def test_venda_parcial_com_custo_no_meio_centimo(client, session):
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao Partida", tipo)
-    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10),
-                     valor_total=-10.01, quantidade=2)
-    semear_movimento(session, ativo, TipoMovimento.venda, date(2025, 3, 10),
-                     valor_total=6.00, quantidade=1)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-10.01, quantidade=2
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 3, 10), valor_total=6.00, quantidade=1
+    )
     semear_preco(session, ativo, DATA_PRECO, 3.00)
 
     resumo = pedir_resumo(client, ativo)
@@ -1154,4 +1205,3 @@ def test_venda_parcial_com_custo_no_meio_centimo(client, session):
         latente=-2.01,
         mais_menos_valia=-1.01,
     )
-

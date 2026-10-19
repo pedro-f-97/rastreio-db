@@ -106,14 +106,11 @@ def transacao(ano, mes, dia, tipo, valor, reembolso=False):
         data=date(ano, mes, dia),
         valor=valor,
         reembolso=reembolso,
-        categoria=(
-            SimpleNamespace(tipo=tipo, nome=NOMES[tipo]) if tipo is not None else None
-        ),
+        categoria=(SimpleNamespace(tipo=tipo, nome=NOMES[tipo]) if tipo is not None else None),
     )
 
 
-def linha(categoria_id, categoria_nome, tipo, valor,
-          subcategoria_id=None, subcategoria_nome=None):
+def linha(categoria_id, categoria_nome, tipo, valor, subcategoria_id=None, subcategoria_nome=None):
     """Linha de agregação com os mesmos nomes de campo que a consulta projecta."""
     return SimpleNamespace(
         categoria_id=categoria_id,
@@ -129,6 +126,7 @@ def linha(categoria_id, categoria_nome, tipo, valor,
 # Secção A — _calculate_totals: a que ramo cada transação cai
 # ---------------------------------------------------------------------------
 
+
 def test_receita_normal_entra_no_cesto_das_receitas():
     """Uma receita positiva e não reembolsada vai toda para receitas.
 
@@ -138,9 +136,11 @@ def test_receita_normal_entra_no_cesto_das_receitas():
       receitas = 0 + 1500,00 = 1500,0
       os outros dois cestos ficam com o zero inicial da chave do mês
     """
-    resultado = _calculate_totals([
-        transacao(2025, 3, 10, TipoCategoria.receita, 1500.00),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 3, 10, TipoCategoria.receita, 1500.00),
+        ]
+    )
 
     assert resultado == {
         (2025, 3): {"receitas": 1500.0, "despesas": 0, "investimento": 0},
@@ -156,9 +156,11 @@ def test_despesa_normal_entra_com_sinal_negativo():
       ramo C: -250,50 < 0 e o tipo não é receita
       despesas = 0 + (-250,50) = -250,5
     """
-    resultado = _calculate_totals([
-        transacao(2025, 3, 5, TipoCategoria.despesa, -250.50),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 3, 5, TipoCategoria.despesa, -250.50),
+        ]
+    )
 
     assert resultado == {
         (2025, 3): {"receitas": 0, "despesas": -250.5, "investimento": 0},
@@ -179,9 +181,11 @@ def test_reembolso_entra_no_cesto_das_despesas_com_sinal_positivo():
     que `resumo_mensal` soma às receitas para dar a poupança, pelo
     que um reembolso de 120,00 tem de entrar com + para a poupança descer.
     """
-    resultado = _calculate_totals([
-        transacao(2025, 5, 12, TipoCategoria.despesa, 120.00, reembolso=True),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 5, 12, TipoCategoria.despesa, 120.00, reembolso=True),
+        ]
+    )
 
     assert resultado == {
         (2025, 5): {"receitas": 0, "despesas": 120.0, "investimento": 0},
@@ -202,9 +206,11 @@ def test_transferencia_e_ignorada_e_nao_cria_mes():
     `resumo_mensal` volta a acrescentar os meses em falta a zeros (no ciclo
     sobre `todos_meses`); aqui vê-se.
     """
-    resultado = _calculate_totals([
-        transacao(2025, 4, 2, TipoCategoria.transferencia, -500.00),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 4, 2, TipoCategoria.transferencia, -500.00),
+        ]
+    )
 
     assert resultado == {}
 
@@ -217,10 +223,12 @@ def test_investimento_soma_compra_e_venda_no_mes():
       20-04: ramo B, investimento = -1000,0 + 1500,00 = 500,0
       receitas e despesas ficam a zero: um investimento nunca as toca
     """
-    resultado = _calculate_totals([
-        transacao(2025, 4, 2, TipoCategoria.investimento, -1000.00),
-        transacao(2025, 4, 20, TipoCategoria.investimento, 1500.00),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 4, 2, TipoCategoria.investimento, -1000.00),
+            transacao(2025, 4, 20, TipoCategoria.investimento, 1500.00),
+        ]
+    )
 
     assert resultado == {
         (2025, 4): {"receitas": 0, "despesas": 0, "investimento": 500.0},
@@ -236,9 +244,11 @@ def test_investimento_marcado_como_reembolso_continua_no_cesto_do_investimento()
       investimento = 0 + (-1000,00) = -1000,0
       despesas = 0, porque o ramo D nunca é alcançado
     """
-    resultado = _calculate_totals([
-        transacao(2025, 4, 2, TipoCategoria.investimento, -1000.00, reembolso=True),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 4, 2, TipoCategoria.investimento, -1000.00, reembolso=True),
+        ]
+    )
 
     assert resultado == {
         (2025, 4): {"receitas": 0, "despesas": 0, "investimento": -1000.0},
@@ -262,10 +272,12 @@ def test_receita_negativa_reduz_as_receitas():
     A poupança (calculada em `resumo_mensal`, não aqui) passa de 1500,0 para
     1200,0.
     """
-    resultado = _calculate_totals([
-        transacao(2025, 3, 10, TipoCategoria.receita, -300.00),
-        transacao(2025, 3, 15, TipoCategoria.receita, 1500.00),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 3, 10, TipoCategoria.receita, -300.00),
+            transacao(2025, 3, 15, TipoCategoria.receita, 1500.00),
+        ]
+    )
 
     assert resultado == {
         (2025, 3): {"receitas": 1200.0, "despesas": 0, "investimento": 0},
@@ -281,9 +293,11 @@ def test_receita_negativa_marcada_como_reembolso_tambem_reduz_as_receitas():
 
     Cálculo à mão: -80,00, receita, com reembolso -> ramo A2 -> receitas = -80,0.
     """
-    resultado = _calculate_totals([
-        transacao(2025, 5, 4, TipoCategoria.receita, -80.00, reembolso=True),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 5, 4, TipoCategoria.receita, -80.00, reembolso=True),
+        ]
+    )
 
     assert resultado == {
         (2025, 5): {"receitas": -80.0, "despesas": 0, "investimento": 0},
@@ -309,10 +323,12 @@ def test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas():
     Face ao comportamento antigo, em que o +30,00 desaparecia e o mês fechava
     com -45,5, a diferença na poupança é de 30,00.
     """
-    resultado = _calculate_totals([
-        transacao(2025, 6, 3, TipoCategoria.despesa, -45.50),
-        transacao(2025, 6, 18, TipoCategoria.despesa, 30.00),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 6, 3, TipoCategoria.despesa, -45.50),
+            transacao(2025, 6, 18, TipoCategoria.despesa, 30.00),
+        ]
+    )
 
     # -45,50 + 30,00 = -15,50
     assert resultado == {
@@ -335,9 +351,11 @@ def test_valor_zero_cria_o_mes_mas_nao_soma(tipo):
       ramo D: exige `valor > 0`
       os três cestos ficam com o zero inicial da chave do mês
     """
-    resultado = _calculate_totals([
-        transacao(2025, 5, 20, tipo, 0.0),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 5, 20, tipo, 0.0),
+        ]
+    )
 
     assert resultado == {
         (2025, 5): {"receitas": 0, "despesas": 0, "investimento": 0},
@@ -357,14 +375,16 @@ def test_varias_transacoes_no_mesmo_mes_somam_ao_mesmo_cesto():
     E o mês seguinte, 2025-07, que tem de ter o seu cesto:
       despesas = 0 + (-800,00) = -800,0
     """
-    resultado = _calculate_totals([
-        transacao(2025, 6, 2, TipoCategoria.receita, 1500.00),
-        transacao(2025, 6, 3, TipoCategoria.despesa, -45.50),
-        transacao(2025, 6, 10, TipoCategoria.despesa, -1200.25),
-        transacao(2025, 6, 18, TipoCategoria.despesa, 30.00, reembolso=True),
-        transacao(2025, 6, 25, TipoCategoria.investimento, -500.00),
-        transacao(2025, 7, 1, TipoCategoria.despesa, -800.00),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 6, 2, TipoCategoria.receita, 1500.00),
+            transacao(2025, 6, 3, TipoCategoria.despesa, -45.50),
+            transacao(2025, 6, 10, TipoCategoria.despesa, -1200.25),
+            transacao(2025, 6, 18, TipoCategoria.despesa, 30.00, reembolso=True),
+            transacao(2025, 6, 25, TipoCategoria.investimento, -500.00),
+            transacao(2025, 7, 1, TipoCategoria.despesa, -800.00),
+        ]
+    )
 
     assert resultado == {
         (2025, 6): {"receitas": 1500.0, "despesas": -1215.75, "investimento": -500.0},
@@ -380,9 +400,11 @@ def test_transacao_sem_categoria_e_ignorada_e_nao_cria_mes():
       a chave (2025, 7) nunca chega a ser criada
       resultado: dicionário vazio
     """
-    resultado = _calculate_totals([
-        transacao(2025, 7, 9, None, -50.00),
-    ])
+    resultado = _calculate_totals(
+        [
+            transacao(2025, 7, 9, None, -50.00),
+        ]
+    )
 
     assert resultado == {}
 
@@ -390,6 +412,7 @@ def test_transacao_sem_categoria_e_ignorada_e_nao_cria_mes():
 # ---------------------------------------------------------------------------
 # Secção B — _agregar_por_categoria: o dicionário que alimenta o detalhe mensal
 # ---------------------------------------------------------------------------
+
 
 def test_agrega_duas_categorias_e_as_respectivas_subcategorias():
     """Duas categorias, três subcategorias e uma linha sem subcategoria.
@@ -418,14 +441,16 @@ def test_agrega_duas_categorias_e_as_respectivas_subcategorias():
     `"Sem subcategoria"`. O `categoria_tipo` fica o enum em bruto: quem o
     converte em texto é `detalhe_mensal`, com `.value` sobre `categoria_tipo`.
     """
-    agregado = _agregar_por_categoria([
-        linha(1, "Casa", TipoCategoria.despesa, -800.00, 10, "Renda"),
-        linha(1, "Casa", TipoCategoria.despesa, -200.00, 10, "Renda"),
-        linha(1, "Casa", TipoCategoria.despesa, -150.25, 11, "Supermercado"),
-        linha(1, "Casa", TipoCategoria.despesa, -50.00),
-        linha(2, "Receita", TipoCategoria.receita, 1500.00, 20, "Salário"),
-        linha(3, "Investimento", TipoCategoria.investimento, -1000.00, 30, "Ações"),
-    ])
+    agregado = _agregar_por_categoria(
+        [
+            linha(1, "Casa", TipoCategoria.despesa, -800.00, 10, "Renda"),
+            linha(1, "Casa", TipoCategoria.despesa, -200.00, 10, "Renda"),
+            linha(1, "Casa", TipoCategoria.despesa, -150.25, 11, "Supermercado"),
+            linha(1, "Casa", TipoCategoria.despesa, -50.00),
+            linha(2, "Receita", TipoCategoria.receita, 1500.00, 20, "Salário"),
+            linha(3, "Investimento", TipoCategoria.investimento, -1000.00, 30, "Ações"),
+        ]
+    )
 
     assert agregado == {
         1: {
@@ -471,9 +496,11 @@ def test_arredondamento_em_centimos_arredonda_meio_centimo_para_longe_de_zero():
 
     Antes da D11 dava 12: `round(0,125 x 100)` arredonda a par, e 12 é par.
     """
-    agregado = _agregar_por_categoria([
-        linha(1, "Casa", TipoCategoria.despesa, 0.125, 10, "Renda"),
-    ])
+    agregado = _agregar_por_categoria(
+        [
+            linha(1, "Casa", TipoCategoria.despesa, 0.125, 10, "Renda"),
+        ]
+    )
 
     assert agregado[1]["total_centimos"] == 13
     assert agregado[1]["subcategorias"][10]["total_centimos"] == 13

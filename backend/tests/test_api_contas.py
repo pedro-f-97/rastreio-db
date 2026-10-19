@@ -14,8 +14,8 @@ from database import Conta, ModoValor, PerfilImportacao, Transacao
 # Auxiliares
 # ---------------------------------------------------------------------------
 
-def semear_conta(session, nome, saldo_referencia, data_referencia,
-                 ativa=True):
+
+def semear_conta(session, nome, saldo_referencia, data_referencia, ativa=True):
     conta = Conta(
         nome=nome,
         saldo_referencia=saldo_referencia,
@@ -42,6 +42,7 @@ def semear_transacao(session, data, descricao, valor, conta):
 # ---------------------------------------------------------------------------
 # B1 — GET /api/contas/ (com barra final) e `incluir_inativas`
 # ---------------------------------------------------------------------------
+
 
 def test_listar_contas_filtra_inativas_por_omissao(client, session):
     """Sem `incluir_inativas`, só aparecem as contas activas.
@@ -78,6 +79,7 @@ def test_listar_contas_filtra_inativas_por_omissao(client, session):
 # B2 — POST /api/contas/ e duplicado (409)
 # ---------------------------------------------------------------------------
 
+
 def test_criar_conta_e_rejeitar_duplicado(client, session):
     """Criar uma conta devolve-a completa e um nome repetido dá 409.
 
@@ -94,8 +96,7 @@ def test_criar_conta_e_rejeitar_duplicado(client, session):
 
     Estado final da BD: 1 conta — o segundo POST não cria nada.
     """
-    payload = {"nome": "Cartão", "saldo_referencia": 100.0,
-               "data_referencia": "2025-01-01"}
+    payload = {"nome": "Cartão", "saldo_referencia": 100.0, "data_referencia": "2025-01-01"}
 
     r = client.post("/api/contas/", json=payload)
 
@@ -120,6 +121,7 @@ def test_criar_conta_e_rejeitar_duplicado(client, session):
 # ---------------------------------------------------------------------------
 # B3 — PUT /api/contas/{id} parcial (exclude_none) e 404
 # ---------------------------------------------------------------------------
+
 
 def test_atualizar_conta_parcialmente_e_404_se_nao_existir(client, session):
     """O PUT só muda os campos enviados; atualizar um id inexistente dá 404.
@@ -160,6 +162,7 @@ def test_atualizar_conta_parcialmente_e_404_se_nao_existir(client, session):
 # B4/B5 — DELETE /api/contas/{id}: elimina ou desactiva
 # ---------------------------------------------------------------------------
 
+
 def test_apagar_conta_sem_transacoes_elimina(client, session):
     """Sem transacções, o DELETE elimina a conta.
 
@@ -196,8 +199,13 @@ def test_apagar_conta_sem_transacoes_desassocia_os_perfis(client, session):
     """
     conta = semear_conta(session, "Poupança", 0.0, date(2025, 1, 1))
     perfil = PerfilImportacao(
-        nome="Banco", linha_inicio_dados=1, coluna_data=0, formato_data="%d/%m/%Y",
-        coluna_descricao=1, modo_valor=ModoValor.coluna_unica, coluna_valor=2,
+        nome="Banco",
+        linha_inicio_dados=1,
+        coluna_data=0,
+        formato_data="%d/%m/%Y",
+        coluna_descricao=1,
+        modo_valor=ModoValor.coluna_unica,
+        coluna_valor=2,
         conta_id=conta.id,
     )
     session.add(perfil)
@@ -241,6 +249,7 @@ def test_apagar_conta_com_transacoes_desativa(client, session):
 # ---------------------------------------------------------------------------
 # B6 — GET /api/contas/{id}/saldo e /api/patrimonio/evolucao concordam (era a D3)
 # ---------------------------------------------------------------------------
+
 
 def test_saldo_conta_e_evolucao_excluem_a_data_de_referencia(client, session):
     """O saldo da conta e a evolução excluem os dois a data de referência.
@@ -295,13 +304,15 @@ def test_saldo_conta_e_evolucao_excluem_a_data_de_referencia(client, session):
     )
 
     assert r_evolucao.status_code == 200
-    assert r_evolucao.json() == [{
-        "data": "2025-01-31",
-        "liquidez": 130.0,
-        "investimentos": 0.0,
-        "ativos_fisicos": 0.0,
-        "total": 130.0,
-    }]
+    assert r_evolucao.json() == [
+        {
+            "data": "2025-01-31",
+            "liquidez": 130.0,
+            "investimentos": 0.0,
+            "ativos_fisicos": 0.0,
+            "total": 130.0,
+        }
+    ]
     assert session.query(Conta).count() == 1
     assert session.query(Transacao).count() == 3
 
@@ -309,6 +320,7 @@ def test_saldo_conta_e_evolucao_excluem_a_data_de_referencia(client, session):
 # ---------------------------------------------------------------------------
 # B7 — GET /api/contas/{id}/saldo sem transacções e 404
 # ---------------------------------------------------------------------------
+
 
 def test_saldo_conta_sem_transacoes_devolve_referencia_e_404(client, session):
     """Sem transacções o saldo é a referência; id inexistente dá 404.

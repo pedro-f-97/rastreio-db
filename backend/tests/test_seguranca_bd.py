@@ -123,9 +123,16 @@ def test_app_de_testes_cobre_os_mesmos_routers_que_o_main():
     )
 
     dos_testes = [
-        categorias.router, transacoes.router, regras.router, importacao.router,
-        estatisticas.router, backups.router, configuracao.router,
-        perfis_importacao.router, patrimonio.router, contas.router,
+        categorias.router,
+        transacoes.router,
+        regras.router,
+        importacao.router,
+        estatisticas.router,
+        backups.router,
+        configuracao.router,
+        perfis_importacao.router,
+        patrimonio.router,
+        contas.router,
         tipos_ativo.router,
     ]
 

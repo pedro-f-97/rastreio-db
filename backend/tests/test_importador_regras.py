@@ -80,6 +80,7 @@ from importador_transacoes import aplicar_regras, importar_transacoes
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def regra(palavra_chave, categoria_id=None, subcategoria_id=None):
     """Regra com os mesmos nomes de campo que `RegraCategorizacao`.
 
@@ -92,8 +93,7 @@ def regra(palavra_chave, categoria_id=None, subcategoria_id=None):
     )
 
 
-def transacao(descricao, categoria_id=None, subcategoria_id=None,
-              ano=2025, mes=3, dia=10):
+def transacao(descricao, categoria_id=None, subcategoria_id=None, ano=2025, mes=3, dia=10):
     """Transação com os mesmos nomes de campo que `Transacao`.
 
     A data é fixa e não é lida por `aplicar_regras`; existe para que o objecto
@@ -112,6 +112,7 @@ def transacao(descricao, categoria_id=None, subcategoria_id=None,
 # ---------------------------------------------------------------------------
 # Fase 2 — a regra que casa atribui
 # ---------------------------------------------------------------------------
+
 
 def test_regra_que_casa_atribui_categoria_e_subcategoria():
     """Regra que casa, transação sem categoria: atribui as duas coisas.
@@ -205,11 +206,14 @@ def test_a_primeira_regra_que_casa_ganha():
       são avaliadas
     """
     t = transacao("MERCADO CENTRAL LISBOA")
-    aplicar_regras(t, [
-        regra("mercado", 1, 10),
-        regra("mercado central", 2, 20),
-        regra("central", 3, 30),
-    ])
+    aplicar_regras(
+        t,
+        [
+            regra("mercado", 1, 10),
+            regra("mercado central", 2, 20),
+            regra("central", 3, 30),
+        ],
+    )
 
     assert (t.categoria_id, t.subcategoria_id) == (1, 10)
 
@@ -242,10 +246,13 @@ def test_break_impede_a_segunda_regra_de_atribuir_a_subcategoria():
       sem o break da linha 23 o resultado seria (1, 20)
     """
     t = transacao("MERCADO CENTRAL LISBOA")
-    aplicar_regras(t, [
-        regra("mercado", 1, None),
-        regra("mercado central", 1, 20),
-    ])
+    aplicar_regras(
+        t,
+        [
+            regra("mercado", 1, None),
+            regra("mercado central", 1, 20),
+        ],
+    )
 
     assert (t.categoria_id, t.subcategoria_id) == (1, None)
 
@@ -253,6 +260,7 @@ def test_break_impede_a_segunda_regra_de_atribuir_a_subcategoria():
 # ---------------------------------------------------------------------------
 # Fase 2 — a transação já vem categorizada
 # ---------------------------------------------------------------------------
+
 
 def test_mesma_categoria_sem_subcategoria_atribui_subcategoria():
     """Categoria já certa, subcategoria a None: só a subcategoria é escrita.
@@ -306,10 +314,13 @@ def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
       esperado: (5, None), sem subcategoria
     """
     t = transacao("CARGA METRO LISBOA", categoria_id=5)
-    aplicar_regras(t, [
-        regra("metro", 2, 20),
-        regra("lisboa", 2, 21),
-    ])
+    aplicar_regras(
+        t,
+        [
+            regra("metro", 2, 20),
+            regra("lisboa", 2, 21),
+        ],
+    )
 
     assert (t.categoria_id, t.subcategoria_id) == (5, None)
 
@@ -342,10 +353,13 @@ def test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria():
       sem o break da linha 23 o resultado seria (5, 50)
     """
     t = transacao("METRO LISBOA", categoria_id=5)
-    aplicar_regras(t, [
-        regra("metro", 2, 20),
-        regra("lisboa", 5, 50),
-    ])
+    aplicar_regras(
+        t,
+        [
+            regra("metro", 2, 20),
+            regra("lisboa", 5, 50),
+        ],
+    )
 
     assert (t.categoria_id, t.subcategoria_id) == (5, None)
 
@@ -353,6 +367,7 @@ def test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria():
 # ---------------------------------------------------------------------------
 # Fase 1 — regras de exclusão
 # ---------------------------------------------------------------------------
+
 
 def test_regra_de_exclusao_deixa_a_transacao_por_categorizar():
     """Regra de exclusão que casa: a fase 2 nem corre.
@@ -400,10 +415,13 @@ def test_regra_de_exclusao_ganha_mesmo_listada_depois():
       esperado: (None, None), e não (1, 10)
     """
     t = transacao("BICA XP CERVEJA")
-    aplicar_regras(t, [
-        regra("bica", 1, 10),
-        regra("bica xp"),
-    ])
+    aplicar_regras(
+        t,
+        [
+            regra("bica", 1, 10),
+            regra("bica xp"),
+        ],
+    )
 
     assert (t.categoria_id, t.subcategoria_id) == (None, None)
 
@@ -411,6 +429,7 @@ def test_regra_de_exclusao_ganha_mesmo_listada_depois():
 # ---------------------------------------------------------------------------
 # Casos limite
 # ---------------------------------------------------------------------------
+
 
 def test_lista_de_regras_vazia_nao_faz_nada():
     """Sem regras, os dois `for` não correm e a transação não é tocada.
@@ -457,11 +476,11 @@ def test_palavra_chave_vazia_casa_em_tudo():
 # Precedência das regras na importação (era a D7)
 # ---------------------------------------------------------------------------
 
+
 def _importar_uma(session, descricao):
     """Importa uma linha com `importar_transacoes` e devolve a transacção gravada."""
     importar_transacoes(
-        [{"data": date(2025, 3, 10), "descricao": descricao, "valor": -12.75,
-          "saldo": None}],
+        [{"data": date(2025, 3, 10), "descricao": descricao, "valor": -12.75, "saldo": None}],
         session,
     )
     return session.query(Transacao).filter_by(descricao=descricao).one()
@@ -477,8 +496,7 @@ def _categorias(session, *nomes):
 def _regras(session, *pares):
     """Cria as regras por esta ordem, e por isso com `id` crescente."""
     for palavra_chave, categoria in pares:
-        session.add(RegraCategorizacao(palavra_chave=palavra_chave,
-                                       categoria_id=categoria.id))
+        session.add(RegraCategorizacao(palavra_chave=palavra_chave, categoria_id=categoria.id))
         session.commit()
 
 

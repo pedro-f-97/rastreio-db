@@ -34,6 +34,7 @@ from database import Categoria, RegraCategorizacao, Subcategoria, TipoCategoria,
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def _categorias(session):
     """Semeia Casa (despesa), Lazer (despesa) e Alimentação (de Casa).
 
@@ -72,6 +73,7 @@ def _transacao(session, descricao, dia, categoria_id=None, subcategoria_id=None)
 # ---------------------------------------------------------------------------
 # POST / — nome duplicado (400) e backfill
 # ---------------------------------------------------------------------------
+
 
 def test_criar_regra_duplicada_da_400(client, session):
     """Uma palavra-chave que já existe é recusada com 400, antes de escrever.
@@ -113,27 +115,37 @@ def test_backfill_toca_por_categorizar_e_mesma_categoria_sem_subcategoria(client
     t1 = _transacao(session, "PINGO DOCE", 1)
     t2 = _transacao(session, "PINGO DOCE", 2, categoria_id=casa.id)
     t3 = _transacao(session, "PINGO DOCE", 3, categoria_id=lazer.id)
-    t4 = _transacao(session, "PINGO DOCE", 4, categoria_id=casa.id,
-                    subcategoria_id=sub_alim.id)
+    t4 = _transacao(session, "PINGO DOCE", 4, categoria_id=casa.id, subcategoria_id=sub_alim.id)
 
-    r = client.post("/api/regras/", json={
-        "palavra_chave": "pingo",
-        "categoria_id": casa.id,
-        "subcategoria_id": sub_alim.id,
-    })
+    r = client.post(
+        "/api/regras/",
+        json={
+            "palavra_chave": "pingo",
+            "categoria_id": casa.id,
+            "subcategoria_id": sub_alim.id,
+        },
+    )
 
     assert r.status_code == 200
     assert r.json()["transacoes_atualizadas"] == 2
 
     session.expire_all()
-    assert (session.get(Transacao, t1.id).categoria_id,
-            session.get(Transacao, t1.id).subcategoria_id) == (casa.id, sub_alim.id)
-    assert (session.get(Transacao, t2.id).categoria_id,
-            session.get(Transacao, t2.id).subcategoria_id) == (casa.id, sub_alim.id)
-    assert (session.get(Transacao, t3.id).categoria_id,
-            session.get(Transacao, t3.id).subcategoria_id) == (lazer.id, None)
-    assert (session.get(Transacao, t4.id).categoria_id,
-            session.get(Transacao, t4.id).subcategoria_id) == (casa.id, sub_alim.id)
+    assert (
+        session.get(Transacao, t1.id).categoria_id,
+        session.get(Transacao, t1.id).subcategoria_id,
+    ) == (casa.id, sub_alim.id)
+    assert (
+        session.get(Transacao, t2.id).categoria_id,
+        session.get(Transacao, t2.id).subcategoria_id,
+    ) == (casa.id, sub_alim.id)
+    assert (
+        session.get(Transacao, t3.id).categoria_id,
+        session.get(Transacao, t3.id).subcategoria_id,
+    ) == (lazer.id, None)
+    assert (
+        session.get(Transacao, t4.id).categoria_id,
+        session.get(Transacao, t4.id).subcategoria_id,
+    ) == (casa.id, sub_alim.id)
 
 
 def test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria(client, session):
@@ -151,10 +163,13 @@ def test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria(client, sessio
     casa, _lazer, sub_alim = _categorias(session)
     orfa = _transacao(session, "PINGO DOCE", 1, subcategoria_id=sub_alim.id)
 
-    r = client.post("/api/regras/", json={
-        "palavra_chave": "pingo",
-        "categoria_id": casa.id,
-    })
+    r = client.post(
+        "/api/regras/",
+        json={
+            "palavra_chave": "pingo",
+            "categoria_id": casa.id,
+        },
+    )
 
     assert r.status_code == 200
     assert r.json()["transacoes_atualizadas"] == 1
@@ -168,6 +183,7 @@ def test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria(client, sessio
 # ---------------------------------------------------------------------------
 # POST / — acentos, "%" e "_" (era a D8 b e c)
 # ---------------------------------------------------------------------------
+
 
 def test_backfill_com_acento_casa_descricao_maiuscula(client, session):
     """A palavra "café" casa a descrição em minúsculas e em maiúsculas.
@@ -271,19 +287,25 @@ def test_backfill_respeita_as_regras_de_exclusao(client, session):
     t_trf = _transacao(session, "TRF PINGO", 2)
     t_trf_casa = _transacao(session, "TRF PINGO 2", 3, categoria_id=casa.id)
 
-    r = client.post("/api/regras/", json={
-        "palavra_chave": "pingo",
-        "categoria_id": casa.id,
-        "subcategoria_id": sub_alim.id,
-    })
+    r = client.post(
+        "/api/regras/",
+        json={
+            "palavra_chave": "pingo",
+            "categoria_id": casa.id,
+            "subcategoria_id": sub_alim.id,
+        },
+    )
 
     assert r.status_code == 200
     assert r.json()["transacoes_atualizadas"] == 1
 
     session.expire_all()
+
     def estado(t):
-        return (session.get(Transacao, t.id).categoria_id,
-                session.get(Transacao, t.id).subcategoria_id)
+        return (
+            session.get(Transacao, t.id).categoria_id,
+            session.get(Transacao, t.id).subcategoria_id,
+        )
 
     assert estado(t_ok) == (casa.id, sub_alim.id)
     assert estado(t_trf) == (None, None)
@@ -293,6 +315,7 @@ def test_backfill_respeita_as_regras_de_exclusao(client, session):
 # ---------------------------------------------------------------------------
 # POST /pre-visualizar vs backfill (com transacções órfãs)
 # ---------------------------------------------------------------------------
+
 
 def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, session):
     # A pré-visualização pré-filtra `subcategoria_id IS NULL` e o backfill
@@ -336,10 +359,13 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
     assert apagar.status_code == 200
     assert apagar.json() == {"ok": True}
 
-    criar = client.post("/api/regras/", json={
-        "palavra_chave": "PINGO",
-        "categoria_id": casa.id,
-    })
+    criar = client.post(
+        "/api/regras/",
+        json={
+            "palavra_chave": "PINGO",
+            "categoria_id": casa.id,
+        },
+    )
     assert criar.status_code == 200
     assert criar.json()["transacoes_atualizadas"] == 2
 
@@ -351,6 +377,7 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
 # ---------------------------------------------------------------------------
 # DELETE /{regra_id}
 # ---------------------------------------------------------------------------
+
 
 def test_pre_visualizar_avalia_primeiro_a_palavra_chave_mais_longa(client, session):
     """A pré-visualização usa a mesma precedência que a importação (era a D7).
@@ -407,6 +434,7 @@ def test_apagar_regra_existente_e_inexistente(client, session):
 # POST / com IDs inexistentes (D1)
 # ---------------------------------------------------------------------------
 
+
 def test_criar_regra_com_categoria_inexistente_da_400(client, session):
     """Uma categoria que não existe dá 400 e a regra não é gravada (D1).
 
@@ -438,9 +466,14 @@ def test_criar_regra_com_subcategoria_inexistente_da_400(client, session):
     casa, _lazer, _sub = _categorias(session)
     t = _transacao(session, "PINGO DOCE", 1)
 
-    r = client.post("/api/regras/", json={
-        "palavra_chave": "PINGO", "categoria_id": casa.id, "subcategoria_id": 999,
-    })
+    r = client.post(
+        "/api/regras/",
+        json={
+            "palavra_chave": "PINGO",
+            "categoria_id": casa.id,
+            "subcategoria_id": 999,
+        },
+    )
 
     assert r.status_code == 400
     assert r.json() == {"detail": "Subcategoria não encontrada."}

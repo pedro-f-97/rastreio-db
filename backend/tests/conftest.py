@@ -52,6 +52,7 @@ import pytest  # noqa: E402  (tem de vir depois do setup de ambiente acima)
 # Sessões de teste
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def session():
     """Sessão SQLAlchemy sobre uma BD SQLite in-memory, isolada por teste.
@@ -147,10 +148,10 @@ def client(session):
         yield c
 
 
-
 # ---------------------------------------------------------------------------
 # BD com o schema partido da D1a
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def criar_bd_com_fk_partida():
@@ -195,19 +196,25 @@ def criar_bd_com_fk_partida():
             )
             con.executemany(
                 "INSERT INTO precos_ativo VALUES (?, ?, ?, ?)",
-                [(5, 3, "2024-01-31", 10.5), (9, 3, "2024-02-29", 11.25),
-                 (12, 7, "2024-01-31", 2.0)],
+                [
+                    (5, 3, "2024-01-31", 10.5),
+                    (9, 3, "2024-02-29", 11.25),
+                    (12, 7, "2024-01-31", 2.0),
+                ],
             )
             con.executemany(
                 "INSERT INTO movimentos_ativo VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
-                [(2, 3, compra, "2024-01-10", 4.0, 10.0, 1.5, 41.5, None),
-                 (8, 7, compra, "2024-01-15", 10.0, 2.0, 0.0, 20.0, "nota")],
+                [
+                    (2, 3, compra, "2024-01-10", 4.0, 10.0, 1.5, 41.5, None),
+                    (8, 7, compra, "2024-01-15", 10.0, 2.0, 0.0, 20.0, "nota"),
+                ],
             )
 
             # O que old/migrar_tipos_ativo.py fez, passo a passo.
             con.execute("ALTER TABLE ativos RENAME TO ativos_old")
-            con.execute(str(CreateTable(Ativo.__table__).compile(
-                dialect=dialecto_sqlite.dialect())))
+            con.execute(
+                str(CreateTable(Ativo.__table__).compile(dialect=dialecto_sqlite.dialect()))
+            )
             con.execute("INSERT INTO ativos SELECT * FROM ativos_old")
             con.execute("DROP TABLE ativos_old")
         finally:

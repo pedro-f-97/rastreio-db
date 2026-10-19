@@ -21,9 +21,12 @@ router = APIRouter(prefix="/patrimonio", tags=["patrimonio"])
 
 # --- PENDENTES ---
 
+
 @router.get("/pendentes", response_model=List[schemas.TransacaoPendente])
 def listar_pendentes(db: Session = Depends(get_db)):
-    resultado = db.execute(text("""
+    resultado = (
+        db.execute(
+            text("""
         SELECT t.id, t.data, t.descricao, t.valor, t.subcategoria_id
         FROM transacoes t
         JOIN subcategorias s ON t.subcategoria_id = s.id
@@ -31,11 +34,16 @@ def listar_pendentes(db: Session = Depends(get_db)):
         WHERE s.trata_patrimonio = 1
         AND m.id IS NULL
         ORDER BY t.data DESC
-    """)).mappings().all()
+    """)
+        )
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in resultado]
 
 
 # --- ATIVOS ---
+
 
 @router.get("/ativos", response_model=List[schemas.Ativo])
 def listar_ativos(db: Session = Depends(get_db)):
@@ -56,6 +64,7 @@ def criar_ativo(payload: schemas.AtivoCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(ativo)
     return ativo
+
 
 @router.put("/ativos/{ativo_id}", response_model=schemas.Ativo)
 def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depends(get_db)):
@@ -78,6 +87,7 @@ def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depe
     db.refresh(ativo)
     return ativo
 
+
 @router.delete("/ativos/{ativo_id}", status_code=204)
 def eliminar_ativo(ativo_id: int, db: Session = Depends(get_db)):
     ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()
@@ -90,6 +100,7 @@ def eliminar_ativo(ativo_id: int, db: Session = Depends(get_db)):
 
 
 # --- MOVIMENTOS ---
+
 
 def _unidades(q: float) -> str:
     return f"{q:.6f}".rstrip("0").rstrip(".").replace(".", ",")
@@ -131,13 +142,19 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
     if payload.tipo_movimento.value == "compra" and payload.preco_unitario is not None:
         existente = (
             db.query(PrecoAtivoModel)
-            .filter(PrecoAtivoModel.ativo_id == payload.ativo_id, PrecoAtivoModel.data == payload.data)
+            .filter(
+                PrecoAtivoModel.ativo_id == payload.ativo_id, PrecoAtivoModel.data == payload.data
+            )
             .first()
         )
         if existente:
             existente.preco = payload.preco_unitario
         else:
-            db.add(PrecoAtivoModel(ativo_id=payload.ativo_id, data=payload.data, preco=payload.preco_unitario))
+            db.add(
+                PrecoAtivoModel(
+                    ativo_id=payload.ativo_id, data=payload.data, preco=payload.preco_unitario
+                )
+            )
 
     if payload.tipo_movimento.value == "venda":
         _recusar_sobre_venda(db, ativo)
@@ -146,6 +163,7 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
     db.commit()
     db.refresh(movimento)
     return movimento
+
 
 @router.delete("/movimentos/{movimento_id}", status_code=204)
 def eliminar_movimento(movimento_id: int, db: Session = Depends(get_db)):
@@ -174,6 +192,7 @@ def listar_movimentos(ativo_id: int, db: Session = Depends(get_db)):
 
 # --- PREÇOS ---
 
+
 @router.post("/precos", response_model=schemas.PrecoAtivo)
 def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_db)):
     ativo = db.query(AtivoModel).filter(AtivoModel.id == payload.ativo_id).first()
@@ -199,6 +218,7 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     db.refresh(preco)
     return preco
 
+
 @router.get("/ativos/{ativo_id}/precos", response_model=List[schemas.PrecoAtivo])
 def listar_precos(ativo_id: int, db: Session = Depends(get_db)):
     ativo = db.query(AtivoModel).filter(AtivoModel.id == ativo_id).first()
@@ -211,6 +231,7 @@ def listar_precos(ativo_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+
 @router.delete("/precos/{preco_id}", status_code=204)
 def eliminar_preco(preco_id: int, db: Session = Depends(get_db)):
     preco = db.query(PrecoAtivoModel).filter(PrecoAtivoModel.id == preco_id).first()
@@ -218,6 +239,7 @@ def eliminar_preco(preco_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Preço não encontrado.")
     db.delete(preco)
     db.commit()
+
 
 @router.get("/ativos/{ativo_id}/resumo")
 def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
@@ -269,6 +291,7 @@ def resumo_ativo(ativo_id: int, db: Session = Depends(get_db)):
         "latente": latente,
         "mais_menos_valia": mais_menos_valia,
     }
+
 
 @router.get("/evolucao")
 def evolucao_patrimonio(

@@ -8,13 +8,14 @@ def casa_palavra(palavra_chave: str, descricao: str) -> bool:
     acentuadas, e trata a palavra-chave como texto literal."""
     return palavra_chave.upper() in descricao.upper()
 
+
 def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
     # Fase 1: verificar regras de exclusão (categoria_id = None)
     for regra in regras:
         if regra.categoria_id is not None:
             continue
         if casa_palavra(regra.palavra_chave, transacao.descricao):
-            return                          # ← transação fica sem categoria
+            return  # ← transação fica sem categoria
 
     # Fase 2: aplicar primeira regra de categorização que corresponde
     for regra in regras:
@@ -28,29 +29,27 @@ def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
                 transacao.subcategoria_id = regra.subcategoria_id
             break
 
+
 def regras_por_precedencia(db: Session) -> list[RegraCategorizacao]:
     """Regras pela ordem em que são avaliadas (D7): a palavra-chave mais longa
     primeiro, porque é a mais específica, e em empate a mais antiga."""
     regras = db.query(RegraCategorizacao).all()
     return sorted(regras, key=lambda r: (-len(r.palavra_chave), r.id))
 
-def importar_transacoes(transacoes_parsed: list[dict], db: Session, conta_id: int | None = None) -> dict:
+
+def importar_transacoes(
+    transacoes_parsed: list[dict], db: Session, conta_id: int | None = None
+) -> dict:
     regras = regras_por_precedencia(db)
     inseridas = 0
     duplicadas = 0
 
     try:
         query_existentes = db.query(
-            Transacao.data,
-            Transacao.descricao,
-            Transacao.valor,
-            Transacao.saldo
+            Transacao.data, Transacao.descricao, Transacao.valor, Transacao.saldo
         ).filter(Transacao.conta_id == conta_id)
 
-        existentes = set(
-            (r.data, r.descricao, r.valor, r.saldo)
-            for r in query_existentes
-        )
+        existentes = set((r.data, r.descricao, r.valor, r.saldo) for r in query_existentes)
 
         for t in transacoes_parsed:
             chave = (t["data"], t["descricao"], t["valor"], t["saldo"])

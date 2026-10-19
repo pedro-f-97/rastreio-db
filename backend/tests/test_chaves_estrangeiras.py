@@ -34,8 +34,9 @@ def _categoria_com_transacao(session):
     cat = Categoria(nome="Casa", tipo=TipoCategoria.despesa)
     session.add(cat)
     session.commit()
-    session.add(Transacao(data=date(2025, 3, 10), descricao="Pingo Doce",
-                          valor=-50.0, categoria_id=cat.id))
+    session.add(
+        Transacao(data=date(2025, 3, 10), descricao="Pingo Doce", valor=-50.0, categoria_id=cat.id)
+    )
     session.commit()
     return cat
 
@@ -63,8 +64,9 @@ def test_filho_a_apontar_para_pai_inexistente_e_recusado_pela_bd(session):
 
     Estado final da BD: 0 transacções.
     """
-    session.add(Transacao(data=date(2025, 3, 10), descricao="Pingo Doce",
-                          valor=-50.0, categoria_id=999))
+    session.add(
+        Transacao(data=date(2025, 3, 10), descricao="Pingo Doce", valor=-50.0, categoria_id=999)
+    )
 
     with pytest.raises(IntegrityError, match="FOREIGN KEY constraint failed"):
         session.commit()

@@ -77,6 +77,7 @@ from database import (
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def _criar_conta(session, nome="Conta X"):
     """Cria uma conta com data de referência fixa e devolve-a com `id`."""
     conta = Conta(
@@ -164,6 +165,7 @@ def _pedido_importar(client, perfil_id, conteudo, nome="extrato.csv"):
 # /preview
 # ---------------------------------------------------------------------------
 
+
 def test_preview_devolve_as_primeiras_linhas_sem_tocar_na_bd(client, session, tmp_path):
     """Duas linhas válidas: 200 com as duas, e a base de dados fica vazia.
 
@@ -209,10 +211,16 @@ def test_preview_limita_a_dez_linhas(client, session, tmp_path):
     preview = corpo["linhas_preview"]
     assert len(preview) == 10
     assert preview[0] == {
-        "data": "2026-01-01", "descricao": "Linha 1", "valor": -1.0, "saldo": None,
+        "data": "2026-01-01",
+        "descricao": "Linha 1",
+        "valor": -1.0,
+        "saldo": None,
     }
     assert preview[9] == {
-        "data": "2026-01-10", "descricao": "Linha 10", "valor": -10.0, "saldo": None,
+        "data": "2026-01-10",
+        "descricao": "Linha 10",
+        "valor": -10.0,
+        "saldo": None,
     }
     assert corpo["total_linhas"] == 11
     assert corpo["erros"] == []
@@ -226,11 +234,14 @@ def test_preview_reporta_linha_invalida_como_erro_sem_400(client, session, tmp_p
     `total_linhas` = 1 + 1 = 2 e o preview tem 1 linha.
     """
     perfil = _criar_perfil(session)
-    caminho = escrever_csv(tmp_path / "com_erro.csv", (
-        "Data,Descrição,Valor",
-        '31/01/2026,Supermercado,"-45,60"',
-        '31/02/2026,Café,"-3,20"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "com_erro.csv",
+        (
+            "Data,Descrição,Valor",
+            '31/01/2026,Supermercado,"-45,60"',
+            '31/02/2026,Café,"-3,20"',
+        ),
+    )
 
     r = _pedido_preview(client, perfil.id, caminho.read_bytes())
 
@@ -274,7 +285,7 @@ def test_preview_com_ficheiro_indescodificavel_da_400(client, session):
     por isso só se afirma o código e que `detail` é uma string não vazia.
     """
     perfil = _criar_perfil(session)
-    conteudo_invalido = b"\xff\xfe31/01/2026,Supermercado,\"-45,60\""
+    conteudo_invalido = b'\xff\xfe31/01/2026,Supermercado,"-45,60"'
 
     r = _pedido_preview(client, perfil.id, conteudo_invalido)
 
@@ -286,6 +297,7 @@ def test_preview_com_ficheiro_indescodificavel_da_400(client, session):
 # ---------------------------------------------------------------------------
 # /importar — inserção e deduplicação
 # ---------------------------------------------------------------------------
+
 
 def test_importar_insere_e_devolve_contagens(client, session, tmp_path):
     """Duas linhas novas: 200 com `{"inseridas": 2, "duplicadas": 0}`.
@@ -305,8 +317,16 @@ def test_importar_insere_e_devolve_contagens(client, session, tmp_path):
 
     guardadas = session.query(Transacao).order_by(Transacao.data).all()
     assert [
-        (t.data, t.descricao, t.valor, t.saldo, t.conta_id,
-         t.categoria_id, t.subcategoria_id, t.reembolso)
+        (
+            t.data,
+            t.descricao,
+            t.valor,
+            t.saldo,
+            t.conta_id,
+            t.categoria_id,
+            t.subcategoria_id,
+            t.reembolso,
+        )
         for t in guardadas
     ] == [
         (date(2026, 1, 31), "Supermercado", -45.6, None, conta.id, None, None, False),
@@ -348,10 +368,15 @@ def test_dedup_usa_os_quatro_campos(client, session, tmp_path):
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
-    session.add(Transacao(
-        data=date(2026, 2, 2), descricao="Salário", valor=1500.0, saldo=None,
-        conta_id=conta.id,
-    ))
+    session.add(
+        Transacao(
+            data=date(2026, 2, 2),
+            descricao="Salário",
+            valor=1500.0,
+            saldo=None,
+            conta_id=conta.id,
+        )
+    )
     session.commit()
     caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
 
@@ -375,17 +400,28 @@ def test_dedup_com_saldo_distinto_nao_e_duplicado(client, session, tmp_path):
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(
-        session, conta_id=conta.id, tem_saldo=True, coluna_saldo=3,
+        session,
+        conta_id=conta.id,
+        tem_saldo=True,
+        coluna_saldo=3,
     )
-    session.add(Transacao(
-        data=date(2026, 1, 31), descricao="Supermercado", valor=-45.6,
-        saldo=100.0, conta_id=conta.id,
-    ))
+    session.add(
+        Transacao(
+            data=date(2026, 1, 31),
+            descricao="Supermercado",
+            valor=-45.6,
+            saldo=100.0,
+            conta_id=conta.id,
+        )
+    )
     session.commit()
-    caminho = escrever_csv(tmp_path / "com_saldo.csv", (
-        "Data,Descrição,Valor,Saldo",
-        '31/01/2026,Supermercado,"-45,60","200,00"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "com_saldo.csv",
+        (
+            "Data,Descrição,Valor,Saldo",
+            '31/01/2026,Supermercado,"-45,60","200,00"',
+        ),
+    )
 
     r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
@@ -406,17 +442,28 @@ def test_dedup_com_saldo_zero_contra_none_nao_e_duplicado(client, session, tmp_p
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(
-        session, conta_id=conta.id, tem_saldo=True, coluna_saldo=3,
+        session,
+        conta_id=conta.id,
+        tem_saldo=True,
+        coluna_saldo=3,
     )
-    session.add(Transacao(
-        data=date(2026, 1, 31), descricao="Supermercado", valor=-45.6,
-        saldo=None, conta_id=conta.id,
-    ))
+    session.add(
+        Transacao(
+            data=date(2026, 1, 31),
+            descricao="Supermercado",
+            valor=-45.6,
+            saldo=None,
+            conta_id=conta.id,
+        )
+    )
     session.commit()
-    caminho = escrever_csv(tmp_path / "saldo_zero.csv", (
-        "Data,Descrição,Valor,Saldo",
-        '31/01/2026,Supermercado,"-45,60","0,00"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "saldo_zero.csv",
+        (
+            "Data,Descrição,Valor,Saldo",
+            '31/01/2026,Supermercado,"-45,60","0,00"',
+        ),
+    )
 
     r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
@@ -437,15 +484,23 @@ def test_dedup_e_por_conta(client, session, tmp_path):
     conta1 = _criar_conta(session, nome="Conta 1")
     conta2 = _criar_conta(session, nome="Conta 2")
     perfil = _criar_perfil(session, conta_id=conta1.id)
-    session.add(Transacao(
-        data=date(2026, 1, 31), descricao="Supermercado", valor=-45.6,
-        saldo=None, conta_id=conta2.id,
-    ))
+    session.add(
+        Transacao(
+            data=date(2026, 1, 31),
+            descricao="Supermercado",
+            valor=-45.6,
+            saldo=None,
+            conta_id=conta2.id,
+        )
+    )
     session.commit()
-    caminho = escrever_csv(tmp_path / "extrato.csv", (
-        "Data,Descrição,Valor",
-        '31/01/2026,Supermercado,"-45,60"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "extrato.csv",
+        (
+            "Data,Descrição,Valor",
+            '31/01/2026,Supermercado,"-45,60"',
+        ),
+    )
 
     r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
@@ -454,7 +509,10 @@ def test_dedup_e_por_conta(client, session, tmp_path):
     assert session.query(Transacao).count() == 2
     nova = session.query(Transacao).filter_by(conta_id=conta1.id).one()
     assert (nova.data, nova.descricao, nova.valor, nova.saldo) == (
-        date(2026, 1, 31), "Supermercado", -45.6, None,
+        date(2026, 1, 31),
+        "Supermercado",
+        -45.6,
+        None,
     )
 
 
@@ -469,11 +527,14 @@ def test_linhas_repetidas_no_mesmo_ficheiro_nao_sao_deduplicadas(client, session
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
-    caminho = escrever_csv(tmp_path / "repetido.csv", (
-        "Data,Descrição,Valor",
-        '31/01/2026,Supermercado,"-45,60"',
-        '31/01/2026,Supermercado,"-45,60"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "repetido.csv",
+        (
+            "Data,Descrição,Valor",
+            '31/01/2026,Supermercado,"-45,60"',
+            '31/01/2026,Supermercado,"-45,60"',
+        ),
+    )
 
     r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
@@ -508,6 +569,7 @@ def test_importar_perfil_sem_conta_deduplica_por_is_null(client, session, tmp_pa
 # /importar — regras de categorização e casos-limite
 # ---------------------------------------------------------------------------
 
+
 def test_importar_aplica_regras_de_categorizacao(client, session, tmp_path):
     """Durante a importação, as regras da base de dados categorizam as linhas.
 
@@ -530,23 +592,32 @@ def test_importar_aplica_regras_de_categorizacao(client, session, tmp_path):
     session.commit()
     session.refresh(subcategoria)
 
-    session.add(RegraCategorizacao(
-        palavra_chave="supermercado",
-        categoria_id=categoria.id,
-        subcategoria_id=subcategoria.id,
-    ))
-    session.add(RegraCategorizacao(
-        palavra_chave="café", categoria_id=None, subcategoria_id=None,
-    ))
+    session.add(
+        RegraCategorizacao(
+            palavra_chave="supermercado",
+            categoria_id=categoria.id,
+            subcategoria_id=subcategoria.id,
+        )
+    )
+    session.add(
+        RegraCategorizacao(
+            palavra_chave="café",
+            categoria_id=None,
+            subcategoria_id=None,
+        )
+    )
     session.commit()
 
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
-    caminho = escrever_csv(tmp_path / "com_regras.csv", (
-        "Data,Descrição,Valor",
-        '31/01/2026,Supermercado,"-45,60"',
-        '01/02/2026,Café,"-3,20"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "com_regras.csv",
+        (
+            "Data,Descrição,Valor",
+            '31/01/2026,Supermercado,"-45,60"',
+            '01/02/2026,Café,"-3,20"',
+        ),
+    )
 
     r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
@@ -555,7 +626,8 @@ def test_importar_aplica_regras_de_categorizacao(client, session, tmp_path):
 
     supermercado = session.query(Transacao).filter_by(descricao="Supermercado").one()
     assert (supermercado.categoria_id, supermercado.subcategoria_id) == (
-        categoria.id, subcategoria.id,
+        categoria.id,
+        subcategoria.id,
     )
     cafe = session.query(Transacao).filter_by(descricao="Café").one()
     assert (cafe.categoria_id, cafe.subcategoria_id) == (None, None)
@@ -570,10 +642,13 @@ def test_importar_sem_transacoes_validas_da_400(client, session, tmp_path):
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
-    caminho = escrever_csv(tmp_path / "tudo_invalido.csv", (
-        "Data,Descrição,Valor",
-        '31/02/2026,Café,"-3,20"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "tudo_invalido.csv",
+        (
+            "Data,Descrição,Valor",
+            '31/02/2026,Café,"-3,20"',
+        ),
+    )
 
     r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
@@ -601,12 +676,15 @@ def test_importar_com_uma_linha_com_erro_nao_importa_nenhuma(client, session, tm
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
-    caminho = escrever_csv(tmp_path / "misto.csv", (
-        "Data,Descrição,Valor",
-        '01/02/2026,Café,"-3,20"',
-        '02/02/2026,Renda,"1,234.56"',
-        '31/13/2026,Luz,"-40,00"',
-    ))
+    caminho = escrever_csv(
+        tmp_path / "misto.csv",
+        (
+            "Data,Descrição,Valor",
+            '01/02/2026,Café,"-3,20"',
+            '02/02/2026,Renda,"1,234.56"',
+            '31/13/2026,Luz,"-40,00"',
+        ),
+    )
 
     r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 

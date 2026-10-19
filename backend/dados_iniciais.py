@@ -149,6 +149,7 @@ SEED_TIPOS_ATIVO = [
     ("Outro", False),
 ]
 
+
 def semear_dados_iniciais(db: Session, perfil: PerfilCategorias, com_categorias: bool) -> None:
     """Cria, pelo nome, só o que falta das listas iniciais (D12g, D25).
 
@@ -157,7 +158,9 @@ def semear_dados_iniciais(db: Session, perfil: PerfilCategorias, com_categorias:
     """
     if com_categorias:
         categorias = (
-            CATEGORIAS_MINIMALISTA if perfil == PerfilCategorias.minimalista else CATEGORIAS_COMPLETO
+            CATEGORIAS_MINIMALISTA
+            if perfil == PerfilCategorias.minimalista
+            else CATEGORIAS_COMPLETO
         )
         existentes = {c.nome: c for c in db.query(Categoria).all()}
         for nome_cat, subcategorias in categorias.items():
@@ -169,7 +172,11 @@ def semear_dados_iniciais(db: Session, perfil: PerfilCategorias, com_categorias:
             nomes_sub = {s.nome for s in cat.subcategorias}
             for nome_sub, trata_patrimonio in subcategorias:
                 if nome_sub not in nomes_sub:
-                    db.add(Subcategoria(nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio))
+                    db.add(
+                        Subcategoria(
+                            nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio
+                        )
+                    )
                     nomes_sub.add(nome_sub)
 
     tipos_existentes = {t.nome for t in db.query(TipoAtivo).all()}

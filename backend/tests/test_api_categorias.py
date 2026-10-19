@@ -33,6 +33,7 @@ from database import Categoria, RegraCategorizacao, Subcategoria, TipoCategoria,
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def _semear(session):
     """Semeia três categorias, duas subcategorias e três transacções.
 
@@ -57,19 +58,23 @@ def _semear(session):
     session.refresh(cat_receita)
     session.refresh(cat_saude)
 
-    sub_alim = Subcategoria(nome="Alimentação", categoria_id=cat_casa.id,
-                            trata_patrimonio=False)
-    sub_salario = Subcategoria(nome="Salário", categoria_id=cat_receita.id,
-                               trata_patrimonio=True)
+    sub_alim = Subcategoria(nome="Alimentação", categoria_id=cat_casa.id, trata_patrimonio=False)
+    sub_salario = Subcategoria(nome="Salário", categoria_id=cat_receita.id, trata_patrimonio=True)
     session.add_all([sub_alim, sub_salario])
     session.commit()
     session.refresh(sub_alim)
     session.refresh(sub_salario)
 
-    t1 = Transacao(data=date(2025, 1, 1), descricao="Pingo Doce", valor=-10.0,
-                   categoria_id=cat_casa.id, subcategoria_id=sub_alim.id)
-    t2 = Transacao(data=date(2025, 1, 2), descricao="Consulta", valor=-20.0,
-                   categoria_id=cat_saude.id)
+    t1 = Transacao(
+        data=date(2025, 1, 1),
+        descricao="Pingo Doce",
+        valor=-10.0,
+        categoria_id=cat_casa.id,
+        subcategoria_id=sub_alim.id,
+    )
+    t2 = Transacao(
+        data=date(2025, 1, 2), descricao="Consulta", valor=-20.0, categoria_id=cat_saude.id
+    )
     t3 = Transacao(data=date(2025, 1, 3), descricao="Sopa", valor=-5.0)
     session.add_all([t1, t2, t3])
     session.commit()
@@ -77,15 +82,21 @@ def _semear(session):
         session.refresh(t)
 
     return {
-        "cat_casa": cat_casa, "cat_receita": cat_receita, "cat_saude": cat_saude,
-        "sub_alim": sub_alim, "sub_salario": sub_salario,
-        "t1": t1, "t2": t2, "t3": t3,
+        "cat_casa": cat_casa,
+        "cat_receita": cat_receita,
+        "cat_saude": cat_saude,
+        "sub_alim": sub_alim,
+        "sub_salario": sub_salario,
+        "t1": t1,
+        "t2": t2,
+        "t3": t3,
     }
 
 
 # ---------------------------------------------------------------------------
 # GET /api/categorias/ e GET /api/categorias/{id}/subcategorias
 # ---------------------------------------------------------------------------
+
 
 def test_listar_categorias_devolve_subcategorias(client, session):
     """`GET /` devolve cada categoria com as subcategorias aninhadas.
@@ -110,21 +121,33 @@ def test_listar_categorias_devolve_subcategorias(client, session):
     por_id = {c["id"]: c for c in r.json()}
     assert por_id == {
         d["cat_casa"].id: {
-            "id": d["cat_casa"].id, "nome": "Casa", "tipo": "despesa",
-            "subcategorias": [{
-                "id": d["sub_alim"].id, "nome": "Alimentação",
-                "trata_patrimonio": False,
-            }],
+            "id": d["cat_casa"].id,
+            "nome": "Casa",
+            "tipo": "despesa",
+            "subcategorias": [
+                {
+                    "id": d["sub_alim"].id,
+                    "nome": "Alimentação",
+                    "trata_patrimonio": False,
+                }
+            ],
         },
         d["cat_receita"].id: {
-            "id": d["cat_receita"].id, "nome": "Receita", "tipo": "receita",
-            "subcategorias": [{
-                "id": d["sub_salario"].id, "nome": "Salário",
-                "trata_patrimonio": True,
-            }],
+            "id": d["cat_receita"].id,
+            "nome": "Receita",
+            "tipo": "receita",
+            "subcategorias": [
+                {
+                    "id": d["sub_salario"].id,
+                    "nome": "Salário",
+                    "trata_patrimonio": True,
+                }
+            ],
         },
         d["cat_saude"].id: {
-            "id": d["cat_saude"].id, "nome": "Saúde", "tipo": "despesa",
+            "id": d["cat_saude"].id,
+            "nome": "Saúde",
+            "tipo": "despesa",
             "subcategorias": [],
         },
     }
@@ -149,21 +172,25 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
 
     r_casa = client.get(f"/api/categorias/{d['cat_casa'].id}/subcategorias")
     assert r_casa.status_code == 200
-    assert r_casa.json() == [{
-        "trata_patrimonio": False,
-        "nome": "Alimentação",
-        "id": d["sub_alim"].id,
-        "categoria_id": d["cat_casa"].id,
-    }]
+    assert r_casa.json() == [
+        {
+            "trata_patrimonio": False,
+            "nome": "Alimentação",
+            "id": d["sub_alim"].id,
+            "categoria_id": d["cat_casa"].id,
+        }
+    ]
 
     r_receita = client.get(f"/api/categorias/{d['cat_receita'].id}/subcategorias")
     assert r_receita.status_code == 200
-    assert r_receita.json() == [{
-        "trata_patrimonio": True,
-        "nome": "Salário",
-        "id": d["sub_salario"].id,
-        "categoria_id": d["cat_receita"].id,
-    }]
+    assert r_receita.json() == [
+        {
+            "trata_patrimonio": True,
+            "nome": "Salário",
+            "id": d["sub_salario"].id,
+            "categoria_id": d["cat_receita"].id,
+        }
+    ]
 
     r_404 = client.get("/api/categorias/9999/subcategorias")
     assert r_404.status_code == 404
@@ -175,6 +202,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
 # ---------------------------------------------------------------------------
 # POST e PUT de categorias — nome duplicado (D24: 409 antes de escrever)
 # ---------------------------------------------------------------------------
+
 
 def test_criar_categoria_e_nome_duplicado_da_409(client, session):
     """Criar uma categoria funciona; um nome repetido é recusado com 409.
@@ -235,15 +263,17 @@ def test_renomear_categoria_duplicado_da_409_e_404(client, session):
     """
     d = _semear(session)
 
-    r = client.put(f"/api/categorias/{d['cat_casa'].id}",
-                   json={"nome": "Lar", "tipo": "receita"})
+    r = client.put(f"/api/categorias/{d['cat_casa'].id}", json={"nome": "Lar", "tipo": "receita"})
     assert r.status_code == 200
     assert r.json() == {
-        "nome": "Lar", "tipo": "receita", "id": d["cat_casa"].id,
+        "nome": "Lar",
+        "tipo": "receita",
+        "id": d["cat_casa"].id,
     }
 
-    r_dup = client.put(f"/api/categorias/{d['cat_casa'].id}",
-                       json={"nome": "Receita", "tipo": "despesa"})
+    r_dup = client.put(
+        f"/api/categorias/{d['cat_casa'].id}", json={"nome": "Receita", "tipo": "despesa"}
+    )
 
     assert r_dup.status_code == 409
     assert r_dup.json() == {"detail": "Já existe uma categoria com este nome."}
@@ -254,8 +284,7 @@ def test_renomear_categoria_duplicado_da_409_e_404(client, session):
     assert casa.tipo is TipoCategoria.receita
     assert session.query(Categoria).count() == 3
 
-    r_404 = client.put("/api/categorias/9999",
-                       json={"nome": "X", "tipo": "despesa"})
+    r_404 = client.put("/api/categorias/9999", json={"nome": "X", "tipo": "despesa"})
     assert r_404.status_code == 404
     assert r_404.json() == {"detail": "Categoria não encontrada"}
 
@@ -277,12 +306,13 @@ def test_renomear_categoria_mantendo_o_proprio_nome_e_200(client, session):
     """
     d = _semear(session)
 
-    r = client.put(f"/api/categorias/{d['cat_casa'].id}",
-                   json={"nome": "Casa", "tipo": "despesa"})
+    r = client.put(f"/api/categorias/{d['cat_casa'].id}", json={"nome": "Casa", "tipo": "despesa"})
 
     assert r.status_code == 200
     assert r.json() == {
-        "nome": "Casa", "tipo": "despesa", "id": d["cat_casa"].id,
+        "nome": "Casa",
+        "tipo": "despesa",
+        "id": d["cat_casa"].id,
     }
 
     session.expire_all()
@@ -294,6 +324,7 @@ def test_renomear_categoria_mantendo_o_proprio_nome_e_200(client, session):
 # ---------------------------------------------------------------------------
 # POST e PUT de subcategorias — `trata_patrimonio` opcional
 # ---------------------------------------------------------------------------
+
 
 def test_criar_subcategoria_default_trata_e_404(client, session):
     """`trata_patrimonio` omitido grava `False` (o `... or False` de
@@ -311,26 +342,32 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
     """
     d = _semear(session)
 
-    r = client.post(f"/api/categorias/{d['cat_casa'].id}/subcategorias",
-                    json={"nome": "Casa de banho"})
+    r = client.post(
+        f"/api/categorias/{d['cat_casa'].id}/subcategorias", json={"nome": "Casa de banho"}
+    )
 
     assert r.status_code == 200
     assert r.json() == {
-        "trata_patrimonio": False, "nome": "Casa de banho",
-        "id": 3, "categoria_id": d["cat_casa"].id,
+        "trata_patrimonio": False,
+        "nome": "Casa de banho",
+        "id": 3,
+        "categoria_id": d["cat_casa"].id,
     }
 
-    r2 = client.post(f"/api/categorias/{d['cat_receita'].id}/subcategorias",
-                     json={"nome": "Prémio", "trata_patrimonio": True})
+    r2 = client.post(
+        f"/api/categorias/{d['cat_receita'].id}/subcategorias",
+        json={"nome": "Prémio", "trata_patrimonio": True},
+    )
 
     assert r2.status_code == 200
     assert r2.json() == {
-        "trata_patrimonio": True, "nome": "Prémio",
-        "id": 4, "categoria_id": d["cat_receita"].id,
+        "trata_patrimonio": True,
+        "nome": "Prémio",
+        "id": 4,
+        "categoria_id": d["cat_receita"].id,
     }
 
-    r_404 = client.post("/api/categorias/9999/subcategorias",
-                        json={"nome": "X"})
+    r_404 = client.post("/api/categorias/9999/subcategorias", json={"nome": "X"})
     assert r_404.status_code == 404
     assert r_404.json() == {"detail": "Categoria não encontrada"}
     assert session.query(Subcategoria).count() == 4
@@ -361,8 +398,10 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
     )
     assert r.status_code == 200
     assert r.json() == {
-        "trata_patrimonio": False, "nome": "Comida",
-        "id": d["sub_alim"].id, "categoria_id": d["cat_casa"].id,
+        "trata_patrimonio": False,
+        "nome": "Comida",
+        "id": d["sub_alim"].id,
+        "categoria_id": d["cat_casa"].id,
     }
 
     r2 = client.put(
@@ -371,8 +410,10 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
     )
     assert r2.status_code == 200
     assert r2.json() == {
-        "trata_patrimonio": True, "nome": "Ordenado",
-        "id": d["sub_salario"].id, "categoria_id": d["cat_receita"].id,
+        "trata_patrimonio": True,
+        "nome": "Ordenado",
+        "id": d["sub_salario"].id,
+        "categoria_id": d["cat_receita"].id,
     }
 
     r_404 = client.put(
@@ -387,6 +428,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
 # ---------------------------------------------------------------------------
 # DELETE — o efeito em cascata que D1 descreve
 # ---------------------------------------------------------------------------
+
 
 def test_apagar_categoria_com_transacoes_da_409_e_nada_muda(client, session):
     """Uma categoria com transações não se apaga: 409, e nada muda (D1).
@@ -428,13 +470,21 @@ def test_apagar_categoria_sem_transacoes_leva_subcategorias_e_regras(client, ses
     """
     d = _semear(session)
     receita = d["cat_receita"]
-    session.add_all([
-        RegraCategorizacao(palavra_chave="salario", categoria_id=receita.id,
-                           subcategoria_id=d["sub_salario"].id),
-        RegraCategorizacao(palavra_chave="bonus", categoria_id=receita.id),
-        RegraCategorizacao(palavra_chave="pingo", categoria_id=d["cat_casa"].id,
-                           subcategoria_id=d["sub_alim"].id),
-    ])
+    session.add_all(
+        [
+            RegraCategorizacao(
+                palavra_chave="salario",
+                categoria_id=receita.id,
+                subcategoria_id=d["sub_salario"].id,
+            ),
+            RegraCategorizacao(palavra_chave="bonus", categoria_id=receita.id),
+            RegraCategorizacao(
+                palavra_chave="pingo",
+                categoria_id=d["cat_casa"].id,
+                subcategoria_id=d["sub_alim"].id,
+            ),
+        ]
+    )
     session.commit()
 
     r = client.delete(f"/api/categorias/{receita.id}")
@@ -456,8 +506,14 @@ def test_apagar_categoria_conta_transacoes_das_suas_subcategorias(client, sessio
     1 transação -> 409, e Receita e Salário ficam.
     """
     d = _semear(session)
-    session.add(Transacao(data=date(2025, 1, 4), descricao="Órfã", valor=100.0,
-                          subcategoria_id=d["sub_salario"].id))
+    session.add(
+        Transacao(
+            data=date(2025, 1, 4),
+            descricao="Órfã",
+            valor=100.0,
+            subcategoria_id=d["sub_salario"].id,
+        )
+    )
     session.commit()
 
     r = client.delete(f"/api/categorias/{d['cat_receita'].id}")
@@ -486,14 +542,13 @@ def test_apagar_subcategoria_desassocia_transacoes(client, session):
     e `subcategoria_id is None`; a regra com `subcategoria_id is None`.
     """
     d = _semear(session)
-    regra = RegraCategorizacao(palavra_chave="pingo", categoria_id=d["cat_casa"].id,
-                               subcategoria_id=d["sub_alim"].id)
+    regra = RegraCategorizacao(
+        palavra_chave="pingo", categoria_id=d["cat_casa"].id, subcategoria_id=d["sub_alim"].id
+    )
     session.add(regra)
     session.commit()
 
-    r = client.delete(
-        f"/api/categorias/{d['cat_casa'].id}/subcategorias/{d['sub_alim'].id}"
-    )
+    r = client.delete(f"/api/categorias/{d['cat_casa'].id}/subcategorias/{d['sub_alim'].id}")
 
     assert r.status_code == 200
     assert r.json() == {"ok": True}
@@ -512,6 +567,7 @@ def test_apagar_subcategoria_desassocia_transacoes(client, session):
 # DELETE — remoções que correm limpas e ids inexistentes
 # ---------------------------------------------------------------------------
 
+
 def test_apagar_categoria_vazia_e_subcategoria_sem_transacoes(client, session):
     """Categorias sem subcategorias e subcategorias sem transacções apagam-se.
 
@@ -526,8 +582,7 @@ def test_apagar_categoria_vazia_e_subcategoria_sem_transacoes(client, session):
     """
     _semear(session)
 
-    criada = client.post("/api/categorias/",
-                         json={"nome": "Vazia", "tipo": "despesa"}).json()
+    criada = client.post("/api/categorias/", json={"nome": "Vazia", "tipo": "despesa"}).json()
     assert criada["id"] == 4
     assert session.query(Categoria).count() == 4
 
@@ -538,9 +593,7 @@ def test_apagar_categoria_vazia_e_subcategoria_sem_transacoes(client, session):
 
     d = {s.nome: s for s in session.query(Subcategoria).all()}
     receita = session.query(Categoria).filter_by(nome="Receita").one()
-    r_sal = client.delete(
-        f"/api/categorias/{receita.id}/subcategorias/{d['Salário'].id}"
-    )
+    r_sal = client.delete(f"/api/categorias/{receita.id}/subcategorias/{d['Salário'].id}")
     assert r_sal.status_code == 200
     assert r_sal.json() == {"ok": True}
     assert session.query(Subcategoria).count() == 1
@@ -565,9 +618,7 @@ def test_apagar_inexistentes_da_404(client, session):
     assert r_cat.status_code == 404
     assert r_cat.json() == {"detail": "Categoria não encontrada"}
 
-    r_sub = client.delete(
-        f"/api/categorias/{d['cat_casa'].id}/subcategorias/9999"
-    )
+    r_sub = client.delete(f"/api/categorias/{d['cat_casa'].id}/subcategorias/9999")
     assert r_sub.status_code == 404
     assert r_sub.json() == {"detail": "Subcategoria não encontrada"}
 

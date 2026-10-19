@@ -31,6 +31,7 @@ from database import Categoria, Conta, Subcategoria, TipoCategoria, Transacao
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def _semear(session):
     """Semeia duas categorias, duas subcategorias, duas contas e cinco transacções.
 
@@ -51,17 +52,14 @@ def _semear(session):
     session.refresh(sub_despesa)
     session.refresh(sub_receita)
 
-    conta_ordem = Conta(nome="Ordem", saldo_referencia=0.0,
-                        data_referencia=date(2025, 1, 1))
-    conta_cartao = Conta(nome="Cartão", saldo_referencia=0.0,
-                         data_referencia=date(2025, 1, 1))
+    conta_ordem = Conta(nome="Ordem", saldo_referencia=0.0, data_referencia=date(2025, 1, 1))
+    conta_cartao = Conta(nome="Cartão", saldo_referencia=0.0, data_referencia=date(2025, 1, 1))
     session.add_all([conta_ordem, conta_cartao])
     session.commit()
     session.refresh(conta_ordem)
     session.refresh(conta_cartao)
 
-    def _transacao(data, descricao, valor, categoria=None, subcategoria=None,
-                   conta=None):
+    def _transacao(data, descricao, valor, categoria=None, subcategoria=None, conta=None):
         t = Transacao(
             data=data,
             descricao=descricao,
@@ -76,15 +74,11 @@ def _semear(session):
         return t
 
     # Ordem de criação e, por isso, de `id`: t1=1, t2=2, t3=3, t4=4, t5=5.
-    t1 = _transacao(date(2025, 3, 10), "Pingo Doce", -50.0,
-                    cat_despesa, sub_despesa, conta_ordem)
-    t2 = _transacao(date(2025, 3, 20), "Salário", 2000.0,
-                    cat_receita, None, conta_ordem)
+    t1 = _transacao(date(2025, 3, 10), "Pingo Doce", -50.0, cat_despesa, sub_despesa, conta_ordem)
+    t2 = _transacao(date(2025, 3, 20), "Salário", 2000.0, cat_receita, None, conta_ordem)
     t3 = _transacao(date(2025, 2, 5), "Farmácia", -20.0, None, None, conta_cartao)
-    t4 = _transacao(date(2025, 3, 1), "Café", -5.0,
-                    cat_despesa, None, conta_ordem)
-    t5 = _transacao(date(2024, 12, 31), "Jantar", -30.0,
-                    cat_despesa, sub_despesa, conta_cartao)
+    t4 = _transacao(date(2025, 3, 1), "Café", -5.0, cat_despesa, None, conta_ordem)
+    t5 = _transacao(date(2024, 12, 31), "Jantar", -30.0, cat_despesa, sub_despesa, conta_cartao)
 
     return {
         "cat_despesa": cat_despesa,
@@ -93,7 +87,11 @@ def _semear(session):
         "sub_receita": sub_receita,
         "conta_ordem": conta_ordem,
         "conta_cartao": conta_cartao,
-        "t1": t1, "t2": t2, "t3": t3, "t4": t4, "t5": t5,
+        "t1": t1,
+        "t2": t2,
+        "t3": t3,
+        "t4": t4,
+        "t5": t5,
     }
 
 
@@ -116,6 +114,7 @@ def _estado(session, transacao_id):
 # ---------------------------------------------------------------------------
 # GET /api/transacoes/por-categorizar/total
 # ---------------------------------------------------------------------------
+
 
 def test_total_por_categorizar_conta_categoria_ou_subcategoria_em_falta(client, session):
     """Só as transacções com categoria **ou** subcategoria em falta contam.
@@ -144,6 +143,7 @@ def test_total_por_categorizar_conta_categoria_ou_subcategoria_em_falta(client, 
 # GET /api/transacoes/ — listagem, filtros e paginação
 # ---------------------------------------------------------------------------
 
+
 def test_listar_por_omissao_ordena_por_data_desc(client, session):
     """A listagem por omissão devolve tudo, ordenado por data descendente.
 
@@ -168,19 +168,39 @@ def test_listar_por_omissao_ordena_por_data_desc(client, session):
     assert j["pagina"] == 1
     assert j["tamanho"] == 50
     assert [i["id"] for i in j["items"]] == [
-        d["t2"].id, d["t1"].id, d["t4"].id, d["t3"].id, d["t5"].id,
+        d["t2"].id,
+        d["t1"].id,
+        d["t4"].id,
+        d["t3"].id,
+        d["t5"].id,
     ]
     assert [i["data"] for i in j["items"]] == [
-        "2025-03-20", "2025-03-10", "2025-03-01", "2025-02-05", "2024-12-31",
+        "2025-03-20",
+        "2025-03-10",
+        "2025-03-01",
+        "2025-02-05",
+        "2024-12-31",
     ]
     assert [i["categoria_nome"] for i in j["items"]] == [
-        "Receita", "Casa", "Casa", None, "Casa",
+        "Receita",
+        "Casa",
+        "Casa",
+        None,
+        "Casa",
     ]
     assert [i["subcategoria_nome"] for i in j["items"]] == [
-        None, "Supermercado", None, None, "Supermercado",
+        None,
+        "Supermercado",
+        None,
+        None,
+        "Supermercado",
     ]
     assert [i["conta_nome"] for i in j["items"]] == [
-        "Ordem", "Ordem", "Ordem", "Cartão", "Cartão",
+        "Ordem",
+        "Ordem",
+        "Ordem",
+        "Cartão",
+        "Cartão",
     ]
     assert session.query(Transacao).count() == 5
 
@@ -201,21 +221,28 @@ def test_listar_filtra_por_ano_e_mes(client, session):
     assert r_ano.status_code == 200
     assert r_ano.json()["total"] == 4
     assert [i["id"] for i in r_ano.json()["items"]] == [
-        d["t2"].id, d["t1"].id, d["t4"].id, d["t3"].id,
+        d["t2"].id,
+        d["t1"].id,
+        d["t4"].id,
+        d["t3"].id,
     ]
 
     r_mes = client.get("/api/transacoes/", params={"mes": 3})
     assert r_mes.status_code == 200
     assert r_mes.json()["total"] == 3
     assert [i["id"] for i in r_mes.json()["items"]] == [
-        d["t2"].id, d["t1"].id, d["t4"].id,
+        d["t2"].id,
+        d["t1"].id,
+        d["t4"].id,
     ]
 
     r_ambos = client.get("/api/transacoes/", params={"ano": 2025, "mes": 3})
     assert r_ambos.status_code == 200
     assert r_ambos.json()["total"] == 3
     assert [i["id"] for i in r_ambos.json()["items"]] == [
-        d["t2"].id, d["t1"].id, d["t4"].id,
+        d["t2"].id,
+        d["t1"].id,
+        d["t4"].id,
     ]
     assert session.query(Transacao).count() == 5
 
@@ -231,16 +258,16 @@ def test_listar_filtra_por_categoria_e_subcategoria(client, session):
     """
     d = _semear(session)
 
-    r_cat = client.get("/api/transacoes/",
-                       params={"categoria_id": d["cat_despesa"].id})
+    r_cat = client.get("/api/transacoes/", params={"categoria_id": d["cat_despesa"].id})
     assert r_cat.status_code == 200
     assert r_cat.json()["total"] == 3
     assert [i["id"] for i in r_cat.json()["items"]] == [
-        d["t1"].id, d["t4"].id, d["t5"].id,
+        d["t1"].id,
+        d["t4"].id,
+        d["t5"].id,
     ]
 
-    r_sub = client.get("/api/transacoes/",
-                       params={"subcategoria_id": d["sub_despesa"].id})
+    r_sub = client.get("/api/transacoes/", params={"subcategoria_id": d["sub_despesa"].id})
     assert r_sub.status_code == 200
     assert r_sub.json()["total"] == 2
     assert [i["id"] for i in r_sub.json()["items"]] == [d["t1"].id, d["t5"].id]
@@ -256,13 +283,14 @@ def test_listar_filtra_por_conta(client, session):
     """
     d = _semear(session)
 
-    r = client.get("/api/transacoes/",
-                   params={"conta_id": d["conta_ordem"].id})
+    r = client.get("/api/transacoes/", params={"conta_id": d["conta_ordem"].id})
 
     assert r.status_code == 200
     assert r.json()["total"] == 3
     assert [i["id"] for i in r.json()["items"]] == [
-        d["t2"].id, d["t1"].id, d["t4"].id,
+        d["t2"].id,
+        d["t1"].id,
+        d["t4"].id,
     ]
     assert session.query(Transacao).count() == 5
 
@@ -283,7 +311,10 @@ def test_listar_filtra_por_sinal(client, session):
     assert r_neg.status_code == 200
     assert r_neg.json()["total"] == 4
     assert [i["id"] for i in r_neg.json()["items"]] == [
-        d["t1"].id, d["t4"].id, d["t3"].id, d["t5"].id,
+        d["t1"].id,
+        d["t4"].id,
+        d["t3"].id,
+        d["t5"].id,
     ]
 
     r_pos = client.get("/api/transacoes/", params={"sinal": "positivo"})
@@ -360,7 +391,9 @@ def test_listar_por_categorizar(client, session):
     assert r.status_code == 200
     assert r.json()["total"] == 3
     assert [i["id"] for i in r.json()["items"]] == [
-        d["t2"].id, d["t4"].id, d["t3"].id,
+        d["t2"].id,
+        d["t4"].id,
+        d["t3"].id,
     ]
     assert session.query(Transacao).count() == 5
 
@@ -452,6 +485,7 @@ def test_listar_paginacao_desempata_mesma_data_por_id_desc(client, session):
 # PUT /api/transacoes/{id} — notas e reembolso
 # ---------------------------------------------------------------------------
 
+
 def test_put_notas_omitido_null_e_vazio(client, session):
     """`notas` grava com valor, ignora `null` e limpa com a string vazia.
 
@@ -532,6 +566,7 @@ def test_put_reembolso_false_grava_e_omitido_mantem(client, session):
 # PUT /api/transacoes/{id} — categoria e subcategoria
 # ---------------------------------------------------------------------------
 
+
 def test_put_muda_so_categoria_em_transacao_sem_subcategoria(client, session):
     """Numa transacção sem subcategoria, mudar só a categoria é aceite.
 
@@ -550,8 +585,7 @@ def test_put_muda_so_categoria_em_transacao_sem_subcategoria(client, session):
     d = _semear(session)
     t4 = d["t4"]
 
-    r = client.put(f"/api/transacoes/{t4.id}",
-                   json={"categoria_id": d["cat_receita"].id})
+    r = client.put(f"/api/transacoes/{t4.id}", json={"categoria_id": d["cat_receita"].id})
 
     assert r.status_code == 200
     assert r.json()["categoria_id"] == d["cat_receita"].id
@@ -584,25 +618,17 @@ def test_put_invariante_subcategoria_de_outra_categoria_da_400(client, session):
     d = _semear(session)
     t1 = d["t1"]
 
-    r = client.put(f"/api/transacoes/{t1.id}",
-                   json={"categoria_id": d["cat_receita"].id})
+    r = client.put(f"/api/transacoes/{t1.id}", json={"categoria_id": d["cat_receita"].id})
     assert r.status_code == 400
-    assert r.json() == {
-        "detail": "A subcategoria não pertence à categoria selecionada."
-    }
+    assert r.json() == {"detail": "A subcategoria não pertence à categoria selecionada."}
 
-    r = client.put(f"/api/transacoes/{t1.id}",
-                   json={"subcategoria_id": d["sub_receita"].id})
+    r = client.put(f"/api/transacoes/{t1.id}", json={"subcategoria_id": d["sub_receita"].id})
     assert r.status_code == 400
-    assert r.json() == {
-        "detail": "A subcategoria não pertence à categoria selecionada."
-    }
+    assert r.json() == {"detail": "A subcategoria não pertence à categoria selecionada."}
 
     r = client.put(f"/api/transacoes/{t1.id}", json={"categoria_id": None})
     assert r.status_code == 400
-    assert r.json() == {
-        "detail": "A subcategoria não pertence à categoria selecionada."
-    }
+    assert r.json() == {"detail": "A subcategoria não pertence à categoria selecionada."}
 
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_despesa"].id,
@@ -628,10 +654,13 @@ def test_put_par_valido_atualiza_categoria_e_subcategoria(client, session):
     d = _semear(session)
     t1 = d["t1"]
 
-    r = client.put(f"/api/transacoes/{t1.id}", json={
-        "categoria_id": d["cat_receita"].id,
-        "subcategoria_id": d["sub_receita"].id,
-    })
+    r = client.put(
+        f"/api/transacoes/{t1.id}",
+        json={
+            "categoria_id": d["cat_receita"].id,
+            "subcategoria_id": d["sub_receita"].id,
+        },
+    )
 
     assert r.status_code == 200
     assert r.json()["categoria_id"] == d["cat_receita"].id

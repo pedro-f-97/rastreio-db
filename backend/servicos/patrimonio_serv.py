@@ -69,7 +69,12 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
             # Sem avaliação registada, o bem vale o custo de aquisição (D16)
             valor = arredondar(custo_base)
 
-        return {"quantidade": 0.0, "custo_base": float(custo_base), "realizado": float(realizado), "valor": valor}
+        return {
+            "quantidade": 0.0,
+            "custo_base": float(custo_base),
+            "realizado": float(realizado),
+            "valor": valor,
+        }
 
     # --- RAMO COM UNIDADES (FIFO) ---
     # Pressuposto: valor_total já inclui a comissão (confirmado nos dados:
@@ -157,11 +162,16 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
     for conta in contas:
         if conta.data_referencia > data_alvo:
             continue
-        soma_transacoes = db.query(func.sum(TransacaoModel.valor)).filter(
-            TransacaoModel.conta_id == conta.id,
-            TransacaoModel.data > conta.data_referencia,
-            TransacaoModel.data <= data_alvo,
-        ).scalar() or 0.0
+        soma_transacoes = (
+            db.query(func.sum(TransacaoModel.valor))
+            .filter(
+                TransacaoModel.conta_id == conta.id,
+                TransacaoModel.data > conta.data_referencia,
+                TransacaoModel.data <= data_alvo,
+            )
+            .scalar()
+            or 0.0
+        )
         liquidez += conta.saldo_referencia + soma_transacoes
 
     # --- Investimentos e Ativos físicos ---

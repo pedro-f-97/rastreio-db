@@ -6,9 +6,11 @@ from schemas import TipoAtivoCreate
 
 router = APIRouter(prefix="/tipos-ativo", tags=["tipos-ativo"])
 
+
 @router.get("/")
 def listar_tipos_ativo(db: Session = Depends(get_db)):
     return db.query(TipoAtivo).order_by(TipoAtivo.nome).all()
+
 
 @router.post("/")
 def criar_tipo_ativo(tipo: TipoAtivoCreate, db: Session = Depends(get_db)):
@@ -21,12 +23,15 @@ def criar_tipo_ativo(tipo: TipoAtivoCreate, db: Session = Depends(get_db)):
     db.refresh(novo)
     return novo
 
+
 @router.put("/{tipo_id}")
 def renomear_tipo_ativo(tipo_id: int, tipo: TipoAtivoCreate, db: Session = Depends(get_db)):
     existente = db.query(TipoAtivo).filter(TipoAtivo.id == tipo_id).first()
     if not existente:
         raise HTTPException(status_code=404, detail="Tipo de ativo não encontrado.")
-    duplicado = db.query(TipoAtivo).filter(TipoAtivo.nome == tipo.nome, TipoAtivo.id != tipo_id).first()
+    duplicado = (
+        db.query(TipoAtivo).filter(TipoAtivo.nome == tipo.nome, TipoAtivo.id != tipo_id).first()
+    )
     if duplicado:
         raise HTTPException(status_code=409, detail="Já existe um tipo de ativo com este nome.")
     existente.nome = tipo.nome
@@ -35,13 +40,16 @@ def renomear_tipo_ativo(tipo_id: int, tipo: TipoAtivoCreate, db: Session = Depen
     db.refresh(existente)
     return existente
 
+
 @router.delete("/{tipo_id}")
 def apagar_tipo_ativo(tipo_id: int, db: Session = Depends(get_db)):
     tipo = db.query(TipoAtivo).filter(TipoAtivo.id == tipo_id).first()
     if not tipo:
         raise HTTPException(status_code=404, detail="Tipo de ativo não encontrado.")
     if tipo.ativos:
-        raise HTTPException(status_code=409, detail="Não é possível apagar um tipo com ativos associados.")
+        raise HTTPException(
+            status_code=409, detail="Não é possível apagar um tipo com ativos associados."
+        )
     db.delete(tipo)
     db.commit()
     return {"ok": True}

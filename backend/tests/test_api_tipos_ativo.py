@@ -29,6 +29,7 @@ from database import Ativo, TipoAtivo, TipoContabilizacao
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def _tipos(session):
     """Semeia ETF (tem_unidades=True) e Imóvel (False). Devolve-os por `id`."""
     etf = TipoAtivo(nome="ETF", tem_unidades=True)
@@ -43,6 +44,7 @@ def _tipos(session):
 # ---------------------------------------------------------------------------
 # GET /
 # ---------------------------------------------------------------------------
+
 
 def test_listar_tipos_ativo_ordenados_por_nome(client, session):
     """`GET /` devolve os tipos com `id`, `nome` e `tem_unidades`.
@@ -69,6 +71,7 @@ def test_listar_tipos_ativo_ordenados_por_nome(client, session):
 # ---------------------------------------------------------------------------
 # POST /
 # ---------------------------------------------------------------------------
+
 
 def test_criar_tipo_ativo_e_duplicado_da_409(client, session):
     """Criar funciona; um nome repetido é recusado com 409 antes de escrever.
@@ -98,6 +101,7 @@ def test_criar_tipo_ativo_e_duplicado_da_409(client, session):
 # PUT /{tipo_id}
 # ---------------------------------------------------------------------------
 
+
 def test_renomear_tipo_ativo_e_404(client, session):
     """Renomear altera nome e `tem_unidades`; id inexistente dá 404.
 
@@ -112,13 +116,13 @@ def test_renomear_tipo_ativo_e_404(client, session):
     """
     _etf, imovel = _tipos(session)
 
-    r = client.put(f"/api/tipos-ativo/{imovel.id}",
-                   json={"nome": "Imobiliário", "tem_unidades": True})
+    r = client.put(
+        f"/api/tipos-ativo/{imovel.id}", json={"nome": "Imobiliário", "tem_unidades": True}
+    )
     assert r.status_code == 200
     assert r.json() == {"id": imovel.id, "nome": "Imobiliário", "tem_unidades": True}
 
-    r_404 = client.put("/api/tipos-ativo/9999",
-                       json={"nome": "X", "tem_unidades": False})
+    r_404 = client.put("/api/tipos-ativo/9999", json={"nome": "X", "tem_unidades": False})
     assert r_404.status_code == 404
     assert r_404.json() == {"detail": "Tipo de ativo não encontrado."}
 
@@ -145,8 +149,7 @@ def test_renomear_tipo_ativo_para_nome_duplicado_da_409(client, session):
     """
     _etf, imovel = _tipos(session)
 
-    r = client.put(f"/api/tipos-ativo/{imovel.id}",
-                   json={"nome": "ETF", "tem_unidades": True})
+    r = client.put(f"/api/tipos-ativo/{imovel.id}", json={"nome": "ETF", "tem_unidades": True})
 
     assert r.status_code == 409
     assert r.json() == {"detail": "Já existe um tipo de ativo com este nome."}
@@ -174,8 +177,7 @@ def test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200(client, session):
     """
     etf, _imovel = _tipos(session)
 
-    r = client.put(f"/api/tipos-ativo/{etf.id}",
-                   json={"nome": "ETF", "tem_unidades": True})
+    r = client.put(f"/api/tipos-ativo/{etf.id}", json={"nome": "ETF", "tem_unidades": True})
 
     assert r.status_code == 200
     assert r.json() == {"id": etf.id, "nome": "ETF", "tem_unidades": True}
@@ -188,6 +190,7 @@ def test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200(client, session):
 # ---------------------------------------------------------------------------
 # DELETE /{tipo_id}
 # ---------------------------------------------------------------------------
+
 
 def test_apagar_tipo_ativo_com_ativos_da_409(client, session):
     # A pré-checagem `if tipo.ativos:` dá 409 antes de a pragma
@@ -202,8 +205,7 @@ def test_apagar_tipo_ativo_com_ativos_da_409(client, session):
     Estado final da BD: 2 tipos e 1 ativo; nada muda.
     """
     etf, _imovel = _tipos(session)
-    ativo = Ativo(nome="VWCE", tipo_id=etf.id,
-                  contabilizacao=TipoContabilizacao.investimento)
+    ativo = Ativo(nome="VWCE", tipo_id=etf.id, contabilizacao=TipoContabilizacao.investimento)
     session.add(ativo)
     session.commit()
 

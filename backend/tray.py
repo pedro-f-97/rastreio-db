@@ -6,7 +6,7 @@ import sys
 def iniciar_tray(parar_servidor_fn, porta):
     import tkinter as tk
 
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
     else:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,6 +36,7 @@ def iniciar_tray(parar_servidor_fn, porta):
             )
         else:
             import webbrowser
+
             webbrowser.open(url)
 
     def ao_sair():

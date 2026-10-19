@@ -65,6 +65,7 @@ from parser_importacao import (
 # Auxiliares
 # ---------------------------------------------------------------------------
 
+
 def perfil(**campos):
     """Perfil de importação com os mesmos nomes de campo do modelo real.
 
@@ -142,65 +143,82 @@ CSV_COM_COMISSAO = (
 # Secção A — _parse_valor: separador decimal, milhares e valores negativos
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "entrada, separador_decimal, esperado, calculo",
     [
-        ("1500,00", ",", 1500.0,
-         'vírgula decimal vira ponto: "1500,00" -> "1500.00"'),
-        ("-45,60", ",", -45.6,
-         'o sinal sobrevive à troca: "-45,60" -> "-45.60"'),
-        ("1500.00", ".", 1500.0,
-         'não há vírgula para apagar, o texto fica como está: "1500.00"'),
-        ("-45.60", ".", -45.6,
-         'o mesmo com o ponto decimal: "-45.60"'),
-        ("1.234,56", ",", 1234.56,
-         'ponto de milhar apagado: "1.234,56" -> "1234,56" -> "1234.56"'),
-        ("1,234.56", ".", 1234.56,
-         'vírgula de milhar apagada: "1,234.56" -> "1234.56"'),
-        ("-1.234,56", ",", -1234.56,
-         'milhar e sinal: "-1.234,56" -> "-1234,56" -> "-1234.56"'),
-        ("1 234,56", ",", 1234.56,
-         'espaço de milhar apagado: "1 234,56" -> "1234,56" -> "1234.56"'),
-        ("1\xa0234,56", ",", 1234.56,
-         'o espaço não separável (código 160) também é apagado, '
-         'pelo mesmo caminho que o espaço normal'),
-        (1500, ".", 1500.0,
-         "número já vem número: float(1500) = 1500.0"),
-        (45.6789, ".", 45.6789,
-         "número não é arredondado a cêntimos: 45.6789 fica 45.6789"),
+        ("1500,00", ",", 1500.0, 'vírgula decimal vira ponto: "1500,00" -> "1500.00"'),
+        ("-45,60", ",", -45.6, 'o sinal sobrevive à troca: "-45,60" -> "-45.60"'),
+        ("1500.00", ".", 1500.0, 'não há vírgula para apagar, o texto fica como está: "1500.00"'),
+        ("-45.60", ".", -45.6, 'o mesmo com o ponto decimal: "-45.60"'),
+        ("1.234,56", ",", 1234.56, 'ponto de milhar apagado: "1.234,56" -> "1234,56" -> "1234.56"'),
+        ("1,234.56", ".", 1234.56, 'vírgula de milhar apagada: "1,234.56" -> "1234.56"'),
+        ("-1.234,56", ",", -1234.56, 'milhar e sinal: "-1.234,56" -> "-1234,56" -> "-1234.56"'),
+        (
+            "1 234,56",
+            ",",
+            1234.56,
+            'espaço de milhar apagado: "1 234,56" -> "1234,56" -> "1234.56"',
+        ),
+        (
+            "1\xa0234,56",
+            ",",
+            1234.56,
+            "o espaço não separável (código 160) também é apagado, "
+            "pelo mesmo caminho que o espaço normal",
+        ),
+        (1500, ".", 1500.0, "número já vem número: float(1500) = 1500.0"),
+        (45.6789, ".", 45.6789, "número não é arredondado a cêntimos: 45.6789 fica 45.6789"),
     ],
 )
 def test_valor_lido_com_o_separador_do_perfil(entrada, separador_decimal, esperado, calculo):
     obtido = _parse_valor(entrada, separador_decimal)
-    assert obtido == esperado, (
-        f"{calculo}. Esperado {esperado}, veio {obtido}"
-    )
+    assert obtido == esperado, f"{calculo}. Esperado {esperado}, veio {obtido}"
 
 
 # ---------------------------------------------------------------------------
 # Secção B — _parse_valor: o que falha com ErroParsing
 # ---------------------------------------------------------------------------
 
+
 # Parênteses de contabilidade e símbolos de moeda não são suportados; a falha
 # é visível (e desde a D12d recusa a importação inteira).
 @pytest.mark.parametrize(
     "entrada, separador_decimal, mensagem, nota",
     [
-        (None, ",", "valor em falta",
-         "falta o valor: a guarda de `None` corre antes de qualquer texto"),
-        ("", ".", "valor inválido: ''",
-         'texto vazio: float("") não é um número'),
-        ("   ", ".", "valor inválido: '   '",
-         "só espaços: o texto é aparado para análise mas a mensagem repete o "
-         "original, com os espaços"),
-        ("(123,45)", ",", "valor inválido: '(123,45)'",
-         'parênteses de contabilidade: "(123,45)" -> "(123.45)" e o float falha'),
-        ("1.234,56 $", ",", "valor inválido: '1.234,56 $'",
-         'símbolo de moeda no fim: "1.234,56$" ainda não é um número'),
-        ("$45.60", ".", "valor inválido: '$45.60'",
-         'símbolo de moeda à frente: "$45.60" também não é um número'),
-        ("N/A", ".", "valor inválido: 'N/A'",
-         "texto que nem é número nem vazio"),
+        (
+            None,
+            ",",
+            "valor em falta",
+            "falta o valor: a guarda de `None` corre antes de qualquer texto",
+        ),
+        ("", ".", "valor inválido: ''", 'texto vazio: float("") não é um número'),
+        (
+            "   ",
+            ".",
+            "valor inválido: '   '",
+            "só espaços: o texto é aparado para análise mas a mensagem repete o "
+            "original, com os espaços",
+        ),
+        (
+            "(123,45)",
+            ",",
+            "valor inválido: '(123,45)'",
+            'parênteses de contabilidade: "(123,45)" -> "(123.45)" e o float falha',
+        ),
+        (
+            "1.234,56 $",
+            ",",
+            "valor inválido: '1.234,56 $'",
+            'símbolo de moeda no fim: "1.234,56$" ainda não é um número',
+        ),
+        (
+            "$45.60",
+            ".",
+            "valor inválido: '$45.60'",
+            'símbolo de moeda à frente: "$45.60" também não é um número',
+        ),
+        ("N/A", ".", "valor inválido: 'N/A'", "texto que nem é número nem vazio"),
     ],
 )
 def test_valor_que_falha_levanta_erro_de_parsing(entrada, separador_decimal, mensagem, nota):
@@ -215,6 +233,7 @@ def test_valor_que_falha_levanta_erro_de_parsing(entrada, separador_decimal, men
 # Secção C — separador do perfil: o que bate certo e o que é recusado (D12d)
 # ---------------------------------------------------------------------------
 
+
 def test_ponto_com_perfil_em_ponto_e_decimal():
     """Com o perfil em ponto, "1.234" é 1,234: é o que o perfil diz, e bate certo.
 
@@ -228,16 +247,15 @@ def test_ponto_com_perfil_em_ponto_e_decimal():
 @pytest.mark.parametrize(
     "entrada, separador_decimal, calculo",
     [
-        ("1.234,56", ".",
-         "o decimal do perfil (ponto) não é o último separador: era lido 1,23456"),
-        ("1,234.56", ",",
-         "o decimal do perfil (vírgula) não é o último separador: era lido 1,23456"),
-        ("45.60", ",",
-         "ponto como milhar mas com grupo de 2 dígitos: era lido 4560"),
-        ("1,5", ".",
-         "vírgula como milhar mas com grupo de 1 dígito: era lido 15"),
-        ("1.234,5.6", ",",
-         "dois separadores decimais"),
+        ("1.234,56", ".", "o decimal do perfil (ponto) não é o último separador: era lido 1,23456"),
+        (
+            "1,234.56",
+            ",",
+            "o decimal do perfil (vírgula) não é o último separador: era lido 1,23456",
+        ),
+        ("45.60", ",", "ponto como milhar mas com grupo de 2 dígitos: era lido 4560"),
+        ("1,5", ".", "vírgula como milhar mas com grupo de 1 dígito: era lido 15"),
+        ("1.234,5.6", ",", "dois separadores decimais"),
     ],
 )
 def test_texto_incoerente_com_o_separador_do_perfil_e_recusado(entrada, separador_decimal, calculo):
@@ -246,8 +264,7 @@ def test_texto_incoerente_com_o_separador_do_perfil_e_recusado(entrada, separado
         _parse_valor(entrada, separador_decimal)
 
     assert str(erro.value) == (
-        f"valor '{entrada}' não corresponde ao separador decimal do perfil "
-        f"('{separador_decimal}')"
+        f"valor '{entrada}' não corresponde ao separador decimal do perfil ('{separador_decimal}')"
     ), calculo
 
 
@@ -258,16 +275,19 @@ def test_texto_incoerente_com_o_separador_do_perfil_e_recusado(entrada, separado
         ("8612.0", ".", 8612.0, "formato do TradeRepublic: uma casa decimal"),
         ("-1", ".", -1.0, "sem separadores: inteiro com sinal"),
         ("+20,00", ",", 20.0, "sinal positivo explícito"),
-        (",5", ",", 0.5, "sem parte inteira: float(\".5\") = 0,5"),
+        (",5", ",", 0.5, 'sem parte inteira: float(".5") = 0,5'),
     ],
 )
-def test_texto_coerente_com_o_separador_do_perfil_e_aceite(entrada, separador_decimal, esperado, calculo):
+def test_texto_coerente_com_o_separador_do_perfil_e_aceite(
+    entrada, separador_decimal, esperado, calculo
+):
     assert _parse_valor(entrada, separador_decimal) == esperado, calculo
 
 
 # ---------------------------------------------------------------------------
 # Secção D — _parse_data: os formatos do perfil e o que não é data
 # ---------------------------------------------------------------------------
+
 
 # Os quatro formatos são os que o frontend oferece em
 # `frontend/src/pages/Importacao.jsx:8-13`. Todos os quatro casos de baixo são a
@@ -284,9 +304,7 @@ def test_texto_coerente_com_o_separador_do_perfil_e_aceite(entrada, separador_de
 )
 def test_data_lida_no_formato_do_perfil(texto, formato_data, data_esperada):
     obtido = _parse_data(texto, formato_data)
-    assert obtido == data_esperada, (
-        f"Esperado {data_esperada}, veio {obtido}"
-    )
+    assert obtido == data_esperada, f"Esperado {data_esperada}, veio {obtido}"
 
 
 @pytest.mark.parametrize(
@@ -305,33 +323,45 @@ def test_data_que_jam_vem_como_objecto_ignora_o_formato_do_perfil(celula, data_e
     deitada fora: o que interessa é o dia.
     """
     obtido = _parse_data(celula, "%d/%m/%Y")
-    assert obtido == data_esperada, (
-        f"Esperado {data_esperada}, veio {obtido}"
-    )
+    assert obtido == data_esperada, f"Esperado {data_esperada}, veio {obtido}"
 
 
 @pytest.mark.parametrize(
     "entrada, formato_data, mensagem, nota",
     [
-        (None, "%d/%m/%Y", "data em falta",
-         "falta a data: a guarda de `None` corre antes de tudo o resto"),
-        ("31/02/2026", "%d/%m/%Y",
-         "data inválida: '31/02/2026' (formato esperado: %d/%m/%Y)",
-         "dia 31 de fevereiro: o `strptime` recusa e a linha dá erro"),
-        ("2026-01-31", "%d/%m/%Y",
-         "data inválida: '2026-01-31' (formato esperado: %d/%m/%Y)",
-         "formato trocado no perfil: a data está escrita ao contrário do que o "
-         "perfil espera"),
-        ("31/01/2026", "%Y-%m-%d",
-         "data inválida: '31/01/2026' (formato esperado: %Y-%m-%d)",
-         "o mesmo erro pelo outro lado: formato do perfil que não bate com a "
-         "coluna"),
-        (date(2026, 1, 31), "%d/%m/%Y",
-         "data inválida: '2026-01-31' (formato esperado: %d/%m/%Y)",
-         "o ramo dos objectos é `hasattr(raw, \"date\")`, e um `datetime.date` "
-         "não tem método `date()` — só o `datetime.datetime` tem. Uma data pura "
-         "cai por isso no `strptime` e falha. Com o formato `%Y-%m-%d` passava, "
-         "por coincidência, porque `str()` de uma data sai em ISO"),
+        (
+            None,
+            "%d/%m/%Y",
+            "data em falta",
+            "falta a data: a guarda de `None` corre antes de tudo o resto",
+        ),
+        (
+            "31/02/2026",
+            "%d/%m/%Y",
+            "data inválida: '31/02/2026' (formato esperado: %d/%m/%Y)",
+            "dia 31 de fevereiro: o `strptime` recusa e a linha dá erro",
+        ),
+        (
+            "2026-01-31",
+            "%d/%m/%Y",
+            "data inválida: '2026-01-31' (formato esperado: %d/%m/%Y)",
+            "formato trocado no perfil: a data está escrita ao contrário do que o perfil espera",
+        ),
+        (
+            "31/01/2026",
+            "%Y-%m-%d",
+            "data inválida: '31/01/2026' (formato esperado: %Y-%m-%d)",
+            "o mesmo erro pelo outro lado: formato do perfil que não bate com a coluna",
+        ),
+        (
+            date(2026, 1, 31),
+            "%d/%m/%Y",
+            "data inválida: '2026-01-31' (formato esperado: %d/%m/%Y)",
+            'o ramo dos objectos é `hasattr(raw, "date")`, e um `datetime.date` '
+            "não tem método `date()` — só o `datetime.datetime` tem. Uma data pura "
+            "cai por isso no `strptime` e falha. Com o formato `%Y-%m-%d` passava, "
+            "por coincidência, porque `str()` de uma data sai em ISO",
+        ),
     ],
 )
 def test_data_que_falha_levanta_erro_de_parsing(entrada, formato_data, mensagem, nota):
@@ -346,18 +376,16 @@ def test_data_que_falha_levanta_erro_de_parsing(entrada, formato_data, mensagem,
 # Secção E — parse_ficheiro com um CSV verdadeiro
 # ---------------------------------------------------------------------------
 
+
 def test_csv_lido_a_partir_da_segunda_linha(tmp_path):
     """Uma linha por transacção, uma linha vazia saltada e uma linha com erro."""
     caminho = escrever_csv(tmp_path / "extrato.csv", CSV_EXTRATO)
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=2))
 
     assert resultado["transacoes"] == [
-        {"data": date(2026, 1, 31), "descricao": "Supermercado",
-         "valor": -45.6, "saldo": None},
-        {"data": date(2026, 2, 2), "descricao": "Salário",
-         "valor": 1500.0, "saldo": None},
-        {"data": date(2026, 2, 5), "descricao": "Transferência",
-         "valor": 1234.56, "saldo": None},
+        {"data": date(2026, 1, 31), "descricao": "Supermercado", "valor": -45.6, "saldo": None},
+        {"data": date(2026, 2, 2), "descricao": "Salário", "valor": 1500.0, "saldo": None},
+        {"data": date(2026, 2, 5), "descricao": "Transferência", "valor": 1234.56, "saldo": None},
     ]
 
     # A linha 4 do ficheiro está vazia e é saltada sem contagem nenhuma; a linha
@@ -375,7 +403,8 @@ def test_csv_lido_a_partir_da_terceira_linha_perde_a_segunda(tmp_path):
 
     # Só entram as linhas 3 a 6: a compra de 31/01/2026 (linha 2) desaparece.
     assert [t["data"] for t in resultado["transacoes"]] == [
-        date(2026, 2, 2), date(2026, 2, 5),
+        date(2026, 2, 2),
+        date(2026, 2, 5),
     ]
     assert [t["valor"] for t in resultado["transacoes"]] == [1500.0, 1234.56]
     # O erro continua a ser reportado na linha 6: a linha 4, vazia, conta para
@@ -393,8 +422,7 @@ def test_csv_com_marca_de_ordem_dos_bytes(tmp_path):
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=1))
 
     assert resultado["transacoes"] == [
-        {"data": date(2026, 1, 31), "descricao": "Supermercado",
-         "valor": -45.6, "saldo": None},
+        {"data": date(2026, 1, 31), "descricao": "Supermercado", "valor": -45.6, "saldo": None},
     ]
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 1
@@ -403,12 +431,15 @@ def test_csv_com_marca_de_ordem_dos_bytes(tmp_path):
 def test_csv_duas_colunas_credito_menos_debito(tmp_path):
     """No modo de duas colunas, o valor é o crédito menos o débito."""
     caminho = escrever_csv(tmp_path / "duas_colunas.csv", CSV_DEBITO_CREDITO)
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        modo_valor=ModoValor.duas_colunas,
-        coluna_valor=None,
-        coluna_debito=2,
-        coluna_credito=3,
-    ))
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            modo_valor=ModoValor.duas_colunas,
+            coluna_valor=None,
+            coluna_debito=2,
+            coluna_credito=3,
+        ),
+    )
 
     valores = [t["valor"] for t in resultado["transacoes"]]
     # Linha 2: 1500,00 - 45,60 = 1454,40
@@ -422,7 +453,9 @@ def test_csv_duas_colunas_credito_menos_debito(tmp_path):
     assert valores[2] == pytest.approx(-20.00, abs=0.005)
 
     assert [t["data"] for t in resultado["transacoes"]] == [
-        date(2026, 1, 31), date(2026, 2, 1), date(2026, 2, 2),
+        date(2026, 1, 31),
+        date(2026, 2, 1),
+        date(2026, 2, 2),
     ]
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
@@ -434,12 +467,15 @@ def test_csv_duas_colunas_trata_o_texto_none_como_celula_vazia(tmp_path):
         tmp_path / "none.csv",
         ("Data,Descrição,Débito,Crédito", '31/01/2026,Anulação,None,"150,00"'),
     )
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        modo_valor=ModoValor.duas_colunas,
-        coluna_valor=None,
-        coluna_debito=2,
-        coluna_credito=3,
-    ))
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            modo_valor=ModoValor.duas_colunas,
+            coluna_valor=None,
+            coluna_debito=2,
+            coluna_credito=3,
+        ),
+    )
 
     # A guarda é `raw not in (None, "", "None")`: o texto `None` escrito por um
     # exportador vale 0,00, tal como uma célula verdadeiramente vazia.
@@ -452,12 +488,15 @@ def test_csv_duas_colunas_trata_o_texto_none_como_celula_vazia(tmp_path):
 def test_linha_mais_curta_que_as_colunas_do_perfil(tmp_path):
     """Uma coluna apontada para lá do fim da linha dá uma célula em falta."""
     caminho = escrever_csv(tmp_path / "curta.csv", ("Descrição,Valor", 'Supermercado,"-45,60"'))
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        linha_inicio_dados=2,
-        coluna_data=2,       # a linha só tem duas colunas
-        coluna_descricao=0,
-        coluna_valor=1,
-    ))
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            linha_inicio_dados=2,
+            coluna_data=2,  # a linha só tem duas colunas
+            coluna_descricao=0,
+            coluna_valor=1,
+        ),
+    )
 
     assert resultado["transacoes"] == []
     assert resultado["erros"] == [{"linha": 2, "erro": "data em falta"}]
@@ -487,9 +526,7 @@ def test_csv_delimitado_por_ponto_e_virgula_e_detectado(tmp_path):
     """
     caminho = escrever_csv(
         tmp_path / "pontos_e_virgulas.csv",
-        ("Data;Descrição;Valor",
-         "31/01/2026;Supermercado;-45,60",
-         "01/02/2026;Renda;-650,00"),
+        ("Data;Descrição;Valor", "31/01/2026;Supermercado;-45,60", "01/02/2026;Renda;-650,00"),
     )
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=2))
 
@@ -512,10 +549,12 @@ def test_delimitador_detectado_so_nas_linhas_de_dados(tmp_path):
     """
     caminho = escrever_csv(
         tmp_path / "com_preambulo.csv",
-        ("Banco X, extracto de conta",
-         "Data;Descrição;Valor",
-         "31/01/2026;Supermercado;-12,50",
-         "01/02/2026;Renda;-650,00"),
+        (
+            "Banco X, extracto de conta",
+            "Data;Descrição;Valor",
+            "31/01/2026;Supermercado;-12,50",
+            "01/02/2026;Renda;-650,00",
+        ),
     )
     resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=3))
 
@@ -526,18 +565,32 @@ def test_delimitador_detectado_so_nas_linhas_de_dados(tmp_path):
 @pytest.mark.parametrize(
     "linhas, esperado, calculo",
     [
-        (["31/01/2026;Café;-3,20", "01/02/2026;Renda;-650,00"], ";",
-         "sem cabeçalho: ';' dá 3 colunas, ',' dá 2 (o csv.Sniffer escolhia ',')"),
-        (['31/01/2026,Café,"-3,20"', '01/02/2026,Renda,"-650,00"'], ",",
-         "vírgula com o decimal entre aspas: ',' dá 3 colunas, ';' dá 1"),
-        (["2025-06-11,BUY,ETF X,-8612.0,-1", "2025-07-01,INTEREST,Juros,9.44,"], ",",
-         "formato do TradeRepublic: ',' dá 5 colunas em cada"),
-        (["31/01/2026\tCafé\t-3,20"], "\t",
-         "tabulação: 3 colunas, as outras dão 1 ou 2"),
-        (["31/01/2026,Café,-3", "01/02/2026,Renda"], ",",
-         "nenhum separador dá o mesmo número de colunas -> vírgula, como antes"),
-        (['31/01/2026,Compra a;b;c;d,"-3,20"', '01/02/2026,Renda,"-650,00"'], ",",
-         "';' numa descrição dá 5 e 1 colunas (desiguais, rejeitado); ',' dá 3 e 3"),
+        (
+            ["31/01/2026;Café;-3,20", "01/02/2026;Renda;-650,00"],
+            ";",
+            "sem cabeçalho: ';' dá 3 colunas, ',' dá 2 (o csv.Sniffer escolhia ',')",
+        ),
+        (
+            ['31/01/2026,Café,"-3,20"', '01/02/2026,Renda,"-650,00"'],
+            ",",
+            "vírgula com o decimal entre aspas: ',' dá 3 colunas, ';' dá 1",
+        ),
+        (
+            ["2025-06-11,BUY,ETF X,-8612.0,-1", "2025-07-01,INTEREST,Juros,9.44,"],
+            ",",
+            "formato do TradeRepublic: ',' dá 5 colunas em cada",
+        ),
+        (["31/01/2026\tCafé\t-3,20"], "\t", "tabulação: 3 colunas, as outras dão 1 ou 2"),
+        (
+            ["31/01/2026,Café,-3", "01/02/2026,Renda"],
+            ",",
+            "nenhum separador dá o mesmo número de colunas -> vírgula, como antes",
+        ),
+        (
+            ['31/01/2026,Compra a;b;c;d,"-3,20"', '01/02/2026,Renda,"-650,00"'],
+            ",",
+            "';' numa descrição dá 5 e 1 colunas (desiguais, rejeitado); ',' dá 3 e 3",
+        ),
     ],
 )
 def test_detectar_delimitador(linhas, esperado, calculo):
@@ -548,30 +601,35 @@ def test_detectar_delimitador(linhas, esperado, calculo):
 # Secção F — parse_ficheiro com um XLSX verdadeiro
 # ---------------------------------------------------------------------------
 
+
 def test_xlsx_lido_a_partir_da_segunda_linha_com_saldo(tmp_path):
     """Valores e saldos em colunas de verdade, com datas de verdade."""
-    caminho = escrever_xlsx(tmp_path / "extrato.xlsx", [
-        ("Data", "Descrição", "Valor", "Saldo"),
-        (date(2026, 1, 31), "Supermercado", -45.6, 1000.0),
-        (date(2026, 2, 2), "Salário", 1500.0, 2500.0),
-    ])
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        tipo_ficheiro=TipoFicheiro.xlsx,
-        linha_inicio_dados=2,
-        separador_decimal=".",  # irrelevante: as células chegam como números
-        coluna_valor=2,
-        coluna_saldo=3,
-        tem_saldo=True,
-    ))
+    caminho = escrever_xlsx(
+        tmp_path / "extrato.xlsx",
+        [
+            ("Data", "Descrição", "Valor", "Saldo"),
+            (date(2026, 1, 31), "Supermercado", -45.6, 1000.0),
+            (date(2026, 2, 2), "Salário", 1500.0, 2500.0),
+        ],
+    )
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            tipo_ficheiro=TipoFicheiro.xlsx,
+            linha_inicio_dados=2,
+            separador_decimal=".",  # irrelevante: as células chegam como números
+            coluna_valor=2,
+            coluna_saldo=3,
+            tem_saldo=True,
+        ),
+    )
 
     # As datas são lidas pelo ramo `hasattr(raw, "date")`: o `formato_data` do
     # perfil não é consultado. Os valores chegam como números e saem sem
     # qualquer conversão. Os saldos também: 1000,00 e 2500,00.
     assert resultado["transacoes"] == [
-        {"data": date(2026, 1, 31), "descricao": "Supermercado",
-         "valor": -45.6, "saldo": 1000.0},
-        {"data": date(2026, 2, 2), "descricao": "Salário",
-         "valor": 1500.0, "saldo": 2500.0},
+        {"data": date(2026, 1, 31), "descricao": "Supermercado", "valor": -45.6, "saldo": 1000.0},
+        {"data": date(2026, 2, 2), "descricao": "Salário", "valor": 1500.0, "saldo": 2500.0},
     ]
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 2
@@ -579,27 +637,36 @@ def test_xlsx_lido_a_partir_da_segunda_linha_com_saldo(tmp_path):
 
 def test_xlsx_com_data_invalida_na_terceira_linha(tmp_path):
     """Uma data escrita à mão no meio de datas de verdade dá erro só nessa linha."""
-    caminho = escrever_xlsx(tmp_path / "extrato_com_data_invalida.xlsx", [
-        ("Data", "Descrição", "Valor"),
-        (date(2026, 1, 31), "Supermercado", -45.6),
-        ("31/02/2026", "Café", -3.2),  # texto: dia 31 de fevereiro
-        (date(2026, 2, 2), "Salário", 1500.0),
-    ])
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        tipo_ficheiro=TipoFicheiro.xlsx,
-        linha_inicio_dados=2,
-        separador_decimal=".",
-    ))
+    caminho = escrever_xlsx(
+        tmp_path / "extrato_com_data_invalida.xlsx",
+        [
+            ("Data", "Descrição", "Valor"),
+            (date(2026, 1, 31), "Supermercado", -45.6),
+            ("31/02/2026", "Café", -3.2),  # texto: dia 31 de fevereiro
+            (date(2026, 2, 2), "Salário", 1500.0),
+        ],
+    )
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            tipo_ficheiro=TipoFicheiro.xlsx,
+            linha_inicio_dados=2,
+            separador_decimal=".",
+        ),
+    )
 
     # As linhas 2 e 4 passam; a linha 3 dá erro e nada mais. O erro não
     # interrompe a leitura: o ficheiro é lido até ao fim.
     assert [t["data"] for t in resultado["transacoes"]] == [
-        date(2026, 1, 31), date(2026, 2, 2),
+        date(2026, 1, 31),
+        date(2026, 2, 2),
     ]
-    assert resultado["erros"] == [{
-        "linha": 3,
-        "erro": "data inválida: '31/02/2026' (formato esperado: %d/%m/%Y)",
-    }]
+    assert resultado["erros"] == [
+        {
+            "linha": 3,
+            "erro": "data inválida: '31/02/2026' (formato esperado: %d/%m/%Y)",
+        }
+    ]
     # 2 transacções + 1 erro
     assert resultado["total_linhas"] == 3
 
@@ -607,6 +674,7 @@ def test_xlsx_com_data_invalida_na_terceira_linha(tmp_path):
 # ---------------------------------------------------------------------------
 # Secção G — a comissão (coluna fee) e o sinal com que é somada
 # ---------------------------------------------------------------------------
+
 
 def test_comissao_positiva_tambem_aumenta_a_saida(tmp_path):
     """Uma comissão positiva no extracto entra negativa: é sempre um pagamento.
@@ -616,10 +684,13 @@ def test_comissao_positiva_tambem_aumenta_a_saida(tmp_path):
     comissão é sempre algo que se paga, por isso entra como `-abs(comissão)`.
     """
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        linha_inicio_dados=2,
-        coluna_fee=3,
-    ))
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            linha_inicio_dados=2,
+            coluna_fee=3,
+        ),
+    )
 
     # Linha 2 do ficheiro: -50,00 - abs(1,50) = -51,50 (antes dava -48,50).
     assert resultado["transacoes"][0]["valor"] == -51.5
@@ -630,10 +701,13 @@ def test_comissao_positiva_tambem_aumenta_a_saida(tmp_path):
 def test_comissao_negativa_aumenta_a_saida(tmp_path):
     """Uma comissão negativa (como no TradeRepublic) aumenta a saída."""
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        linha_inicio_dados=2,
-        coluna_fee=3,
-    ))
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            linha_inicio_dados=2,
+            coluna_fee=3,
+        ),
+    )
 
     # Linha 3 do ficheiro: -50,00 - abs(-1,50) = -51,50. Uma comissão de 1,50
     # numa compra faz a compra custar mais 1,50.
@@ -645,17 +719,22 @@ def test_comissao_negativa_aumenta_a_saida(tmp_path):
 def test_comissao_vazia_e_ignorada(tmp_path):
     """Uma célula de comissão vazia não mexe no valor."""
     caminho = escrever_csv(tmp_path / "comissao.csv", CSV_COM_COMISSAO)
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        linha_inicio_dados=2,
-        coluna_fee=3,
-    ))
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            linha_inicio_dados=2,
+            coluna_fee=3,
+        ),
+    )
 
     # Linha 4 do ficheiro: a comissão está vazia, a guarda
     # `raw not in (None, "", "None")` não deixa entrar nada, e o valor fica
     # 20,00 + nada = 20,00.
     assert resultado["transacoes"][2]["valor"] == 20.0
     assert [t["descricao"] for t in resultado["transacoes"]] == [
-        "Compra de ações", "Compra de ações", "Transferência",
+        "Compra de ações",
+        "Compra de ações",
+        "Transferência",
     ]
     assert resultado["erros"] == []
     assert resultado["total_linhas"] == 3
@@ -668,15 +747,21 @@ def test_comissao_numa_entrada_reduz_o_que_entra(tmp_path):
       +100,00 com comissão "1,00"  -> 100,00 - abs(1,00)  = 99,00
       +100,00 com comissão "-1,00" -> 100,00 - abs(-1,00) = 99,00
     """
-    caminho = escrever_csv(tmp_path / "venda.csv", (
-        "Data,Descrição,Valor,Comissão",
-        '31/01/2026,Venda de ações,"100,00","1,00"',
-        '01/02/2026,Venda de ações,"100,00","-1,00"',
-    ))
-    resultado = parse_ficheiro(caminho.read_bytes(), perfil(
-        linha_inicio_dados=2,
-        coluna_fee=3,
-    ))
+    caminho = escrever_csv(
+        tmp_path / "venda.csv",
+        (
+            "Data,Descrição,Valor,Comissão",
+            '31/01/2026,Venda de ações,"100,00","1,00"',
+            '01/02/2026,Venda de ações,"100,00","-1,00"',
+        ),
+    )
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            linha_inicio_dados=2,
+            coluna_fee=3,
+        ),
+    )
 
     assert [t["valor"] for t in resultado["transacoes"]] == [99.0, 99.0]
     assert resultado["erros"] == []
@@ -685,6 +770,7 @@ def test_comissao_numa_entrada_reduz_o_que_entra(tmp_path):
 # ---------------------------------------------------------------------------
 # NaN e Infinity não são dinheiro (D11)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "entrada, nota",

@@ -84,22 +84,28 @@ MINIMO_3 = {
     "transacoes": "id INTEGER PRIMARY KEY, data TEXT, descricao TEXT, valor REAL",
     "categorias": "id INTEGER PRIMARY KEY, nome TEXT, tipo TEXT",
     "contas": "id INTEGER PRIMARY KEY, nome TEXT, saldo_referencia REAL, "
-              "data_referencia TEXT, ativa INTEGER",
+    "data_referencia TEXT, ativa INTEGER",
 }
 
 # As 11 tabelas do modelo (`Base.metadata.sorted_tables`), escritas à mão.
 TABELAS_DO_MODELO = {
-    "ativos", "categorias", "configuracao", "contas", "movimentos_ativo",
-    "perfis_importacao", "precos_ativo", "regras_categorizacao", "subcategorias",
-    "tipos_ativo", "transacoes",
+    "ativos",
+    "categorias",
+    "configuracao",
+    "contas",
+    "movimentos_ativo",
+    "perfis_importacao",
+    "precos_ativo",
+    "regras_categorizacao",
+    "subcategorias",
+    "tipos_ativo",
+    "transacoes",
 }
 
 # A frase única que o endpoint devolve a qualquer problema de estrutura (tabela
 # em falta ou coluna em falta). Escrita à mão de propósito: se o router mudar o
 # texto, este teste tem de ser actualizado por uma pessoa.
-MENSAGEM_ESTRUTURA = (
-    "O ficheiro não corresponde a um backup válido do Rastreio-DB"
-)
+MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
 
 # Uma conta semeada antes de cada cenário. O saldo e a data não são lidos por
 # nenhum destes testes: o que interessa é o nome, para se ver o que sobrevive a
@@ -169,8 +175,7 @@ def semear_conta_real() -> None:
     """Semeia a `Conta Real` na BD em ficheiro."""
     db = sessao_nova()
     try:
-        db.add(Conta(nome=CONTA_REAL, saldo_referencia=100.0,
-                     data_referencia=date(2024, 1, 1)))
+        db.add(Conta(nome=CONTA_REAL, saldo_referencia=100.0, data_referencia=date(2024, 1, 1)))
         db.commit()
     finally:
         db.close()
@@ -218,10 +223,7 @@ def contas_em(caminho: Path) -> list[str]:
     """
     con = sqlite3.connect(Path(caminho).resolve().as_uri() + "?mode=ro", uri=True)
     try:
-        return [
-            linha[0]
-            for linha in con.execute("SELECT nome FROM contas ORDER BY nome")
-        ]
+        return [linha[0] for linha in con.execute("SELECT nome FROM contas ORDER BY nome")]
     finally:
         con.close()
 
@@ -236,6 +238,7 @@ def importar(client, conteudo: bytes, nome: str = "backup.db"):
 # ---------------------------------------------------------------------------
 # Comportamento correcto
 # ---------------------------------------------------------------------------
+
 
 def test_nao_sqlite_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_ficheiro):
     """Um ficheiro que não é SQLite é recusado, e nada se mexe na BD.
@@ -256,9 +259,7 @@ def test_nao_sqlite_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_ficheiro):
     resposta = importar(client, b"isto nao e uma base de dados sqlite")
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"].startswith(
-        "O ficheiro não é uma base de dados SQLite válida"
-    )
+    assert resposta.json()["detail"].startswith("O ficheiro não é uma base de dados SQLite válida")
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior")
     assert nomes_das_contas() == [CONTA_REAL]
@@ -388,9 +389,7 @@ def test_ficheiro_corrompido_e_rejeitado(client, bd_em_ficheiro, tmp_path):
         ), f"A validação mudou de ramo: integridade devolveu {detalhe!r}"
     else:
         # O `integrity_check` respondeu, e a linha não era "ok".
-        assert resposta.json()["detail"] == (
-            "Base de dados corrompida (integrity_check)."
-        )
+        assert resposta.json()["detail"] == ("Base de dados corrompida (integrity_check).")
     assert not existe(bd_em_ficheiro, ".tmp")
     assert nomes_das_contas() == [CONTA_REAL]
 
@@ -444,8 +443,7 @@ def test_ida_e_volta_traz_de_volta_o_estado_anterior(client, bd_em_ficheiro):
 
     db = sessao_nova()
     try:
-        db.add(Conta(nome="Conta Nova", saldo_referencia=50.0,
-                     data_referencia=date(2024, 2, 1)))
+        db.add(Conta(nome="Conta Nova", saldo_referencia=50.0, data_referencia=date(2024, 2, 1)))
         db.commit()
         assert len(db.query(Conta).all()) == 2
     finally:
@@ -513,6 +511,7 @@ def test_a_lista_validada_e_a_do_modelo():
 # ---------------------------------------------------------------------------
 # Regressões do D6
 # ---------------------------------------------------------------------------
+
 
 def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_ficheiro, tmp_path):
     """Um `.db` com as 3 tabelas e mais nada é recusado; a BD fica como estava.
@@ -725,8 +724,7 @@ def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_fich
         resposta = importar(client, caminho.read_bytes())
 
         assert resposta.status_code == 400, (
-            f"Um `.db` sem a tabela {nome!r} foi aceite com "
-            f"{resposta.status_code}: {resposta.text}"
+            f"Um `.db` sem a tabela {nome!r} foi aceite com {resposta.status_code}: {resposta.text}"
         )
         assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
 
@@ -738,6 +736,7 @@ def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_fich
 # ---------------------------------------------------------------------------
 # D12h — a extensão é aceite com qualquer capitalização
 # ---------------------------------------------------------------------------
+
 
 def test_extensao_db_maiuscula_e_aceite(client, bd_em_ficheiro):
     """Um backup válido chamado `BACKUP.DB` é restaurado com 200.
@@ -819,6 +818,7 @@ def test_extensao_errada_continua_a_ser_rejeitada(client, bd_em_ficheiro):
 # D22 — cópia atómica do `.anterior` e rollback
 # ---------------------------------------------------------------------------
 
+
 def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
     """Prepara o cenário dos testes da D22 e devolve os bytes do `.anterior`.
 
@@ -835,8 +835,7 @@ def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
 
     db = sessao_nova()
     try:
-        db.add(Conta(nome="Conta Nova", saldo_referencia=50.0,
-                     data_referencia=date(2024, 2, 1)))
+        db.add(Conta(nome="Conta Nova", saldo_referencia=50.0, data_referencia=date(2024, 2, 1)))
         db.commit()
     finally:
         db.close()
@@ -847,8 +846,7 @@ def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
     return exportado.content, anterior.read_bytes()
 
 
-def test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd(
-        client, bd_em_ficheiro, monkeypatch):
+def test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd(client, bd_em_ficheiro, monkeypatch):
     """Uma cópia do `.anterior` interrompida não toca no `.anterior` bom nem na BD.
 
     Era a D22: a cópia escrevia no próprio `.anterior`, e uma falha a meio
@@ -920,14 +918,14 @@ def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
     assert resposta.json()["detail"] == "Falha ao restaurar: troca falhada (simulado)"
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
     assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
-        "Conta Nova", CONTA_REAL,
+        "Conta Nova",
+        CONTA_REAL,
     ]
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior.tmp")
 
 
-def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(
-        client, bd_em_ficheiro, monkeypatch):
+def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(client, bd_em_ficheiro, monkeypatch):
     """Se a verificação pós-troca falhar, a BD volta ao estado de antes do pedido.
 
     A troca já aconteceu (a BD passou a ser o export, só com a `Conta Real`), e
@@ -953,12 +951,11 @@ def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(
     resposta = importar(client, exportado)
 
     assert resposta.status_code == 500
-    assert resposta.json()["detail"] == (
-        "Falha ao restaurar: verificação falhada (simulado)"
-    )
+    assert resposta.json()["detail"] == ("Falha ao restaurar: verificação falhada (simulado)")
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
     assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
-        "Conta Nova", CONTA_REAL,
+        "Conta Nova",
+        CONTA_REAL,
     ]
     assert not existe(bd_em_ficheiro, ".tmp")
 
@@ -1003,9 +1000,7 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
     resposta = importar(client, exportado)
 
     assert resposta.status_code == 500
-    assert resposta.json()["detail"] == (
-        "Falha ao restaurar: verificação falhada (simulado)"
-    )
+    assert resposta.json()["detail"] == ("Falha ao restaurar: verificação falhada (simulado)")
     assert integridade(bd_em_ficheiro) == ("linha", "ok")
     assert nomes_das_contas() == [CONTA_REAL]
     assert contas_em(anterior) == ["Conta Nova", CONTA_REAL]
@@ -1017,18 +1012,18 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
 # D1a: um backup antigo traz o schema partido
 # ---------------------------------------------------------------------------
 
+
 def _ddl_em(caminho: Path, tabela: str) -> str:
     con = sqlite3.connect(caminho)
     try:
-        return con.execute(
-            "SELECT sql FROM sqlite_master WHERE name = ?", (tabela,)
-        ).fetchone()[0]
+        return con.execute("SELECT sql FROM sqlite_master WHERE name = ?", (tabela,)).fetchone()[0]
     finally:
         con.close()
 
 
 def test_restaurar_backup_com_fk_partida_repara_o_schema(
-        client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida):
+    client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida
+):
     """Um backup de antes da D1a é aceite e fica com as chaves certas.
 
     Cálculo à mão: o backup tem todas as tabelas e colunas do modelo, logo
@@ -1054,7 +1049,8 @@ def test_restaurar_backup_com_fk_partida_repara_o_schema(
 
 
 def test_falha_na_reparacao_repoe_a_bd_anterior(
-        client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida, monkeypatch):
+    client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida, monkeypatch
+):
     """Se a reparação falhar depois da troca, o restauro volta atrás.
 
     Cálculo à mão: a BD tem a `Conta Real` e o backup não tem contas. A troca
@@ -1073,9 +1069,7 @@ def test_falha_na_reparacao_repoe_a_bd_anterior(
     resposta = importar(client, backup.read_bytes())
 
     assert resposta.status_code == 500
-    assert resposta.json()["detail"] == (
-        "Falha ao restaurar: reparação falhada (simulado)"
-    )
+    assert resposta.json()["detail"] == ("Falha ao restaurar: reparação falhada (simulado)")
     assert nomes_das_contas() == [CONTA_REAL]
     assert not existe(bd_em_ficheiro, ".tmp")
 

@@ -114,6 +114,7 @@ def test_detalhe_mensal_mes_12_com_bd_vazia_da_200(client):
 # Auxiliares dos testes novos (por-categoria, por-subcategoria, resumo-mensal)
 # ---------------------------------------------------------------------------
 
+
 def semear_categoria(session, nome, tipo):
     categoria = Categoria(nome=nome, tipo=tipo)
     session.add(categoria)
@@ -128,8 +129,9 @@ def semear_subcategoria(session, nome, categoria):
     return subcategoria
 
 
-def semear_transacao(session, data, descricao, valor, categoria,
-                     subcategoria=None, reembolso=False):
+def semear_transacao(
+    session, data, descricao, valor, categoria, subcategoria=None, reembolso=False
+):
     transacao = Transacao(
         data=data,
         descricao=descricao,
@@ -146,6 +148,7 @@ def semear_transacao(session, data, descricao, valor, categoria,
 # ---------------------------------------------------------------------------
 # A1/A2 — GET /api/estatisticas/resumo-mensal
 # ---------------------------------------------------------------------------
+
 
 def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client, session):
     """O resumo-mensal agrega por mês e calcula poupança, média e mediana.
@@ -185,8 +188,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
 
     semear_transacao(session, date(2025, 3, 5), "Ordenado", 1000.00, receita)
     semear_transacao(session, date(2025, 3, 10), "Renda", -300.00, casa)
-    semear_transacao(session, date(2025, 3, 18), "Reembolso seguros", 50.00, casa,
-                     reembolso=True)
+    semear_transacao(session, date(2025, 3, 18), "Reembolso seguros", 50.00, casa, reembolso=True)
     semear_transacao(session, date(2025, 4, 2), "Para poupança", -500.00, transferencia)
     semear_transacao(session, date(2025, 6, 25), "Comprar ETF", -1000.00, investimento)
 
@@ -195,12 +197,30 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
     assert r.status_code == 200
     assert r.json() == {
         "meses": [
-            {"ano": 2025, "mes": 3, "receitas": 1000.0, "despesas": -250.0,
-             "investimento": 0.0, "poupanca": 750.0},
-            {"ano": 2025, "mes": 4, "receitas": 0.0, "despesas": 0.0,
-             "investimento": 0.0, "poupanca": 0.0},
-            {"ano": 2025, "mes": 6, "receitas": 0.0, "despesas": 0.0,
-             "investimento": -1000.0, "poupanca": 0.0},
+            {
+                "ano": 2025,
+                "mes": 3,
+                "receitas": 1000.0,
+                "despesas": -250.0,
+                "investimento": 0.0,
+                "poupanca": 750.0,
+            },
+            {
+                "ano": 2025,
+                "mes": 4,
+                "receitas": 0.0,
+                "despesas": 0.0,
+                "investimento": 0.0,
+                "poupanca": 0.0,
+            },
+            {
+                "ano": 2025,
+                "mes": 6,
+                "receitas": 0.0,
+                "despesas": 0.0,
+                "investimento": -1000.0,
+                "poupanca": 0.0,
+            },
         ],
         "media_mensal": -83.33,
         "mediana_mensal": 0.0,
@@ -226,6 +246,7 @@ def test_resumo_mensal_com_bd_vazia_devolve_media_e_mediana_zero(client, session
 # ---------------------------------------------------------------------------
 # A3/A4 — GET /api/estatisticas/por-categoria
 # ---------------------------------------------------------------------------
+
 
 def test_por_categoria_media_e_mediana_mensais_com_zeros(client, session):
     """A média e a mediana usam os mesmos meses, e os meses vazios contam zero.
@@ -293,8 +314,9 @@ def test_por_categoria_media_e_mediana_mensais_com_zeros(client, session):
     assert casa_r["categoria_nome"] == "Casa"
     assert casa_r["mediana"] == -35.0
     assert casa_r["media"] == -50.0
-    assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
-            for s in casa_r["subcategorias"]} == {
+    assert {
+        s["subcategoria_nome"]: (s["mediana"], s["media"]) for s in casa_r["subcategorias"]
+    } == {
         "Renda": (-20.0, -35.0),
         "Sem subcategoria": (-15.0, -15.0),
     }
@@ -330,8 +352,9 @@ def test_por_categoria_com_ano_filtra_meses_e_transacoes(client, session):
     assert casa_r["categoria_nome"] == "Casa"
     assert casa_r["mediana"] == -35.0
     assert casa_r["media"] == -50.0
-    assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
-            for s in casa_r["subcategorias"]} == {
+    assert {
+        s["subcategoria_nome"]: (s["mediana"], s["media"]) for s in casa_r["subcategorias"]
+    } == {
         "Renda": (-20.0, -35.0),
         "Sem subcategoria": (-15.0, -15.0),
     }
@@ -382,16 +405,20 @@ def test_por_categoria_mediana_por_mes_e_nao_por_subcategoria(client, session):
 
     assert por_nome["Casa"]["mediana"] == -15.0
     assert por_nome["Casa"]["media"] == -47.5
-    assert {s["subcategoria_nome"]: (s["mediana"], s["media"])
-            for s in por_nome["Casa"]["subcategorias"]} == {
+    assert {
+        s["subcategoria_nome"]: (s["mediana"], s["media"])
+        for s in por_nome["Casa"]["subcategorias"]
+    } == {
         "A": (-10.0, -30.0),
         "B": (-5.0, -17.5),
     }
 
     assert por_nome["Lazer"]["mediana"] == 0.0
     assert por_nome["Lazer"]["media"] == -1.25
-    assert [(s["subcategoria_nome"], s["mediana"], s["media"])
-            for s in por_nome["Lazer"]["subcategorias"]] == [
+    assert [
+        (s["subcategoria_nome"], s["mediana"], s["media"])
+        for s in por_nome["Lazer"]["subcategorias"]
+    ] == [
         ("Sem subcategoria", 0.0, -1.25),
     ]
 
@@ -399,6 +426,7 @@ def test_por_categoria_mediana_por_mes_e_nao_por_subcategoria(client, session):
 # ---------------------------------------------------------------------------
 # A5/A6 — GET /api/estatisticas/por-subcategoria
 # ---------------------------------------------------------------------------
+
 
 def test_por_subcategoria_soma_em_centimos_ordena_categorias_e_esconde_zero(client, session):
     """Somatório em cêntimos, categorias por total desc, subs por conteúdo.
@@ -511,6 +539,7 @@ def test_por_subcategoria_com_ano_ignora_outros_anos(client, session):
 # A7 — GET /api/estatisticas/detalhe-mensal com dados
 # ---------------------------------------------------------------------------
 
+
 def test_detalhe_mensal_agrega_subcategorias_e_ordena_por_total(client, session):
     """Agregação por categoria/subcategoria, ordenada por total desc.
 
@@ -605,6 +634,7 @@ def test_detalhe_mensal_agrega_subcategorias_e_ordena_por_total(client, session)
 # ---------------------------------------------------------------------------
 # D11 — empates no meio cêntimo arredondam para longe de zero
 # ---------------------------------------------------------------------------
+
 
 def test_por_categoria_media_e_mediana_no_meio_centimo(client, session):
     """Os números da categoria Entretenimento em 2025, nos dados reais (D11).

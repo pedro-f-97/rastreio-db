@@ -6,12 +6,14 @@ from database import Configuracao, get_db
 
 router = APIRouter(prefix="/configuracao", tags=["configuracao"])
 
+
 @router.get("/estado")
 def estado(db: Session = Depends(get_db)):
     config = db.query(Configuracao).first()
     inicializado = config.inicializado if config else False
     tour_visto = config.tour_visto if config else False
     return {"inicializado": inicializado, "tour_visto": tour_visto}
+
 
 @router.post("/inicializar")
 def inicializar(
@@ -31,8 +33,13 @@ def inicializar(
         db.add(Configuracao(inicializado=True))
 
     db.commit()
-    mensagem = "Categorias e subcategorias criadas com sucesso" if com_categorias else "Base de dados inicializada sem categorias"
+    mensagem = (
+        "Categorias e subcategorias criadas com sucesso"
+        if com_categorias
+        else "Base de dados inicializada sem categorias"
+    )
     return {"ok": True, "mensagem": mensagem}
+
 
 @router.post("/tour-visto")
 def marcar_tour_visto(db: Session = Depends(get_db)):
