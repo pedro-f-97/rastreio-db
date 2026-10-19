@@ -1012,3 +1012,88 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
     assert contas_em(anterior) == ["Conta Nova", CONTA_REAL]
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior.tmp")
+
+
+# ---------------------------------------------------------------------------
+# D1a: um backup antigo traz o schema partido
+# ---------------------------------------------------------------------------
+
+def _ddl_em(caminho: Path, tabela: str) -> str:
+    con = sqlite3.connect(caminho)
+    try:
+        return con.execute(
+            "SELECT sql FROM sqlite_master WHERE name = ?", (tabela,)
+        ).fetchone()[0]
+    finally:
+        con.close()
+
+
+def test_restaurar_backup_com_fk_partida_repara_o_schema(
+        client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida):
+    """Um backup de antes da D1a é aceite e fica com as chaves certas.
+
+    Cálculo à mão: o backup tem todas as tabelas e colunas do modelo, logo
+    passa a validação (200). Depois da troca, a reparação põe as duas tabelas a
+    apontar para `ativos`, e as linhas da semente da fixture continuam lá: 3
+    preços e 2 movimentos.
+    """
+    backup = tmp_path / "antigo.db"
+    criar_bd_com_fk_partida(backup)
+    assert "ativos_old" in _ddl_em(backup, "precos_ativo")
+
+    resposta = importar(client, backup.read_bytes())
+
+    assert resposta.status_code == 200
+    for tabela in ("precos_ativo", "movimentos_ativo"):
+        assert "ativos_old" not in _ddl_em(bd_em_ficheiro, tabela)
+    con = sqlite3.connect(bd_em_ficheiro)
+    try:
+        assert con.execute("SELECT count(*) FROM precos_ativo").fetchone() == (3,)
+        assert con.execute("SELECT count(*) FROM movimentos_ativo").fetchone() == (2,)
+    finally:
+        con.close()
+
+
+def test_falha_na_reparacao_repoe_a_bd_anterior(
+        client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida, monkeypatch):
+    """Se a reparação falhar depois da troca, o restauro volta atrás.
+
+    Cálculo à mão: a BD tem a `Conta Real` e o backup não tem contas. A troca
+    acontece, a reparação falha, e o rollback repõe a BD a partir do
+    `.anterior`: 500 com a mensagem da falha, e a `Conta Real` de volta.
+    """
+    semear_conta_real()
+    backup = tmp_path / "antigo.db"
+    criar_bd_com_fk_partida(backup)
+
+    def reparar_falha(caminho):
+        raise RuntimeError("reparação falhada (simulado)")
+
+    monkeypatch.setattr(backups, "reparar_fk_ativos", reparar_falha)
+
+    resposta = importar(client, backup.read_bytes())
+
+    assert resposta.status_code == 500
+    assert resposta.json()["detail"] == (
+        "Falha ao restaurar: reparação falhada (simulado)"
+    )
+    assert nomes_das_contas() == [CONTA_REAL]
+    assert not existe(bd_em_ficheiro, ".tmp")
+
+
+def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partida):
+    """`criar_tabelas()`, que corre no arranque, repara uma BD de antes da D1a.
+
+    Está aqui, e não em `test_reparar_fk_ativos.py`, porque precisa da BD em
+    ficheiro do `DB_PATH` temporário que esta pasta prepara.
+    """
+    import database
+
+    engine.dispose()
+    bd_em_ficheiro.unlink()
+    criar_bd_com_fk_partida(bd_em_ficheiro)
+
+    database.criar_tabelas()
+
+    for tabela in ("precos_ativo", "movimentos_ativo"):
+        assert "ativos_old" not in _ddl_em(bd_em_ficheiro, tabela)

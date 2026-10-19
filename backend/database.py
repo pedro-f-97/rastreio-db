@@ -1,5 +1,7 @@
 import enum
 import os
+import re
+import sqlite3
 import sys
 from datetime import date
 from typing import List, Optional
@@ -284,9 +286,80 @@ class PrecoAtivo(Base):
         UniqueConstraint("ativo_id", "data", name="uq_preco_ativo_data"),
     )
 
+# D1a: `old/migrar_tipos_ativo.py` renomeou `ativos` para `ativos_old` e depois
+# apagou-a. No RENAME o SQLite reescreveu as chaves destas tabelas para
+# `ativos_old`, e no DROP não as repôs. Uma BD dessa altura, ou um backup dela,
+# ainda tem o schema assim.
+TABELAS_COM_FK_PARA_ATIVOS_OLD = ("precos_ativo", "movimentos_ativo")
+
+
+def reparar_fk_ativos(caminho: str = DB_PATH) -> list[str]:
+    """Repõe `REFERENCES ativos` onde o schema aponta para `ativos_old` (D1a).
+
+    Idempotente: se nenhuma tabela mencionar `ativos_old`, não escreve nada.
+    Cada tabela é recriada com o seu próprio DDL, só com a referência mudada, e
+    com os mesmos IDs e dados. Tudo numa transacção: se a cópia não for igual à
+    original, nada fica feito. Devolve as tabelas reparadas.
+    """
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        partidas = {
+            nome: sql
+            for nome, sql in con.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type = 'table'"
+            )
+            if sql and "ativos_old" in sql
+        }
+        if not partidas:
+            return []
+        inesperadas = partidas.keys() - set(TABELAS_COM_FK_PARA_ATIVOS_OLD)
+        if inesperadas:
+            raise RuntimeError(
+                f"Referência a ativos_old em tabelas inesperadas: {sorted(inesperadas)}"
+            )
+
+        # Fora da transacção, porque lá dentro a pragma não muda. É o
+        # procedimento da documentação do SQLite para alterar uma tabela: a
+        # tabela antiga nunca é renomeada, só a nova, e nada aponta para ela.
+        con.execute("PRAGMA foreign_keys = OFF")
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            reparadas = [n for n in TABELAS_COM_FK_PARA_ATIVOS_OLD if n in partidas]
+            for nome in reparadas:
+                _recriar_com_fk_para_ativos(con, nome, partidas[nome])
+            con.execute("COMMIT")
+        except BaseException:
+            con.execute("ROLLBACK")
+            raise
+    finally:
+        con.close()
+    return reparadas
+
+
+def _recriar_com_fk_para_ativos(con: sqlite3.Connection, nome: str, sql: str) -> None:
+    nova = f"{nome}_new"
+    sql_novo, n_nome = re.subn(rf'^CREATE TABLE\s+"?{nome}"?', f"CREATE TABLE {nova}", sql)
+    sql_novo, n_ref = re.subn(r'REFERENCES\s+"?ativos_old"?', "REFERENCES ativos", sql_novo)
+    if n_nome != 1 or n_ref != 1:
+        raise RuntimeError(f"DDL inesperado em {nome}: {sql}")
+
+    antes = con.execute(f"SELECT * FROM {nome} ORDER BY id").fetchall()
+    con.execute(sql_novo)
+    con.execute(f"INSERT INTO {nova} SELECT * FROM {nome}")
+    con.execute(f"DROP TABLE {nome}")
+    con.execute(f"ALTER TABLE {nova} RENAME TO {nome}")
+    depois = con.execute(f"SELECT * FROM {nome} ORDER BY id").fetchall()
+    if depois != antes:
+        raise RuntimeError(f"A cópia de {nome} não é igual à original")
+
+
 def criar_tabelas():
     garantir_pasta_dados()
     Base.metadata.create_all(bind=engine)
+    reparadas = reparar_fk_ativos()
+    if reparadas:
+        print(f"Schema reparado (D1a): {', '.join(reparadas)}, "
+              f"SQLite {sqlite3.sqlite_version}", flush=True)
 
 
 if __name__ == "__main__":
