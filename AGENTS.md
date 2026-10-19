@@ -149,6 +149,9 @@ build.bat           # Windows
 * `git add <file>` explicitly, never `-A` or `.`. Read `git diff --cached` before
   every commit: the edit tool may accept approximate matches and apply something
   different from what was intended.
+* Before every commit, run `npm run lint -- --max-warnings 0` in `frontend/` and
+  only commit when it passes. CI (`test.yml`) runs the same command, so a
+  warning fails the PR too.
 * One commit per concern. Types: `feat`, `fix`, `refactor`, `chore`, `test`, `docs`.
   Messages in PT-PT, with accents.
 * Check for non-Latin characters only on versioned files, never with `grep -r` over
