@@ -56,7 +56,7 @@ export default function Contas() {
         if (!confirm(msg)) return;
         const res = await apagarConta(id);
         const acao = res.data?.acao;
-        if (acao === 'desativada') alert(`A conta "${conta.nome}" foi desactivada (tem transacções associadas).`);
+        if (acao === 'desativada') alert(`A conta "${conta.nome}" foi desactivada (tem transacções associadas). Deixa de aparecer nas listas de contas, mas o seu histórico continua a contar no património, e o saldo também, se não for zero.`);
         carregar();
     }
 

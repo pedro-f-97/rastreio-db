@@ -246,6 +246,40 @@ def test_apagar_conta_com_transacoes_desativa(client, session):
     assert client.get("/api/contas/").json() == []
 
 
+def test_conta_desativada_continua_no_historico_da_liquidez(client, session):
+    """Desactivar uma conta não a tira da evolução do património (achado 4.2).
+
+    Cenário:
+      "Fechada": 1000.00 de referência em 2025-02-28; +1200.00 em 2025-04-10;
+        -2200.00 em 2025-05-15 (esvaziada); depois desactivada pelo DELETE.
+      "Aberta": 500.00 de referência em 2025-01-01, sem transacções, activa.
+
+    Cálculo à mão (liquidez no fim de cada mês, sem activos):
+      Março: Fechada 1000.00 + Aberta 500.00 = 1500.00
+      Abril: Fechada 1000.00 + 1200.00 = 2200.00; + 500.00 = 2700.00
+      Maio:  Fechada 2200.00 - 2200.00 = 0.00;   + 500.00 = 500.00
+    Antes da correcção, só contavam as activas: 500.00 nos três meses.
+    """
+    fechada = semear_conta(session, "Fechada", 1000.0, date(2025, 2, 28))
+    semear_conta(session, "Aberta", 500.0, date(2025, 1, 1))
+    semear_transacao(session, date(2025, 4, 10), "Salário", 1200.0, fechada)
+    semear_transacao(session, date(2025, 5, 15), "Transferência", -2200.0, fechada)
+
+    assert client.delete(f"/api/contas/{fechada.id}").json()["acao"] == "desativada"
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-03-01", "data_fim": "2025-05-31"},
+    )
+
+    assert r.status_code == 200
+    assert [(p["data"], p["liquidez"]) for p in r.json()] == [
+        ("2025-03-31", 1500.0),
+        ("2025-04-30", 2700.0),
+        ("2025-05-31", 500.0),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # B6 — GET /api/contas/{id}/saldo e /api/patrimonio/evolucao concordam
 # ---------------------------------------------------------------------------

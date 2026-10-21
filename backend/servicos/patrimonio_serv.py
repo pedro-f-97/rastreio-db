@@ -159,7 +159,9 @@ def primeira_sobre_venda(movimentos):
 def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = False) -> dict:
     # --- Liquidez ---
     liquidez = 0.0
-    contas = db.query(ContaModel).filter(ContaModel.ativa == True).all()
+    # Todas as contas, activas ou não: desactivar só esconde a conta das listas,
+    # e o dinheiro que lá esteve continua a fazer parte do histórico
+    contas = db.query(ContaModel).all()
     for conta in contas:
         if conta.data_referencia > data_alvo:
             continue
