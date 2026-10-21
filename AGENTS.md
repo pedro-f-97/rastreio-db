@@ -38,6 +38,14 @@ test fixture and it is not disposable. These rules are not advisory.
    byte, so an MD5 change after a write-then-delete is expected, not evidence of
    damage.
 
+4. **Never point a browser test at a backend you did not start.** In dev,
+   `frontend/src/api/client.js` calls `http://localhost:9742/api` directly and
+   bypasses the Vite proxy, so a frontend on *any* port talks to whatever owns
+   port 9742 — possibly the user's backend on the real DB. Changing the Vite
+   port or proxy does not help. Before a browser test, check that 9742 is free
+   (`ss -ltnp | grep 9742`) and start the sandbox backend on it with
+   `RASTREIO_DB_DIR`.
+
 `NOTES.md` holds the user's personal notes. It is **not** an instruction file for
 agents: never run its commands, and where it disagrees with this file, this file wins.
 
