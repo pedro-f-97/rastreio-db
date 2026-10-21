@@ -235,6 +235,16 @@ Muitos bancos exportam CSV em Windows-1252 ou ISO-8859-1. Com um ficheiro desses
   - (b) Guardar a codificação no perfil.
   - (c) Pelo menos, uma mensagem clara em PT-PT e um 400 em vez de 500.
 
+### 3.4 Não há forma de editar um perfil de importação na interface
+
+O formulário de perfis só cria (`criarPerfil`). As funções `atualizarPerfil` e `associarContaPerfil` existem em `frontend/src/api/perfisImportacao.js`, mas nenhuma página as usa. Para corrigir uma coluna, ou um perfil que perdeu a conta (ver 1.2), é preciso apagá-lo e criá-lo de novo, e a mensagem da importação diz isso mesmo.
+
+- **Gravidade:** baixa. **Categoria:** funcionalidade em falta. **Estado:** confirmado por leitura (encontrado ao corrigir a outra parte do 4.1).
+- **Onde:** `frontend/src/pages/Importacao.jsx` (só `criarPerfil`); `backend/routers/perfis_importacao.py` já tem o `PUT` e o `PATCH .../conta`.
+- **Opções:**
+  - (a) O formulário passa a abrir também em modo de edição, com o `PUT`.
+  - (b) Manter: apagar e criar de novo.
+
 ### O que está bem
 
 - **Separador decimal:** tem de ser coerente com o perfil; «12.5» com vírgula decimal é recusado, e os milhares só se aceitam em grupos de 3.
@@ -689,6 +699,16 @@ O AGENTS.md manda definir `RASTREIO_DB_DIR` antes de correr qualquer script que 
   - (a) Converter para `.vscode/extensions.json`.
   - (b) Decidir se `backend/old/` fica no repositório como histórico ou sai.
 
+### 11.6 O README diz que se pode editar a conta de uma transação
+
+A lista de funcionalidades do README diz «edição inline de categoria, subcategoria, reembolso, conta e notas». A conta não se pode editar: o `TransacaoUpdate` não tem `conta_id`, e a tabela de transações não mostra esse campo como editável.
+
+- **Gravidade:** baixa. **Categoria:** documentação. **Estado:** confirmado por leitura (encontrado ao analisar o 4.3).
+- **Onde:** `README.md:18`; `backend/schemas.py` (`TransacaoUpdate`).
+- **Opções:**
+  - (a) Corrigir o README.
+  - (b) Permitir mudar a conta de uma transação, o que também dá uma saída às transações sem conta antigas (ver a outra parte do 4.1).
+
 ### O que está bem
 
 - **`docs/modelo-dados.md`:** está certo face ao código (tabelas, convenções de sinal, semântica da data de referência e do reembolso, preços).
@@ -706,7 +726,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 ## Resumo de achados
 
-São 41 achados: 7 de gravidade alta, 13 médios, 20 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
+São 43 achados: 7 de gravidade alta, 13 médios, 22 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
 | Nº | Achado | Gravidade | Categoria | Estado |
 | --- | --- | --- | --- | --- |
@@ -736,6 +756,7 @@ São 41 achados: 7 de gravidade alta, 13 médios, 20 baixos e 1 por classificar,
 | 2.3 | A página Conceitos descreve funcionalidades de regras que não existem | baixa | documentação | confirmado |
 | 2.4 | «Aplicar regras» conta casos sem efeito | baixa | correcção | confirmado |
 | 2.5 | Uma regra aceita uma subcategoria de outra categoria | baixa | robustez | confirmado |
+| 3.4 | Não há forma de editar um perfil de importação na interface | baixa | funcionalidade em falta | confirmado por leitura |
 | 5.1 | Não se consegue apagar o símbolo de um ativo | baixa | correcção | confirmado |
 | 5.2 | `moeda` é guardado mas não tem efeito | baixa | estrutura | confirmado |
 | 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado |
@@ -750,4 +771,5 @@ São 41 achados: 7 de gravidade alta, 13 médios, 20 baixos e 1 por classificar,
 | 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado |
 | 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado |
 | 11.5 | Ficheiros soltos e restos | baixa | estrutura | confirmado |
+| 11.6 | O README diz que se pode editar a conta de uma transação | baixa | documentação | confirmado por leitura |
 | 2.6 | Não há forma de apagar nem de criar transações | a definir | lógica de negócio | em aberto |
