@@ -77,7 +77,6 @@ que o sinal gravado não altera nada.
 | descricao | str(255) | obrigatório |
 | valor | float | obrigatório |
 | saldo | float | opcional |
-| reembolso | bool | default `False` — nos totais mensais (`_calculate_totals`) só pesa nas receitas: uma receita positiva com a marca fica de fora do cesto de `receitas` e conta em `despesas`; uma receita negativa (estorno) conta sempre em `receitas`, com o sinal, com ou sem a marca; numa despesa o sinal decide e a marca não altera o total; as queries de `por-subcategoria` e `detalhe-mensal` não projectam a coluna |
 | notas | str(500) | opcional |
 | categoria_id | int | FK → `categorias.id`, opcional |
 | subcategoria_id | int | FK → `subcategorias.id`, opcional |

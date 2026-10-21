@@ -305,8 +305,7 @@ def test_importar_insere_e_devolve_contagens(client, session, tmp_path):
     """Duas linhas novas: 200 com `{"inseridas": 2, "duplicadas": 0}`.
 
     Estado final, lido pela sessão: 2 transacções na conta do perfil, sem
-    categoria nem subcategoria (não há regras semeadas), `saldo` None e
-    `reembolso` False (o default do modelo).
+    categoria nem subcategoria (não há regras semeadas) e `saldo` None.
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
@@ -327,12 +326,11 @@ def test_importar_insere_e_devolve_contagens(client, session, tmp_path):
             t.conta_id,
             t.categoria_id,
             t.subcategoria_id,
-            t.reembolso,
         )
         for t in guardadas
     ] == [
-        (date(2026, 1, 31), "Supermercado", -45.6, None, conta.id, None, None, False),
-        (date(2026, 2, 2), "Salário", 1500.0, None, conta.id, None, None, False),
+        (date(2026, 1, 31), "Supermercado", -45.6, None, conta.id, None, None),
+        (date(2026, 2, 2), "Salário", 1500.0, None, conta.id, None, None),
     ]
 
 

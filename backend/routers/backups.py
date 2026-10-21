@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import text
 
-from database import DB_PATH, Base, engine, reparar_fk_ativos
+from database import DB_PATH, Base, engine, remover_coluna_reembolso, reparar_fk_ativos
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
@@ -146,6 +146,8 @@ async def importar_backup(file: UploadFile = File(...)):
         # Um backup antigo pode ter chaves a apontar para `ativos_old`. Se a reparação
         # falhar, o rollback abaixo repõe a BD anterior.
         reparar_fk_ativos(DB_PATH)
+        # E pode ainda ter a coluna `reembolso`, retirada no achado 4.3
+        remover_coluna_reembolso(DB_PATH)
 
     except Exception as e:
         # rollback

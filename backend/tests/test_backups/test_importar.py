@@ -660,6 +660,40 @@ def test_modelo_completo_com_coluna_extra_e_aceite(client, bd_em_ficheiro, tmp_p
     assert nomes_das_contas() == ["Conta Extra"]
 
 
+def test_backup_antigo_com_reembolso_e_aceite_e_perde_a_coluna(client, bd_em_ficheiro, tmp_path):
+    """Um backup de antes do 4.3, com `transacoes.reembolso`, é restaurado sem ela.
+
+    Cálculo à mão: o ficheiro tem o modelo completo mais a coluna antiga (uma
+    coluna a mais é aceite pela validação). Depois da troca,
+    `remover_coluna_reembolso` apaga-a: a BD restaurada não tem a coluna e
+    guarda a única transacção do backup.
+    """
+    caminho = tmp_path / "antigo.db"
+    criar_bd_do_modelo(caminho)
+    con = sqlite3.connect(caminho)
+    try:
+        con.execute("ALTER TABLE transacoes ADD COLUMN reembolso BOOLEAN NOT NULL DEFAULT 0")
+        con.execute(
+            "INSERT INTO transacoes (data, descricao, valor, reembolso) "
+            "VALUES ('2025-03-18', 'Reembolso seguros', 50.0, 1)"
+        )
+        con.commit()
+    finally:
+        con.close()
+
+    resposta = importar(client, caminho.read_bytes())
+
+    assert resposta.status_code == 200
+    con = sqlite3.connect(bd_em_ficheiro)
+    try:
+        nomes = [linha[1] for linha in con.execute("PRAGMA table_info(transacoes)")]
+        transacoes = con.execute("SELECT descricao, valor FROM transacoes").fetchall()
+    finally:
+        con.close()
+    assert "reembolso" not in nomes
+    assert transacoes == [("Reembolso seguros", 50.0)]
+
+
 def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_path):
     """Um `.db` completo com UMA coluna em falta numa só tabela é recusado.
 

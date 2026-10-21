@@ -15,7 +15,7 @@
 Aplicação web local e portable para gestão e análise de extratos bancários, sem dependência de serviços externos. Nasceu da necessidade de algo mais robusto do que a típica folha de Excel. Permite importar extratos em Excel (.xlsx, .csv), com perfis configuráveis por banco e conta, categorizar transações automaticamente com regras dinâmicas, marcar transações como património para registo de bens ou investimentos, e acompanhar a evolução financeira através de estatísticas detalhadas.
 
 ### Transações
-- Listagem paginada com edição inline de categoria, subcategoria, reembolso, conta e notas
+- Listagem paginada com edição inline de categoria, subcategoria, conta e notas
 - Filtros por ano, mês e categoria, incluindo filtro rápido de transações por categorizar
 - Histórico com totais por ano/mês e drill-down por categoria
 - Categorização automática por regras de substring, com sugestões automáticas de novas regras
@@ -109,7 +109,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 ## Decisões de design
 
-- Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas
+- Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas: um reembolso regista-se na categoria de despesa a que diz respeito, e o valor positivo reduz a despesa. Não há marca de reembolso; o tipo da categoria e o sinal decidem tudo, da mesma forma em todos os ecrãs
 - Transferências internas são excluídas de todas as métricas para não distorcer os dados reais
 - Uma categoria com transações não se pode apagar (é preciso mudá-las de categoria primeiro); sem transações, apaga-se com as suas subcategorias e regras. Apagar uma subcategoria deixa as suas transações por categorizar na mesma categoria, e as regras que apontavam para ela ficam sem subcategoria
 - Uma conta com transações não se pode apagar, só desactivar. Desactivar esconde-a das listas de contas, mas a conta continua a contar no património e na sua evolução; na página Património aparece, marcada como inactiva, enquanto o saldo não for zero

@@ -13,32 +13,30 @@ por isso que nenhum teste pede a `session` nem a `client`. O `poupanca` de
 `resumo-mensal`, calculado em `resumo_mensal`, fica de fora de propósito — é
 assunto para os testes de API, mais tarde.
 
-Os testes do sinal do reembolso, da receita negativa e do arredondamento
-afirmam o comportamento corrigido.
+Os testes do sinal, da receita negativa e do arredondamento afirmam o
+comportamento corrigido. A marca de reembolso foi retirada (achado 4.3): um
+reembolso é um positivo numa categoria de despesa.
 
 Os objectos que entram nas funções são `SimpleNamespace` com os mesmos nomes
 de campo dos modelos, e o `tipo` é sempre o enum `TipoCategoria` — nunca uma
 cadeia, porque o código compara com `==` contra o enum, e uma cadeia passaria
 a todos os ramos sem chegar a nenhum.
 
-Os quatro ramos, pela ordem em que são avaliados
-------------------------------------------------
+Os três ramos, pela ordem em que são avaliados
+----------------------------------------------
 A chave do mês é criada **depois** dos dois filtros (transações sem categoria e
 transferências, ambos com `continue`) e **antes** da cadeia de ramos, tudo
 dentro de `_calculate_totals`. Daí duas consequências que os
 testes fixam: um mês só com transferências não aparece; um mês com uma
-transação que não casa em ramo nenhum aparece, com os três cestos a zero.
+transação de valor zero aparece, com os três cestos a zero.
 
-| Ramo | Condição                                | Efeito                          |
+| Ramo | Condição       | Efeito                                      |
 | --- | --- | --- |
-| A | `receita`, não reembolsada, `valor > 0` | receitas += valor              |
-| A2 | `receita`, `valor < 0` (antes não havia ramo) | receitas += valor (negativo) |
-| B | `investimento`                          | investimento += valor, com o sinal que entra |
-| C | `valor < 0` e o tipo não é `receita`    | despesas += valor (negativo)    |
-| D | `valor > 0` (antes exigia também a marca de reembolso) | despesas += valor (positivo)    |
+| A | `receita`      | receitas += valor, com o sinal que tem      |
+| B | `investimento` | investimento += valor, com o sinal que tem  |
+| C | o resto (despesa) | despesas += valor, com o sinal que tem   |
 
-São `elif`, um atrás do outro: o B chega antes do D, pelo que um investimento
-marcado como reembolso nunca entra em despesas.
+É o tipo da categoria que escolhe o ramo, e o sinal só decide o efeito.
 
 Convenções que estes testes fixam
 --------------------------------
@@ -95,7 +93,7 @@ NOMES = {
 }
 
 
-def transacao(ano, mes, dia, tipo, valor, reembolso=False):
+def transacao(ano, mes, dia, tipo, valor):
     """Transação com os mesmos nomes de campo que o modelo `Transacao`.
 
     `tipo=None` significa "sem categoria": é assim que se escreve a transação
@@ -104,7 +102,6 @@ def transacao(ano, mes, dia, tipo, valor, reembolso=False):
     return SimpleNamespace(
         data=date(ano, mes, dia),
         valor=valor,
-        reembolso=reembolso,
         categoria=(SimpleNamespace(tipo=tipo, nome=NOMES[tipo]) if tipo is not None else None),
     )
 
@@ -127,11 +124,11 @@ def linha(categoria_id, categoria_nome, tipo, valor, subcategoria_id=None, subca
 
 
 def test_receita_normal_entra_no_cesto_das_receitas():
-    """Uma receita positiva e não reembolsada vai toda para receitas.
+    """Uma receita positiva vai toda para receitas.
 
     Cálculo à mão:
       chave do mês = (2025, 3)
-      ramo A: tipo receita, `not reembolso` verdadeiro, 1500,00 > 0
+      ramo A: tipo receita
       receitas = 0 + 1500,00 = 1500,0
       os outros dois cestos ficam com o zero inicial da chave do mês
     """
@@ -152,7 +149,7 @@ def test_despesa_normal_entra_com_sinal_negativo():
     Cálculo à mão:
       ramo A não pega: o tipo não é receita
       ramo B não pega: não é investimento
-      ramo C: -250,50 < 0 e o tipo não é receita
+      ramo C: despesa, com o sinal que tem
       despesas = 0 + (-250,50) = -250,5
     """
     resultado = _calculate_totals(
@@ -170,9 +167,8 @@ def test_reembolso_entra_no_cesto_das_despesas_com_sinal_positivo():
     """O reembolso entra em despesas com sinal **positivo**.
 
     Cálculo à mão:
-      ramo C não pega: 120,00 não é < 0
-      ramo D: 120,00 > 0 (a marca de reembolso está ligada, mas desde a correcção que
-        a marca já não é exigida numa despesa — o sinal é que manda)
+      ramo C: despesa, 120,00 entra com o sinal que tem (o reembolso é só um
+        positivo numa categoria de despesa; a marca foi retirada no 4.3)
       despesas = 0 + 120,00 = 120,0
 
     Não é um sinal trocado: o cesto é uma soma com sinal, e as despesas
@@ -182,7 +178,7 @@ def test_reembolso_entra_no_cesto_das_despesas_com_sinal_positivo():
     """
     resultado = _calculate_totals(
         [
-            transacao(2025, 5, 12, TipoCategoria.despesa, 120.00, reembolso=True),
+            transacao(2025, 5, 12, TipoCategoria.despesa, 120.00),
         ]
     )
 
@@ -234,26 +230,6 @@ def test_investimento_soma_compra_e_venda_no_mes():
     }
 
 
-def test_investimento_marcado_como_reembolso_continua_no_cesto_do_investimento():
-    """O ramo B chega antes do D: a marca de reembolso não desvia o investimento.
-
-    Cálculo à mão:
-      ramo A não pega: o tipo não é receita
-      ramo B pega antes de o D ser avaliado
-      investimento = 0 + (-1000,00) = -1000,0
-      despesas = 0, porque o ramo D nunca é alcançado
-    """
-    resultado = _calculate_totals(
-        [
-            transacao(2025, 4, 2, TipoCategoria.investimento, -1000.00, reembolso=True),
-        ]
-    )
-
-    assert resultado == {
-        (2025, 4): {"receitas": 0, "despesas": 0, "investimento": -1000.0},
-    }
-
-
 def test_receita_negativa_reduz_as_receitas():
     """Uma receita negativa (estorno) conta nas receitas, com o sinal que tem.
 
@@ -261,11 +237,8 @@ def test_receita_negativa_reduz_as_receitas():
     Decisão do utilizador (o sinal manda, como no reembolso): conta nas receitas.
 
     Cálculo à mão:
-      -300,00, tipo receita, sem reembolso:
-        ramo A: `valor > 0` falha
-        ramo A2: receita e `valor < 0` -> receitas = 0 + (-300,00) = -300,0
-      1500,00, tipo receita, sem reembolso:
-        ramo A: receitas = -300,00 + 1500,00 = 1200,0
+      -300,00, tipo receita: ramo A -> receitas = 0 + (-300,00) = -300,0
+      1500,00, tipo receita: ramo A -> receitas = -300,00 + 1500,00 = 1200,0
       despesas e investimento ficam a 0
 
     A poupança (calculada em `resumo_mensal`, não aqui) passa de 1500,0 para
@@ -283,40 +256,38 @@ def test_receita_negativa_reduz_as_receitas():
     }
 
 
-def test_receita_negativa_marcada_como_reembolso_tambem_reduz_as_receitas():
-    """A marca de reembolso não muda nada numa receita negativa.
+def test_positivo_numa_receita_conta_sempre_nas_receitas():
+    """Um positivo numa categoria de receita é receita, mesmo que seja um reembolso.
 
-    A marca só desvia uma receita **positiva** para as despesas (ramo D). Numa
-    receita negativa, o ramo A falha pelo sinal e o ramo A2 não olha para a
-    marca.
+    O caso do achado 4.3: com a marca, um +200,00 numa categoria de receita
+    saía das receitas e reduzia as despesas, mas só no resumo mensal; o detalhe
+    somava-o à receita. Sem a marca, todos os ecrãs o tratam como receita.
 
-    Cálculo à mão: -80,00, receita, com reembolso -> ramo A2 -> receitas = -80,0.
+    Cálculo à mão (abril de 2025):
+      +1000,00, receita: ramo A -> receitas = 1000,0
+      +200,00, receita:  ramo A -> receitas = 1000,0 + 200,0 = 1200,0
+      despesas = 0 (antes da correcção, com a marca, dava +200,0)
     """
     resultado = _calculate_totals(
         [
-            transacao(2025, 5, 4, TipoCategoria.receita, -80.00, reembolso=True),
+            transacao(2025, 4, 1, TipoCategoria.receita, 1000.00),
+            transacao(2025, 4, 15, TipoCategoria.receita, 200.00),
         ]
     )
 
     assert resultado == {
-        (2025, 5): {"receitas": -80.0, "despesas": 0, "investimento": 0},
+        (2025, 4): {"receitas": 1200.0, "despesas": 0, "investimento": 0},
     }
 
 
-def test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas():
-    """Uma despesa positiva conta nas despesas mesmo sem a marca de reembolso.
+def test_despesa_positiva_conta_nas_despesas():
+    """Uma despesa positiva conta nas despesas, com o sinal que tem.
 
-    Decisão do utilizador (o sinal manda): o valor não pode ser ignorado só porque
-    a marca está desligada — os totais seguem o sinal, pelo que a marca de
-    reembolso já não é necessária para uma despesa entrar no cesto.
+    Decisão do utilizador (o sinal manda): o valor não pode ser ignorado.
 
     Cálculo à mão:
       -45,50: ramo C, despesas = 0 + (-45,50) = -45,5
-      +30,00, sem a marca de reembolso:
-        ramo A não pega: o tipo não é receita
-        ramo B não pega: não é investimento
-        ramo C não pega: 30,00 não é < 0
-        ramo D: 30,00 > 0, entra com o sinal que tem
+      +30,00: ramo C, entra com o sinal que tem
       despesas = -45,50 + 30,00 = -15,5
 
     Face ao comportamento antigo, em que o +30,00 desaparecia e o mês fechava
@@ -341,13 +312,11 @@ def test_despesa_positiva_sem_marca_de_reembolso_conta_nas_despesas():
     ids=["despesa", "receita"],
 )
 def test_valor_zero_cria_o_mes_mas_nao_soma(tipo):
-    """Um valor zero não entra em cesto nenhum, mas o mês fica criado.
+    """Um valor zero não muda nenhum cesto, mas o mês fica criado.
 
     Cálculo à mão (vale para os dois tipos):
-      ramo A: só pega em receitas com `valor > 0`, e 0,0 não é > 0
-      ramo B: só pega em investimentos
-      ramo C: exige `valor < 0`
-      ramo D: exige `valor > 0`
+      receita: ramo A, receitas = 0 + 0,0 = 0
+      despesa: ramo C, despesas = 0 + 0,0 = 0
       os três cestos ficam com o zero inicial da chave do mês
     """
     resultado = _calculate_totals(
@@ -379,7 +348,7 @@ def test_varias_transacoes_no_mesmo_mes_somam_ao_mesmo_cesto():
             transacao(2025, 6, 2, TipoCategoria.receita, 1500.00),
             transacao(2025, 6, 3, TipoCategoria.despesa, -45.50),
             transacao(2025, 6, 10, TipoCategoria.despesa, -1200.25),
-            transacao(2025, 6, 18, TipoCategoria.despesa, 30.00, reembolso=True),
+            transacao(2025, 6, 18, TipoCategoria.despesa, 30.00),
             transacao(2025, 6, 25, TipoCategoria.investimento, -500.00),
             transacao(2025, 7, 1, TipoCategoria.despesa, -800.00),
         ]

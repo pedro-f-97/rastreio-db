@@ -202,7 +202,6 @@ class Transacao(Base):
     saldo: Mapped[Optional[float]] = mapped_column(
         Float
     )  # Optional[] define automaticamente nullable=True
-    reembolso: Mapped[bool] = mapped_column(Boolean, default=False)
     notas: Mapped[Optional[str]] = mapped_column(String(500))
 
     categoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categorias.id"))
@@ -384,6 +383,25 @@ def _recriar_com_fk_para_ativos(con: sqlite3.Connection, nome: str, sql: str) ->
         raise RuntimeError(f"A cópia de {nome} não é igual à original")
 
 
+def remover_coluna_reembolso(caminho: str = DB_PATH) -> bool:
+    """Apaga a coluna `transacoes.reembolso`, se ainda existir.
+
+    A marca de reembolso foi retirada (achado 4.3): só tinha efeito nas
+    receitas, e só nalguns ecrãs. A coluna era `NOT NULL` sem valor por
+    omissão, por isso não pode ficar na BD sem o modelo a preencher.
+    Idempotente: sem a coluna, não escreve nada. Devolve se a apagou.
+    """
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(transacoes)")}
+        if "reembolso" not in colunas:
+            return False
+        con.execute("ALTER TABLE transacoes DROP COLUMN reembolso")
+    finally:
+        con.close()
+    return True
+
+
 def criar_tabelas():
     garantir_pasta_dados()
     Base.metadata.create_all(bind=engine)
@@ -393,6 +411,8 @@ def criar_tabelas():
             f"Schema reparado (chaves para ativos_old): {', '.join(reparadas)}, SQLite {sqlite3.sqlite_version}",
             flush=True,
         )
+    if remover_coluna_reembolso():
+        print("Schema actualizado: coluna transacoes.reembolso removida", flush=True)
 
 
 if __name__ == "__main__":

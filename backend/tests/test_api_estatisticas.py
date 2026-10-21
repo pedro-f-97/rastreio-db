@@ -129,14 +129,11 @@ def semear_subcategoria(session, nome, categoria):
     return subcategoria
 
 
-def semear_transacao(
-    session, data, descricao, valor, categoria, subcategoria=None, reembolso=False
-):
+def semear_transacao(session, data, descricao, valor, categoria, subcategoria=None):
     transacao = Transacao(
         data=data,
         descricao=descricao,
         valor=valor,
-        reembolso=reembolso,
         categoria_id=categoria.id,
         subcategoria_id=subcategoria.id if subcategoria else None,
     )
@@ -156,7 +153,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
     Cenário semeado:
       2025-03-05  Receita       +1000,00  (ramo A de _calculate_totals)
       2025-03-10  Casa           -300,00  (ramo C)
-      2025-03-18  Casa            +50,00  reembolso=True (ramo D)
+      2025-03-18  Casa            +50,00  reembolso (ramo C, com sinal +)
       2025-04-02  Transferência  -500,00  (mês só com transferência)
       2025-06-25  Investimento  -1000,00  (mês só com investimento)
 
@@ -188,7 +185,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
 
     semear_transacao(session, date(2025, 3, 5), "Ordenado", 1000.00, receita)
     semear_transacao(session, date(2025, 3, 10), "Renda", -300.00, casa)
-    semear_transacao(session, date(2025, 3, 18), "Reembolso seguros", 50.00, casa, reembolso=True)
+    semear_transacao(session, date(2025, 3, 18), "Reembolso seguros", 50.00, casa)
     semear_transacao(session, date(2025, 4, 2), "Para poupança", -500.00, transferencia)
     semear_transacao(session, date(2025, 6, 25), "Comprar ETF", -1000.00, investimento)
 

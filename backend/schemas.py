@@ -45,7 +45,6 @@ class TransacaoBase(BaseModel):
     # FiniteFloat recusa NaN e Infinity, aqui e nos outros campos numéricos
     valor: FiniteFloat
     saldo: Optional[FiniteFloat] = None
-    reembolso: bool = False
     notas: Optional[str] = None
     categoria_id: Optional[int] = None
     subcategoria_id: Optional[int] = None
@@ -54,7 +53,6 @@ class TransacaoBase(BaseModel):
 class TransacaoUpdate(BaseModel):
     categoria_id: Optional[int] = None
     subcategoria_id: Optional[int] = None
-    reembolso: Optional[bool] = None
     notas: Optional[str] = None
 
 

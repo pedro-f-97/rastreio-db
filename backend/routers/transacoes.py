@@ -81,7 +81,6 @@ def listar_transacoes(
                 "descricao": t.descricao,
                 "valor": t.valor,
                 "saldo": t.saldo,
-                "reembolso": t.reembolso,
                 "notas": t.notas,
                 "categoria_id": t.categoria_id,
                 "categoria_nome": t.categoria.nome if t.categoria else None,
@@ -126,9 +125,6 @@ def atualizar_transacao(transacao_id: int, dados: TransacaoUpdate, db: Session =
 
     if "subcategoria_id" in dados.model_fields_set:
         t.subcategoria_id = dados.subcategoria_id
-
-    if dados.reembolso is not None:
-        t.reembolso = dados.reembolso
 
     if dados.notas is not None:
         t.notas = dados.notas

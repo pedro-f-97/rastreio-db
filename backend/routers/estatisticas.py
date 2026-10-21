@@ -330,16 +330,13 @@ def _calculate_totals(transacoes):
         if chave not in meses:
             meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
 
-        if t.categoria.tipo == TipoCategoria.receita and not t.reembolso and t.valor > 0:
-            meses[chave]["receitas"] += t.valor
-        elif t.categoria.tipo == TipoCategoria.receita and t.valor < 0:
-            # Estorno de receita: reduz as receitas com o sinal que tem
+        if t.categoria.tipo == TipoCategoria.receita:
+            # Com o sinal que tem: um estorno de receita reduz as receitas
             meses[chave]["receitas"] += t.valor
         elif t.categoria.tipo == TipoCategoria.investimento:
             meses[chave]["investimento"] += t.valor
-        elif t.valor < 0 and t.categoria.tipo != TipoCategoria.receita:
-            meses[chave]["despesas"] += t.valor
-        elif t.valor > 0:
+        else:
+            # Despesa, com o sinal que tem: um reembolso (positivo) reduz a despesa
             meses[chave]["despesas"] += t.valor
 
     return meses

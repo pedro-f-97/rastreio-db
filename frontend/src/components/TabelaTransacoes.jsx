@@ -137,7 +137,6 @@ export default function TabelaTransacoes({
                             <th>Saldo</th>
                             <th>Categoria</th>
                             <th>Subcategoria</th>
-                            <th>Reembolso</th>
                             <th>Conta</th>
                             <th>Notas</th>
                         </tr>
@@ -177,16 +176,6 @@ export default function TabelaTransacoes({
                                             </option>
                                         ))}
                                     </select>
-                                </td>
-
-                                <td>
-                                    <input
-                                        type="checkbox"
-                                        checked={t.reembolso}
-                                        onChange={e =>
-                                            onGuardar(t.id, 'reembolso', e.target.checked)
-                                        }
-                                    />
                                 </td>
 
                                 <td>{t.conta_nome ?? '—'}</td>
