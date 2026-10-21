@@ -700,6 +700,7 @@ O AGENTS.md manda definir `RASTREIO_DB_DIR` antes de correr qualquer script que 
 - **Opções:**
   - (a) Na «Stack & Ports», só o comando com `RASTREIO_DB_DIR`.
   - (b) Retirar a menção ao proxy, ou passar o `client.js` a usar `/api` também em dev, para o proxy passar a contar. Esta última é uma mudança de código, a decidir.
+- **Resolvido:** com a opção (a) e, no proxy, só nos documentos. A «Stack & Ports» mostra o comando com `RASTREIO_DB_DIR`; o `AGENTS.md` e o `docs/desenvolvimento.md` dizem que, em dev, o frontend chama a 9742 directamente e o proxy não é usado. O código fica igual.
 
 ### 11.3 Os documentos de instalação e de build têm passos errados
 
@@ -759,7 +760,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 17 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1, 10.1 e 10.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 18 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2 e 11.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -781,7 +782,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado | `5f639a2`, `bfe60ab`, `2f156fc` |
 | 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado | resolvido |
 | 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura | resolvido |
-| 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura |  |
+| 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura | resolvido |
 | 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura |  |
 | 1.2 | Apagar uma conta tira-a, sem aviso, aos perfis | baixa | correcção | confirmado | em parte, `bc2f774` |
 | 1.3 | Nomes repetidos ou vazios em subcategorias e categorias | baixa | robustez | confirmado |  |

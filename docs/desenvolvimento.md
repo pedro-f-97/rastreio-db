@@ -34,7 +34,7 @@ npm install
 npm run dev
 ```
 
-Fica disponível em `http://localhost:9743`, com proxy para o backend configurado no Vite.
+Fica disponível em `http://localhost:9743`. Em dev, o frontend chama o backend directamente em `http://localhost:9742/api` (`src/api/client.js`), por isso o backend tem de estar a correr nessa porta; o proxy de `/api` no `vite.config.js` não é usado.
 
 ## Testes
 A suite vive em `backend/tests/` e corre com o `pytest`. O `pytest.ini` está em `backend/`, por isso os testes correm sempre a partir de `backend/` — é lá que estão o `testpaths = tests` e o `pythonpath = .` de que os imports (`from database import ...`) dependem.
