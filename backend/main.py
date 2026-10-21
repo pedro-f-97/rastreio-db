@@ -27,6 +27,7 @@ from routers import (
     tipos_ativo,
     transacoes,
 )
+from seguranca import criar_verificacao_origem
 
 # ---------------------------------------------------------------------------
 # Arranque: logging e streams
@@ -159,13 +160,22 @@ async def spa_fallback(request, exc):
     )
 
 
+PORTA = 9742
+ORIGEM_VITE = "http://localhost:9743"
+
 if not IS_FROZEN:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:9743"],
+        allow_origins=[ORIGEM_VITE],
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Só a própria aplicação (e o Vite, em dev) pode escrever: ver seguranca.py
+ORIGENS_PERMITIDAS = {f"http://localhost:{PORTA}", f"http://127.0.0.1:{PORTA}"}
+if not IS_FROZEN:
+    ORIGENS_PERMITIDAS.add(ORIGEM_VITE)
+app.middleware("http")(criar_verificacao_origem(ORIGENS_PERMITIDAS))
 
 
 ROUTERS = (
@@ -206,8 +216,6 @@ if os.path.exists(PASTA_FRONTEND):
 # ---------------------------------------------------------------------------
 # Ponto de entrada (executável)
 # ---------------------------------------------------------------------------
-
-PORTA = 9742
 
 
 def _preflight() -> None:
