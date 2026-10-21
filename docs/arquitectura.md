@@ -34,7 +34,8 @@ docs/       # Documentação (este ficheiro, modelo de dados, guia de desenvolvi
 
 ## CI/CD
 
-- `.github/workflows/build.yml`: build automático (Windows + Linux) disparado por tags de versão, publica executáveis como GitHub Release
+- `.github/workflows/test.yml`: em cada push para um ramo e em cada pull request, corre o ruff, o pyright, os testes (`pytest`) e o lint do frontend
+- `.github/workflows/build.yml`: disparado por tags de versão (`v*`). Corre primeiro o `test.yml`; se passar, faz o build em Windows e em Linux em paralelo e, só se os dois passarem, publica os executáveis numa GitHub Release
 
 ## Convenção para novas funcionalidades
 

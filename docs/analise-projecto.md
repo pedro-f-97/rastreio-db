@@ -712,6 +712,7 @@ O AGENTS.md manda definir `RASTREIO_DB_DIR` antes de correr qualquer script que 
 - **Opções:**
   - (a) Uma secção «Instalar e actualizar» no README (descarregar, extrair, correr, manter `dados/`, fazer backup antes de actualizar).
   - (b) Corrigir as quatro incoerências acima.
+- **Resolvido:** com as opções (a) e (b). O README tem uma secção «Instalar e actualizar» (descarregar, extrair, correr, onde ficam os dados, e actualizar com um backup e copiando `dados/` para a pasta da versão nova). O `docs/desenvolvimento.md` diz a porta 9742, o `WINDOWS.md` já não tem o passo do venv nem o `cd` que falhava, e o `docs/arquitectura.md` descreve o `test.yml` e a ordem do `build.yml`.
 
 ### 11.4 O filtro de avisos do `pytest.ini` nunca se aplica
 
@@ -760,7 +761,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 18 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2 e 11.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 19 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -783,7 +784,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado | resolvido |
 | 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura | resolvido |
 | 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura | resolvido |
-| 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura |  |
+| 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura | resolvido |
 | 1.2 | Apagar uma conta tira-a, sem aviso, aos perfis | baixa | correcção | confirmado | em parte, `bc2f774` |
 | 1.3 | Nomes repetidos ou vazios em subcategorias e categorias | baixa | robustez | confirmado |  |
 | 2.2 | As exclusões ganham sempre, ao contrário do README | baixa | documentação | confirmado |  |

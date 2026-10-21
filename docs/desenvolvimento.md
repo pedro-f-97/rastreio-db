@@ -81,4 +81,4 @@ Em ambos os casos, o executável é gerado em `dist_executavel/`.
 > **Nota:** A base de dados fica em `dist_executavel/dados/rastreio.db`. Esta pasta deve ser preservada entre atualizações — apagá-la equivale a perder todos os dados.
 
 ### Primeiro arranque do executável
-A aplicação abre automaticamente no browser em `http://localhost:9743`. Uma pequena janela de controlo (`tray.py`, tkinter) permite reabrir o browser ou encerrar a aplicação.
+A aplicação abre automaticamente no browser em `http://localhost:9742`. Uma pequena janela de controlo (`tray.py`, tkinter) permite reabrir o browser ou encerrar a aplicação.

@@ -9,23 +9,17 @@
 ## Passos
 
 1. Clonar o repositório ou descarregar o código fonte
-2. Criar o ambiente virtual e instalar dependências:
-```cmd
-cd backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-3. Instalar dependências do frontend:
+2. Na raiz do projecto, instalar as dependências do frontend:
 ```cmd
 cd frontend
 npm install
+cd ..
 ```
-4. Correr o script de build:
+3. Correr o script de build, também na raiz (cria o ambiente virtual do backend, se ainda não existir, e instala as dependências):
 ```cmd
 build.bat
 ```
-5. O executável está em `dist_executavel\rastreio-db.exe`
+4. O executável está em `dist_executavel\rastreio-db.exe`
 
 ## Notas
 

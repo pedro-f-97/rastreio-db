@@ -39,6 +39,23 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 - Página de primeiro uso com criação opcional de categorias standard, seguido de tour guiado interativo
 - Página de Conceitos com explicação das principais áreas e workflow da aplicação
 
+## Instalar e actualizar
+
+### Instalar
+1. Descarregar da [última versão](https://github.com/pedro-f-97/rastreio-db/releases/latest) o `rastreio-db-windows.zip` (Windows) ou o `rastreio-db-linux.tar.gz` (Linux)
+2. Extrair para uma pasta à escolha
+3. Correr `rastreio-db.exe` (Windows) ou `./rastreio-db` (Linux). O browser abre em `http://localhost:9742`, e uma pequena janela permite reabri-lo ou encerrar a aplicação
+
+### Onde ficam os dados
+Todos os dados ficam num só ficheiro, `dados/rastreio.db`, dentro da pasta da aplicação. Apagar a pasta `dados/` é perder todos os dados.
+
+### Actualizar
+1. Na página Transações, fazer **Exportar DB** para guardar um backup
+2. Encerrar a aplicação
+3. Extrair a versão nova para uma pasta nova
+4. Copiar a pasta `dados/` da versão antiga para a pasta da versão nova
+5. Correr a versão nova. Se algo correr mal, a versão antiga continua intacta na sua pasta
+
 ## Preview
 
 ### Transações (edição inline, filtros e categorização)
