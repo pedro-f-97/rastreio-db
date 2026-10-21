@@ -13,9 +13,8 @@ por isso que nenhum teste pede a `session` nem a `client`. O `poupanca` de
 `resumo-mensal`, calculado em `resumo_mensal`, fica de fora de propósito — é
 assunto para os testes de API, mais tarde.
 
-Onde o comportamento é questionável, fica marcado com `# DEVIDA-TECNICA: Dn`,
-a remeter para `docs/divida-tecnica.md`. A `D20`, a `D4` e a `D11` já estão
-resolvidas: os seus testes afirmam o comportamento corrigido.
+Os testes do sinal do reembolso, da receita negativa e do arredondamento
+afirmam o comportamento corrigido.
 
 Os objectos que entram nas funções são `SimpleNamespace` com os mesmos nomes
 de campo dos modelos, e o `tipo` é sempre o enum `TipoCategoria` — nunca uma
@@ -33,10 +32,10 @@ transação que não casa em ramo nenhum aparece, com os três cestos a zero.
 | Ramo | Condição                                | Efeito                          |
 | --- | --- | --- |
 | A | `receita`, não reembolsada, `valor > 0` | receitas += valor              |
-| A2 | `receita`, `valor < 0` (até à D4 não havia ramo) | receitas += valor (negativo) |
+| A2 | `receita`, `valor < 0` (antes não havia ramo) | receitas += valor (negativo) |
 | B | `investimento`                          | investimento += valor, com o sinal que entra |
 | C | `valor < 0` e o tipo não é `receita`    | despesas += valor (negativo)    |
-| D | `valor > 0` (até à D20 exigia também a marca de reembolso) | despesas += valor (positivo)    |
+| D | `valor > 0` (antes exigia também a marca de reembolso) | despesas += valor (positivo)    |
 
 São `elif`, um atrás do outro: o B chega antes do D, pelo que um investimento
 marcado como reembolso nunca entra em despesas.
@@ -172,7 +171,7 @@ def test_reembolso_entra_no_cesto_das_despesas_com_sinal_positivo():
 
     Cálculo à mão:
       ramo C não pega: 120,00 não é < 0
-      ramo D: 120,00 > 0 (a marca de reembolso está ligada, mas desde a D20 que
+      ramo D: 120,00 > 0 (a marca de reembolso está ligada, mas desde a correcção que
         a marca já não é exigida numa despesa — o sinal é que manda)
       despesas = 0 + 120,00 = 120,0
 
@@ -258,8 +257,8 @@ def test_investimento_marcado_como_reembolso_continua_no_cesto_do_investimento()
 def test_receita_negativa_reduz_as_receitas():
     """Uma receita negativa (estorno) conta nas receitas, com o sinal que tem.
 
-    Era a D4: o -300,00 não caía em ramo nenhum e o mês fechava sem ele.
-    Decisão do utilizador (o sinal manda, como na D20): conta nas receitas.
+    Antes da correcção, o -300,00 não caía em ramo nenhum e o mês fechava sem ele.
+    Decisão do utilizador (o sinal manda, como no reembolso): conta nas receitas.
 
     Cálculo à mão:
       -300,00, tipo receita, sem reembolso:
@@ -486,7 +485,7 @@ def test_agrega_duas_categorias_e_as_respectivas_subcategorias():
 
 
 def test_arredondamento_em_centimos_arredonda_meio_centimo_para_longe_de_zero():
-    """Meio cêntimo arredonda para longe de zero na conversão para cêntimos (D11).
+    """Meio cêntimo arredonda para longe de zero na conversão para cêntimos.
 
     Cálculo à mão:
       0,125 em cêntimos são 12,5, um empate exacto no meio cêntimo
@@ -494,7 +493,7 @@ def test_arredondamento_em_centimos_arredonda_meio_centimo_para_longe_de_zero():
       total_centimos = 13, e o chamador divide por 100 e apresenta 0,13
       (`detalhe_mensal`, que faz `total_centimos / 100`)
 
-    Antes da D11 dava 12: `round(0,125 x 100)` arredonda a par, e 12 é par.
+    Antes da correcção dava 12: `round(0,125 x 100)` arredonda a par, e 12 é par.
     """
     agregado = _agregar_por_categoria(
         [

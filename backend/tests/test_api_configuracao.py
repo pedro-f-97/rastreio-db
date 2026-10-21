@@ -77,8 +77,8 @@ def test_inicializar_cria_os_tipos_de_ativo_com_e_sem_unidades(client, session):
     """Os tipos iniciais e o `tem_unidades` de cada um, escritos à mão.
 
     Com unidades (FIFO): ETF, Ações, Crypto, Ouro, Obrigações e Certificados de
-    Aforro, que são subscritos em unidades e podem ser resgatados em parte (era
-    a D12f: estavam sem unidades). Sem unidades (bens): Veículo, Imóvel, Outro.
+    Aforro, que são subscritos em unidades e podem ser resgatados em parte (antes
+    estavam sem unidades). Sem unidades (bens): Veículo, Imóvel, Outro.
     """
     r = client.post("/api/configuracao/inicializar?com_categorias=false")
     assert r.status_code == 200
@@ -124,7 +124,7 @@ def test_inicializar_ja_inicializada_nao_faz_nada(client, session):
 def test_inicializar_com_dados_existentes_cria_so_o_que_falta(client, session):
     """Sem linha `Configuracao` mas com dados, o `/inicializar` completa-os.
 
-    Era a D25: com uma categoria "Casa" e sem configuração, o pedido
+    Antes da correcção, com uma categoria "Casa" e sem configuração, o pedido
     rebentava com `IntegrityError` (nome duplicado) e nada ficava inicializado.
     Agora `semear_dados_iniciais` cria só o que falta, pelo nome.
 

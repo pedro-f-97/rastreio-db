@@ -27,7 +27,7 @@ def _comando_do_botao(tk_falso, texto):
 def test_abrir_no_browser_usa_a_porta_recebida(monkeypatch):
     """O botão "Abrir no browser" abre `http://localhost:<porta>` com a porta passada.
 
-    Era a D12i: a tray tinha `9742` escrito à mão, duplicado de `main.PORTA`.
+    Antes da correcção, a tray tinha `9742` escrito à mão, duplicado de `main.PORTA`.
     Com a porta 12345 (diferente de 9742, de propósito), o URL esperado é
     `http://localhost:12345`. Força-se o ramo Linux (`xdg-open`), em que o URL
     é o segundo elemento da lista passada ao `subprocess.Popen`.

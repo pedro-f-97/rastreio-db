@@ -18,11 +18,8 @@ real (ver `conftest.py`).
 
 A fixture `client` e a fixture `session` partilham a mesma sessão SQLAlchemy;
 o estado final da BD lê-se depois de `session.expire_all()`. Nenhum pedido
-chega a rebentar com `IntegrityError`: o nome duplicado (D24) e o apagar de uma
-categoria com transações (D1) são pré-checados e respondem **409**.
-
-Onde o comportamento é questionável fica a etiqueta `# DEVIDA-TECNICA: Dn`,
-a remeter para `docs/divida-tecnica.md`.
+chega a rebentar com `IntegrityError`: o nome duplicado e o apagar de uma
+categoria com transações são pré-checados e respondem **409**.
 """
 
 from datetime import date
@@ -200,14 +197,14 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
 
 
 # ---------------------------------------------------------------------------
-# POST e PUT de categorias — nome duplicado (D24: 409 antes de escrever)
+# POST e PUT de categorias — nome duplicado (409 antes de escrever)
 # ---------------------------------------------------------------------------
 
 
 def test_criar_categoria_e_nome_duplicado_da_409(client, session):
     """Criar uma categoria funciona; um nome repetido é recusado com 409.
 
-    D24 (`docs/divida-tecnica.md`): o POST pré-checa `Categoria.nome` antes de
+    O POST pré-checa `Categoria.nome` antes de
     escrever (a pré-checagem de `criar_categoria`), pelo que um nome repetido
     já não chega a `commit()` — em produção deixou de ser um 500 por
     `IntegrityError`.
@@ -245,7 +242,7 @@ def test_criar_categoria_e_nome_duplicado_da_409(client, session):
 def test_renomear_categoria_duplicado_da_409_e_404(client, session):
     """Renomear funciona; renomear para um nome existente dá 409; id errado 404.
 
-    D24 (`docs/divida-tecnica.md`): o PUT pré-checa o nome contra as **outras**
+    O PUT pré-checa o nome contra as **outras**
     categorias (`Categoria.id != categoria_id` na pré-checagem de
     `renomear_categoria`), pelo que a colisão é recusada antes
     de escrever — em produção deixou de ser um 500 por `IntegrityError`.
@@ -292,7 +289,7 @@ def test_renomear_categoria_duplicado_da_409_e_404(client, session):
 def test_renomear_categoria_mantendo_o_proprio_nome_e_200(client, session):
     """Guardar uma categoria sem mudar o nome não é duplicado: 200.
 
-    D24 (`docs/divida-tecnica.md`): a pré-checagem do PUT exclui o próprio
+    A pré-checagem do PUT exclui o próprio
     `id`, por isso o nome de uma categoria continua a poder ser re-submetido
     tal e qual.
 
@@ -426,14 +423,14 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
 
 
 # ---------------------------------------------------------------------------
-# DELETE — o efeito em cascata que D1 descreve
+# DELETE — o efeito em cascata
 # ---------------------------------------------------------------------------
 
 
 def test_apagar_categoria_com_transacoes_da_409_e_nada_muda(client, session):
-    """Uma categoria com transações não se apaga: 409, e nada muda (D1).
+    """Uma categoria com transações não se apaga: 409, e nada muda.
 
-    Era a D1: com subcategorias o pedido rebentava com 500 (NOT NULL em
+    Antes da correcção, com subcategorias o pedido rebentava com 500 (NOT NULL em
     `subcategorias.categoria_id`), e só com transações directas a categoria
     era apagada e as transações ficavam a apontar para o vazio.
     Decisão do utilizador: com transações, recusa.
@@ -459,7 +456,7 @@ def test_apagar_categoria_com_transacoes_da_409_e_nada_muda(client, session):
 
 
 def test_apagar_categoria_sem_transacoes_leva_subcategorias_e_regras(client, session):
-    """Sem transações, a categoria vai com as suas subcategorias e regras (D1).
+    """Sem transações, a categoria vai com as suas subcategorias e regras.
 
     Cálculo à mão: Receita tem a subcategoria Salário e nenhuma transação.
     Regras: "salario" -> (Receita, Salário), "bonus" -> (Receita, sem sub),
@@ -534,7 +531,7 @@ def test_apagar_subcategoria_desassocia_transacoes(client, session):
     de `apagar_subcategoria` passa. A transacção 1 fica "por categorizar" mas
     mantém a categoria Casa.
 
-    É a política decidida na D1: as transações ficam por categorizar na mesma
+    É a política decidida pelo utilizador: as transações ficam por categorizar na mesma
     categoria. As regras que apontavam para a subcategoria ficam sem ela: a
     regra "pingo" -> (Casa, Alimentação) passa a (Casa, None).
 

@@ -6,9 +6,6 @@ ficheiro inteiro (`parse_ficheiro`). Servem para que mexer no parser não mude
 nada sem dar conta: se um destes testes falhar, a mudança foi de propósito e
 tem de ser justificada.
 
-Onde o comportamento é questionável, fica marcado com `# DEVIDA-TECNICA: Dn`,
-a remeter para `docs/divida-tecnica.md`.
-
 Todos os valores esperados são calculados à mão e escritos como constantes. O
 cálculo está no comentário de cada caso, dentro das tabelas do `parametrize` ou
 imediatamente acima da afirmação. Nenhum teste assenta na data de hoje: as datas
@@ -24,7 +21,7 @@ Convenções que estes testes fixam
 --------------------------------
 * `separador_decimal` decide o que é o ponto: com `","` os pontos são lidos
   como separadores de milhares e apagados; com `"."` são as vírgulas. Desde a
-  D12d, um texto numérico que não bata com o perfil (o decimal que não é o
+  correcção, um texto numérico que não bata com o perfil (o decimal que não é o
   último separador, ou milhares sem grupos de 3 dígitos) dá `ErroParsing` em
   vez de ser lido mil ou cem vezes errado (secção C).
 * `_parse_valor` não arredonda. Onde o valor sai directamente de `float(texto)`
@@ -41,7 +38,7 @@ Convenções que estes testes fixam
   linhas de cabeçalho não contam. O `linha` que vai no erro é o número da linha
   do ficheiro, não o índice dentro do que foi lido.
 * `_ler_linhas_csv` detecta o separador de colunas (`,`, `;` ou tabulação)
-  com `_detectar_delimitador`, sobre as linhas de dados (era a D19).
+  com `_detectar_delimitador`, sobre as linhas de dados.
 * `openpyxl` é uma dependência de produção, não de teste: está em
   `backend/requirements.txt`. Estes testes geram um `.xlsx` verdadeiro com ele.
 """
@@ -182,7 +179,7 @@ def test_valor_lido_com_o_separador_do_perfil(entrada, separador_decimal, espera
 
 
 # Parênteses de contabilidade e símbolos de moeda não são suportados; a falha
-# é visível (e desde a D12d recusa a importação inteira).
+# é visível (e recusa a importação inteira).
 @pytest.mark.parametrize(
     "entrada, separador_decimal, mensagem, nota",
     [
@@ -230,7 +227,7 @@ def test_valor_que_falha_levanta_erro_de_parsing(entrada, separador_decimal, men
 
 
 # ---------------------------------------------------------------------------
-# Secção C — separador do perfil: o que bate certo e o que é recusado (D12d)
+# Secção C — separador do perfil: o que bate certo e o que é recusado
 # ---------------------------------------------------------------------------
 
 
@@ -259,7 +256,7 @@ def test_ponto_com_perfil_em_ponto_e_decimal():
     ],
 )
 def test_texto_incoerente_com_o_separador_do_perfil_e_recusado(entrada, separador_decimal, calculo):
-    """Era a D12d: estes textos eram lidos com um factor errado, sem aviso."""
+    """Antes da correcção, estes textos eram lidos com um factor errado, sem aviso."""
     with pytest.raises(ErroParsing) as erro:
         _parse_valor(entrada, separador_decimal)
 
@@ -514,7 +511,7 @@ def test_ficheiro_so_com_linhas_vazias(tmp_path):
 def test_csv_delimitado_por_ponto_e_virgula_e_detectado(tmp_path):
     """Um CSV com ponto e vírgula é lido com as colunas certas.
 
-    Era a D19: o `csv.reader` usava sempre a vírgula, e a linha inteira ficava
+    Antes da correcção, o `csv.reader` usava sempre a vírgula, e a linha inteira ficava
     numa só célula. Agora `_detectar_delimitador` escolhe o separador que dá o
     mesmo número de colunas em todas as linhas de dados, e o maior.
 
@@ -679,7 +676,7 @@ def test_xlsx_com_data_invalida_na_terceira_linha(tmp_path):
 def test_comissao_positiva_tambem_aumenta_a_saida(tmp_path):
     """Uma comissão positiva no extracto entra negativa: é sempre um pagamento.
 
-    Era a D12e: a comissão era somada com o sinal que vinha, e uma comissão
+    Antes da correcção, a comissão era somada com o sinal que vinha, e uma comissão
     positiva fazia a compra parecer mais barata. Decisão do utilizador: a
     comissão é sempre algo que se paga, por isso entra como `-abs(comissão)`.
     """
@@ -768,7 +765,7 @@ def test_comissao_numa_entrada_reduz_o_que_entra(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# NaN e Infinity não são dinheiro (D11)
+# NaN e Infinity não são dinheiro
 # ---------------------------------------------------------------------------
 
 

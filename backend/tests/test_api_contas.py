@@ -193,7 +193,7 @@ def test_apagar_conta_sem_transacoes_desassocia_os_perfis(client, session):
     Cálculo à mão: `tem_transacoes` é None e `db.delete(conta)` corre; a
     `relationship` `Conta.perfis_importacao` (sem `cascade` de delete) põe
     `perfis_importacao.conta_id` a NULL antes do `DELETE`. Com a pragma
-    `foreign_keys` ligada (D1), é isso que deixa o `DELETE` passar.
+    `foreign_keys` ligada, é isso que deixa o `DELETE` passar.
 
     Estado final da BD: 0 contas, 1 perfil com `conta_id` None.
     """
@@ -247,7 +247,7 @@ def test_apagar_conta_com_transacoes_desativa(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B6 — GET /api/contas/{id}/saldo e /api/patrimonio/evolucao concordam (era a D3)
+# B6 — GET /api/contas/{id}/saldo e /api/patrimonio/evolucao concordam
 # ---------------------------------------------------------------------------
 
 
@@ -274,7 +274,7 @@ def test_saldo_conta_e_evolucao_excluem_a_data_de_referencia(client, session):
         liquidez = 100.00 + 30.00 = 130.0
         total = liquidez + 0 + 0 = 130.0
 
-    Era a D3: o saldo usava `>=` e dava 180.0, enquanto a evolução dava 130.0
+    Antes da correcção, o saldo usava `>=` e dava 180.0, enquanto a evolução dava 130.0
     para a mesma conta, no mesmo ecrã (o cartão Liquidez e o gráfico da página
     Património). Ver o teste homólogo
     `test_evolucao_exclui_transacao_na_data_de_referencia` em

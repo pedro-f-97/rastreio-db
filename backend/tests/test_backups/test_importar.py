@@ -1,7 +1,7 @@
 """Testes de `POST /api/backups/importar`.
 
 Portados do `test_backups.py` antigo (16 de Setembro, commit `398130b`),
-com as fixtures novas desta sub-pasta, e depois invertidos pelo D6: os testes
+com as fixtures novas desta sub-pasta, e depois invertidos pela correcção: os testes
 que fixavam a validação fraca — só 3 tabelas, sem colunas, `.anterior` apagado
 no fim — afirmam agora a correcção.
 
@@ -24,7 +24,7 @@ O endpoint, lido por ordem
 6. `engine.dispose()` fecha as ligações antes de mexer no ficheiro.
 7. `shutil.copy2(DB_PATH, anterior_tmp)` seguido de
    `os.replace(anterior_tmp, anterior_path)` cria ou substitui o `.anterior`
-   só quando a cópia está completa (D22).
+   só quando a cópia está completa.
 8. `os.replace(temp_path, DB_PATH)` — a BD é mesmo substituída.
 9. verificação pós-troca: `_validar_estrutura(DB_PATH)`, a MESMA validação de
    tabelas e colunas, agora sobre a BD trocada.
@@ -38,8 +38,8 @@ O endpoint, lido por ordem
 
 Os testes
 ---------
-Todos afirmam comportamento correcto. Onde antes estava fixado o defeito do
-D6, o docstring guarda a história («era aceite com 200 …») para se perceber o
+Todos afirmam comportamento correcto. Onde antes estava fixado o defeito da
+validação, o docstring guarda a história («era aceite com 200 …») para se perceber o
 que mudou. Todos os valores esperados estão escritos à mão, como constantes,
 com o raciocínio no comentário de cada teste: nenhum foi copiado de uma
 execução.
@@ -54,7 +54,7 @@ Rollback
 --------
 O bloco `except Exception` de `importar_backup` não falha de forma natural: a
 verificação pós-troca é a mesma `_validar_estrutura` que o ficheiro acabou de
-passar. Por isso os testes da D22, no fim deste ficheiro, provocam as falhas
+passar. Por isso os testes da cópia do `.anterior`, no fim deste ficheiro, provocam as falhas
 com `monkeypatch`: na cópia do `.anterior` (`shutil.copy2`), na troca
 (`os.replace`), na verificação pós-troca (`_validar_estrutura`, um nome
 privado do router — o acoplamento é o preço de cobrir o rollback a sério) e na
@@ -78,7 +78,7 @@ from routers.backups import TABELAS_ESPERADAS
 # ---------------------------------------------------------------------------
 
 # Três das onze tabelas do modelo, cada uma só com as colunas mínimas. É o
-# ficheiro mais magro que o endpoint já aceitou (o da validação antiga do D6)
+# ficheiro mais magro que o endpoint já aceitou (o da validação antiga)
 # e continua a servir de entrada a vários cenários de rejeição.
 MINIMO_3 = {
     "transacoes": "id INTEGER PRIMARY KEY, data TEXT, descricao TEXT, valor REAL",
@@ -271,7 +271,7 @@ def test_sqlite_sem_as_tabelas_do_modelo_e_rejeitado(client, bd_em_ficheiro, tmp
     Cálculo à mão: o ficheiro tem só a tabela `lixo`, pelo que falham as onze
     tabelas de `TABELAS_DO_MODELO`. A validação de estrutura responde com o 400
     genérico e **não** lista o que falta — a lista
-    `['categorias', 'contas', 'transacoes']` que este teste fixava antes do D6
+    `['categorias', 'contas', 'transacoes']` que este teste fixava antes da correcção
     desapareceu de propósito.
 
     O `.tmp` é apagado antes do 400 subir, o `.anterior` não chega a ser
@@ -402,7 +402,7 @@ def test_ida_e_volta_sem_alteracoes_preserva_os_dados(client, bd_em_ficheiro):
     `os.replace` substitui o ficheiro por ele próprio, byte a byte. A `Conta Real`
     continua lá, com a mesma linha.
 
-    O `.anterior` é criado antes do swap e **fica**: depois do D6 nunca é
+    O `.anterior` é criado antes do swap e **fica**: nunca é
     apagado no ramo de sucesso. Aqui ele contém o estado imediatamente antes do
     restauro, que nesta ida-e-volta é o mesmo que o do fim — só a `Conta Real`.
     """
@@ -485,7 +485,7 @@ def test_a_lista_validada_e_a_do_modelo():
     """A lista de tabelas que o endpoint valida é exatamente a do modelo.
 
     Amarra a outra ponta do teste anterior: `TABELAS_ESPERADAS` deriva de
-    `Base.metadata.sorted_tables` (D6), e esta asserção falha se alguém voltar
+    `Base.metadata.sorted_tables`, e esta asserção falha se alguém voltar
     a escrever o conjunto à mão com menos nomes — que foi exactamente o defeito
     original: 3 nomes fixos em vez das 11 tabelas do modelo.
 
@@ -497,26 +497,26 @@ def test_a_lista_validada_e_a_do_modelo():
     do_modelo = {tabela.name for tabela in Base.metadata.sorted_tables}
 
     assert do_modelo == TABELAS_DO_MODELO, (
-        f"O modelo mudou e não é o D6: {sorted(do_modelo ^ TABELAS_DO_MODELO)}. "
+        f"O modelo mudou: {sorted(do_modelo ^ TABELAS_DO_MODELO)}. "
         "Actualiza TABELAS_DO_MODELO e o comentário deste teste."
     )
     assert TABELAS_ESPERADAS == do_modelo, (
         "TABELAS_ESPERADAS já não coincide com Base.metadata.sorted_tables: "
         f"falta {sorted(do_modelo - TABELAS_ESPERADAS)}, "
         f"sobra {sorted(TABELAS_ESPERADAS - do_modelo)}. "
-        "Se a lista voltou a ser fixada à mão, o D6 regressou."
+        "Se a lista voltou a ser fixada à mão, o defeito regressou."
     )
 
 
 # ---------------------------------------------------------------------------
-# Regressões do D6
+# Regressões da validação
 # ---------------------------------------------------------------------------
 
 
 def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_ficheiro, tmp_path):
     """Um `.db` com as 3 tabelas e mais nada é recusado; a BD fica como estava.
 
-    Histórico (D6): era aceite com `200 {"ok": True, "mensagem": "Base de dados
+    Histórico: era aceite com `200 {"ok": True, "mensagem": "Base de dados
     restaurada"}`, a BD perdia as outras oito tabelas e o `.anterior` era
     apagado no fim, sem recuperação possível.
 
@@ -552,7 +552,7 @@ def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_fichei
 def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tmp_path):
     """Um `.db` com os 3 nomes certos e as colunas erradas também é recusado.
 
-    Histórico (D6): era o `xfail(strict=True)` antigo, depois teste de
+    Histórico: era o `xfail(strict=True)` antigo, depois teste de
     caracterização — aceite com 200, deixava uma BD ilegível e o `.anterior`
     apagado.
 
@@ -734,7 +734,7 @@ def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_fich
 
 
 # ---------------------------------------------------------------------------
-# D12h — a extensão é aceite com qualquer capitalização
+# A extensão é aceite com qualquer capitalização
 # ---------------------------------------------------------------------------
 
 
@@ -748,7 +748,7 @@ def test_extensao_db_maiuscula_e_aceite(client, bd_em_ficheiro):
     passam e o `os.replace` troca a BD por ela própria, byte a byte.
 
     Estado final da BD: continua só com a `Conta Real`, e o `.anterior` fica no
-    disco (comportamento esperado desde o D6).
+    disco (comportamento esperado).
     """
     semear_conta_real()
 
@@ -815,12 +815,12 @@ def test_extensao_errada_continua_a_ser_rejeitada(client, bd_em_ficheiro):
 
 
 # ---------------------------------------------------------------------------
-# D22 — cópia atómica do `.anterior` e rollback
+# Cópia atómica do `.anterior` e rollback
 # ---------------------------------------------------------------------------
 
 
 def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
-    """Prepara o cenário dos testes da D22 e devolve os bytes do `.anterior`.
+    """Prepara o cenário dos testes da cópia atómica e devolve os bytes do `.anterior`.
 
     1. `Conta Real` na BD; exportar e importar o export (restauro bom), o que
        deixa um `.anterior` só com a `Conta Real`.
@@ -849,7 +849,7 @@ def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
 def test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd(client, bd_em_ficheiro, monkeypatch):
     """Uma cópia do `.anterior` interrompida não toca no `.anterior` bom nem na BD.
 
-    Era a D22: a cópia escrevia no próprio `.anterior`, e uma falha a meio
+    Antes da correcção, a cópia escrevia no próprio `.anterior`, e uma falha a meio
     (disco cheio) deixava-o cortado; o rollback repunha depois a BD a partir
     dessa cópia cortada.
 
@@ -891,7 +891,7 @@ def test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd(client, bd_em_fic
 def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
     """Se o `os.replace` do `.tmp` para a BD falhar, o `.tmp` não fica no disco.
 
-    Era a segunda parte da D22: o rollback não removia o `.tmp`, que só
+    Antes da correcção, o rollback não removia o `.tmp`, que só
     desaparecia no pedido seguinte.
 
     Só a troca `.tmp` → BD é sabotada; a do `.anterior.tmp` → `.anterior`
@@ -1009,7 +1009,7 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
 
 
 # ---------------------------------------------------------------------------
-# D1a: um backup antigo traz o schema partido
+# Um backup antigo traz as chaves para `ativos_old`
 # ---------------------------------------------------------------------------
 
 
@@ -1024,7 +1024,7 @@ def _ddl_em(caminho: Path, tabela: str) -> str:
 def test_restaurar_backup_com_fk_partida_repara_o_schema(
     client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida
 ):
-    """Um backup de antes da D1a é aceite e fica com as chaves certas.
+    """Um backup com as chaves para `ativos_old` é aceite e fica com as chaves certas.
 
     Cálculo à mão: o backup tem todas as tabelas e colunas do modelo, logo
     passa a validação (200). Depois da troca, a reparação põe as duas tabelas a
@@ -1075,7 +1075,7 @@ def test_falha_na_reparacao_repoe_a_bd_anterior(
 
 
 def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partida):
-    """`criar_tabelas()`, que corre no arranque, repara uma BD de antes da D1a.
+    """`criar_tabelas()`, que corre no arranque, repara uma BD com as chaves para `ativos_old`.
 
     Está aqui, e não em `test_reparar_fk_ativos.py`, porque precisa da BD em
     ficheiro do `DB_PATH` temporário que esta pasta prepara.

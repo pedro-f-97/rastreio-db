@@ -66,7 +66,7 @@ BD_DE_PRODUCAO = (BACKEND / "dados" / "rastreio.db").resolve()
 
 # Os ficheiros que uma importação de backup pode deixar para trás, e que não
 # podem sobreviver a um teste: o temporário e os arquivos de lado do SQLite.
-# O `.anterior` ficou de fora de propósito: depois do D6 ele é o estado
+# O `.anterior` ficou de fora de propósito: ele é o estado
 # anterior ao restauro, criado a cada sucesso e substituído no seguinte, e por
 # isso sobreviver a um teste é comportamento esperado — quem o limpa entre
 # testes é a fixture `bd_em_ficheiro` (ver `limpar_bd_e_irmaos`).
@@ -89,8 +89,8 @@ def limpar_bd_e_irmaos(caminho: Path) -> None:
     Vale a pena limpar também `rastreio.db.tmp` e `rastreio.db.anterior`: se um
     pedido falhar a meio e deixar um deles para trás, esse ficheiro não é culpa do
     teste seguinte, e deixá-lo contaminaria a leitura da guarda de ficheiros. O
-    `.anterior` é limpo aqui mesmo depois de um restauro bem sucedido (depois do
-    D6 ele é esperado e fica no disco) — é esta limpeza entre testes que permite
+    `.anterior` é limpo aqui mesmo depois de um restauro bem sucedido (ele é
+    esperado e fica no disco) — é esta limpeza entre testes que permite
     à `guarda_ficheiros` ignorar os `.anterior` sem ficar cega a outro lixo.
     """
     for sufixo in ("", "-journal", "-wal", "-shm", ".tmp", ".anterior"):
@@ -163,7 +163,7 @@ def guarda_ficheiros(bd_em_ficheiro):
     É mais forte do que verificar os dois nomes conhecidos: apanha também um
     ficheiro de fixture criado no sítio errado.
 
-    Os `.anterior` ficam de fora da comparação e do `LIXO`: depois do D6 um
+    Os `.anterior` ficam de fora da comparação e do `LIXO`: um
     `.anterior` após um restauro bem sucedido é artefacto esperado (fica no
     disco até ao restauro seguinte), e a `bd_em_ficheiro` o limpa entre testes
     para não contaminar a leitura. Um `.anterior` deixado por uma tentativa

@@ -25,7 +25,7 @@ Notas de comportamento (sem correcção)
 --------------------------------------
 * `DELETE /api/patrimonio/ativos/{id}` apaga à mão os movimentos e os preços do
   ativo antes de apagar o ativo (`routers/patrimonio.py:79-81`): com a pragma
-  `foreign_keys` ligada e sem `ON DELETE` (D1), a BD recusaria apagá-lo com
+  `foreign_keys` ligada e sem `ON DELETE`, a BD recusaria apagá-lo com
   filhos.
 * `POST /api/patrimonio/movimentos` grava o movimento e o preço num só
   `commit()` (`routers/patrimonio.py:107`): se a gravação do preço falhar, o
@@ -298,7 +298,7 @@ def test_eliminar_ativo_apaga_movimentos_e_precos(client, session):
     Cálculo à mão: ativo com 1 movimento e 2 preços -> depois do `DELETE`,
     0 ativos, 0 movimentos e 0 preços. A cascata é feita à mão
     (`routers/patrimonio.py:79-81`), porque a BD não a faz: as chaves não têm
-    `ON DELETE` (D1).
+    `ON DELETE`.
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
@@ -365,7 +365,7 @@ def test_criar_movimento_de_compra_grava_e_cria_preco(client, session):
 def test_criar_movimento_falha_no_preco_nao_grava_o_movimento(client, session):
     """Se a gravação do preço falhar, o movimento da mesma compra não fica gravado.
 
-    Era a D12c: o handler fazia `commit()` do movimento antes de tratar do
+    Antes da correcção, o handler fazia `commit()` do movimento antes de tratar do
     preço, e uma falha no preço deixava o movimento gravado sozinho.
 
     A falha é provocada por um trigger que recusa qualquer `INSERT` em
@@ -543,7 +543,7 @@ def test_eliminar_movimento_apaga_so_o_movimento(client, session):
 
 
 # ---------------------------------------------------------------------------
-# Sobre-venda recusada (era a D15)
+# Sobre-venda recusada
 # ---------------------------------------------------------------------------
 
 
@@ -563,7 +563,7 @@ def _vender(client, ativo, data, quantidade, valor_total):
 def test_venda_acima_da_posicao_da_422_e_nao_grava(client, session):
     """Vender 15 unidades tendo 10 é recusado, e nada fica gravado.
 
-    Era a D15: a venda era aceite e o FIFO reescalava o encaixe em silêncio.
+    Antes da correcção, a venda era aceite e o FIFO reescalava o encaixe em silêncio.
     Cálculo à mão: compra de 10 em 2025-01-10; venda de 15 em 2025-04-10 ->
     15 - 10 = 5 > 0 -> 422. Fica só a compra (1 movimento).
     """
@@ -792,10 +792,10 @@ def test_registar_preco_em_ativo_inexistente_da_404(client, session):
 
 
 def test_registar_preco_infinito_e_recusado_sem_gravar(client, session):
-    """Um preço Infinity é recusado à entrada e não fica gravado (D11).
+    """Um preço Infinity é recusado à entrada e não fica gravado.
 
     O JSON não tem o literal `Infinity`, mas o `json` do Python aceita-o, por
-    isso o corpo vai escrito à mão. Antes da D11 era gravado, e o resumo e a
+    isso o corpo vai escrito à mão. Antes da correcção era gravado, e o resumo e a
     evolução do património passavam a dar 500, porque a resposta não se
     serializa.
 
@@ -820,9 +820,9 @@ def test_registar_preco_infinito_e_recusado_sem_gravar(client, session):
 
 
 def test_criar_movimento_com_quantidade_nan_e_recusado_sem_gravar(client, session):
-    """Uma quantidade NaN é recusada à entrada e o movimento não fica gravado (D11).
+    """Uma quantidade NaN é recusada à entrada e o movimento não fica gravado.
 
-    Antes da D11, o SQLite gravava o NaN como NULL, e numa coluna que aceita
+    Antes da correcção, o SQLite gravava o NaN como NULL, e numa coluna que aceita
     NULL o movimento ficava gravado em silêncio, com a quantidade a 0 para o
     FIFO. A resposta é 500 e não 422, pela mesma razão do teste do preço
     infinito (o erro repete `"input": nan`).
@@ -865,7 +865,7 @@ def _hoje_fixo(monkeypatch, ano, mes, dia):
 
 
 def test_registar_preco_com_data_futura_da_422(client, session, monkeypatch):
-    """Um preço com data depois de hoje é recusado; o de hoje é aceite (D27).
+    """Um preço com data depois de hoje é recusado; o de hoje é aceite.
 
     Cálculo à mão, com hoje = 2025-06-30:
       2025-07-01 > 2025-06-30 -> 422, nada gravado
@@ -916,7 +916,7 @@ def test_listar_precos_do_mais_recente_para_o_mais_antigo(client, session):
 
 
 def test_eliminar_preco_apaga_so_esse_preco(client, session):
-    """`DELETE /precos/{id}` apaga o preço e o resumo passa a usar o anterior (D27).
+    """`DELETE /precos/{id}` apaga o preço e o resumo passa a usar o anterior.
 
     Cálculo à mão: 10 un.; preços 20.0 (2025-01-10) e 25.0 (2025-03-01).
     Antes: valor_atual = 10 x 25 = 250.0. Apagar o de 2025-03-01 -> 204,
@@ -1062,9 +1062,9 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
         data de referência. A conta B ainda não entrou (referência
         `2025-02-01 > 2025-01-31`).
       - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
-        `2025-03-15` é posterior, DEVIDA-TECNICA: D18) -> `10 x 25.00 = 250.00`.
+        `2025-03-15` é posterior) -> `10 x 25.00 = 250.00`.
       - ativos_físicos: ainda sem preço até esta data -> vale o custo,
-        `15000.00` (era 0.0 até à D16).
+        `15000.00` (antes da correcção era 0.0).
       - total: `800.00 + 250.00 + 15000.00 = 16050.00`.
     * **2025-02-28**
       - liquidez: `800.00` (conta A) `+ 100.00` (conta B, cuja referência
@@ -1141,7 +1141,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B25 — o total é a soma dos componentes apresentados (era a D2)
+# B25 — o total é a soma dos componentes apresentados
 # ---------------------------------------------------------------------------
 
 
@@ -1159,7 +1159,7 @@ def test_evolucao_total_e_a_soma_dos_componentes_arredondados(client, session):
       - ativos_físicos  = `round(0.01, 2)       = 0.01`
       - total           = `round(0.01 + 0.0 + 0.01, 2) = 0.02`
 
-    Era a D2: o total vinha da soma **não** arredondada,
+    Antes da correcção, o total vinha da soma **não** arredondada,
     `round(0.005 + 0.0 + 0.01, 2) = round(0.015, 2) = 0.01`, e ficava 1 cêntimo
     abaixo dos três componentes que o ecrã mostra ao lado (0.02).
     """
@@ -1215,7 +1215,7 @@ def test_evolucao_total_sem_ruido_de_virgula_flutuante(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B26 — a fronteira da data de referência é estrita (era a D3)
+# B26 — a fronteira da data de referência é estrita
 # ---------------------------------------------------------------------------
 
 
@@ -1229,7 +1229,7 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
 
     O saldo de referência é o do fim desse dia, que já inclui as transacções
     do dia. O `/api/contas/{id}/saldo` (`routers/contas.py:62`) usa o mesmo
-    `>` desde a D3; antes usava `>=` e devolvia `150.00` para esta conta.
+    `>`; antes da correcção usava `>=` e devolvia `150.00` para esta conta.
     """
     conta = semear_conta(session, "A", 100.0, date(2025, 1, 1))
     session.add(
@@ -1249,7 +1249,7 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B27 — bem sem preço conta pelo custo (era a D16)
+# B27 — bem sem preço conta pelo custo
 # ---------------------------------------------------------------------------
 
 
@@ -1261,7 +1261,7 @@ def test_evolucao_bem_sem_preco_conta_pelo_custo(client, session):
     devolve `valor = custo_base = 15000.00`, pelo que `ativos_fisicos` e o
     `total` são `15000.00`.
 
-    Era a D16: o valor era 0.0 e o bem desaparecia do total. Decisão do
+    Antes da correcção, o valor era 0.0 e o bem desaparecia do total. Decisão do
     utilizador: o custo é o valor de recurso enquanto não houver avaliação.
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
@@ -1281,7 +1281,7 @@ def test_evolucao_bem_sem_preco_conta_pelo_custo(client, session):
 
 
 # ---------------------------------------------------------------------------
-# B28 — D18: a evolução ignora preços posteriores ao data_alvo
+# B28 — a evolução ignora preços posteriores ao data_alvo
 # ---------------------------------------------------------------------------
 
 
@@ -1290,7 +1290,7 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
 
     Cálculo à mão: ativo de investimento com 10 un. e um único preço a 20.00,
     registado em `2025-06-01`. Para `data_alvo=2025-03-31`, o filtro
-    `PrecoAtivoModel.data <= data_alvo` não encontra preço; desde a D26 o
+    `PrecoAtivoModel.data <= data_alvo` não encontra preço, e o
     ativo vale então o custo das unidades, `100.00`. Se o preço posterior
     entrasse, valeria `10 x 20.00 = 200.00`.
 
@@ -1380,7 +1380,7 @@ def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
 ):
     """O ponto de hoje usa o preço mais recente, mesmo com data futura.
 
-    Decisão do utilizador (era a D18): o resumo do ativo e o ponto de hoje do
+    Decisão do utilizador: o resumo do ativo e o ponto de hoje do
     gráfico usam os dois o preço mais recente, para baterem certo no mesmo
     ecrã; os pontos passados continuam a usar o preço dessa data. O frontend
     mostra um aviso quando a data do preço é futura.
@@ -1457,12 +1457,12 @@ def test_evolucao_dividendo_de_bem_nao_chega_ao_total(client, session):
 
 
 # ---------------------------------------------------------------------------
-# D13d — número de queries da evolução
+# Número de queries da evolução
 # ---------------------------------------------------------------------------
 
 
 def test_evolucao_le_o_tipo_com_os_ativos_sem_query_por_tipo(client, session):
-    """Fixa o número de queries de `/evolucao`: o tipo vem com os ativos (D13d).
+    """Fixa o número de queries de `/evolucao`: o tipo vem com os ativos.
 
     Semente: 1 conta (`100.00`, referência `2025-01-01`, sem transações) e 2
     ativos de 2 tipos diferentes:
@@ -1578,12 +1578,12 @@ def test_evolucao_sem_parametros_usa_hoje_como_data_fim(client, session, monkeyp
 
 
 # ---------------------------------------------------------------------------
-# IDs inexistentes (D1)
+# IDs inexistentes
 # ---------------------------------------------------------------------------
 
 
 def test_criar_ativo_com_tipo_inexistente_da_404_e_nao_grava(client, session):
-    """Um `tipo_id` que não existe dá 404 e o ativo não é gravado (D1).
+    """Um `tipo_id` que não existe dá 404 e o ativo não é gravado.
 
     Era um 500 que deixava o ativo gravado e órfão: o `commit` passava, e só a
     serialização de `schemas.Ativo` (que exige `tipo`) falhava.
@@ -1609,7 +1609,7 @@ def test_criar_ativo_com_tipo_inexistente_da_404_e_nao_grava(client, session):
 
 
 def test_criar_movimento_com_transacao_inexistente_da_404_e_nao_grava(client, session):
-    """Um `transacao_id` que não existe dá 404 e nada é gravado (D1).
+    """Um `transacao_id` que não existe dá 404 e nada é gravado.
 
     Cálculo à mão: o ativo existe, `db.get(Transacao, 999)` devolve None, logo
     `criar_movimento` responde 404 com "Transação não encontrada." antes do

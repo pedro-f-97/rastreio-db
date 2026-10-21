@@ -47,8 +47,7 @@ Convenções fixadas (comportamento actual, não corrigido)
   defensável: duas transacções iguais no mesmo dia podem ser reais (dois cafés,
   por exemplo), e a deduplicação é só contra o que já existe na conta.
 
-Nada aqui é corrigido nem dá origem a item novo de dívida técnica. Onde o
-comportamento é questionável, um `# DEVIDA-TECNICA: Dn` aponta o item existente.
+Nada aqui é corrigido.
 
 Valores esperados
 -----------------
@@ -280,9 +279,9 @@ def test_preview_com_ficheiro_indescodificavel_da_400(client, session):
     apanha-a e responde 400 com `detail=str(e)`.
 
     Nota de comportamento: este `except Exception` transforma **qualquer** erro
-    de programação em 400, o que esconde bugs servidor. Não é corrigido aqui e
-    não corresponde a nenhum item da dívida técnica. A mensagem real é do codec,
-    por isso só se afirma o código e que `detail` é uma string não vazia.
+    de programação em 400, o que esconde bugs servidor. Não é corrigido aqui.
+    A mensagem real é do codec, por isso só se afirma o código e que `detail`
+    é uma string não vazia.
     """
     perfil = _criar_perfil(session)
     conteudo_invalido = b'\xff\xfe31/01/2026,Supermercado,"-45,60"'
@@ -637,7 +636,7 @@ def test_importar_sem_transacoes_validas_da_400(client, session, tmp_path):
     """Só com uma linha, e com erro, o endpoint recusa com 400.
 
     Cálculo à mão: a única linha de dados (linha 2) tem data inválida, logo
-    `erros` tem 1 entrada; qualquer erro recusa o ficheiro (D12d, D29), com a
+    `erros` tem 1 entrada; qualquer erro recusa o ficheiro, com a
     mensagem a apontar a linha 2. A base de dados fica vazia.
     """
     conta = _criar_conta(session)
@@ -666,7 +665,7 @@ def test_importar_sem_transacoes_validas_da_400(client, session, tmp_path):
 def test_importar_com_uma_linha_com_erro_nao_importa_nenhuma(client, session, tmp_path):
     """Uma linha com erro recusa o ficheiro inteiro, mesmo com outras válidas.
 
-    Era a D29: a importação gravava as linhas válidas e ignorava as outras sem
+    Antes da correcção, a importação gravava as linhas válidas e ignorava as outras sem
     o dizer na resposta. Decisão do utilizador: qualquer erro recusa tudo.
     Cálculo à mão, perfil em vírgula:
       linha 2 "-3,20"     -> válida

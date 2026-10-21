@@ -1,4 +1,4 @@
-"""A pragma `foreign_keys` está ligada (D1).
+"""A pragma `foreign_keys` está ligada.
 
 O SQLite só aplica as chaves estrangeiras com `PRAGMA foreign_keys = ON`, e a
 pragma é por conexão: `database.ligar_chaves_estrangeiras` liga-a em cada
