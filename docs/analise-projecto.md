@@ -604,6 +604,7 @@ Qualquer correcção destes achados pode assim mudar o comportamento sem que um 
 - **Opções:**
   - (a) Antes de cada correcção, um teste que fixa o comportamento actual; depois, o teste muda com a correcção.
   - (b) Só acrescentar os testes junto com as correcções.
+- **Resolvido:** com a opção (b), nas correcções do 3.1 (`5f639a2`), do 4.2 (`bfe60ab`) e do 4.3 (`2f156fc`), cada uma com o seu teste. Mutações repetidas numa cópia, sem a BD: sem mutação, 413 passed; M1 (`credito - debito`) morto, 1 failed, 412 passed; M3 (a liquidez só com as contas activas) morto, 1 failed, 412 passed; com o código reposto, 413 passed. O M6 já não existe, porque a marca de reembolso foi retirada no 4.3; a variante mais próxima, M6' (um positivo numa categoria de receita deixa de contar como receita), morre com 5 failed, 408 passed.
 
 ### 9.2 Faltam testes nas fronteiras entre partes
 
@@ -756,7 +757,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 14 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2 e 8.5) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 15 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5 e 9.1) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -775,7 +776,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 7.2 | O servidor aceita qualquer `Host` (DNS rebinding) | média | segurança | confirmado em parte | `59aab1f` |
 | 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado | decisão documentada no README |
 | 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado | resolvido |
-| 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado |  |
+| 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado | `5f639a2`, `bfe60ab`, `2f156fc` |
 | 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado |  |
 | 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura |  |
 | 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura |  |
