@@ -11,6 +11,7 @@ Levantamento imparcial do código, da lógica de negócio, da documentação e d
 - **Cada achado** tem `ficheiro:linha`, uma reprodução quando é possível, o estado (confirmado ou suspeito), a gravidade e as opções de correcção.
 - **Gravidade:** crítica (perde ou corrompe dados, ou dá números errados sem aviso), alta, média ou baixa.
 - **Decisões de design do README:** quando as questiono, marco-as como «decisão a rever» e não como defeito.
+- **Correcções:** cada achado resolvido ganha uma linha «Resolvido» com o commit, e o resumo no fim diz quais estão feitos.
 
 **Plano aprovado (12 áreas):**
 
@@ -59,6 +60,7 @@ Três achados confirmados: um de gravidade alta (não há controlo da versão do
 
 A aplicação não guarda que versão de schema tem a BD. `criar_tabelas()` só cria as tabelas que faltam e nunca acrescenta colunas. Os scripts `migrar_*.py` não vão no executável. Quem actualiza a aplicação e mantém a pasta `dados/` antiga, ou restaura um backup antigo, vê a aplicação abrir normalmente e depois receber erros 500.
 
+- **Resolvido:** em `cf92195`. A BD guarda a versão do schema (`PRAGMA user_version`) e as migrações numeradas de `MIGRACOES` correm no arranque e no restauro; se ainda faltar alguma coluna, o arranque recusa e diz o que falta. As 8 migrações anteriores a Julho não foram reescritas: uma BD dessa altura é recusada com a mensagem, em vez de dar 500 (ver 7.4).
 - **Gravidade:** alta. **Categoria:** robustez / estrutura. **Estado:** confirmado.
 - **Onde:** `backend/database.py:384-386` (só `create_all` e a reparação de `ativos_old`). Não há `user_version` em parte nenhuma. O padrão manual via-se nos scripts de `backend/old/`, apagados no 11.1 (estão no histórico do git).
 - **Prova:** `/tmp/rastreio-analise/area1b.py` corre numa cópia sem a coluna `coluna_fee`. O arranque (`_preflight`) conclui sem erro; `/api/perfis-importacao/` dá 500 e `/api/transacoes/` dá 200.
@@ -72,6 +74,7 @@ A aplicação não guarda que versão de schema tem a BD. `criar_tabelas()` só 
 
 Uma conta sem transações apaga-se mesmo com perfis de importação associados. O ORM põe o `conta_id` desses perfis a `NULL` sem dizer nada, e a importação seguinte com esse perfil entra sem conta. O comentário em `database.py:92-94` diz que apagar um pai com filhos é recusado, o que não é verdade.
 
+- **Resolvido:** em parte, em `bc2f774`. A importação recusa, com uma mensagem clara, um perfil que perdeu a conta, e o formulário já não deixa criar nem editar um perfil sem conta. Apagar a conta continua a tirá-la ao perfil sem aviso, e o comentário de `database.py` continua errado.
 - **Gravidade:** baixa. **Categoria:** correcção / documentação. **Estado:** confirmado.
 - **Onde:** `backend/routers/contas.py:46-59` e `backend/database.py:160-162`.
 - **Prova:** `/tmp/rastreio-analise/area1.py` → `DELETE conta com perfil -> 200 eliminada`; depois, o perfil tem `conta_id = None`.
@@ -204,6 +207,7 @@ Nesta área há dois achados que podem estragar números sem aviso: um débito q
 
 O valor é calculado como `crédito − débito`. Se o banco já escreve o débito com sinal menos («-12,50»), a compra entra como +12,50. A pré-visualização mostra-o assim, mas sem aviso, e só mostra as primeiras 10 linhas. A comissão, ao contrário, é tratada com `abs()`.
 
+- **Resolvido:** em `5f639a2`. O valor passa a ser |crédito| − |débito|.
 - **Gravidade:** alta. Para um banco que exporta neste formato é crítica: todas as despesas passam a receitas. **Categoria:** correcção. **Estado:** confirmado.
 - **Onde:** `backend/parser_importacao.py:131-147` (compare-se com `:149-154`, onde a comissão usa `abs`).
 - **Prova:** `/tmp/rastreio-analise/area3.py`, caso 1 → `('COMPRA SUPERMERCADO', 12.5)`, sem erros.
@@ -216,6 +220,7 @@ O valor é calculado como `crédito − débito`. Se o banco já escreve o débi
 
 Uma linha é considerada duplicada se já existe na conta outra com a mesma data, descrição, valor e saldo. A comparação é feita contra um conjunto e não conta quantas vezes cada linha aparece. Exemplo: um extracto exportado ao meio-dia traz um café do dia 3, o extracto seguinte traz os dois cafés desse dia, e o segundo café é descartado. Só acontece quando o perfil não tem coluna de saldo, porque o saldo distingue as duas linhas.
 
+- **Resolvido:** em `58573d4`. Contam-se as cópias de cada linha: cada uma na BD absorve uma linha igual do extracto, e as restantes entram.
 - **Gravidade:** média (perde-se uma transação real, contada como «duplicada»). **Categoria:** perda de dados. **Estado:** confirmado.
 - **Onde:** `backend/importador_transacoes.py:48-58`.
 - **Prova:** caso 3: a primeira importação dá 2 inseridas e a reimportação 2 duplicadas (está certo). Caso 4: um ficheiro com 3 cafés iguais, com 2 já na BD, dá `{'inseridas': 0, 'duplicadas': 3}`.
@@ -268,6 +273,7 @@ Além disso, um reembolso numa categoria de receita aparece de forma diferente e
 
 O saldo de cada conta só é calculado para a frente a partir da data de referência; antes dela, a conta não conta. Quem regista o saldo de hoje (o caso natural) e importa o histórico do ano vê a liquidez a zero em todos os meses passados e um salto no mês de referência. O formulário e a página Conceitos não explicam o que a data significa. As transações sem conta (de um perfil sem conta) nunca entram na liquidez, mas entram nas estatísticas.
 
+- **Resolvido:** em `837c038` e `bc2f774` (com `34efd59`, que junta num só sítio o saldo do cartão e o do gráfico). Antes da data de referência, o saldo calcula-se para trás, e um perfil de importação tem sempre uma conta.
 - **Gravidade:** alta (números errados sem aviso no gráfico de evolução). **Categoria:** lógica de negócio. **Estado:** confirmado.
 - **Onde:** `backend/servicos/patrimonio_serv.py:160-176` (`if conta.data_referencia > data_alvo: continue` e `data > data_referencia`); `frontend/src/pages/Contas.jsx:80-91`.
 - **Prova:** evolução da liquidez = `[('2026-01-31', 0.0), ('2026-02-28', 0.0), ('2026-03-31', 1000.0), ('2026-04-30', 2200.0)]`. Calculado à mão para trás: 28/02 = 1000 − (1000 − 600) = 600; 31/01 = 600 − (1000 − 600) = 200.
@@ -280,6 +286,7 @@ O saldo de cada conta só é calculado para a frente a partir da data de referê
 
 O botão de apagar uma conta com transações desactiva-a. A liquidez só soma as contas activas, para todas as datas. A conta desaparece do património de hoje e da evolução passada, mesmo nos meses em que tinha dinheiro. O aviso ao utilizador diz só «foi desactivada (tem transacções associadas)».
 
+- **Resolvido:** em `bfe60ab`. A liquidez soma todas as contas, activas ou não, e a página Património mostra as desactivadas que ainda têm saldo.
 - **Gravidade:** alta (o histórico é reescrito sem aviso). **Categoria:** lógica de negócio. **Estado:** confirmado.
 - **Onde:** `backend/servicos/patrimonio_serv.py:162` (`ContaModel.ativa == True`) e `backend/routers/contas.py:46-59`.
 - **Prova:** depois de `DELETE conta → {'acao': 'desativada'}`, a evolução fica a zeros em todos os meses (antes estava `1000.0` e `2200.0` em Março e Abril).
@@ -292,6 +299,7 @@ O botão de apagar uma conta com transações desactiva-a. A liquidez só soma a
 
 No resumo mensal, um valor positivo marcado como reembolso numa categoria de receita reduz as despesas. No detalhe mensal e nas médias por categoria, o mesmo valor soma à categoria de receita. Num mês sem outras despesas, as «despesas» ficam positivas (+200). A marca de reembolso só tem efeito em categorias de receita: noutras categorias, um positivo já reduz a despesa, com marca ou sem ela.
 
+- **Resolvido:** em `2f156fc`. A marca de reembolso foi retirada; os totais seguem só o tipo da categoria e o sinal.
 - **Gravidade:** média. **Categoria:** lógica de negócio. **Estado:** confirmado.
 - **Onde:** `backend/routers/estatisticas.py:321-345` (resumo); `:79-157` e `:280-318` (por categoria e detalhe), que ignoram `reembolso`.
 - **Prova:** Abril no resumo: `{'receitas': 1000.0, 'despesas': 200.0, 'poupanca': 1200.0}`; no detalhe: `[('Receita', 'receita', 1200.0)]`.
@@ -380,6 +388,7 @@ Tudo foi reproduzido em `/tmp/rastreio-analise/area6.py`.
 
 O restauro exige todas as colunas do modelo actual. Um backup feito antes de uma coluna nova ser acrescentada é recusado com «O ficheiro não corresponde a um backup válido do Rastreio-DB». Ninguém o pode migrar, porque não há migrações (ver 1.1). O utilizador fica com um backup legítimo que a aplicação diz ser inválido.
 
+- **Resolvido:** em parte, em `cf92195`. As migrações correm no ficheiro restaurado antes da validação (opção a), mas só cobrem as mudanças de schema daqui para a frente. A mensagem continua genérica (opção b por decidir).
 - **Gravidade:** média. **Categoria:** perda de dados / robustez. **Estado:** confirmado.
 - **Onde:** `backend/routers/backups.py:69-100` e `:15-21` (a mensagem é genérica de propósito).
 - **Prova:** a cópia sem `coluna_fee` dá `400 'O ficheiro não corresponde a um backup válido do Rastreio-DB'`.
@@ -430,6 +439,7 @@ Os browsers enviam formulários `multipart/form-data` e `POST` sem corpo para ou
 
 As rotas JSON estão protegidas, porque o FastAPI recusa JSON enviado como `text/plain`. As versões recentes do Chrome pedem permissão antes de um site público aceder a `localhost`, mas isso não é garantido em todos os browsers.
 
+- **Resolvido:** em `19ad315`. Um middleware recusa com 403 as escritas cujo `Origin` não seja o da própria aplicação (opção a).
 - **Gravidade:** alta. **Categoria:** segurança. **Estado:** do lado do servidor, confirmado; o comportamento do browser segue as regras de CORS e não foi testado num browser.
 - **Onde:** `backend/main.py:162-168` (CORS só em dev, e só limita leituras), `backend/routers/backups.py:96`, `backend/routers/importacao.py:41` e `backend/routers/configuracao.py:18`.
 - **Prova:** `/tmp/rastreio-analise/area7.py` com `Origin: https://site-malicioso.example`:
@@ -445,6 +455,7 @@ As rotas JSON estão protegidas, porque o FastAPI recusa JSON enviado como `text
 
 Não há validação do cabeçalho `Host`. Com DNS rebinding, um site pode passar a ter o mesmo «origin» que a API e ler todos os dados financeiros. Isto vai além do 7.1, que só permite escrever.
 
+- **Resolvido:** em `59aab1f`. `TrustedHostMiddleware` com `localhost` e `127.0.0.1`.
 - **Gravidade:** média. **Categoria:** segurança. **Estado:** é confirmado que o servidor aceita qualquer `Host`; o ataque completo não foi reproduzido.
 - **Onde:** `backend/main.py` (sem `TrustedHostMiddleware`).
 - **Prova:** `GET /api/transacoes/` com `Host: rebind.site-malicioso.example` → 200, com dados.
@@ -460,6 +471,17 @@ Se a porta estiver ocupada, o uvicorn sai com `sys.exit(1)` dentro da thread. O 
 - **Opções:**
   - (a) Testar a porta no `_preflight` e, se estiver ocupada, abrir o browser na instância existente ou mostrar uma mensagem.
   - (b) Apanhar `BaseException` na thread e fechar a janela de controlo.
+
+### 7.4 No executável, um erro no arranque não se vê: a aplicação simplesmente não abre
+
+Encontrado ao corrigir o 1.1. No modo `--windowed` não há consola. Quando o `_preflight` falha (pasta de dados sem permissões, ou uma BD que o arranque recusa porque lhe faltam colunas), a mensagem só vai para o log de arranque (`arranque.log` em `%LOCALAPPDATA%\rastreio-db\` ou `~/.rastreio-db/`) e o processo sai com o código 2 ou 3. Isto acontece antes de a janela de controlo abrir, por isso o utilizador não vê janela nem aviso, e não sabe que existe um log. A mensagem clara do 1.1 fica onde ninguém a lê.
+
+- **Gravidade:** baixa. **Categoria:** robustez / apresentação. **Estado:** confirmado por leitura.
+- **Onde:** `backend/main.py:223-243` (`_preflight`: `_log` e `sys.exit(2)` / `sys.exit(3)`) e `:65` (`LOG_ARRANQUE`).
+- **Opções:**
+  - (a) Mostrar a mensagem numa caixa de diálogo do tkinter antes de sair, se o tkinter existir (a janela de controlo já o usa).
+  - (b) Abrir o browser numa página de erro servida por um servidor mínimo.
+  - (c) Deixar como está e explicar no README onde fica o log.
 
 ### O que está bem
 
@@ -478,6 +500,7 @@ O cartão «Taxa de poupança» dá uma ideia errada. Nos teus dados, a média d
 
 O cartão calcula a taxa de cada mês e faz a média e a mediana dessas taxas. Cada mês pesa o mesmo, tenha a receita que tiver, e um mês com pouca receita pode dar −118%. O Histórico mostra a taxa anual agregada (soma da poupança a dividir pela soma das receitas). As duas páginas dão assim números muito diferentes para o que parece ser a mesma coisa. Num mês sem receitas, o Histórico mostra «—%» e as Estatísticas deixam um buraco; num ano sem receitas, o Histórico mostra 0%.
 
+- **Resolvido:** em `dd474cc` (e as cores em `dd4c42d`). A taxa do período é a soma da poupança a dividir pela soma das receitas, com a mediana mensal como dado secundário.
 - **Gravidade:** alta (um número três vezes acima do real, sem aviso). **Categoria:** lógica de negócio / apresentação. **Estado:** confirmado na cópia da BD real.
 - **Onde:** `frontend/src/pages/Estatisticas.jsx:82` e `:115-130`; `frontend/src/pages/Historico.jsx:35`.
 - **Prova:** `/tmp/rastreio-analise/area8.py`, 29 meses → média das taxas mensais = 42,3%; mediana = 53,9%; agregada (soma da poupança / soma das receitas) = 14,6%; mínimo e máximo mensais = −117,8% e 87,7%.
@@ -655,6 +678,7 @@ O `docs/modelo-dados.md` está certo e é útil. Os outros documentos têm erros
 
 O AGENTS.md manda definir `RASTREIO_DB_DIR` antes de correr qualquer script que importe `database`. Três dos oito scripts `migrar_*.py` (`migrar_contas.py`, `migrar_fee.py` e `migrar_patrimonio.py`) não passam por `database`: calculam o caminho da BD a partir da própria pasta e ignoram a variável. Um script novo na raiz do backend, feito com o mesmo padrão, abre `backend/dados/rastreio.db` mesmo com `RASTREIO_DB_DIR` apontado para uma cópia. Os scripts já arquivados em `backend/old/` apontam para `backend/old/dados/`, uma pasta que não existe.
 
+- **Resolvido:** em `e9936b9`. Os scripts já aplicados foram apagados, e as migrações passaram depois para a lista `MIGRACOES` (1.1).
 - **Gravidade:** alta (risco directo para a BD real, o que o AGENTS.md quer impedir). **Categoria:** segurança dos dados / documentação. **Estado:** confirmado por leitura (`backend/old/migrar_fee.py:5-10`, com `BASE_DIR` calculado a partir de `__file__`). Não corri nenhum script.
 - **Opções:**
   - (a) Os scripts de migração passam a importar `DB_PATH` de `database`, e o AGENTS.md di-lo.
@@ -726,50 +750,53 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 ## Resumo de achados
 
-São 43 achados: 7 de gravidade alta, 13 médios, 22 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
+São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-| Nº | Achado | Gravidade | Categoria | Estado |
-| --- | --- | --- | --- | --- |
-| 1.1 | Uma BD de uma versão anterior arranca e depois dá erros 500 | alta | robustez / estrutura | confirmado |
-| 3.1 | Um débito negativo no extracto entra como receita | alta | correcção | confirmado |
-| 4.1 | Antes da data de referência, a conta vale zero na evolução | alta | lógica de negócio | confirmado |
-| 4.2 | Desactivar uma conta apaga a sua liquidez do histórico | alta | lógica de negócio | confirmado |
-| 7.1 | Outro site pode restaurar a BD ou importar transações (CSRF) | alta | segurança | confirmado (servidor) |
-| 8.1 | A taxa de poupança dos cartões é uma média de taxas (42% contra 15% reais) | alta | apresentação | confirmado |
-| 11.1 | Os scripts de migração ignoram `RASTREIO_DB_DIR` | alta | segurança dos dados | confirmado por leitura |
-| 2.1 | Não se consegue mudar a categoria de uma transação com subcategoria | média | correcção | confirmado (backend), por leitura (frontend) |
-| 3.2 | Uma transação igual a outra já importada é descartada | média | perda de dados | confirmado |
-| 3.3 | Só se aceita CSV em UTF-8 | média | robustez | confirmado |
-| 4.3 | Um reembolso numa categoria de receita aparece diferente em cada ecrã | média | lógica de negócio | confirmado |
-| 6.1 | Um backup de uma versão anterior é recusado | média | perda de dados | confirmado |
-| 7.2 | O servidor aceita qualquer `Host` (DNS rebinding) | média | segurança | confirmado em parte |
-| 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado |
-| 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado |
-| 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado |
-| 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado |
-| 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura |
-| 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura |
-| 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura |
-| 1.2 | Apagar uma conta tira-a, sem aviso, aos perfis | baixa | correcção | confirmado |
-| 1.3 | Nomes repetidos ou vazios em subcategorias e categorias | baixa | robustez | confirmado |
-| 2.2 | As exclusões ganham sempre, ao contrário do README | baixa | documentação | confirmado |
-| 2.3 | A página Conceitos descreve funcionalidades de regras que não existem | baixa | documentação | confirmado |
-| 2.4 | «Aplicar regras» conta casos sem efeito | baixa | correcção | confirmado |
-| 2.5 | Uma regra aceita uma subcategoria de outra categoria | baixa | robustez | confirmado |
-| 3.4 | Não há forma de editar um perfil de importação na interface | baixa | funcionalidade em falta | confirmado por leitura |
-| 5.1 | Não se consegue apagar o símbolo de um ativo | baixa | correcção | confirmado |
-| 5.2 | `moeda` é guardado mas não tem efeito | baixa | estrutura | confirmado |
-| 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado |
-| 6.2 | Um backup com valores inválidos é aceite | baixa | robustez | confirmado |
-| 6.3 | Só há um `.anterior`, substituído em cada restauro | baixa | perda de dados | confirmado por leitura |
-| 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado |
-| 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura |
-| 8.4 | A média e a mediana do backend não são usadas | baixa | qualidade | confirmado |
-| 8.6 | A taxa anual do Histórico perde a casa decimal | baixa | apresentação | confirmado |
-| 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado |
-| 10.3 | A aplicação não mostra a sua versão | baixa | estrutura | confirmado |
-| 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado |
-| 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado |
-| 11.5 | Ficheiros soltos e restos | baixa | estrutura | confirmado |
-| 11.6 | O README diz que se pode editar a conta de uma transação | baixa | documentação | confirmado por leitura |
-| 2.6 | Não há forma de apagar nem de criar transações | a definir | lógica de negócio | em aberto |
+**Progresso:** 10 resolvidos (os 7 de gravidade alta, 3.2, 4.3 e 7.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+
+| Nº | Achado | Gravidade | Categoria | Estado | Resolução |
+| --- | --- | --- | --- | --- | --- |
+| 1.1 | Uma BD de uma versão anterior arranca e depois dá erros 500 | alta | robustez / estrutura | confirmado | `cf92195` |
+| 3.1 | Um débito negativo no extracto entra como receita | alta | correcção | confirmado | `5f639a2` |
+| 4.1 | Antes da data de referência, a conta vale zero na evolução | alta | lógica de negócio | confirmado | `837c038`, `bc2f774`, `34efd59` |
+| 4.2 | Desactivar uma conta apaga a sua liquidez do histórico | alta | lógica de negócio | confirmado | `bfe60ab` |
+| 7.1 | Outro site pode restaurar a BD ou importar transações (CSRF) | alta | segurança | confirmado (servidor) | `19ad315` |
+| 8.1 | A taxa de poupança dos cartões é uma média de taxas (42% contra 15% reais) | alta | apresentação | confirmado | `dd474cc`, `dd4c42d` |
+| 11.1 | Os scripts de migração ignoram `RASTREIO_DB_DIR` | alta | segurança dos dados | confirmado por leitura | `e9936b9` |
+| 2.1 | Não se consegue mudar a categoria de uma transação com subcategoria | média | correcção | confirmado (backend), por leitura (frontend) |  |
+| 3.2 | Uma transação igual a outra já importada é descartada | média | perda de dados | confirmado | `58573d4` |
+| 3.3 | Só se aceita CSV em UTF-8 | média | robustez | confirmado |  |
+| 4.3 | Um reembolso numa categoria de receita aparece diferente em cada ecrã | média | lógica de negócio | confirmado | `2f156fc` |
+| 6.1 | Um backup de uma versão anterior é recusado | média | perda de dados | confirmado | em parte, `cf92195` |
+| 7.2 | O servidor aceita qualquer `Host` (DNS rebinding) | média | segurança | confirmado em parte | `59aab1f` |
+| 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado |  |
+| 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado |  |
+| 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado |  |
+| 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado |  |
+| 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura |  |
+| 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura |  |
+| 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura |  |
+| 1.2 | Apagar uma conta tira-a, sem aviso, aos perfis | baixa | correcção | confirmado | em parte, `bc2f774` |
+| 1.3 | Nomes repetidos ou vazios em subcategorias e categorias | baixa | robustez | confirmado |  |
+| 2.2 | As exclusões ganham sempre, ao contrário do README | baixa | documentação | confirmado |  |
+| 2.3 | A página Conceitos descreve funcionalidades de regras que não existem | baixa | documentação | confirmado |  |
+| 2.4 | «Aplicar regras» conta casos sem efeito | baixa | correcção | confirmado |  |
+| 2.5 | Uma regra aceita uma subcategoria de outra categoria | baixa | robustez | confirmado |  |
+| 3.4 | Não há forma de editar um perfil de importação na interface | baixa | funcionalidade em falta | confirmado por leitura |  |
+| 5.1 | Não se consegue apagar o símbolo de um ativo | baixa | correcção | confirmado |  |
+| 5.2 | `moeda` é guardado mas não tem efeito | baixa | estrutura | confirmado |  |
+| 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado |  |
+| 6.2 | Um backup com valores inválidos é aceite | baixa | robustez | confirmado |  |
+| 6.3 | Só há um `.anterior`, substituído em cada restauro | baixa | perda de dados | confirmado por leitura |  |
+| 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado |  |
+| 7.4 | No executável, um erro no arranque não se vê | baixa | robustez / apresentação | confirmado por leitura |  |
+| 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura |  |
+| 8.4 | A média e a mediana do backend não são usadas | baixa | qualidade | confirmado |  |
+| 8.6 | A taxa anual do Histórico perde a casa decimal | baixa | apresentação | confirmado |  |
+| 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado |  |
+| 10.3 | A aplicação não mostra a sua versão | baixa | estrutura | confirmado |  |
+| 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado |  |
+| 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado |  |
+| 11.5 | Ficheiros soltos e restos | baixa | estrutura | confirmado |  |
+| 11.6 | O README diz que se pode editar a conta de uma transação | baixa | documentação | confirmado por leitura |  |
+| 2.6 | Não há forma de apagar nem de criar transações | a definir | lógica de negócio | em aberto |  |
