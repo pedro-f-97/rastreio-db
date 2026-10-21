@@ -466,7 +466,7 @@ O cartão «Taxa de poupança» dá uma ideia errada. Nos teus dados, a média d
 
 ### 8.1 A «taxa de poupança» dos cartões é a média das taxas de cada mês, e engana
 
-O cartão calcula a taxa de cada mês e faz a média e a mediana dessas taxas. Cada mês pesa o mesmo, tenha a receita que tiver, e um mês com pouca receita pode dar −118%. O Histórico mostra a taxa anual agregada (soma da poupança a dividir pela soma das receitas). As duas páginas dão assim números muito diferentes para o que parece ser a mesma coisa. Num mês sem receitas, o Histórico mostra 0% e as Estatísticas deixam um buraco.
+O cartão calcula a taxa de cada mês e faz a média e a mediana dessas taxas. Cada mês pesa o mesmo, tenha a receita que tiver, e um mês com pouca receita pode dar −118%. O Histórico mostra a taxa anual agregada (soma da poupança a dividir pela soma das receitas). As duas páginas dão assim números muito diferentes para o que parece ser a mesma coisa. Num mês sem receitas, o Histórico mostra «—%» e as Estatísticas deixam um buraco; num ano sem receitas, o Histórico mostra 0%.
 
 - **Gravidade:** alta (um número três vezes acima do real, sem aviso). **Categoria:** lógica de negócio / apresentação. **Estado:** confirmado na cópia da BD real.
 - **Onde:** `frontend/src/pages/Estatisticas.jsx:82` e `:115-130`; `frontend/src/pages/Historico.jsx:35`.
@@ -508,6 +508,24 @@ Várias chamadas não têm `catch`. Exemplos:
 - **Opções:**
   - (a) Retirar os campos do backend.
   - (b) O frontend passa a usá-los e o backend aceita o filtro por ano.
+
+### 8.5 No detalhe do Histórico, cada subcategoria de receita mostra o total da categoria
+
+Ao abrir um mês no Histórico, as linhas das subcategorias de receita repetem o total da categoria em vez do seu próprio valor. Em Julho de 2026, «Salário» e «Juros» aparecem ambas com 4 094,52 €, quando os valores reais são 4 086,71 € e 7,81 €. As colunas de despesa e de investimento usam o valor da subcategoria e estão certas.
+
+- **Gravidade:** média (um valor errado à vista). **Categoria:** correcção. **Estado:** confirmado na cópia da BD real (`detalhe_mensal` de 2026-07 e 2025-10).
+- **Onde:** `frontend/src/pages/Historico.jsx:109` (`cat.total` em vez de `sub.total`).
+- **Opções:**
+  - (a) Usar `sub.total`, como nas outras colunas.
+
+### 8.6 A taxa anual do Histórico perde a casa decimal quando termina em zero
+
+A taxa de cada ano passa por `parseFloat(... .toFixed(1))`, que tira o zero final: aparece «−89%» em 2024, enquanto os meses mostram sempre uma casa decimal (por exemplo «52,0%»).
+
+- **Gravidade:** baixa. **Categoria:** apresentação. **Estado:** confirmado por leitura e na cópia da BD real.
+- **Onde:** `frontend/src/pages/Historico.jsx:35` e `:76`.
+- **Opções:**
+  - (a) Guardar o número sem `toFixed` e formatar com `.toFixed(1)` só ao mostrar, como nos meses.
 
 ### O que está bem
 
@@ -688,7 +706,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 ## Resumo de achados
 
-São 39 achados: 7 de gravidade alta, 12 médios, 19 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
+São 41 achados: 7 de gravidade alta, 13 médios, 20 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
 | Nº | Achado | Gravidade | Categoria | Estado |
 | --- | --- | --- | --- | --- |
@@ -706,6 +724,7 @@ São 39 achados: 7 de gravidade alta, 12 médios, 19 baixos e 1 por classificar,
 | 6.1 | Um backup de uma versão anterior é recusado | média | perda de dados | confirmado |
 | 7.2 | O servidor aceita qualquer `Host` (DNS rebinding) | média | segurança | confirmado em parte |
 | 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado |
+| 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado |
 | 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado |
 | 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado |
 | 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura |
@@ -725,6 +744,7 @@ São 39 achados: 7 de gravidade alta, 12 médios, 19 baixos e 1 por classificar,
 | 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado |
 | 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura |
 | 8.4 | A média e a mediana do backend não são usadas | baixa | qualidade | confirmado |
+| 8.6 | A taxa anual do Histórico perde a casa decimal | baixa | apresentação | confirmado |
 | 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado |
 | 10.3 | A aplicação não mostra a sua versão | baixa | estrutura | confirmado |
 | 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado |
