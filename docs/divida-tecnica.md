@@ -881,8 +881,8 @@ Não é bug. Dividido em sub-itens, cada um com o seu commit:
 - **D13b — resolvido** — `ruff` no backend.
 - **D13c — resolvido** — `pyright` (tipos) no backend.
 - **D13d — resolvido** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
-- **D13e** — índices nas colunas de data e FK, com migração da BD real e dos
-  backups.
+- **D13e — resolvido** — índices nas colunas de data e FK, com migração da BD
+  real e dos backups.
 
 ### D13a — ESLint no frontend — resolvido
 
@@ -992,14 +992,43 @@ reescrever a liquidez, o FIFO e o preço por data (D18) para poupar cerca de
 60 ms num pedido feito ao abrir a página. O número de queries está fixado em
 `test_evolucao_le_o_tipo_com_os_ativos_sem_query_por_tipo`.
 
-### D13e — Índices
+### D13e — Índices — resolvido
 
-Nos modelos não há `index=True` nem `Index(...)`. `transacoes.data`,
-`transacoes.conta_id`, `categoria_id`, `subcategoria_id`,
+Descrição original: nos modelos não há `index=True` nem `Index(...)`.
+`transacoes.data`, `transacoes.conta_id`, `categoria_id`, `subcategoria_id`,
 `movimentos_ativo.ativo_id`, `movimentos_ativo.data` e
 `subcategorias.categoria_id` não têm índice. A excepção é `precos_ativo`,
-cujo `UniqueConstraint("ativo_id", "data")` cria um índice implícito que serve
-a query do preço (por confirmar numa cópia se a BD real o tem).
+cujo `UniqueConstraint("ativo_id", "data")` cria um índice implícito (por
+confirmar numa cópia se a BD real o tem).
+
+**Resolvido sem alterar código: medido, não compensa.** Numa cópia da BD
+real, em 2026-10-21, `precos_ativo` tem o `sqlite_autoindex_precos_ativo_1` e
+a query do preço usa-o. As outras queries percorrem a tabela toda (`SCAN`).
+
+Medição com e sem os 7 índices (mediana de 30 repetições), na cópia real (705
+transacções) e numa cópia sintética com as transacções replicadas para trás
+(26 085 transacções de 2015 a 2026):
+
+| Pedido | Real, sem | Real, com | Sintética, sem | Sintética, com |
+|---|---|---|---|---|
+| `/api/patrimonio/evolucao` | 57 ms | 58 ms | 251 ms | 256 ms |
+| `/api/estatisticas/resumo-mensal` | 7,1 ms | 7,0 ms | 199 ms | 198 ms |
+| `/api/transacoes/` | 4,8 ms | 4,5 ms | 10,8 ms | 5,5 ms |
+| `/api/transacoes/?conta_id=1` | 4,9 ms | 4,9 ms | 10,9 ms | 11,5 ms |
+| `/api/estatisticas/por-categoria?ano=2025` | 2,5 ms | 2,5 ms | 8,2 ms | 8,3 ms |
+| `/api/estatisticas/detalhe-mensal?ano=2025&mes=6` | 1,3 ms | 1,2 ms | 2,6 ms | 1,7 ms |
+
+Mesmo com 26 mil transacções, os dois pedidos lentos não melhoram: a
+evolução gasta o tempo no número de queries (o N+1 que ficou na D13d) e o
+resumo mensal soma a tabela toda. Se um dia for preciso, é aí que se mexe.
+
+Notas para quem retomar isto:
+* O `create_all` não cria índices em tabelas que já existem (confirmado com
+  o SQLAlchemy 2.0.49). Um `index=True` nos modelos não chegava à BD real nem
+  aos backups antigos.
+* Um índice não obriga a recriar tabelas como a `reparar_fk_ativos` (D1a):
+  chega um `CREATE INDEX IF NOT EXISTS`, idempotente, no arranque
+  (`criar_tabelas`) e depois de restaurar um backup (`routers/backups.py`).
 
 ## 🔴 D14 — `ReferenceError` ao terminar cada importação — resolvido
 
