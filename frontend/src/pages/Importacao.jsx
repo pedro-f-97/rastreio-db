@@ -123,6 +123,7 @@ export default function Importacao({ onDadosAlterados }) {
     function calcularChecklist() {
         const items = [
             itemChecklist('Nome', !!form.nome.trim()),
+            itemChecklist('Conta', form.conta_id !== null),
             itemChecklist('Início de dados', form.linha_inicio_dados !== null),
             itemChecklist('Coluna data', form.coluna_data !== null),
             itemChecklist('Coluna descrição', form.coluna_descricao !== null),
@@ -490,7 +491,7 @@ export default function Importacao({ onDadosAlterados }) {
                                     <div className="modal-grupo">
                                         <label>Conta bancária</label>
                                         <select value={form.conta_id ?? ''} onChange={e => campo('conta_id', e.target.value ? parseInt(e.target.value) : null)}>
-                                            <option value="">Sem conta</option>
+                                            <option value="" disabled>Escolhe uma conta</option>
                                             {contas.map(c => (
                                                 <option key={c.id} value={c.id}>{c.nome}</option>
                                             ))}

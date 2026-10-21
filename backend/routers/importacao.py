@@ -43,6 +43,12 @@ async def importar_extrato(
     perfil_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)
 ):
     perfil = _obter_perfil(perfil_id, db)
+    # Sem conta, as transacções contariam nas estatísticas mas nunca na liquidez
+    if perfil.conta_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Este perfil não tem conta associada. Elimina-o e cria-o de novo com uma conta.",
+        )
     conteudo = await file.read()
     try:
         resultado = parse_ficheiro(conteudo, perfil)

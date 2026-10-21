@@ -546,26 +546,22 @@ def test_linhas_repetidas_no_mesmo_ficheiro_nao_sao_deduplicadas(client, session
     assert session.query(Transacao).count() == 2
 
 
-def test_importar_perfil_sem_conta_deduplica_por_is_null(client, session, tmp_path):
-    """Sem conta, o perfil escreve `conta_id=None` e a dedup compara `IS NULL`.
+def test_importar_com_perfil_sem_conta_da_400_e_nao_grava(client, session, tmp_path):
+    """Um perfil sem conta (por exemplo, a conta foi apagada) não importa (4.1).
 
-    Cálculo à mão: `filter(Transacao.conta_id == None)` é traduzido pelo
-    SQLAlchemy para `IS NULL`. A 1.ª importação cria 2 transacções com
-    `conta_id=None`; na 2.ª, essas 2 entram em `existentes` e o ficheiro repete
-    as mesmas chaves -> `{"inseridas": 0, "duplicadas": 2}`.
+    Antes, as linhas entravam com `conta_id=None`: contavam nas estatísticas mas
+    nunca na liquidez. Cálculo à mão: um pedido recusado -> 0 transacções.
     """
     perfil = _criar_perfil(session, conta_id=None)
     caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
-    conteudo = caminho.read_bytes()
 
-    primeira = _pedido_importar(client, perfil.id, conteudo)
-    segunda = _pedido_importar(client, perfil.id, conteudo)
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
-    assert primeira.json() == {"inseridas": 2, "duplicadas": 0}
-    assert segunda.status_code == 200
-    assert segunda.json() == {"inseridas": 0, "duplicadas": 2}
-    assert session.query(Transacao).count() == 2
-    assert all(t.conta_id is None for t in session.query(Transacao).all())
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": "Este perfil não tem conta associada. Elimina-o e cria-o de novo com uma conta."
+    }
+    assert session.query(Transacao).count() == 0
 
 
 @pytest.mark.parametrize(
