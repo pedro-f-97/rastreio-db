@@ -122,6 +122,7 @@ O achado principal: na tabela de transações não se consegue mudar a categoria
 
 O frontend envia dois pedidos: primeiro a categoria nova, depois a subcategoria a vazio. O backend valida a subcategoria antiga contra a categoria nova e recusa com 400, e o segundo pedido nunca chega a sair. A caixa volta ao valor antigo sem mensagem nenhuma. Escolher «—» falha da mesma forma.
 
+- **Resolvido:** em `b78dcb8`, com a opção (a). A tabela envia `{categoria_id, subcategoria_id: null}` num só pedido, e um `PUT` que falha mostra o `detail` do erro. O backend fica igual, e um teste novo fixa o pedido combinado. Verificado com o lint; não testado no browser.
 - **Gravidade:** média. **Categoria:** correcção (incoerência entre o frontend e o backend). **Estado:** backend confirmado; frontend confirmado por leitura; não testado no browser.
 - **Onde:**
   - `frontend/src/components/TabelaTransacoes.jsx:54-57` (dois pedidos, sem `catch`);
@@ -752,7 +753,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 10 resolvidos (os 7 de gravidade alta, 3.2, 4.3 e 7.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 11 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 4.3 e 7.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -763,7 +764,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 7.1 | Outro site pode restaurar a BD ou importar transações (CSRF) | alta | segurança | confirmado (servidor) | `19ad315` |
 | 8.1 | A taxa de poupança dos cartões é uma média de taxas (42% contra 15% reais) | alta | apresentação | confirmado | `dd474cc`, `dd4c42d` |
 | 11.1 | Os scripts de migração ignoram `RASTREIO_DB_DIR` | alta | segurança dos dados | confirmado por leitura | `e9936b9` |
-| 2.1 | Não se consegue mudar a categoria de uma transação com subcategoria | média | correcção | confirmado (backend), por leitura (frontend) |  |
+| 2.1 | Não se consegue mudar a categoria de uma transação com subcategoria | média | correcção | confirmado (backend), por leitura (frontend) | `b78dcb8` |
 | 3.2 | Uma transação igual a outra já importada é descartada | média | perda de dados | confirmado | `58573d4` |
 | 3.3 | Só se aceita CSV em UTF-8 | média | robustez | confirmado |  |
 | 4.3 | Um reembolso numa categoria de receita aparece diferente em cada ecrã | média | lógica de negócio | confirmado | `2f156fc` |
