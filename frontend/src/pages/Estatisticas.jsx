@@ -115,6 +115,9 @@ export default function Estatisticas() {
         const taxas = dadosGraficoFiltrados
             .filter(m => m['Taxa de Poupança'] !== null)
             .map(m => m['Taxa de Poupança']);
+        // Taxa do período: soma da poupança / soma das receitas, como no Histórico
+        const receitas = dadosGraficoFiltrados.reduce((s, m) => s + m.Receitas, 0);
+        const poupanca = poupancas.reduce((s, v) => s + v, 0);
 
         return {
             cardDespesas: {
@@ -126,8 +129,8 @@ export default function Estatisticas() {
                 media: calcularMedia(poupancas),
             },
             cardTaxa: {
-                mediana: calcularMediana(taxas),
-                media: calcularMedia(taxas),
+                periodo: receitas > 0 ? (poupanca / receitas) * 100 : null,
+                mediana: taxas.length > 0 ? calcularMediana(taxas) : null,
             },
         };
     }, [dadosGraficoFiltrados]);
@@ -200,18 +203,18 @@ export default function Estatisticas() {
                     </div>
 
                     <div className="cartao">
-                        <span className="cartao-titulo">Taxa de poupança mensal</span>
+                        <span className="cartao-titulo">Taxa de poupança</span>
                         <div className="cartao-corpo">
                             <div className="cartao-metade">
-                                <span className="cartao-metade-label">Mediana</span>
-                                <span className={`cartao-metade-valor ${classeValor(cardTaxa.mediana)}`}>
-                                    {cardTaxa.mediana.toFixed(1)}%
+                                <span className="cartao-metade-label">Do período</span>
+                                <span className={`cartao-metade-valor ${cardTaxa.periodo !== null ? classeValor(cardTaxa.periodo) : ''}`}>
+                                    {cardTaxa.periodo !== null ? `${cardTaxa.periodo.toFixed(1)}%` : '—'}
                                 </span>
                             </div>
                             <div className="cartao-metade">
-                                <span className="cartao-metade-label">Média</span>
-                                <span className={`cartao-metade-valor ${classeValor(cardTaxa.media)}`}>
-                                    {cardTaxa.media.toFixed(1)}%
+                                <span className="cartao-metade-label">Mediana mensal</span>
+                                <span className={`cartao-metade-valor ${cardTaxa.mediana !== null ? classeValor(cardTaxa.mediana) : ''}`}>
+                                    {cardTaxa.mediana !== null ? `${cardTaxa.mediana.toFixed(1)}%` : '—'}
                                 </span>
                             </div>
                         </div>
