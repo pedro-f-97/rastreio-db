@@ -73,7 +73,7 @@ export default function Historico() {
                                         <td className="valor-negativo">{formatarEuros(totalAno.despesas)}</td>
                                         <td className={totalAno.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{formatarEuros(totalAno.investimento)}</td>
                                         <td className={totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarEuros(totalAno.poupanca)}</td>
-                                        <td>{totalAno.taxa !== null ? `${totalAno.taxa}%` : '—'}</td>
+                                        <td className={totalAno.taxa === null ? '' : totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{totalAno.taxa !== null ? `${totalAno.taxa}%` : '—'}</td>
                                     </tr>
                                     {mesesPorAno[ano].map(m => {
                                         const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
@@ -91,7 +91,7 @@ export default function Historico() {
                                                     <td className="valor-negativo">{formatarEuros(m.despesas)}</td>
                                                     <td className={m.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{formatarEuros(m.investimento)}</td>
                                                     <td className={m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarEuros(m.poupanca)}</td>
-                                                    <td>{m.receitas > 0 ? `${(m.poupanca / m.receitas * 100).toFixed(1)}%` : '—'}</td>
+                                                    <td className={m.receitas <= 0 ? '' : m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{m.receitas > 0 ? `${(m.poupanca / m.receitas * 100).toFixed(1)}%` : '—'}</td>
                                                 </tr>
                                                 {seleccionado && detalheMes.map(cat => (
                                                     <Fragment key={`cat-${cat.categoria_id}`}>
