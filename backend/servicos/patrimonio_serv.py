@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database import (
     Ativo as AtivoModel,
@@ -178,7 +178,8 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
     # --- Investimentos e Ativos físicos ---
     investimentos = 0.0
     ativos_fisicos = 0.0
-    ativos = db.query(AtivoModel).all()
+    # O tipo vem na mesma query: sem isto, cada ponto lia cada tipo à parte (D13d)
+    ativos = db.query(AtivoModel).options(joinedload(AtivoModel.tipo)).all()
 
     for ativo in ativos:
         movimentos = (

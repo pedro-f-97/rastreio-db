@@ -880,7 +880,7 @@ Não é bug. Dividido em sub-itens, cada um com o seu commit:
 - **D13a — resolvido** — ESLint no frontend.
 - **D13b — resolvido** — `ruff` no backend.
 - **D13c — resolvido** — `pyright` (tipos) no backend.
-- **D13d** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
+- **D13d — resolvido** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
 - **D13e** — índices nas colunas de data e FK, com migração da BD real e dos
   backups.
 
@@ -962,14 +962,35 @@ que o próprio FIFO usou.
 Node como pacote). O CI (`test.yml`, trabalho `testes`) corre `pyright` a
 seguir ao `ruff`.
 
-### D13d — N+1 no cálculo do património
+### D13d — N+1 no cálculo do património — resolvido
 
-`calcular_patrimonio_em` (`servicos/patrimonio_serv.py:151`) faz
-`1 + C + 1 + 2·A` queries por ponto (contas, uma soma por conta activa, ativos,
-e movimentos + preço por ativo). `gerar_evolucao` repete o cálculo por mês:
-com 3 contas e 4 ativos, 13 queries por ponto e 156 para 12 meses (medido
-numa BD vazia em 2026-10-19). Com os volumes desta aplicação o custo deve
-ser de milissegundos: medir numa cópia da BD real antes de decidir.
+Descrição original: `calcular_patrimonio_em` faz `1 + C + 1 + 2·A` queries por
+ponto (contas, uma soma por conta activa, ativos, e movimentos + preço por
+ativo), e `gerar_evolucao` repete o cálculo por mês. Medir numa cópia da BD
+real antes de decidir.
+
+A fórmula esquecia uma parcela. `_resumo_valor_ativo` lê
+`ativo.tipo.tem_unidades`, e o tipo vinha por *lazy load*: uma query por tipo
+distinto, repetida em cada ponto. Por ponto eram `1 + C' + 1 + 2·A + T`, com
+`C'` as contas activas cuja `data_referencia` já passou e `T` os tipos
+distintos dos ativos. O router junta 1 query (a data mínima) quando o
+`data_inicio` não vem no pedido, como no frontend.
+
+Medido em 2026-10-21 numa cópia da BD real (2 contas, 5 ativos de 3 tipos, 41
+movimentos, 705 transacções, 18 preços, 30 meses), em 3 execuções de 30
+repetições:
+
+| | Antes | Depois |
+|---|---|---|
+| `GET /api/patrimonio/evolucao` | 498 queries, ~67 ms | 408 queries, ~59 ms |
+| Um ponto (`calcular_patrimonio_em`, hoje) | 17 queries, ~2,3 ms | 14 queries, ~2,0 ms |
+
+**Resolvido:** os ativos são lidos com `joinedload(AtivoModel.tipo)`
+(`servicos/patrimonio_serv.py:182`), o que tira o `T`. O resto do N+1 fica
+como está: carregar tudo uma vez por evolução (cerca de 5 queries) obrigava a
+reescrever a liquidez, o FIFO e o preço por data (D18) para poupar cerca de
+60 ms num pedido feito ao abrir a página. O número de queries está fixado em
+`test_evolucao_le_o_tipo_com_os_ativos_sem_query_por_tipo`.
 
 ### D13e — Índices
 
