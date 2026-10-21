@@ -104,10 +104,16 @@ TABELAS_DO_MODELO = {
     "transacoes",
 }
 
-# A frase única que o endpoint devolve a qualquer problema de estrutura (tabela
-# em falta ou coluna em falta). Escrita à mão de propósito: se o router mudar o
-# texto, este teste tem de ser actualizado por uma pessoa.
+# As frases que o endpoint devolve a um problema de estrutura (tabela ou coluna
+# em falta). Escritas à mão de propósito: se o router mudar o texto, estes
+# testes têm de ser actualizados por uma pessoa. A genérica é para um ficheiro
+# a que falta `transacoes`, `categorias` ou `contas`; a de versão anterior,
+# para um que tem as três e lhe falta outra coisa (achado 6.1).
 MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
+MENSAGEM_VERSAO_ANTERIOR = (
+    "Este backup é de uma versão anterior do Rastreio-DB e já não pode ser "
+    "actualizado para esta versão. A base de dados actual não foi alterada."
+)
 
 # Uma conta semeada antes de cada cenário. O saldo e a data não são lidos por
 # nenhum destes testes: o que interessa é o nome, para se ver o que sobrevive a
@@ -502,9 +508,9 @@ def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_fichei
     Cálculo à mão: o ficheiro tem `transacoes`, `categorias` e `contas`, e
     faltam as outras oito de `TABELAS_DO_MODELO` — escritas à mão, por ordem
     alfabética: ativos, configuracao, movimentos_ativo, perfis_importacao,
-    precos_ativo, regras_categorizacao, subcategorias, tipos_ativo. A validação
-    responde 400 com a mensagem genérica, o `.tmp` é apagado e o `.anterior`
-    não chega a ser criado.
+    precos_ativo, regras_categorizacao, subcategorias, tipos_ativo. Como as três
+    tabelas de sempre estão lá, a validação responde 400 com a mensagem de
+    versão anterior, o `.tmp` é apagado e o `.anterior` não chega a ser criado.
 
     A BD fica como estava, e lê-se pelas duas pontas: a `Conta Real` continua
     lá, e a tabela `ativos` existe e vem vazia (era uma das oito que ninguém
@@ -516,7 +522,7 @@ def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_fichei
     resposta = importar(client, conteudo)
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior")
     assert nomes_das_contas() == [CONTA_REAL]
@@ -536,8 +542,9 @@ def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tm
     apagado.
 
     Cálculo à mão: o ficheiro tem as tabelas `transacoes`, `categorias` e
-    `contas`, cada uma só com a coluna `id`. A validação de estrutura responde
-    400 com a mensagem genérica. Repare-se que, com este ficheiro, a recusa já
+    `contas`, cada uma só com a coluna `id`. As três tabelas de sempre estão lá,
+    pelo que a validação de estrutura responde 400 com a mensagem de versão
+    anterior. Repare-se que, com este ficheiro, a recusa já
     vem das oito tabelas em falta — como **teste de colunas em concreto** ele
     não prova nada, e é por isso que existe
     `test_coluna_em_falta_numa_so_tabela_e_rejeitado`, que tem as 11 tabelas e
@@ -555,7 +562,7 @@ def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tm
     resposta = importar(client, conteudo)
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior")
     assert nomes_das_contas() == [CONTA_REAL]
@@ -573,7 +580,8 @@ def test_rejeicao_nao_toca_no_anterior_pre_existente(client, bd_em_ficheiro, tmp
     Cálculo à mão: o primeiro pedido é um restauro bom (exportar → importar),
     que deixa no `.anterior` o estado anterior àquele restauro — aqui, só a
     `Conta Real`. Guardam-se os bytes. O segundo pedido é um `.db` com as 3
-    tabelas, rejeitado com 400: a limpeza inicial tira do caminho só o `.tmp`,
+    tabelas, rejeitado com 400 (mensagem de versão anterior, porque tem as três
+    tabelas de sempre): a limpeza inicial tira do caminho só o `.tmp`,
     e a cópia do `.anterior` está depois da validação, pelo que nenhum dos
     caminhos de rejeição chega a tocar naquele ficheiro. Os bytes têm de ser
     os mesmos.
@@ -593,7 +601,7 @@ def test_rejeicao_nao_toca_no_anterior_pre_existente(client, bd_em_ficheiro, tmp
     resposta = importar(client, conteudo)
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert anterior.exists(), "A rejeição apagou o `.anterior` pré-existente."
     assert anterior.read_bytes() == bytes_antes, (
         "A rejeição alterou o conteúdo do `.anterior` pré-existente."
@@ -684,8 +692,9 @@ def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_
     validadas (o das colunas erradas tem 8 tabelas a menos e seria recusado de
     qualquer modo).
 
-    A recusa é 400 com a mensagem genérica, sem dizer a tabela nem a coluna, e
-    a BD fica como estava.
+    É o caso de um backup de uma versão anterior: a recusa é 400 com a mensagem
+    de versão anterior, sem dizer a tabela nem a coluna, e a BD fica como
+    estava.
     """
     semear_conta_real()
     caminho = tmp_path / "sem_valor.db"
@@ -701,7 +710,7 @@ def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_
     resposta = importar(client, caminho.read_bytes())
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior")
     assert nomes_das_contas() == [CONTA_REAL]
@@ -713,9 +722,12 @@ def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_fich
     Cálculo à mão: `TABELAS_DO_MODELO` tem 11 tabelas. Para cada uma, copia-se
     o `.db` completo e apaga-se **só** essa tabela (`DROP TABLE`; o `sqlite3`
     dos testes não impõe chaves estrangeiras, pelo que o `DROP` corre), pelo
-    que as outras dez continuam presentes. Os onze pedidos têm de dar 400 com
-    a mesma mensagem genérica — mesmo para as três tabelas que a validação
-    antiga conhecia.
+    que as outras dez continuam presentes. Os onze pedidos têm de dar 400. A
+    mensagem depende da tabela apagada: sem `transacoes`, `categorias` ou
+    `contas` (as três de sempre), é a genérica, porque o ficheiro já não parece
+    um backup do Rastreio-DB; sem qualquer uma das outras oito, é a de versão
+    anterior. Esta é também a fronteira do critério: duas das três tabelas de
+    sempre não chegam.
 
     Um teste só com uma tabela a menos apanharia apenas o mutante que ignora
     essa tabela; correr as onze cobre qualquer uma delas. No fim, a BD tem de
@@ -739,7 +751,12 @@ def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_fich
         assert resposta.status_code == 400, (
             f"Um `.db` sem a tabela {nome!r} foi aceite com {resposta.status_code}: {resposta.text}"
         )
-        assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+        esperada = (
+            MENSAGEM_ESTRUTURA
+            if nome in ("transacoes", "categorias", "contas")
+            else MENSAGEM_VERSAO_ANTERIOR
+        )
+        assert resposta.json()["detail"] == esperada, nome
 
     assert not existe(bd_em_ficheiro, ".tmp")
     assert not existe(bd_em_ficheiro, ".anterior")

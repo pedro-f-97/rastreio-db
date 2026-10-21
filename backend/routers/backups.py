@@ -11,9 +11,16 @@ from database import DB_PATH, aplicar_migracoes, colunas_em_falta, engine
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
-# Mensagem única para qualquer problema de estrutura — tabela ou coluna em
-# falta. Não diz o que falta: é propositado.
+# Mensagens para um problema de estrutura (tabela ou coluna em falta). Não
+# dizem o que falta, só se o ficheiro parece um backup do Rastreio-DB: as três
+# tabelas de sempre presentes indicam um backup de uma versão anterior que as
+# migrações já não cobrem; sem elas, o ficheiro não é um backup do Rastreio-DB.
 MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
+MENSAGEM_VERSAO_ANTERIOR = (
+    "Este backup é de uma versão anterior do Rastreio-DB e já não pode ser "
+    "actualizado para esta versão. A base de dados actual não foi alterada."
+)
+TABELAS_DE_SEMPRE = {"transacoes", "categorias", "contas"}
 
 
 def _limpar_wal_shm(db_path: str) -> None:
@@ -62,13 +69,17 @@ def _validar_estrutura(path: str) -> None:
 
     É a mesma verificação do arranque (`colunas_em_falta`), só de leitura.
     Tabelas e colunas a mais são aceites; qualquer falta levanta HTTPException
-    400 com a mensagem genérica.
+    400, com a mensagem de versão anterior se as três tabelas de sempre lá
+    estiverem, e com a genérica se não.
     """
     try:
         em_falta = colunas_em_falta(path)
     except sqlite3.Error:
         raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
     if em_falta:
+        # `em_falta` traz as tabelas em falta pelo nome, sem ponto
+        if TABELAS_DE_SEMPRE.isdisjoint(em_falta):
+            raise HTTPException(status_code=400, detail=MENSAGEM_VERSAO_ANTERIOR)
         raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
 
 

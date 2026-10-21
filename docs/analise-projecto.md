@@ -390,7 +390,7 @@ Tudo foi reproduzido em `/tmp/rastreio-analise/area6.py`.
 
 O restauro exige todas as colunas do modelo actual. Um backup feito antes de uma coluna nova ser acrescentada é recusado com «O ficheiro não corresponde a um backup válido do Rastreio-DB». Ninguém o pode migrar, porque não há migrações (ver 1.1). O utilizador fica com um backup legítimo que a aplicação diz ser inválido.
 
-- **Resolvido:** em parte, em `cf92195`. As migrações correm no ficheiro restaurado antes da validação (opção a), mas só cobrem as mudanças de schema daqui para a frente. A mensagem continua genérica (opção b por decidir).
+- **Resolvido:** com as opções (a) e (b). Em `cf92195`, as migrações correm no ficheiro restaurado antes da validação, mas só cobrem as mudanças de schema daqui para a frente. Depois, a mensagem passou a distinguir os dois casos: um ficheiro com as tabelas `transacoes`, `categorias` e `contas` a que falta outra coisa é «um backup de uma versão anterior do Rastreio-DB» que «já não pode ser actualizado»; sem uma dessas três, fica a mensagem genérica. Ver também o 6.4.
 - **Gravidade:** média. **Categoria:** perda de dados / robustez. **Estado:** confirmado.
 - **Onde:** `backend/routers/backups.py:69-100` e `:15-21` (a mensagem é genérica de propósito).
 - **Prova:** a cópia sem `coluna_fee` dá `400 'O ficheiro não corresponde a um backup válido do Rastreio-DB'`.
@@ -419,6 +419,16 @@ O `.anterior` é reescrito em cada restauro. Quem restaura o ficheiro errado e d
   - (a) Guardar as cópias com data e hora e manter as N mais recentes.
   - (b) Um botão «desfazer último restauro».
   - (c) Deixar como está, já que o aviso existe.
+
+### 6.4 O restauro recusa um backup a que só falta uma tabela nova
+
+Encontrado ao corrigir o 6.1. Uma tabela nova não tem migração, porque no arranque o `create_all` cria-a (é o que diz o `AGENTS.md`). Mas o restauro só aplica as migrações ao ficheiro e não corre o `create_all`. Um backup feito antes de uma tabela nova é recusado, quando bastaria criar essa tabela vazia. Com o 6.1, a recusa diz que o backup «já não pode ser actualizado», o que neste caso não é verdade. Ainda não aconteceu: nenhuma tabela foi acrescentada desde que há migrações.
+
+- **Gravidade:** baixa. **Categoria:** perda de dados / robustez. **Estado:** confirmado por leitura.
+- **Onde:** `backend/routers/backups.py` (`importar_backup`: `aplicar_migracoes` e depois `_validar_estrutura`, sem `create_all`) e `backend/database.py` (`criar_tabelas`).
+- **Opções:**
+  - (a) No restauro, criar no ficheiro temporário as tabelas em falta (o `create_all` com um engine para esse ficheiro) antes de validar.
+  - (b) Corrigir só o `AGENTS.md`: uma tabela nova também precisa de migração, para os backups.
 
 ### O que está bem
 
@@ -759,9 +769,9 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 ## Resumo de achados
 
-São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
+São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 19 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 20 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 6.1, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3) e 1 em parte (1.2). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -776,7 +786,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 3.2 | Uma transação igual a outra já importada é descartada | média | perda de dados | confirmado | `58573d4` |
 | 3.3 | Só se aceita CSV em UTF-8 | média | robustez | confirmado | `10b9157` |
 | 4.3 | Um reembolso numa categoria de receita aparece diferente em cada ecrã | média | lógica de negócio | confirmado | `2f156fc` |
-| 6.1 | Um backup de uma versão anterior é recusado | média | perda de dados | confirmado | em parte, `cf92195` |
+| 6.1 | Um backup de uma versão anterior é recusado | média | perda de dados | confirmado | `cf92195`, resolvido |
 | 7.2 | O servidor aceita qualquer `Host` (DNS rebinding) | média | segurança | confirmado em parte | `59aab1f` |
 | 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado | decisão documentada no README |
 | 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado | resolvido |
@@ -797,6 +807,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado |  |
 | 6.2 | Um backup com valores inválidos é aceite | baixa | robustez | confirmado |  |
 | 6.3 | Só há um `.anterior`, substituído em cada restauro | baixa | perda de dados | confirmado por leitura |  |
+| 6.4 | O restauro recusa um backup a que só falta uma tabela nova | baixa | perda de dados / robustez | confirmado por leitura |  |
 | 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado |  |
 | 7.4 | No executável, um erro no arranque não se vê | baixa | robustez / apresentação | confirmado por leitura |  |
 | 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura |  |
