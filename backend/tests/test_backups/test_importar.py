@@ -15,12 +15,13 @@ O endpoint, lido por ordem
    — que, por causa do `conftest`, está no directório temporário.
 4. a limpeza inicial remove só o `.tmp`: um `.anterior` pré-existente fica no
    disco até um restauro que passe a validação o substituir.
-5. o conteúdo vai para o `.tmp`, e só depois é validado, em dois passe:
+5. o conteúdo vai para o `.tmp`, e só depois é validado:
    `_validar_sqlite` (PRAGMA integrity_check e leitura de `sqlite_master`,
-   com as mensagens próprias de «não é SQLite» e «corrompida») e
-   `_validar_estrutura` (tabelas e colunas contra
-   `Base.metadata.sorted_tables`; qualquer falta → 400 com a mensagem
-   genérica, sem dizer o que falta).
+   com as mensagens próprias de «não é SQLite» e «corrompida»), depois
+   `aplicar_migracoes` no `.tmp` (uma falha → 500 `Falha ao restaurar: ...`,
+   sem tocar na BD), e por fim `_validar_estrutura` (`colunas_em_falta`, as
+   tabelas e colunas de `Base.metadata.sorted_tables`; qualquer falta → 400
+   com a mensagem genérica, sem dizer o que falta).
 6. `engine.dispose()` fecha as ligações antes de mexer no ficheiro.
 7. `shutil.copy2(DB_PATH, anterior_tmp)` seguido de
    `os.replace(anterior_tmp, anterior_path)` cria ou substitui o `.anterior`
@@ -67,11 +68,12 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+import pytest
 from sqlalchemy import create_engine
 
-from database import Ativo, Base, Conta, SessionLocal, engine
+import database
+from database import Ativo, Base, Conta, SessionLocal, colunas_em_falta, engine
 from routers import backups
-from routers.backups import TABELAS_ESPERADAS
 
 # ---------------------------------------------------------------------------
 # Auxiliares
@@ -461,33 +463,13 @@ def test_ida_e_volta_traz_de_volta_o_estado_anterior(client, bd_em_ficheiro):
     assert nomes_das_contas() == [CONTA_REAL]
 
 
-def test_tabelas_esperadas_existem_no_modelo():
-    """Cada nome de `TABELAS_ESPERADAS` é mesmo o nome de uma tabela do modelo.
-
-    Amarração de uma ponta: se alguém voltar a fixar em `backups.py` um
-    conjunto de nomes à mão, e esse conjunto pedir uma tabela que o modelo não
-    tem, o restauro passa a recusar ficheiros bons. Isto apanha esse erro.
-
-    A outra ponta — a lista ser completa — é
-    `test_a_lista_validada_e_a_do_modelo`.
-
-    Não pede a BD: é uma comparação entre a constante do router e o modelo.
-    """
-    do_modelo = {tabela.name for tabela in Base.metadata.sorted_tables}
-
-    assert TABELAS_ESPERADAS <= do_modelo, (
-        f"TABELAS_ESPERADAS pede tabelas que o modelo não tem: "
-        f"{sorted(TABELAS_ESPERADAS - do_modelo)}"
-    )
-
-
-def test_a_lista_validada_e_a_do_modelo():
+def test_a_lista_validada_e_a_do_modelo(tmp_path):
     """A lista de tabelas que o endpoint valida é exatamente a do modelo.
 
-    Amarra a outra ponta do teste anterior: `TABELAS_ESPERADAS` deriva de
-    `Base.metadata.sorted_tables`, e esta asserção falha se alguém voltar
-    a escrever o conjunto à mão com menos nomes — que foi exactamente o defeito
-    original: 3 nomes fixos em vez das 11 tabelas do modelo.
+    `colunas_em_falta` percorre `Base.metadata.sorted_tables`, e esta asserção
+    falha se alguém voltar a escrever o conjunto à mão com menos nomes — que
+    foi exactamente o defeito original: 3 nomes fixos em vez das 11 tabelas do
+    modelo. Num ficheiro SQLite sem tabelas, faltam as 11, e só elas.
 
     As 11 tabelas, escritas à mão e por ordem alfabética, são
     `TABELAS_DO_MODELO`; a comparação com o modelo está logo abaixo, e a
@@ -500,12 +482,9 @@ def test_a_lista_validada_e_a_do_modelo():
         f"O modelo mudou: {sorted(do_modelo ^ TABELAS_DO_MODELO)}. "
         "Actualiza TABELAS_DO_MODELO e o comentário deste teste."
     )
-    assert TABELAS_ESPERADAS == do_modelo, (
-        "TABELAS_ESPERADAS já não coincide com Base.metadata.sorted_tables: "
-        f"falta {sorted(do_modelo - TABELAS_ESPERADAS)}, "
-        f"sobra {sorted(TABELAS_ESPERADAS - do_modelo)}. "
-        "Se a lista voltou a ser fixada à mão, o defeito regressou."
-    )
+    vazia = tmp_path / "vazia.db"
+    sqlite3.connect(vazia).close()
+    assert set(colunas_em_falta(str(vazia))) == TABELAS_DO_MODELO
 
 
 # ---------------------------------------------------------------------------
@@ -1085,11 +1064,11 @@ def test_restaurar_backup_com_fk_partida_repara_o_schema(
 def test_falha_na_reparacao_repoe_a_bd_anterior(
     client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida, monkeypatch
 ):
-    """Se a reparação falhar depois da troca, o restauro volta atrás.
+    """Se a reparação falhar, a BD actual não chega a ser tocada.
 
-    Cálculo à mão: a BD tem a `Conta Real` e o backup não tem contas. A troca
-    acontece, a reparação falha, e o rollback repõe a BD a partir do
-    `.anterior`: 500 com a mensagem da falha, e a `Conta Real` de volta.
+    Cálculo à mão: a BD tem a `Conta Real` e o backup não tem contas. A
+    reparação corre no `.tmp`, antes da troca, e falha: 500 com a mensagem da
+    falha, a `Conta Real` continua lá, e não há `.tmp` nem `.anterior`.
     """
     semear_conta_real()
     backup = tmp_path / "antigo.db"
@@ -1098,7 +1077,7 @@ def test_falha_na_reparacao_repoe_a_bd_anterior(
     def reparar_falha(caminho):
         raise RuntimeError("reparação falhada (simulado)")
 
-    monkeypatch.setattr(backups, "reparar_fk_ativos", reparar_falha)
+    monkeypatch.setattr(database, "MIGRACOES", (("reparação", reparar_falha),))
 
     resposta = importar(client, backup.read_bytes())
 
@@ -1106,6 +1085,7 @@ def test_falha_na_reparacao_repoe_a_bd_anterior(
     assert resposta.json()["detail"] == ("Falha ao restaurar: reparação falhada (simulado)")
     assert nomes_das_contas() == [CONTA_REAL]
     assert not existe(bd_em_ficheiro, ".tmp")
+    assert not existe(bd_em_ficheiro, ".anterior")
 
 
 def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partida):
@@ -1124,3 +1104,130 @@ def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partid
 
     for tabela in ("precos_ativo", "movimentos_ativo"):
         assert "ativos_old" not in _ddl_em(bd_em_ficheiro, tabela)
+    assert _versao_em(bd_em_ficheiro) == 2
+
+
+# ---------------------------------------------------------------------------
+# Versão do schema e colunas em falta (achado 1.1)
+# ---------------------------------------------------------------------------
+
+
+def _versao_em(caminho: Path) -> int:
+    con = sqlite3.connect(caminho)
+    try:
+        return con.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        con.close()
+
+
+def _sem_coluna_fee(caminho: Path) -> None:
+    """Tira `perfis_importacao.coluna_fee`, como numa BD de antes de Junho."""
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        con.execute("ALTER TABLE perfis_importacao DROP COLUMN coluna_fee")
+    finally:
+        con.close()
+
+
+def _acrescentar_coluna_fee(caminho):
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(perfis_importacao)")}
+        if "coluna_fee" in colunas:
+            return False
+        con.execute("ALTER TABLE perfis_importacao ADD COLUMN coluna_fee INTEGER")
+    finally:
+        con.close()
+    return True
+
+
+def test_backup_antigo_e_migrado_antes_de_ser_validado(
+    client, bd_em_ficheiro, tmp_path, monkeypatch
+):
+    """Um backup sem uma coluna que uma migração acrescenta é aceite.
+
+    Cálculo à mão: o backup está na versão 0 e não tem `coluna_fee`. Com uma
+    3.ª migração que a acrescenta, a migração corre no `.tmp` antes da
+    validação, que passa: 200, a coluna existe e a BD fica na versão 3. Sem a
+    migração, o mesmo ficheiro é recusado
+    (`test_coluna_em_falta_numa_so_tabela_e_rejeitado`).
+    """
+    backup = tmp_path / "antigo.db"
+    criar_bd_do_modelo(backup)
+    _sem_coluna_fee(backup)
+    monkeypatch.setattr(
+        database, "MIGRACOES", database.MIGRACOES + (("coluna_fee", _acrescentar_coluna_fee),)
+    )
+
+    resposta = importar(client, backup.read_bytes())
+
+    assert resposta.status_code == 200
+    assert colunas_em_falta(str(bd_em_ficheiro)) == []
+    assert _versao_em(bd_em_ficheiro) == 3
+
+
+def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_path):
+    """Cálculo à mão: um backup na versão 0, com as 2 migrações, fica na 2."""
+    backup = tmp_path / "antigo.db"
+    criar_bd_do_modelo(backup)
+    assert _versao_em(backup) == 0
+
+    resposta = importar(client, backup.read_bytes())
+
+    assert resposta.status_code == 200
+    assert _versao_em(bd_em_ficheiro) == 2
+
+
+def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, monkeypatch):
+    """Uma BD criada agora já tem o schema final: nenhuma migração corre.
+
+    Cálculo à mão: duas migrações falsas, que registariam se corressem; a BD
+    fica na versão 2 e a lista fica vazia.
+    """
+    corridas = []
+
+    def migracao(caminho):
+        corridas.append(caminho)
+        return True
+
+    monkeypatch.setattr(database, "MIGRACOES", (("um", migracao), ("dois", migracao)))
+    engine.dispose()
+    bd_em_ficheiro.unlink()
+
+    database.criar_tabelas()
+
+    assert corridas == []
+    assert _versao_em(bd_em_ficheiro) == 2
+
+
+def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
+    """Cálculo à mão: uma BD na versão 0 com a 3.ª migração falsa corre-a, e fica na 3."""
+    monkeypatch.setattr(
+        database, "MIGRACOES", database.MIGRACOES + (("coluna_fee", _acrescentar_coluna_fee),)
+    )
+    engine.dispose()
+    _sem_coluna_fee(bd_em_ficheiro)
+
+    database.criar_tabelas()
+
+    assert colunas_em_falta(str(bd_em_ficheiro)) == []
+    assert _versao_em(bd_em_ficheiro) == 3
+
+
+def test_arranque_recusa_bd_com_colunas_em_falta(bd_em_ficheiro):
+    """Sem migração que a acrescente, falta `coluna_fee`: o arranque recusa.
+
+    Antes do 1.1, a aplicação abria e `/api/perfis-importacao/` dava 500.
+    """
+    engine.dispose()
+    _sem_coluna_fee(bd_em_ficheiro)
+
+    with pytest.raises(RuntimeError) as erro:
+        database.criar_tabelas()
+
+    assert str(erro.value) == (
+        "A base de dados é de uma versão anterior do Rastreio-DB que não se "
+        "consegue actualizar automaticamente.\n"
+        f"  {database.DB_PATH}\n"
+        "Falta: perfis_importacao.coluna_fee"
+    )
