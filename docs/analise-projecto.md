@@ -521,6 +521,7 @@ O último mês com dados (Setembro de 2026, com transações só até dia 7) con
   - (a) Excluir o mês em curso das médias.
   - (b) Marcá-lo como «incompleto» no gráfico.
   - (c) Manter e documentar.
+- **Resolvido:** com a opção (c). O cálculo fica igual, e a decisão está no README, em «Decisões de design».
 
 ### 8.3 Erros da API passam em silêncio em várias páginas
 
@@ -754,7 +755,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 12 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3 e 7.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 13 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2 e 8.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -771,7 +772,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 4.3 | Um reembolso numa categoria de receita aparece diferente em cada ecrã | média | lógica de negócio | confirmado | `2f156fc` |
 | 6.1 | Um backup de uma versão anterior é recusado | média | perda de dados | confirmado | em parte, `cf92195` |
 | 7.2 | O servidor aceita qualquer `Host` (DNS rebinding) | média | segurança | confirmado em parte | `59aab1f` |
-| 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado |  |
+| 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado | decisão documentada no README |
 | 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado |  |
 | 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado |  |
 | 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado |  |
