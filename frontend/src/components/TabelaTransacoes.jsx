@@ -54,15 +54,15 @@ export default function TabelaTransacoes({
     // HANDLERS
     // =========================
     async function aoMudarCategoria(t, novaCatId) {
-        await onGuardar(t.id, 'categoria_id', novaCatId);
-        await onGuardar(t.id, 'subcategoria_id', null);
+        await onGuardar(t.id, { categoria_id: novaCatId, subcategoria_id: null });
     }
 
     async function aoMudarSubcategoria(t, novaSubId) {
         const id = novaSubId ? Number(novaSubId) : null;
 
-        await onGuardar(t.id, 'subcategoria_id', id);
-        verificarRegra(t, t.categoria_id, id);
+        if (await onGuardar(t.id, { subcategoria_id: id })) {
+            verificarRegra(t, t.categoria_id, id);
+        }
     }
 
     function aoEditarNotas(id, valor) {
@@ -73,7 +73,7 @@ export default function TabelaTransacoes({
         const novas = notasEditando[t.id];
 
         if (novas !== undefined && novas !== t.notas) {
-            onGuardar(t.id, 'notas', novas);
+            onGuardar(t.id, { notas: novas });
         }
     }
 

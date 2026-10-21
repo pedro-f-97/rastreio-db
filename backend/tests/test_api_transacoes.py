@@ -683,6 +683,50 @@ def test_put_limpar_subcategoria_com_null_mantem_categoria(client, session):
     }
 
 
+def test_put_mudar_categoria_e_limpar_subcategoria_num_so_pedido(client, session):
+    """Mudar a categoria e limpar a subcategoria no mesmo pedido é aceite.
+
+    É o pedido que a tabela de transações envia ao mudar a categoria. Em dois
+    pedidos separados, o primeiro (só `categoria_id`) dá 400 — ver
+    `test_put_invariante_subcategoria_de_outra_categoria_da_400`.
+
+    Cenário: t1 (Casa/Supermercado) e t5 (Casa/Supermercado).
+
+    Cálculo à mão:
+      t1 -> `{"categoria_id": Receita, "subcategoria_id": null}`
+        subcategoria_alvo = None -> a invariante é saltada
+        os dois campos vêm no payload -> gravam Receita e None
+      t5 -> `{"categoria_id": null, "subcategoria_id": null}` (a opção «—»)
+        subcategoria_alvo = None -> a invariante é saltada
+        categoria_id None não é procurada -> grava None e None
+
+    Estado final da BD: t1 com Receita e sem subcategoria; t5 sem nada.
+    """
+    d = _semear(session)
+    t1 = d["t1"]
+    t5 = d["t5"]
+
+    r = client.put(
+        f"/api/transacoes/{t1.id}",
+        json={"categoria_id": d["cat_receita"].id, "subcategoria_id": None},
+    )
+    assert r.status_code == 200
+
+    r = client.put(f"/api/transacoes/{t5.id}", json={"categoria_id": None, "subcategoria_id": None})
+    assert r.status_code == 200
+
+    assert _estado(session, t1.id) == {
+        "categoria_id": d["cat_receita"].id,
+        "subcategoria_id": None,
+        "notas": None,
+    }
+    assert _estado(session, t5.id) == {
+        "categoria_id": None,
+        "subcategoria_id": None,
+        "notas": None,
+    }
+
+
 def test_put_subcategoria_inexistente_da_400(client, session):
     """Uma subcategoria que não existe dá 400, não 404 nem escrita.
 
