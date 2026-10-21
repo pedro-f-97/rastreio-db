@@ -74,7 +74,7 @@ A aplicação não guarda que versão de schema tem a BD. `criar_tabelas()` só 
 
 Uma conta sem transações apaga-se mesmo com perfis de importação associados. O ORM põe o `conta_id` desses perfis a `NULL` sem dizer nada, e a importação seguinte com esse perfil entra sem conta. O comentário em `database.py:92-94` diz que apagar um pai com filhos é recusado, o que não é verdade.
 
-- **Resolvido:** em parte, em `bc2f774`. A importação recusa, com uma mensagem clara, um perfil que perdeu a conta, e o formulário já não deixa criar nem editar um perfil sem conta. Apagar a conta continua a tirá-la ao perfil sem aviso, e o comentário de `database.py` continua errado.
+- **Resolvido:** com a opção (a). Em `bc2f774`, a importação passou a recusar, com uma mensagem clara, um perfil que perdeu a conta, e o formulário deixou de criar ou editar um perfil sem conta. Depois, uma conta sem transações e com perfis associados deixou de se poder apagar (409, mostrado na página Contas); com transações, continua a ser desactivada e o perfil fica com ela. O comentário de `database.py` foi corrigido.
 - **Gravidade:** baixa. **Categoria:** correcção / documentação. **Estado:** confirmado.
 - **Onde:** `backend/routers/contas.py:46-59` e `backend/database.py:160-162`.
 - **Prova:** `/tmp/rastreio-analise/area1.py` → `DELETE conta com perfil -> 200 eliminada`; depois, o perfil tem `conta_id = None`.
@@ -771,7 +771,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 20 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 6.1, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3) e 1 em parte (1.2). A coluna «Resolução» diz em que commit.
+**Progresso:** 21 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 3.2, 3.3, 4.3, 6.1, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -795,7 +795,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 por classificar,
 | 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura | resolvido |
 | 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura | resolvido |
 | 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura | resolvido |
-| 1.2 | Apagar uma conta tira-a, sem aviso, aos perfis | baixa | correcção | confirmado | em parte, `bc2f774` |
+| 1.2 | Apagar uma conta tira-a, sem aviso, aos perfis | baixa | correcção | confirmado | `bc2f774`, resolvido |
 | 1.3 | Nomes repetidos ou vazios em subcategorias e categorias | baixa | robustez | confirmado |  |
 | 2.2 | As exclusões ganham sempre, ao contrário do README | baixa | documentação | confirmado |  |
 | 2.3 | A página Conceitos descreve funcionalidades de regras que não existem | baixa | documentação | confirmado |  |

@@ -91,8 +91,10 @@ def anunciar_bd_ativa() -> None:
 
 def ligar_chaves_estrangeiras(con, _registo) -> None:
     """O SQLite só aplica as chaves estrangeiras com esta pragma, e é por
-    conexão. Sem `ON DELETE`: apagar um pai com filhos é recusado, e cada
-    endpoint trata dos filhos antes."""
+    conexão. Sem `ON DELETE`, o SQLite recusa apagar um pai com filhos. Mas,
+    numa `relationship` sem `cascade` de delete, o SQLAlchemy põe antes a chave
+    dos filhos a NULL e o `DELETE` passa; por isso cada endpoint trata dos
+    filhos antes."""
     con.execute("PRAGMA foreign_keys = ON")
 
 

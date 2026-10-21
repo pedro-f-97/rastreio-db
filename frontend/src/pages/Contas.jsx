@@ -54,7 +54,14 @@ export default function Contas() {
         const conta = contas.find(c => c.id === id);
         const msg = `Eliminar a conta "${conta.nome}"? Se tiver transacções associadas, será desactivada em vez de eliminada.`;
         if (!confirm(msg)) return;
-        const res = await apagarConta(id);
+        setErro('');
+        let res;
+        try {
+            res = await apagarConta(id);
+        } catch (e) {
+            setErro(e.response?.data?.detail || 'Erro ao apagar conta.');
+            return;
+        }
         const acao = res.data?.acao;
         if (acao === 'desativada') alert(`A conta "${conta.nome}" foi desactivada (tem transacções associadas). Deixa de aparecer nas listas de contas, mas o seu histórico continua a contar no património, e o saldo também, se não for zero.`);
         carregar();

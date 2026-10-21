@@ -53,6 +53,13 @@ def apagar_ou_desativar_conta(conta_id: int, db: Session = Depends(get_db)):
         conta.ativa = False
         db.commit()
         return {"acao": "desativada", "conta_id": conta_id}
+    if conta.perfis_importacao:
+        # Apagada, a conta sairia dos perfis sem aviso, e um perfil sem conta
+        # não importa (achado 1.2)
+        raise HTTPException(
+            status_code=409,
+            detail="Não é possível apagar uma conta com perfis de importação associados.",
+        )
     db.delete(conta)
     db.commit()
     return {"acao": "eliminada", "conta_id": conta_id}

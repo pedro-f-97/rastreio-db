@@ -186,17 +186,18 @@ def test_apagar_conta_sem_transacoes_elimina(client, session):
     assert client.get("/api/contas/").json() == []
 
 
-def test_apagar_conta_sem_transacoes_desassocia_os_perfis(client, session):
-    """Sem transacções, a conta apaga-se e o perfil que a usava fica sem conta.
+def test_apagar_conta_sem_transacoes_com_perfil_e_recusado(client, session):
+    """Sem transacções mas com um perfil associado, a conta não se apaga (achado 1.2).
 
     Cenário: conta "Poupança" sem transacções e um perfil "Banco" associado.
 
-    Cálculo à mão: `tem_transacoes` é None e `db.delete(conta)` corre; a
-    `relationship` `Conta.perfis_importacao` (sem `cascade` de delete) põe
-    `perfis_importacao.conta_id` a NULL antes do `DELETE`. Com a pragma
-    `foreign_keys` ligada, é isso que deixa o `DELETE` passar.
+    Cálculo à mão: `tem_transacoes` é None, mas `conta.perfis_importacao` tem o
+    perfil "Banco", pelo que o endpoint responde 409 antes do `db.delete`.
+    Antes da correcção, a conta apagava-se e o perfil ficava com `conta_id`
+    None, sem aviso.
 
-    Estado final da BD: 0 contas, 1 perfil com `conta_id` None.
+    Estado final da BD: a conta continua lá, activa, e o perfil continua com
+    `conta_id` igual ao id da conta.
     """
     conta = semear_conta(session, "Poupança", 0.0, date(2025, 1, 1))
     perfil = PerfilImportacao(
@@ -214,11 +215,50 @@ def test_apagar_conta_sem_transacoes_desassocia_os_perfis(client, session):
 
     r = client.delete(f"/api/contas/{conta.id}")
 
-    assert r.status_code == 200
-    assert r.json() == {"acao": "eliminada", "conta_id": conta.id}
+    assert r.status_code == 409
+    assert r.json() == {
+        "detail": "Não é possível apagar uma conta com perfis de importação associados."
+    }
     session.expire_all()
-    assert session.query(Conta).count() == 0
-    assert session.get(PerfilImportacao, perfil.id).conta_id is None
+    assert [(c.nome, c.ativa) for c in session.query(Conta).all()] == [("Poupança", True)]
+    assert session.get(PerfilImportacao, perfil.id).conta_id == conta.id
+
+
+def test_apagar_conta_com_transacoes_e_perfil_desativa(client, session):
+    """Com transacções e um perfil, a conta desactiva-se e o perfil fica com ela.
+
+    Cenário: conta "Ordem" com uma transacção de -10.00 em 2025-01-02 e um
+    perfil "Banco" associado.
+
+    Cálculo à mão: `tem_transacoes` encontra a transacção e o endpoint desactiva
+    a conta antes de olhar para os perfis, pelo que o 409 do perfil não chega a
+    acontecer. Nada é apagado, e o perfil continua a apontar para a conta.
+
+    Estado final da BD: 1 conta com `ativa=False`; o perfil com `conta_id`
+    igual ao id da conta.
+    """
+    conta = semear_conta(session, "Ordem", 0.0, date(2025, 1, 1))
+    semear_transacao(session, date(2025, 1, 2), "Compra", -10.0, conta)
+    perfil = PerfilImportacao(
+        nome="Banco",
+        linha_inicio_dados=1,
+        coluna_data=0,
+        formato_data="%d/%m/%Y",
+        coluna_descricao=1,
+        modo_valor=ModoValor.coluna_unica,
+        coluna_valor=2,
+        conta_id=conta.id,
+    )
+    session.add(perfil)
+    session.commit()
+
+    r = client.delete(f"/api/contas/{conta.id}")
+
+    assert r.status_code == 200
+    assert r.json() == {"acao": "desativada", "conta_id": conta.id}
+    session.expire_all()
+    assert session.get(Conta, conta.id).ativa is False
+    assert session.get(PerfilImportacao, perfil.id).conta_id == conta.id
 
 
 def test_apagar_conta_com_transacoes_desativa(client, session):
