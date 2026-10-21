@@ -9,6 +9,7 @@ from datetime import datetime
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -27,7 +28,7 @@ from routers import (
     tipos_ativo,
     transacoes,
 )
-from seguranca import criar_verificacao_origem
+from seguranca import ANFITRIOES_PERMITIDOS, criar_verificacao_origem
 
 # ---------------------------------------------------------------------------
 # Arranque: logging e streams
@@ -176,6 +177,7 @@ ORIGENS_PERMITIDAS = {f"http://localhost:{PORTA}", f"http://127.0.0.1:{PORTA}"}
 if not IS_FROZEN:
     ORIGENS_PERMITIDAS.add(ORIGEM_VITE)
 app.middleware("http")(criar_verificacao_origem(ORIGENS_PERMITIDAS))
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ANFITRIOES_PERMITIDOS)
 
 
 ROUTERS = (
