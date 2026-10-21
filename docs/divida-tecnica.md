@@ -873,16 +873,16 @@ isoladamente.
   `_resolver_base_dir()` (`backend/database.py`): `RASTREIO_DB_DIR`, depois
   `sys.frozen`, depois `backend/`.
 
-## ⚪ D13 — Qualidade de código
+## ⚪ D13 — Qualidade de código — resolvido
 
 Não é bug. Dividido em sub-itens, cada um com o seu commit:
 
 - **D13a — resolvido** — ESLint no frontend.
 - **D13b — resolvido** — `ruff` no backend.
 - **D13c — resolvido** — `pyright` (tipos) no backend.
-- **D13d** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
-- **D13e** — índices nas colunas de data e FK, com migração da BD real e dos
-  backups.
+- **D13d — resolvido** — N+1 em `calcular_patrimonio_em` / `gerar_evolucao`.
+- **D13e — resolvido** — índices nas colunas de data e FK, com migração da BD
+  real e dos backups.
 
 ### D13a — ESLint no frontend — resolvido
 
@@ -962,23 +962,73 @@ que o próprio FIFO usou.
 Node como pacote). O CI (`test.yml`, trabalho `testes`) corre `pyright` a
 seguir ao `ruff`.
 
-### D13d — N+1 no cálculo do património
+### D13d — N+1 no cálculo do património — resolvido
 
-`calcular_patrimonio_em` (`servicos/patrimonio_serv.py:151`) faz
-`1 + C + 1 + 2·A` queries por ponto (contas, uma soma por conta activa, ativos,
-e movimentos + preço por ativo). `gerar_evolucao` repete o cálculo por mês:
-com 3 contas e 4 ativos, 13 queries por ponto e 156 para 12 meses (medido
-numa BD vazia em 2026-10-19). Com os volumes desta aplicação o custo deve
-ser de milissegundos: medir numa cópia da BD real antes de decidir.
+Descrição original: `calcular_patrimonio_em` faz `1 + C + 1 + 2·A` queries por
+ponto (contas, uma soma por conta activa, ativos, e movimentos + preço por
+ativo), e `gerar_evolucao` repete o cálculo por mês. Medir numa cópia da BD
+real antes de decidir.
 
-### D13e — Índices
+A fórmula esquecia uma parcela. `_resumo_valor_ativo` lê
+`ativo.tipo.tem_unidades`, e o tipo vinha por *lazy load*: uma query por tipo
+distinto, repetida em cada ponto. Por ponto eram `1 + C' + 1 + 2·A + T`, com
+`C'` as contas activas cuja `data_referencia` já passou e `T` os tipos
+distintos dos ativos. O router junta 1 query (a data mínima) quando o
+`data_inicio` não vem no pedido, como no frontend.
 
-Nos modelos não há `index=True` nem `Index(...)`. `transacoes.data`,
-`transacoes.conta_id`, `categoria_id`, `subcategoria_id`,
+Medido em 2026-10-21 numa cópia da BD real (2 contas, 5 ativos de 3 tipos, 41
+movimentos, 705 transacções, 18 preços, 30 meses), em 3 execuções de 30
+repetições:
+
+| | Antes | Depois |
+|---|---|---|
+| `GET /api/patrimonio/evolucao` | 498 queries, ~67 ms | 408 queries, ~59 ms |
+| Um ponto (`calcular_patrimonio_em`, hoje) | 17 queries, ~2,3 ms | 14 queries, ~2,0 ms |
+
+**Resolvido:** os ativos são lidos com `joinedload(AtivoModel.tipo)`
+(`servicos/patrimonio_serv.py:182`), o que tira o `T`. O resto do N+1 fica
+como está: carregar tudo uma vez por evolução (cerca de 5 queries) obrigava a
+reescrever a liquidez, o FIFO e o preço por data (D18) para poupar cerca de
+60 ms num pedido feito ao abrir a página. O número de queries está fixado em
+`test_evolucao_le_o_tipo_com_os_ativos_sem_query_por_tipo`.
+
+### D13e — Índices — resolvido
+
+Descrição original: nos modelos não há `index=True` nem `Index(...)`.
+`transacoes.data`, `transacoes.conta_id`, `categoria_id`, `subcategoria_id`,
 `movimentos_ativo.ativo_id`, `movimentos_ativo.data` e
 `subcategorias.categoria_id` não têm índice. A excepção é `precos_ativo`,
-cujo `UniqueConstraint("ativo_id", "data")` cria um índice implícito que serve
-a query do preço (por confirmar numa cópia se a BD real o tem).
+cujo `UniqueConstraint("ativo_id", "data")` cria um índice implícito (por
+confirmar numa cópia se a BD real o tem).
+
+**Resolvido sem alterar código: medido, não compensa.** Numa cópia da BD
+real, em 2026-10-21, `precos_ativo` tem o `sqlite_autoindex_precos_ativo_1` e
+a query do preço usa-o. As outras queries percorrem a tabela toda (`SCAN`).
+
+Medição com e sem os 7 índices (mediana de 30 repetições), na cópia real (705
+transacções) e numa cópia sintética com as transacções replicadas para trás
+(26 085 transacções de 2015 a 2026):
+
+| Pedido | Real, sem | Real, com | Sintética, sem | Sintética, com |
+|---|---|---|---|---|
+| `/api/patrimonio/evolucao` | 57 ms | 58 ms | 251 ms | 256 ms |
+| `/api/estatisticas/resumo-mensal` | 7,1 ms | 7,0 ms | 199 ms | 198 ms |
+| `/api/transacoes/` | 4,8 ms | 4,5 ms | 10,8 ms | 5,5 ms |
+| `/api/transacoes/?conta_id=1` | 4,9 ms | 4,9 ms | 10,9 ms | 11,5 ms |
+| `/api/estatisticas/por-categoria?ano=2025` | 2,5 ms | 2,5 ms | 8,2 ms | 8,3 ms |
+| `/api/estatisticas/detalhe-mensal?ano=2025&mes=6` | 1,3 ms | 1,2 ms | 2,6 ms | 1,7 ms |
+
+Mesmo com 26 mil transacções, os dois pedidos lentos não melhoram: a
+evolução gasta o tempo no número de queries (o N+1 que ficou na D13d) e o
+resumo mensal soma a tabela toda. Se um dia for preciso, é aí que se mexe.
+
+Notas para quem retomar isto:
+* O `create_all` não cria índices em tabelas que já existem (confirmado com
+  o SQLAlchemy 2.0.49). Um `index=True` nos modelos não chegava à BD real nem
+  aos backups antigos.
+* Um índice não obriga a recriar tabelas como a `reparar_fk_ativos` (D1a):
+  chega um `CREATE INDEX IF NOT EXISTS`, idempotente, no arranque
+  (`criar_tabelas`) e depois de restaurar um backup (`routers/backups.py`).
 
 ## 🔴 D14 — `ReferenceError` ao terminar cada importação — resolvido
 

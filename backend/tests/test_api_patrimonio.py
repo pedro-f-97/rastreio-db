@@ -1316,6 +1316,65 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
     assert ponto["total"] == 100.0
 
 
+def test_evolucao_conta_tudo_o_que_tem_a_data_do_ponto(client, session):
+    """O ponto é o fim do dia `data_alvo`: tudo o que tem essa data entra.
+
+    Fixa as quatro fronteiras de `calcular_patrimonio_em`: a transacção, a conta
+    cuja referência é o próprio dia, o movimento e o preço, todos com a data do
+    ponto, `2025-03-31`.
+
+    Semente:
+      * conta A: `1000.00`, referência `2025-01-01`; transacção `2025-03-31
+        -100.00`;
+      * conta B: `50.00`, referência `2025-03-31`, sem transacções;
+      * ativo com unidades: compras `2025-01-10` de 10 un. por 200.00 e
+        `2025-03-31` de 5 un. por 150.00; preços `2025-02-01=20.00` e
+        `2025-03-31=30.00`.
+
+    Cálculo à mão, para o ponto `2025-03-31` (passado, sem preços futuros):
+      * liquidez: `1000.00 - 100.00 + 50.00 = 950.00`;
+      * investimentos: `(10 + 5) x 30.00 = 450.00`;
+      * total: `950.00 + 450.00 = 1400.00`.
+
+    Se uma fronteira deixasse o dia de fora: sem a transacção, liquidez
+    `1050.00`; sem a conta B, `900.00`; sem o preço do dia, investimentos
+    `15 x 20.00 = 300.00`; sem a compra do dia, `10 x 30.00 = 300.00`.
+    """
+    conta_a = semear_conta(session, "A", 1000.00, date(2025, 1, 1))
+    semear_conta(session, "B", 50.00, date(2025, 3, 31))
+    session.add(
+        Transacao(data=date(2025, 3, 31), descricao="Saída", valor=-100.0, conta_id=conta_a.id)
+    )
+    session.commit()
+
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 3, 31), valor_total=-150.0, quantidade=5
+    )
+    semear_preco(session, ativo, date(2025, 2, 1), 20.00)
+    semear_preco(session, ativo, date(2025, 3, 31), 30.00)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-03-31", "data_fim": "2025-03-31"},
+    )
+
+    assert r.status_code == 200
+    assert r.json() == [
+        {
+            "data": "2025-03-31",
+            "liquidez": 950.00,
+            "investimentos": 450.00,
+            "ativos_fisicos": 0.0,
+            "total": 1400.00,
+        }
+    ]
+
+
 def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
     client, session, monkeypatch
 ):
@@ -1395,6 +1454,88 @@ def test_evolucao_dividendo_de_bem_nao_chega_ao_total(client, session):
     ponto = r.json()[0]
     assert ponto["ativos_fisicos"] == 10000.0
     assert ponto["total"] == 10000.0
+
+
+# ---------------------------------------------------------------------------
+# D13d — número de queries da evolução
+# ---------------------------------------------------------------------------
+
+
+def test_evolucao_le_o_tipo_com_os_ativos_sem_query_por_tipo(client, session):
+    """Fixa o número de queries de `/evolucao`: o tipo vem com os ativos (D13d).
+
+    Semente: 1 conta (`100.00`, referência `2025-01-01`, sem transações) e 2
+    ativos de 2 tipos diferentes:
+      * "ETF" (com unidades): compra `2025-01-10` de 10 un. por 200.00; preço
+        `2025-01-10=25.00`;
+      * "Casa" (sem unidades): compra `2025-01-05` de 1000.00, sem preço.
+
+    Evolução de `2025-01-01` a `2025-02-28`, com as duas datas explícitas para
+    o router não fazer a query da data mínima: 2 pontos.
+
+    Queries à mão, por ponto (`calcular_patrimonio_em`): 1 (contas activas)
+    + 1 (soma da conta, já com a referência passada) + 1 (ativos, com o tipo
+    junto) + 2 x 2 (movimentos e preço de cada ativo) = 7. Com 2 pontos dá
+    `2 x 7 = 14`. Sem o `joinedload` do tipo, cada ponto lia cada um dos 2
+    tipos à parte: `14 + 2 x 2 = 18`.
+
+    O `expunge_all()` antes do pedido põe o teste nas condições de produção,
+    onde cada pedido tem a sua sessão e, sem a correção, cada ponto relê os
+    tipos da BD. Sem ele, os tipos semeados ficam no identity map da sessão:
+    o SQLAlchemy só os relê no primeiro ponto e, sem a correção, o teste daria
+    `14 + 2 = 16` em vez dos 18 de produção.
+
+    Valores à mão, iguais nos dois pontos: liquidez `100.00`; investimentos
+    `10 x 25.00 = 250.00`; ativos_fisicos sem preço valem o custo, `1000.00`;
+    total `100.00 + 250.00 + 1000.00 = 1350.00`.
+    """
+    from sqlalchemy import event
+
+    semear_conta(session, "A", 100.0, date(2025, 1, 1))
+    tipo_invest = semear_tipo(session, "Acoes", tem_unidades=True)
+    etf = semear_ativo(session, "ETF", tipo_invest)
+    semear_movimento(
+        session, etf, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
+    semear_preco(session, etf, date(2025, 1, 10), 25.00)
+    tipo_bem = semear_tipo(session, "Imovel", tem_unidades=False)
+    casa = semear_ativo(session, "Casa", tipo_bem)
+    semear_movimento(session, casa, TipoMovimento.compra, date(2025, 1, 5), valor_total=-1000.0)
+    session.expunge_all()
+
+    queries = []
+
+    def contar(conn, cursor, statement, parameters, context, executemany):
+        queries.append(statement)
+
+    engine = session.get_bind()
+    event.listen(engine, "before_cursor_execute", contar)
+    try:
+        r = client.get(
+            "/api/patrimonio/evolucao",
+            params={"data_inicio": "2025-01-01", "data_fim": "2025-02-28"},
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", contar)
+
+    assert r.status_code == 200
+    assert len(queries) == 14
+    assert r.json() == [
+        {
+            "data": "2025-01-31",
+            "liquidez": 100.00,
+            "investimentos": 250.00,
+            "ativos_fisicos": 1000.00,
+            "total": 1350.00,
+        },
+        {
+            "data": "2025-02-28",
+            "liquidez": 100.00,
+            "investimentos": 250.00,
+            "ativos_fisicos": 1000.00,
+            "total": 1350.00,
+        },
+    ]
 
 
 # ---------------------------------------------------------------------------
