@@ -206,7 +206,7 @@ def test_analisar_ficheiro_csv_devolve_as_linhas_como_texto(client):
 def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas(client):
     """Um CSV com `;` mostra as colunas certas na criação de um perfil.
 
-    Era a D19: o `csv.reader` usava a vírgula e cada linha vinha num só campo
+    Antes da correcção, o `csv.reader` usava a vírgula e cada linha vinha num só campo
     (`"a;b"`, `"1;2"`). Agora usa `_detectar_delimitador` sobre as primeiras
     linhas: `;` dá 2 colunas em cada linha, `,` dá 1 -> `;`.
     """
@@ -222,9 +222,9 @@ def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas(clie
 
 
 def test_analisar_ficheiro_csv_com_extensao_em_maiusculas(client):
-    """Um `EXTRACTO.CSV` é lido como CSV, e não aberto como Excel (D30).
+    """Um `EXTRACTO.CSV` é lido como CSV, e não aberto como Excel.
 
-    Era a D30: a extensão era comparada com `.csv` em minúsculas, e um nome em
+    Antes da correcção, a extensão era comparada com `.csv` em minúsculas, e um nome em
     maiúsculas ia parar ao `openpyxl`, que falhava a abrir o ficheiro. Cálculo
     à mão: `a,b / 1,2` -> 2 colunas por linha -> `[["a", "b"], ["1", "2"]]`.
     """
@@ -481,7 +481,7 @@ def test_associar_conta_perfil_inexistente_da_404(client, session):
 
 
 def test_associar_conta_inexistente_da_400_e_nao_grava(client, session):
-    """Um `conta_id` que nao existe da 400 e nao e gravado (D1).
+    """Um `conta_id` que nao existe da 400 e nao e gravado.
 
     Era gravado tal e qual (200 com `conta_id=999`), porque o SQLite nao
     aplicava as chaves estrangeiras e o handler nao validava a conta.
@@ -505,7 +505,7 @@ def test_associar_conta_inexistente_da_400_e_nao_grava(client, session):
 
 
 def test_criar_perfil_com_conta_inexistente_da_400_e_nao_grava(client, session):
-    """`POST` com `conta_id` que nao existe: 400 e nenhum perfil (D1).
+    """`POST` com `conta_id` que nao existe: 400 e nenhum perfil.
 
     Cálculo à mão: nome livre, `db.get(Conta, 999)` devolve None -> 400
     "Conta não encontrada." antes do `db.add`. Estado final: 0 perfis.
@@ -519,7 +519,7 @@ def test_criar_perfil_com_conta_inexistente_da_400_e_nao_grava(client, session):
 
 
 def test_atualizar_perfil_com_conta_inexistente_da_400_e_nao_grava(client, session):
-    """`PUT` com `conta_id` que nao existe: 400 e o perfil fica como estava (D1).
+    """`PUT` com `conta_id` que nao existe: 400 e o perfil fica como estava.
 
     Cálculo à mão: o perfil "Demo" existe, o corpo muda o nome para "Outro" e
     a conta para 999; `db.get(Conta, 999)` devolve None -> 400 "Conta não

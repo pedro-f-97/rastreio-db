@@ -108,7 +108,7 @@ def _unidades(q: float) -> str:
 
 def _recusar_sobre_venda(db: Session, ativo: AtivoModel) -> None:
     """422 se, com as alterações pendentes na sessão, alguma venda do ativo
-    exceder as unidades em carteira nessa data (D15). Desfaz as alterações."""
+    exceder as unidades em carteira nessa data. Desfaz as alterações."""
     if not ativo.tipo.tem_unidades:
         return
     db.flush()
@@ -198,7 +198,7 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     ativo = db.query(AtivoModel).filter(AtivoModel.id == payload.ativo_id).first()
     if not ativo:
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
-    # Um preço é uma observação: não pode ter data futura (D27)
+    # Um preço é uma observação: não pode ter data futura
     if payload.data > date.today():
         raise HTTPException(status_code=422, detail="A data do preço não pode ser futura.")
     # Upsert: se já existe preço para esta data, actualiza

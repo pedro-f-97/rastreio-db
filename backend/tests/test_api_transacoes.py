@@ -18,9 +18,6 @@ A fixture `client` e a fixture `session` partilham a mesma sessão SQLAlchemy,
 por isso cada pedido é seguido de `session.expire_all()` antes de ler o estado
 final da base de dados: o pedido escreve na mesma sessão, a leitura tem de a
 expirar para não devolver valores em cache.
-
-Onde o comportamento é questionável fica a etiqueta `# DEVIDA-TECNICA: Dn`,
-a remeter para `docs/divida-tecnica.md`.
 """
 
 from datetime import date
@@ -327,7 +324,7 @@ def test_listar_filtra_por_sinal(client, session):
 def test_listar_filtra_por_descricao_sem_acentos_nem_maiusculas(client, session):
     """A pesquisa por descrição ignora acentos e maiúsculas, e é texto literal.
 
-    Era a D28: o filtro era `ilike`, que só ignora maiúsculas em ASCII.
+    Antes da correcção, o filtro era `ilike`, que só ignora maiúsculas em ASCII.
     Decisão do utilizador: na pesquisa, os acentos também não contam.
     Cálculo à mão, contra as cinco descrições da semente:
       "far"      -> "farmacia" contém "far"           -> 1 (t3)
@@ -439,7 +436,7 @@ def test_listar_paginacao(client, session):
 def test_listar_paginacao_desempata_mesma_data_por_id_desc(client, session):
     """Transacções da mesma data ficam por `id` descendente, estáveis entre páginas.
 
-    Era a D10: sem desempate, a ordem dentro da mesma data ficava ao critério
+    Antes da correcção, sem desempate, a ordem dentro da mesma data ficava ao critério
     do SQLite e o `offset` podia repetir ou saltar linhas entre páginas.
 
     Semente, por ordem de criação (e de `id`): a1..a4 em 2025-03-10 e b em
@@ -747,7 +744,7 @@ def test_put_transacao_inexistente_da_404(client, session):
 
 
 def test_put_categoria_inexistente_da_400(client, session):
-    """Uma categoria que não existe dá 400 e não é gravada (D1).
+    """Uma categoria que não existe dá 400 e não é gravada.
 
     Cálculo à mão: `db.get(Categoria, 9999)` devolve None, logo a validação de
     `atualizar_transacao` responde 400 com "Categoria não encontrada." antes de

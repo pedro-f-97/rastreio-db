@@ -17,5 +17,5 @@ def exato(x) -> Decimal:
 
 def arredondar(x) -> float:
     """Arredonda ao cêntimo, com a metade para longe de zero, como o ARRED do
-    Excel: 2,345 -> 2,35 e -2,345 -> -2,35 (D11)."""
+    Excel: 2,345 -> 2,35 e -2,345 -> -2,35."""
     return float(exato(x).quantize(CENTIMO, rounding=ROUND_HALF_UP))

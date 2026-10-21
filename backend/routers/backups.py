@@ -12,12 +12,12 @@ from database import DB_PATH, Base, engine, reparar_fk_ativos
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
-# A lista de tabelas validadas deriva do modelo (D6): um backup a que falte
+# A lista de tabelas validadas deriva do modelo: um backup a que falte
 # qualquer tabela do modelo é rejeitado.
 TABELAS_ESPERADAS = {tabela.name for tabela in Base.metadata.sorted_tables}
 
 # Mensagem única para qualquer problema de estrutura — tabela ou coluna em
-# falta. Não diz o que falta: é propositado (D6).
+# falta. Não diz o que falta: é propositado.
 MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
 
 
@@ -67,7 +67,7 @@ def _validar_estrutura(path: str) -> None:
 
     Só leitura: o ficheiro é aberto com `mode=ro` (URI), portanto nunca há
     escrita à toa. Tabelas e colunas a mais são aceites; qualquer falta levanta
-    HTTPException 400 com a mensagem genérica (D6).
+    HTTPException 400 com a mensagem genérica.
     """
     try:
         con = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
@@ -106,7 +106,7 @@ async def importar_backup(file: UploadFile = File(...)):
     anterior_path = DB_PATH + ".anterior"
 
     # limpar só o temporário: o `.anterior` fica no disco até um restauro que
-    # passe a validação o substituir (D6)
+    # passe a validação o substituir
     if os.path.exists(temp_path):
         os.remove(temp_path)
 
@@ -131,7 +131,7 @@ async def importar_backup(file: UploadFile = File(...)):
     try:
         if os.path.exists(DB_PATH):
             # Copiar ao lado e renomear: o `.anterior` só é substituído quando
-            # a cópia nova está completa (D22)
+            # a cópia nova está completa
             shutil.copy2(DB_PATH, anterior_tmp)
             os.replace(anterior_tmp, anterior_path)
             anterior_pronto = True
@@ -143,7 +143,7 @@ async def importar_backup(file: UploadFile = File(...)):
         # 3) Verificação pós-troca: a MESMA validação sobre a BD trocada
         _validar_estrutura(DB_PATH)
 
-        # Um backup antigo traz o schema partido da D1a. Se a reparação
+        # Um backup antigo pode ter chaves a apontar para `ativos_old`. Se a reparação
         # falhar, o rollback abaixo repõe a BD anterior.
         reparar_fk_ativos(DB_PATH)
 
@@ -152,7 +152,7 @@ async def importar_backup(file: UploadFile = File(...)):
         engine.dispose()
         try:
             # Só o `.anterior` deste pedido serve para repor: se a cópia falhou,
-            # a BD ainda não foi tocada e um `.anterior` antigo apagaria dados (D22)
+            # a BD ainda não foi tocada e um `.anterior` antigo apagaria dados
             if anterior_pronto:
                 shutil.copy2(anterior_path, anterior_tmp)
                 os.replace(anterior_tmp, DB_PATH)
@@ -169,5 +169,5 @@ async def importar_backup(file: UploadFile = File(...)):
         _limpar_wal_shm(DB_PATH)
         raise HTTPException(status_code=500, detail=f"Falha ao restaurar: {e}")
 
-    # 4) O `.anterior` fica no disco: é substituído no restauro seguinte (D6)
+    # 4) O `.anterior` fica no disco: é substituído no restauro seguinte
     return {"ok": True, "mensagem": "Base de dados restaurada"}

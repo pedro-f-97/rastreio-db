@@ -143,7 +143,7 @@ SEED_TIPOS_ATIVO = [
     ("Crypto", True),
     ("Ouro", True),
     ("Obrigações", True),
-    ("Certificados de Aforro", True),  # subscritos em unidades (D12f)
+    ("Certificados de Aforro", True),  # subscritos em unidades
     ("Veículo", False),
     ("Imóvel", False),
     ("Outro", False),
@@ -151,7 +151,7 @@ SEED_TIPOS_ATIVO = [
 
 
 def semear_dados_iniciais(db: Session, perfil: PerfilCategorias, com_categorias: bool) -> None:
-    """Cria, pelo nome, só o que falta das listas iniciais (D12g, D25).
+    """Cria, pelo nome, só o que falta das listas iniciais.
 
     O que já existe não é tocado, pelo que pode correr sobre uma BD com dados
     sem dar erro de nome duplicado. Não faz commit: quem chama decide.

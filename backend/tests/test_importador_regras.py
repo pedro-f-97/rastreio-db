@@ -39,8 +39,7 @@ Nos restantes casos — já tem categoria **diferente**, ou já tem a mesma cate
 com subcategoria — não é atribuído nada e mesmo assim o `break` da linha 23
 consome a regra: nenhuma posterior é avaliada.
 
-Nada disto é corrigido. Onde o comportamento é questionável fica marcado com
-`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`.
+Nada disto é corrigido.
 
 Convenções que estes testes fixam
 --------------------------------
@@ -51,7 +50,7 @@ Convenções que estes testes fixam
   que é sempre verdadeiro.
 - A **primeira** regra que casa ganha, e o `break` é incondicional — ver o
   cenário da categoria diferente. É a convenção das «Decisões de design» do
-  README (era a D7): a primeira regra decide sozinha.
+  README: a primeira regra decide sozinha.
 - A precedência entre as duas fases é fixa pelo código, não pela ordem da
   lista: exclusão antes de categorização, sempre. A ordem dentro de cada fase
   é a da lista recebida; o `importar_transacoes` passa-a ordenada por
@@ -167,7 +166,7 @@ def test_regra_com_acento_casa_descricao_maiuscula():
     """`upper()` não deita fora os acentos: a palavra acentuada casa.
 
     A comparação é `casa_palavra`, a mesma na importação, na pré-visualização
-    e no backfill (era a D8 b: o backfill usava `ilike` e não casava).
+    e no backfill (antes da correcção, o backfill usava `ilike` e não casava).
 
     Cálculo à mão:
       fase 2: palavra_chave "café" -> "CAFÉ"; descrição "CAFÉ PASTELARIA"
@@ -221,7 +220,7 @@ def test_a_primeira_regra_que_casa_ganha():
 def test_break_impede_a_segunda_regra_de_atribuir_a_subcategoria():
     """Regra 1.ª sem subcategoria: a 2.ª traria a subcategoria, o break não deixa.
 
-    Convenção (README, «Decisões de design»; era a D7): este teste só passa
+    Convenção (README, «Decisões de design»): este teste só passa
     porque o `break` da linha 23 existe. A 2.ª regra também casa, e entraria pelo ramo da
     linha 21, que é exactamente o ramo que escreve a subcategoria; é o `break` que
     impede a escrita. É o par com
@@ -298,7 +297,7 @@ def test_categoria_e_subcategoria_iguais_mudam_nada():
 def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
     """Categoria diferente: nada é atribuído e a regra seguinte é ignorada.
 
-    Convenção (README, «Decisões de design»; era a D7): o `break` da linha 23
+    Convenção (README, «Decisões de design»): o `break` da linha 23
     é incondicional: está dentro do `if` de correspondência (linha 17) e não
     dentro de nenhum dos ramos de atribuição. "Casou" não é "atribuiu", e a diferença de consequência é uma
     transação já categorizada que fica sem a subcategoria que a 2.ª regra lhe
@@ -328,7 +327,7 @@ def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
 def test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria():
     """A 1.ª regra casa com outra categoria e consome o ciclo; a 2.ª traria a sub.
 
-    Convenção (README, «Decisões de design»; era a D7): este teste fixa o caso
+    Convenção (README, «Decisões de design»): este teste fixa o caso
     em que a consequência é visível numa transação que o utilizador já tinha
     classificado à mão: ela fica com categoria mas sem subcategoria, e a 2.ª regra
     —que era exactamente a que lhe servia— nunca chega a ser avaliada. Sem o
@@ -449,7 +448,7 @@ def test_lista_de_regras_vazia_nao_faz_nada():
 def test_palavra_chave_vazia_casa_em_tudo():
     """Uma regra com palavra-chave vazia casa em qualquer descrição.
 
-    # DEVIDA-TECNICA: D21 — resolvido **só no schema**: `RegraCreate.palavra_chave`
+    # Validado **só no schema**: `RegraCreate.palavra_chave`
     # (`schemas.py:62`) valida com `strip_whitespace` e `min_length=1`, pelo que
     # a API recusa "" e "   " (ver `test_api_regras_criar.py`). O motor não
     # mudou: este teste constrói a regra em memória e chama `aplicar_regras`
@@ -473,7 +472,7 @@ def test_palavra_chave_vazia_casa_em_tudo():
 
 
 # ---------------------------------------------------------------------------
-# Precedência das regras na importação (era a D7)
+# Precedência das regras na importação
 # ---------------------------------------------------------------------------
 
 

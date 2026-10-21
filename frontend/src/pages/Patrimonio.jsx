@@ -33,7 +33,7 @@ export default function Patrimonio() {
   }
 
   useEffect(() => {
-    // Falso positivo: o setState de carregarContas() corre depois do await (D13a)
+    // Falso positivo: o setState de carregarContas() corre depois do await
     // eslint-disable-next-line react-hooks/set-state-in-effect
     carregarContas();
   }, []);

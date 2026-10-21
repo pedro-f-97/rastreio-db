@@ -11,8 +11,7 @@ Ficam de fora, com ficheiro próprio: `aplicar-em-massa` (`:141-195`,
 `test_api_regras_massa.py`) e a listagem `GET /` (`:18-31`, já exercitada por
 `test_api_regras_criar.py`, que também cobre a validação da `palavra_chave`).
 
-As divergências entre o motor de regras e o backfill eram a D8 de
-`docs/divida-tecnica.md`: desde a correcção, o backfill compara como a
+O motor de regras e o backfill divergiam: desde a correcção, o backfill compara como a
 importação (`casa_palavra`) e respeita as regras de exclusão. Fica só a
 diferença do pré-filtro com transacções órfãs (subcategoria sem categoria),
 um estado que as chaves estrangeiras não impedem: a subcategoria existe, só não
@@ -39,7 +38,7 @@ def _categorias(session):
     """Semeia Casa (despesa), Lazer (despesa) e Alimentação (de Casa).
 
     Devolve `(casa, lazer, sub_alim)` já com `id`. A subcategoria existe para
-    o backfill lhe poder apontar (o router valida a sua existência, D1).
+    o backfill lhe poder apontar (o router valida a sua existência).
     """
     casa = Categoria(nome="Casa", tipo=TipoCategoria.despesa)
     lazer = Categoria(nome="Lazer", tipo=TipoCategoria.despesa)
@@ -181,14 +180,14 @@ def test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria(client, sessio
 
 
 # ---------------------------------------------------------------------------
-# POST / — acentos, "%" e "_" (era a D8 b e c)
+# POST / — acentos, "%" e "_"
 # ---------------------------------------------------------------------------
 
 
 def test_backfill_com_acento_casa_descricao_maiuscula(client, session):
     """A palavra "café" casa a descrição em minúsculas e em maiúsculas.
 
-    Era a D8 (b): o `ilike` do SQLite só ignora maiúsculas em letras ASCII, e
+    Antes da correcção, o `ilike` do SQLite só ignora maiúsculas em letras ASCII, e
     "CAFÉ" não casava. Agora a comparação é `casa_palavra`, a da importação:
     "café".upper() = "CAFÉ" está em "CAFÉ PASTELARIA" e em
     "café pastelaria".upper(). Esperado: `transacoes_atualizadas = 2`, as duas
@@ -230,7 +229,7 @@ def test_backfill_casa_descricao_em_maiusculas(client, session):
 def test_backfill_percent_e_texto_literal(client, session):
     """Um "%" na palavra-chave só casa o literal "%".
 
-    Era a D8 (c): com `ilike`, a regra "50%" virava o padrão "%50%%" e casava
+    Antes da correcção, com `ilike`, a regra "50%" virava o padrão "%50%%" e casava
     "PAGAMENTO 5000". Agora é texto: "50%" não está em "PAGAMENTO 5000" e está
     em "DESCONTO 50%". Esperado: `transacoes_atualizadas = 1`, só a do desconto.
     """
@@ -251,7 +250,7 @@ def test_backfill_percent_e_texto_literal(client, session):
 def test_backfill_underscore_e_texto_literal(client, session):
     """Um "_" na palavra-chave só casa o literal "_".
 
-    Era a D8 (c): com `ilike`, "a_b" casava "PAGAMENTO AXB". Agora
+    Antes da correcção, com `ilike`, "a_b" casava "PAGAMENTO AXB". Agora
     "A_B" não está em "PAGAMENTO AXB" e está em "REF A_B 12". Esperado:
     `transacoes_atualizadas = 1`, só a da referência.
     """
@@ -272,7 +271,7 @@ def test_backfill_underscore_e_texto_literal(client, session):
 def test_backfill_respeita_as_regras_de_exclusao(client, session):
     """O que uma regra de exclusão apanha fica por tocar, como na importação.
 
-    Era uma divergência da D8: o backfill ignorava as regras de exclusão.
+    Antes da correcção, o backfill ignorava as regras de exclusão.
     Cálculo à mão, com a exclusão "trf" já criada e a regra nova
     "pingo" -> (Casa, Alimentação):
       "PINGO DOCE" (sem categoria)       -> casa "pingo", não casa "trf" -> categoriza
@@ -331,7 +330,7 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
     Esperado: `len(sem_conflito) = 2`, `len(com_conflito) = 0` e
     `transacoes_atualizadas = 2`.
 
-    A divergência do pré-filtro (era a D8 a) só apareceria com uma
+    A divergência do pré-filtro só apareceria com uma
     transacção órfã (categoria None e subcategoria definida), um estado
     inválido; essa semente está no teste
     `test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria`.
@@ -380,7 +379,7 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
 
 
 def test_pre_visualizar_avalia_primeiro_a_palavra_chave_mais_longa(client, session):
-    """A pré-visualização usa a mesma precedência que a importação (era a D7).
+    """A pré-visualização usa a mesma precedência que a importação.
 
     Cálculo à mão: "casa" -> Casa (criada primeiro) e "casa lazer" -> Lazer
     (criada depois); "CASA LAZER LDA" casa as duas e está por categorizar.
@@ -431,12 +430,12 @@ def test_apagar_regra_existente_e_inexistente(client, session):
 
 
 # ---------------------------------------------------------------------------
-# POST / com IDs inexistentes (D1)
+# POST / com IDs inexistentes
 # ---------------------------------------------------------------------------
 
 
 def test_criar_regra_com_categoria_inexistente_da_400(client, session):
-    """Uma categoria que não existe dá 400 e a regra não é gravada (D1).
+    """Uma categoria que não existe dá 400 e a regra não é gravada.
 
     Cálculo à mão: `db.get(Categoria, 999)` devolve None, logo `criar_regra`
     responde 400 com "Categoria não encontrada." antes do `db.add`. A
@@ -456,7 +455,7 @@ def test_criar_regra_com_categoria_inexistente_da_400(client, session):
 
 
 def test_criar_regra_com_subcategoria_inexistente_da_400(client, session):
-    """Uma subcategoria que não existe dá 400 e a regra não é gravada (D1).
+    """Uma subcategoria que não existe dá 400 e a regra não é gravada.
 
     Cálculo à mão: Casa existe, `db.get(Subcategoria, 999)` devolve None, logo
     `criar_regra` responde 400 com "Subcategoria não encontrada.".

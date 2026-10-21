@@ -1,8 +1,8 @@
-"""Testes de API de `GET /api/estatisticas/detalhe-mensal` (D9).
+"""Testes de API de `GET /api/estatisticas/detalhe-mensal`.
 
 O que fica fixado
 -----------------
-A D9 é a falta de validação dos parâmetros `ano` e `mes` de
+O ponto é a falta de validação dos parâmetros `ano` e `mes` de
 `detalhe_mensal`. A função constrói `inicio = date(ano, mes, 1)` e
 `fim = date(ano, mes, calendar.monthrange(ano, mes)[1])` sem limites, e o
 `date()` levanta `ValueError` tanto para o mês fora de 1..12 como para o ano
@@ -168,7 +168,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
         transferências), mas `todos_meses` não filtra transferências e o ciclo
         seguinte acrescenta o mês a zeros -> aparece no output a zeros. É a
         mesma convenção do denominador das médias no `/por-categoria` (ver
-        «Decisões de design» no README; era a D5).
+        «Decisões de design» no README).
       junho: só investimento: a chave do mês é criada com investimento
         -1000,0 e receitas/despesas a zero.
       fevereiro (sem transacções) não está em `todos_meses`, por isso não
@@ -264,12 +264,12 @@ def test_por_categoria_media_e_mediana_mensais_com_zeros(client, session):
       transferências, e a query de totais exclui-as (o seu `filter` de
       transferências) -> o mês 04 só com transferências entra
       no denominador sem entrar no numerador. É a convenção registada nas
-      «Decisões de design» do README (era a D5).
+      «Decisões de design» do README.
 
       A query agrupa por (ano, mes, categoria, subcategoria); a categoria
       soma as linhas de cada mês: o mês 03 é Renda -100 + "Sem subcategoria"
       -30 = -130. Os meses sem movimentos contam como zero, na média e na
-      mediana (era a D23: a mediana era por linha e sem os zeros).
+      mediana (antes, a mediana era por linha e sem os zeros).
 
       Casa, totais mensais [mar -130, abr 0, mai -40, jun -30]:
         media   = round(-200 / 4, 2) = -50,0 (sem o mês 04 no denominador
@@ -364,8 +364,8 @@ def test_por_categoria_com_ano_filtra_meses_e_transacoes(client, session):
 def test_por_categoria_mediana_por_mes_e_nao_por_subcategoria(client, session):
     """A mediana da categoria é a dos totais mensais, com os meses vazios a zero.
 
-    Era a D23. O cenário foi escolhido para que as quatro maneiras de calcular
-    dêem quatro valores diferentes.
+    Antes da correcção a mediana era por linha. O cenário foi escolhido para
+    que as quatro maneiras de calcular dêem quatro valores diferentes.
 
     Cenário semeado (meses_distintos = 4: jan, fev, mar, abr):
       2025-01-05  Casa/A   -100,00
@@ -632,12 +632,12 @@ def test_detalhe_mensal_agrega_subcategorias_e_ordena_por_total(client, session)
 
 
 # ---------------------------------------------------------------------------
-# D11 — empates no meio cêntimo arredondam para longe de zero
+# Empates no meio cêntimo arredondam para longe de zero
 # ---------------------------------------------------------------------------
 
 
 def test_por_categoria_media_e_mediana_no_meio_centimo(client, session):
-    """Os números da categoria Entretenimento em 2025, nos dados reais (D11).
+    """Os números da categoria Entretenimento em 2025, nos dados reais.
 
     Cenário semeado: dois meses, um com -96,70 e outro com -62,99.
 
@@ -647,7 +647,7 @@ def test_por_categoria_media_e_mediana_no_meio_centimo(client, session):
       media   = -159,69 / 2 = -79,845
       empate no meio cêntimo, metade para longe de zero -> -79,85
 
-    Antes da D11 ambas davam -79,84: em float, -79,845 é -79,84499999...
+    Antes da correcção ambas davam -79,84: em float, -79,845 é -79,84499999...
     """
     lazer = semear_categoria(session, "Entretenimento", TipoCategoria.despesa)
     semear_transacao(session, date(2025, 3, 10), "Cinema", -96.70, lazer)
@@ -673,7 +673,7 @@ def test_resumo_mensal_media_e_mediana_no_meio_centimo(client, session):
       media   = (-10,01 + -10,00) / 2 = -20,01 / 2 = -10,005 -> -10,01
       mediana = (-10,01 + -10,00) / 2 = -10,005              -> -10,01
 
-    Antes da D11 ambas davam -10,0: em float, -10,005 é -10,00499999...
+    Antes da correcção ambas davam -10,0: em float, -10,005 é -10,00499999...
     """
     casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
     semear_transacao(session, date(2025, 3, 10), "Luz", -10.01, casa)
@@ -687,7 +687,7 @@ def test_resumo_mensal_media_e_mediana_no_meio_centimo(client, session):
 
 
 def test_por_categoria_mediana_sem_ruido_da_soma_em_float(client, session):
-    """A mediana é calculada em Decimal, e não sobre o ruído da soma em float (D11).
+    """A mediana é calculada em Decimal, e não sobre o ruído da soma em float.
 
     Cenário semeado: dois meses, um com -200,00 e outro com -197,79.
 

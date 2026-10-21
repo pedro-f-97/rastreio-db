@@ -12,10 +12,8 @@ Cobre os quatro endpoints de `backend/routers/tipos_ativo.py`:
   ativos (`if tipo.ativos:`), senão apaga.
 
 O apagar com ativos é pré-checado (`if tipo.ativos:`) e responde 409; a
-pragma `foreign_keys` (D1) só recusaria o `DELETE` com 500. O nome duplicado
-no PUT, que era um 500 por `IntegrityError` e estava anotado como D24, passou
-a 409 — ver
-`docs/divida-tecnica.md`.
+pragma `foreign_keys` só recusaria o `DELETE` com 500. O nome duplicado
+no PUT, que era um 500 por `IntegrityError`, passou a 409.
 
 Valores esperados calculados à mão e escritos como constantes; datas fixas em
 2024. Nenhum teste toca na base de dados real (ver `conftest.py`). Como a
@@ -133,7 +131,7 @@ def test_renomear_tipo_ativo_e_404(client, session):
 def test_renomear_tipo_ativo_para_nome_duplicado_da_409(client, session):
     """Renomear para um nome existente é recusado com 409, sem escrever.
 
-    D24 (`docs/divida-tecnica.md`): o PUT passou a pré-checar o nome contra os
+    O PUT passou a pré-checar o nome contra os
     **outros** tipos (`TipoAtivo.id != tipo_id` na pré-checagem de
     `renomear_tipo_ativo`), como o POST já fazia em `criar_tipo_ativo`, pelo que
     a colisão não chega a `commit()` — em produção deixou de ser um 500 por
@@ -164,7 +162,7 @@ def test_renomear_tipo_ativo_para_nome_duplicado_da_409(client, session):
 def test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200(client, session):
     """Guardar um tipo sem mudar o nome não é duplicado: 200.
 
-    D24 (`docs/divida-tecnica.md`): a pré-checagem do PUT exclui o próprio
+    A pré-checagem do PUT exclui o próprio
     `tipo_id`, por isso o nome de um tipo continua a poder ser re-submetido tal
     e qual.
 
@@ -194,7 +192,7 @@ def test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200(client, session):
 
 def test_apagar_tipo_ativo_com_ativos_da_409(client, session):
     # A pré-checagem `if tipo.ativos:` dá 409 antes de a pragma
-    # `foreign_keys` recusar o `DELETE` (D1).
+    # `foreign_keys` recusar o `DELETE`.
     """Um tipo com ativos associados não é apagado: 409.
 
     Cálculo à mão (o ramo dos ativos de `apagar_tipo_ativo`): o tipo ETF tem um

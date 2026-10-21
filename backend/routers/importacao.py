@@ -48,7 +48,7 @@ async def importar_extrato(
         resultado = parse_ficheiro(conteudo, perfil)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    # Uma linha com erro recusa o ficheiro inteiro: não se importa metade (D12d, D29)
+    # Uma linha com erro recusa o ficheiro inteiro: não se importa metade
     erros = resultado["erros"]
     if erros:
         n = len(erros)

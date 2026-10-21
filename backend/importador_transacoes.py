@@ -4,7 +4,7 @@ from database import RegraCategorizacao, Transacao
 
 
 def casa_palavra(palavra_chave: str, descricao: str) -> bool:
-    """A comparação única das regras (D8): ignora maiúsculas, também nas letras
+    """A comparação única das regras: ignora maiúsculas, também nas letras
     acentuadas, e trata a palavra-chave como texto literal."""
     return palavra_chave.upper() in descricao.upper()
 
@@ -31,7 +31,7 @@ def aplicar_regras(transacao: Transacao, regras: list[RegraCategorizacao]):
 
 
 def regras_por_precedencia(db: Session) -> list[RegraCategorizacao]:
-    """Regras pela ordem em que são avaliadas (D7): a palavra-chave mais longa
+    """Regras pela ordem em que são avaliadas: a palavra-chave mais longa
     primeiro, porque é a mais específica, e em empate a mais antiga."""
     regras = db.query(RegraCategorizacao).all()
     return sorted(regras, key=lambda r: (-len(r.palavra_chave), r.id))

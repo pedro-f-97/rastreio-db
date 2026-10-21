@@ -1,4 +1,4 @@
-"""Testes de `reparar_fk_ativos` (D1a).
+"""Testes de `reparar_fk_ativos`.
 
 A BD partida é criada pela fixture `criar_bd_com_fk_partida` (conftest), que
 reproduz a migração que a partiu. Todos os ficheiros ficam em `tmp_path`; a
@@ -70,7 +70,7 @@ def test_a_fixture_reproduz_o_schema_partido(bd_partida):
     Cálculo à mão: as duas tabelas apontam para `ativos_old`, que não existe,
     logo cada linha delas é uma violação: 3 preços + 2 movimentos = 5. Com a
     pragma ligada, acrescentar um preço falha a procurar a tabela fantasma —
-    é o erro registado na D1a.
+    é o erro que se via na BD real.
     """
     assert 'REFERENCES "ativos_old"' in ddl(bd_partida, "precos_ativo")
     assert 'REFERENCES "ativos_old"' in ddl(bd_partida, "movimentos_ativo")
@@ -114,13 +114,13 @@ def test_reparar_mantem_a_unicidade_de_ativo_e_data(bd_partida):
 
 
 def test_com_a_pragma_ligada_a_bd_reparada_protege_os_ativos(bd_partida):
-    """O que a D1a impedia passa a funcionar.
+    """O que as chaves partidas impediam passa a funcionar.
 
     Cálculo à mão, com `PRAGMA foreign_keys = ON`:
       * um preço novo para o ativo 7, que existe, entra;
       * um preço para o ativo 99, que não existe, é recusado;
       * apagar o ativo 7, que tem o preço 12 e o movimento 8, é recusado.
-    Antes da reparação, este último `DELETE` passava e deixava órfãos (D1a).
+    Antes da reparação, este último `DELETE` passava e deixava órfãos.
     """
     reparar_fk_ativos(str(bd_partida))
 

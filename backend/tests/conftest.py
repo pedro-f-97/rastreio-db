@@ -73,7 +73,7 @@ def session():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    # Como a engine da app: os testes vêem as chaves estrangeiras forçadas (D1)
+    # Como a engine da app: os testes vêem as chaves estrangeiras forçadas
     event.listen(engine, "connect", ligar_chaves_estrangeiras)
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
@@ -149,13 +149,13 @@ def client(session):
 
 
 # ---------------------------------------------------------------------------
-# BD com o schema partido da D1a
+# BD com as chaves de ativos a apontar para `ativos_old`
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def criar_bd_com_fk_partida():
-    """Devolve uma função que cria, num caminho, uma BD com o schema da D1a.
+    """Devolve uma função que cria, num caminho, uma BD com as chaves para `ativos_old`.
 
     O schema não é escrito à mão: é reproduzido como aconteceu na BD real.
     Cria-se o modelo actual, semeiam-se dados, e repete-se o que

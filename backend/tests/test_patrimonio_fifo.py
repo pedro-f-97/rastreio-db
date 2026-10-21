@@ -5,8 +5,7 @@ em `_resumo_valor_ativo` (`backend/servicos/patrimonio_serv.py:13`). Servem
 para que mexer no cálculo não mude nada sem dar conta: se um destes testes
 falhar, a mudança foi de propósito e tem de ser justificada.
 
-Nada aqui é corrigido. Onde o comportamento é questionável, fica marcado com
-`# DEVIDA-TECNICA: Dn`, a remeter para `docs/divida-tecnica.md`.
+Nada aqui é corrigido.
 
 Convenção de sinais, afirmada em todos os testes
 ------------------------------------------------
@@ -20,7 +19,7 @@ O que a aplicação grava e o que a aplicação devolve não são a mesma coisa:
 * `custo_base` é interno e **sempre positivo**.
 * `custo_total` na resposta é `round(-custo_base, 2)`, portanto **negativo** por
   convenção: o dinheiro que saiu é negativo, como nas transacções (ver
-  `docs/modelo-dados.md`, «Convenções de sinal»; era a D12a).
+  `docs/modelo-dados.md`, «Convenções de sinal»).
 * `latente = valor_atual - custo_base`.
 * `mais_menos_valia = round(realizado + latente, 2)`, em que `realizado` já
   traz o sinal: ganho positivo, perda negativa.
@@ -370,7 +369,7 @@ def test_sobre_venda_ja_gravada_escala_o_encaixe(client, session):
     As 5 unidades que nao existiam e 100,00 de encaixe desaparecem: o
     resultado e identico ao de ter vendido 10 unidades por 200,00.
 
-    Desde a D15, a API recusa uma venda destas (422, ver os testes de
+    A API recusa uma venda destas (422, ver os testes de
     sobre-venda em test_api_patrimonio.py). O movimento e semeado
     directamente na sessao para fixar o que o nucleo do FIFO faz se uma
     sobre-venda ja estiver gravada (dados anteriores a validacao).
@@ -485,7 +484,7 @@ def test_sem_preco_vale_o_custo_e_o_latente_e_nulo(client, session):
     Calculo a mao:
       custo_base = 10 x 10,00 = 100,00  (o FIFO corre todo)
       valor_atual = round(100,00, 2) = 100,00, o custo das unidades em
-                    carteira (era 0,0 ate a D26, como os bens ate a D16)
+                    carteira (antes da correcção era 0,0, como nos bens)
       custo_total = -100,00  (negativo, por convenção)
       latente = None, porque `preco_atual` e None
       mais_menos_valia = round(0,00 + 0,0, 2) = 0,00, o `ou 0,0` converte
@@ -493,7 +492,7 @@ def test_sem_preco_vale_o_custo_e_o_latente_e_nulo(client, session):
 
     A API mantem o latente nulo e o mais/menos-valia igual ao realizado; e a
     pagina Ativos que mostra «sem preco» para um ativo detido nestas
-    condicoes (era a D12b).
+    condicoes.
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acoes S", tipo)
@@ -671,7 +670,7 @@ def test_bem_sem_unidades_trata_venda_parcial_como_venda_total(client, session):
       a parte que ficou por vender passou a ter custo zero e valor zero, ou
       seja, desaparece do patrimonio.
 
-    E a convencao registada nas «Decisoes de design» do README (era a D17):
+    E a convencao registada nas «Decisoes de design» do README:
     um bem sem unidades vende-se sempre por inteiro; para vender partes, o
     bem regista-se com unidades e passa pelo FIFO. O cenario 12 mostra o
     mesmo codigo com uma venda que e mesmo total.
@@ -867,7 +866,7 @@ def test_bem_sem_unidades_e_sem_preco_vale_o_custo(client, session):
       mais_menos_valia = round(0,00 + 0,0, 2) = 0,00
       quantidade = 0,0
 
-    Era a D16: sem preco o valor era 0,0 e o bem desaparecia do patrimonio.
+    Antes da correcção, sem preco o valor era 0,0 e o bem desaparecia do patrimonio.
     Decisao do utilizador: sem avaliacao registada, o bem vale o custo.
     """
     tipo = semear_tipo(session, "Imovel", tem_unidades=False)
@@ -909,7 +908,7 @@ def test_fraccoes_esgotam_os_lotes_sem_deixar_residuo(session):
         0,1 - 0,1 = 0,0  -> lote esgotado e removido
         0,2 - 0,2 = 0,0  -> lote esgotado e removido
       em vírgula flutuante a subtração dava 2,78e-17, e era a tolerância de
-      1e-9 que a deitava fora; desde a D11 as contas são em Decimal e a
+      1e-9 que a deitava fora; desde a correcção as contas são em Decimal e a
       subtração dá 0 exacto, ficando a tolerância só como rede
       custo vendido = 1,00 x 0,1 / 0,1 + 4,00 x 0,2 / 0,2 = 5,00
       valor efetivo  = abs(6,00) x (0,3 / 0,3)   = 6,00
@@ -1124,7 +1123,7 @@ def test_bem_sem_unidades_vendido_ignora_preco_posterior(client, session):
 
 
 # ---------------------------------------------------------------------------
-# 22. Quantidade x preço no meio cêntimo (D11)
+# 22. Quantidade x preço no meio cêntimo
 # ---------------------------------------------------------------------------
 
 
@@ -1137,7 +1136,7 @@ def test_valor_de_quantidade_vezes_preco_no_meio_centimo(client, session):
       latente     = 5,01 - 5,00 = 0,01
       realizado   = 0, e mais_menos_valia = 0 + 0,01 = 0,01
 
-    Antes da D11 dava valor_atual 5,0 e latente 0,0: em float, 0,5 x 10,01 é
+    Antes da correcção dava valor_atual 5,0 e latente 0,0: em float, 0,5 x 10,01 é
     5,00499999...
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
@@ -1161,7 +1160,7 @@ def test_valor_de_quantidade_vezes_preco_no_meio_centimo(client, session):
 
 
 # ---------------------------------------------------------------------------
-# 23. Venda parcial com o custo vendido no meio cêntimo (D11)
+# 23. Venda parcial com o custo vendido no meio cêntimo
 # ---------------------------------------------------------------------------
 
 
@@ -1180,7 +1179,7 @@ def test_venda_parcial_com_custo_no_meio_centimo(client, session):
       mais_menos_valia = 1,00 + (-2,01) = -1,01
       (confere: saíram 10,01, entraram 6,00 e a unidade vale 3,00, -1,01)
 
-    Antes da D11, em float: custo_total -5,0, latente -2,0 e
+    Antes da correcção, em float: custo_total -5,0, latente -2,0 e
     mais_menos_valia -1,0, que já não conferia; o realizado dava 1,0 por
     acaso (0,9950000000000001 em float).
     """

@@ -1,4 +1,4 @@
-"""Testes do arredondamento ao cêntimo (`servicos/dinheiro.py`, D11).
+"""Testes do arredondamento ao cêntimo (`servicos/dinheiro.py`).
 
 A regra é a metade para longe de zero, como o ARRED do Excel. Os valores
 esperados são calculados à mão; os empates escolhidos são os que o `round` do

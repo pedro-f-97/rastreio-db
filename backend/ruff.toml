@@ -1,4 +1,4 @@
-# Configuração do ruff (D13b). Corre a partir de backend/, para que database,
+# Configuração do ruff. Corre a partir de backend/, para que database,
 # schemas, routers e servicos sejam reconhecidos como módulos do projecto.
 target-version = "py314"
 line-length = 100

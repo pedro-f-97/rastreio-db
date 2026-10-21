@@ -13,7 +13,7 @@ router = APIRouter(prefix="/perfis-importacao", tags=["perfis-importacao"])
 
 
 def _validar_conta(db: Session, conta_id: int | None) -> None:
-    # Com a pragma ligada, uma conta inexistente daria 500 no commit (D1)
+    # Com a pragma ligada, uma conta inexistente daria 500 no commit
     if conta_id is not None and db.get(Conta, conta_id) is None:
         raise HTTPException(status_code=400, detail="Conta não encontrada.")
 
@@ -46,7 +46,7 @@ async def analisar_ficheiro(file: UploadFile = File(...)):
         import csv
 
         texto = conteudo.decode("utf-8-sig")
-        # O perfil ainda não existe: a amostra são as primeiras linhas do ficheiro (D19)
+        # O perfil ainda não existe: a amostra são as primeiras linhas do ficheiro
         reader = csv.reader(
             io.StringIO(texto), delimiter=_detectar_delimitador(texto.splitlines()[:20])
         )

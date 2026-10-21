@@ -225,7 +225,7 @@ def _preflight() -> None:
 
     # 2) criar tabelas ANTES de arrancar o uvicorn, para o erro não se perder
     #    dentro da thread daemon do lifespan.
-    #    Inclui a reparação do schema da D1a.
+    #    Inclui a reparação das chaves que apontam para `ativos_old`.
     try:
         criar_tabelas()
     except Exception as e:

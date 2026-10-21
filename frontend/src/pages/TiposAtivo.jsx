@@ -17,7 +17,7 @@ export default function TiposAtivo() {
     }
 
     useEffect(() => {
-        // Falso positivo: o setState de carregar() corre depois do await (D13a)
+        // Falso positivo: o setState de carregar() corre depois do await
         // eslint-disable-next-line react-hooks/set-state-in-effect
         carregar();
     }, []);

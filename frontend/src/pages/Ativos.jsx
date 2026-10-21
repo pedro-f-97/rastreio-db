@@ -170,7 +170,7 @@ export default function Ativos({ onDadosAlterados }) {
     return acc;
   }, {});
 
-  // Data local em AAAA-MM-DD, comparável com `data_preco` (D18)
+  // Data local em AAAA-MM-DD, comparável com `data_preco`
   const hoje = new Date().toLocaleDateString("sv-SE");
 
   function calcularResumoTipo(listaAtivos, resumos) {
@@ -339,7 +339,7 @@ export default function Ativos({ onDadosAlterados }) {
                     const mmv = r?.mais_menos_valia;
                     const custo = r?.custo_total;
                     const pctAtivo = custo && custo !== 0 ? (mmv / Math.abs(custo)) * 100 : null;
-                    // Ainda detido e sem preço: a mais-valia não se sabe, não é zero (D12b)
+                    // Ainda detido e sem preço: a mais-valia não se sabe, não é zero
                     const semPreco = r != null && r.preco_atual == null &&
                       (ativo.tipo.tem_unidades ? r.quantidade > 0 : r.custo_total !== 0);
                     return (

@@ -18,7 +18,7 @@ def _parse_valor(raw, separador_decimal: str) -> float:
         return float(raw)
     texto = str(raw).strip().replace(" ", "").replace("\xa0", "")
     # Um número com separadores tem de bater com o perfil: o decimal só uma vez
-    # e no fim, e o outro separador só em grupos de milhares de 3 dígitos (D12d)
+    # e no fim, e o outro separador só em grupos de milhares de 3 dígitos
     milhares = "." if separador_decimal == "," else ","
     coerente = rf"[+-]?(\d{{1,3}}(\{milhares}\d{{3}})+|\d*)(\{separador_decimal}\d+)?"
     if re.fullmatch(r"[+-]?[\d.,]+", texto) and not re.fullmatch(coerente, texto):
@@ -33,7 +33,7 @@ def _parse_valor(raw, separador_decimal: str) -> float:
         valor = float(texto)
     except ValueError:
         raise ErroParsing(f"valor inválido: '{raw}'")
-    # float() aceita "nan", "inf" e "1e400" (que dá inf), e nenhum é dinheiro (D11)
+    # float() aceita "nan", "inf" e "1e400" (que dá inf), e nenhum é dinheiro
     if not math.isfinite(valor):
         raise ErroParsing(f"valor inválido: '{raw}'")
     return valor
@@ -65,7 +65,7 @@ def _ler_linhas_xlsx(file_bytes: bytes, linha_inicio: int) -> list[tuple]:
 
 def _detectar_delimitador(linhas_de_dados: list[str]) -> str:
     """O separador de colunas que divide as linhas de dados no mesmo número de
-    colunas, e no maior; vírgula se nenhum servir (D19). O `csv.Sniffer`
+    colunas, e no maior; vírgula se nenhum servir. O `csv.Sniffer`
     engana-se num CSV com `;` sem cabeçalho e vírgula decimal (`-3,20`)."""
     amostra = "\n".join(linha for linha in linhas_de_dados if linha.strip())
     melhor, colunas = ",", 1
@@ -150,7 +150,7 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
                 raw_fee = celula(perfil.coluna_fee)
                 if raw_fee not in (None, "", "None"):
                     # Uma comissão é sempre paga: entra negativa, venha o sinal
-                    # que vier no extracto (D12e)
+                    # que vier no extracto
                     valor -= abs(_parse_valor(raw_fee, perfil.separador_decimal))
 
             saldo = None

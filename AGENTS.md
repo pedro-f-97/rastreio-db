@@ -27,8 +27,7 @@ test fixture and it is not disposable. These rules are not advisory.
    gives no confirmation. If you need real data, ask the user.
 
    Prefer `RASTREIO_DB_DIR` + a copy even for reads: a copy can be corrupted
-   freely, and the schema in `docs/divida-tecnica.md` (D1a) shows the real DB
-   is already in a state where a tool's defaults can produce surprising results.
+   freely.
 
 3. **Never let a test or a manual probe touch production data.** Exercise
    writes against a copy, inside a transaction that is always rolled back, and
@@ -89,8 +88,8 @@ build.bat           # Windows
 * Expected values are **computed by hand** and written as constants with the
   calculation in a comment. Never run the function and paste its output into the assert.
 * Use real enums (`TipoCategoria`, `TipoMovimento`), never strings.
-* Questionable current behaviour is fixed as-is and tagged
-  `# DEVIDA-TECNICA: Dn` (matching `docs/divida-tecnica.md`).
+* Questionable current behaviour found while testing is pinned as-is by the
+  test and reported to the user; it is not corrected in the same change.
 * The frontend has no tests. A frontend change is checked with `npm run lint`
   (in `frontend/`) and by hand; say which one you did.
 * Verify new tests by **mutation** on a copy in `/tmp` (rsync without
@@ -131,18 +130,9 @@ build.bat           # Windows
 * Treat financial calculations, FIFO, sales, reimbursements, imports and patrimony calculations as correctness-critical.
 * Before finishing, run ./backend/test.sh and inspect git diff
 * Do not assume undocumented business rules; inspect the existing code/docs/tests first.
-
-## Technical Debt
-
-* `docs/divida-tecnica.md` is the source of truth for `Dn` numbering.
-* Its `file:line` references are snapshots and go stale. Check the code before
-  quoting one, and update the reference when you touch the item.
-* When fixing an item, in the **same commit**: fix the code, invert the
-  characterization test that fails on purpose, and mark the item as resolved in the doc.
 * Do not decide business rules yourself. Describe the options and ask the user.
-  All open business decisions have been taken; what remains open in the doc is
-  technical (D1/D1a schema migration, D11, D13). Decisions taken as conventions
-  live in the README's «Decisões de design» and must not be reverted silently.
+  Decisions taken as conventions live in the README's «Decisões de design» and
+  must not be reverted silently.
 
 ## Stop Gates
 

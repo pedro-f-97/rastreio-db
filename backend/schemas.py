@@ -42,7 +42,7 @@ class Subcategoria(SubcategoriaBase):
 class TransacaoBase(BaseModel):
     data: date
     descricao: str
-    # FiniteFloat recusa NaN e Infinity, aqui e nos outros campos numéricos (D11)
+    # FiniteFloat recusa NaN e Infinity, aqui e nos outros campos numéricos
     valor: FiniteFloat
     saldo: Optional[FiniteFloat] = None
     reembolso: bool = False

@@ -1,8 +1,8 @@
-"""Testes de API de `POST /api/regras/` — validação da `palavra_chave` (D21).
+"""Testes de API de `POST /api/regras/` — validação da `palavra_chave`.
 
 O que fica fixado
 -----------------
-A correcção da D21 fica **só no schema da entrada**: `RegraCreate.palavra_chave`
+A validação da palavra-chave fica **só no schema da entrada**: `RegraCreate.palavra_chave`
 (`backend/schemas.py`, linha 62) passa a ser `Annotated[str,
 StringConstraints(strip_whitespace=True, min_length=1)]`. Ou seja:
 
@@ -44,7 +44,7 @@ from database import RegraCategorizacao
 def test_palavra_chave_vazia_rejeitada(client):
     """`""` já não cria uma regra: o schema devolve 422.
 
-    Antes da correcção da D21 o `POST` aceitava `""` e criava a regra, com
+    Antes da correcção o `POST` aceitava `""` e criava a regra, com
     200. O Pydantic rejeita a entrada com `string_too_short` antes de a rota
     ser chamada.
 
@@ -113,7 +113,7 @@ def test_palavra_chave_valida_e_guardada(client, session):
 def test_listagem_continua_a_ler_regra_antiga_com_palavra_chave_vazia(client, session):
     """Guarda de regressão: uma regra antiga com `""` não parte a listagem.
 
-    A restrição da D21 vive **só** em `RegraCreate` — `RegraBase` e `Regra`
+    A restrição vive **só** em `RegraCreate` — `RegraBase` e `Regra`
     ficam sem ela de propósito. Se um dia a restrição for parar a esses
     schemas, uma regra gravada antes da correcção (palavra-chave vazia na
     base de dados) poderia partir uma validação de resposta. Este teste

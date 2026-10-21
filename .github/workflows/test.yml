@@ -36,8 +36,8 @@ jobs:
         run: pip install -r requirements-dev.txt
         working-directory: backend
 
-      # A partir de backend/, que é onde o ruff.toml (D13b) e o
-      # pyrightconfig.json (D13c) estão. Sem a pasta venv, o pyright usa o
+      # A partir de backend/, que é onde o ruff.toml e o
+      # pyrightconfig.json estão. Sem a pasta venv, o pyright usa o
       # Python do runner, onde o requirements-dev.txt já foi instalado.
       - name: Correr o ruff e o pyright
         run: |
@@ -52,8 +52,7 @@ jobs:
         working-directory: backend
 
   # O frontend não tem testes; o lint é a única verificação. Com
-  # --max-warnings 0 os avisos também falham, para não voltarem a acumular-se
-  # (D13a).
+  # --max-warnings 0 os avisos também falham, para não voltarem a acumular-se.
   lint-frontend:
     runs-on: ubuntu-latest
 
