@@ -69,7 +69,7 @@ export default function GuiaDestaque() {
   if (!activo) return null
 
   const centrado = !passo.dataTour
-  // Uma posição de outro passo não vale para este (D13a)
+  // Uma posição de outro passo não vale para este
   const pos = posicao?.dataTour === passo.dataTour ? posicao : null
 
   const estiloCaixa = centrado

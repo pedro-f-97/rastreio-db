@@ -67,7 +67,7 @@ def apagar_categoria(categoria_id: int, db: Session = Depends(get_db)):
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    # Com transações, recusa: sem elas, vão-se as subcategorias e as regras (D1)
+    # Com transações, recusa: sem elas, vão-se as subcategorias e as regras
     ids_sub = [s.id for s in cat.subcategorias]
     n = (
         db.query(Transacao)
@@ -146,7 +146,7 @@ def apagar_subcategoria(categoria_id: int, subcategoria_id: int, db: Session = D
     if not sub:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
     # As transações ficam por categorizar na mesma categoria (pela relationship);
-    # as regras perdem a subcategoria (D1)
+    # as regras perdem a subcategoria
     db.query(RegraCategorizacao).filter(
         RegraCategorizacao.subcategoria_id == subcategoria_id
     ).update({RegraCategorizacao.subcategoria_id: None}, synchronize_session=False)

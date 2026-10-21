@@ -12,7 +12,7 @@ router = APIRouter(prefix="/transacoes", tags=["transacoes"])
 
 
 def _para_pesquisa(texto: str) -> str:
-    """Sem acentos e sem maiúsculas, para a pesquisa por descrição (D28)."""
+    """Sem acentos e sem maiúsculas, para a pesquisa por descrição."""
     decomposto = unicodedata.normalize("NFKD", texto)
     return "".join(c for c in decomposto if not unicodedata.combining(c)).casefold()
 
@@ -61,7 +61,7 @@ def listar_transacoes(
         query = query.filter((Transacao.categoria_id == None) | (Transacao.subcategoria_id == None))
 
     if descricao:
-        # Filtrado em Python, antes de paginar, para ignorar os acentos (D28)
+        # Filtrado em Python, antes de paginar, para ignorar os acentos
         procura = _para_pesquisa(descricao)
         todas = [t for t in query.all() if procura in _para_pesquisa(t.descricao)]
         total = len(todas)

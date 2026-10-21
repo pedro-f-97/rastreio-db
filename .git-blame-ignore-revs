@@ -1,5 +1,5 @@
 # Commits só de formato, que o git blame deve saltar. O GitHub lê este ficheiro
 # sozinho; localmente: git config blame.ignoreRevsFile .git-blame-ignore-revs
 
-# style: formata o backend com o ruff format (D13b)
+# style: formata o backend com o ruff format
 04ba403c2ae8fada520fb59f492076ca996ed45a

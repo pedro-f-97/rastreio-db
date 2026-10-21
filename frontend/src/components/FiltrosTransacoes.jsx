@@ -15,14 +15,14 @@ export default function FiltrosTransacoes({ filtros, categorias, contas = [], on
 
     const [subcategorias, setSubcategorias] = useState([]);
 
-    // O <select> da categoria já limpa a subcategoria ao mudar (D13a)
+    // O <select> da categoria já limpa a subcategoria ao mudar
     useEffect(() => {
         if (filtros.categoria_id) {
             listarSubcategorias(filtros.categoria_id).then(res => setSubcategorias(res.data));
         }
     }, [filtros.categoria_id]);
 
-    // Sem categoria não há subcategorias a mostrar (D13a)
+    // Sem categoria não há subcategorias a mostrar
     const subcategoriasVisiveis = filtros.categoria_id ? subcategorias : [];
 
     return (

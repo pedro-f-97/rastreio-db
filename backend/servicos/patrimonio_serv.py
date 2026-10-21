@@ -35,7 +35,7 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
 
     As contas são feitas em `Decimal`, a partir do valor escrito de cada
     campo, para que um empate no meio cêntimo seja visto como tal ao
-    arredondar (D11). O resultado volta em float.
+    arredondar. O resultado volta em float.
     """
     if not ativo.tipo.tem_unidades:
         # --- RAMO SEM UNIDADES (casa, carro, bem) ---
@@ -66,7 +66,7 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
         elif preco:
             valor = arredondar(preco.preco)
         else:
-            # Sem avaliação registada, o bem vale o custo de aquisição (D16)
+            # Sem avaliação registada, o bem vale o custo de aquisição
             valor = arredondar(custo_base)
 
         return {
@@ -80,7 +80,7 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
     # Pressuposto: valor_total já inclui a comissão (confirmado nos dados:
     # valor_total ≈ preco_unitario × quantidade + comissao).
     # Cada lote guarda o custo total e não o unitário: a divisão só se faz ao
-    # consumir, depois de multiplicar, para não perder exatidão (D11).
+    # consumir, depois de multiplicar, para não perder exatidão.
     lotes = []
     realizado = Decimal(0)
 
@@ -123,7 +123,7 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
     elif preco:
         valor = arredondar(quantidade * exato(preco.preco))
     else:
-        # Sem preço registado, vale o custo das unidades em carteira (D26)
+        # Sem preço registado, vale o custo das unidades em carteira
         valor = arredondar(custo_base)
 
     return {
@@ -178,7 +178,7 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
     # --- Investimentos e Ativos físicos ---
     investimentos = 0.0
     ativos_fisicos = 0.0
-    # O tipo vem na mesma query: sem isto, cada ponto lia cada tipo à parte (D13d)
+    # O tipo vem na mesma query: sem isto, cada ponto lia cada tipo à parte
     ativos = db.query(AtivoModel).options(joinedload(AtivoModel.tipo)).all()
 
     for ativo in ativos:
@@ -193,7 +193,7 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
         )
 
         # Os pontos passados usam o preço dessa data; o de hoje usa o mais
-        # recente, mesmo com data futura, como o resumo do ativo (D18)
+        # recente, mesmo com data futura, como o resumo do ativo
         q_preco = db.query(PrecoAtivoModel).filter(PrecoAtivoModel.ativo_id == ativo.id)
         if not precos_futuros:
             q_preco = q_preco.filter(PrecoAtivoModel.data <= data_alvo)
@@ -208,7 +208,7 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
         else:
             ativos_fisicos += valor
 
-    # O total soma os componentes já arredondados, para bater certo com eles (D2)
+    # O total soma os componentes já arredondados, para bater certo com eles
     liquidez = arredondar(liquidez)
     investimentos = arredondar(investimentos)
     ativos_fisicos = arredondar(ativos_fisicos)

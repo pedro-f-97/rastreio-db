@@ -56,7 +56,7 @@ def resumo_mensal(db: Session = Depends(get_db)):
         )
 
     # Média e mediana em Decimal: um empate no meio cêntimo arredonda sempre
-    # para longe de zero, e não ao sabor do binário do float (D11)
+    # para longe de zero, e não ao sabor do binário do float
     media = arredondar(sum(totais_despesas) / len(totais_despesas)) if totais_despesas else 0
     mediana = arredondar(median(totais_despesas)) if totais_despesas else 0
 
@@ -121,7 +121,7 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
             }
 
         total = arredondar(r.total or 0)
-        # Uma linha por (mês, subcategoria): a categoria soma-as por mês (D23)
+        # Uma linha por (mês, subcategoria): a categoria soma-as por mês
         mes = (r.ano, r.mes)
         por_mes = por_cat[cat_id]["por_mes"]
         por_mes[mes] = arredondar(por_mes.get(mes, 0) + total)
@@ -135,7 +135,7 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
         por_cat[cat_id]["subcategorias"][sub_id]["totais"].append(total)
 
     # Média e mediana sobre os mesmos meses: os `meses_distintos` do período, e
-    # os meses sem movimentos na categoria contam como zero (D23)
+    # os meses sem movimentos na categoria contam como zero
     for cat in por_cat.values():
         totais = list(cat.pop("por_mes").values())
         cat["mediana"] = _mediana_mensal(totais, meses_distintos)
@@ -333,7 +333,7 @@ def _calculate_totals(transacoes):
         if t.categoria.tipo == TipoCategoria.receita and not t.reembolso and t.valor > 0:
             meses[chave]["receitas"] += t.valor
         elif t.categoria.tipo == TipoCategoria.receita and t.valor < 0:
-            # Estorno de receita: reduz as receitas com o sinal que tem (D4)
+            # Estorno de receita: reduz as receitas com o sinal que tem
             meses[chave]["receitas"] += t.valor
         elif t.categoria.tipo == TipoCategoria.investimento:
             meses[chave]["investimento"] += t.valor

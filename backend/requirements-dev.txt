@@ -11,8 +11,8 @@ pytest==9.0.1
 # O TestClient do Starlette 1.0 assenta em httpx; sem isto os testes de API
 # não correm.
 httpx==0.28.1
-# Lint do backend; a configuração está em ruff.toml (D13b).
+# Lint do backend; a configuração está em ruff.toml.
 ruff==0.17.1
-# Tipos do código de produção; configuração em pyrightconfig.json (D13c). O
+# Tipos do código de produção; configuração em pyrightconfig.json. O
 # extra nodejs traz o Node como pacote, em vez de o descarregar ao correr.
 pyright[nodejs]==1.1.414

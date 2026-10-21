@@ -90,7 +90,7 @@ def anunciar_bd_ativa() -> None:
 
 def ligar_chaves_estrangeiras(con, _registo) -> None:
     """O SQLite só aplica as chaves estrangeiras com esta pragma, e é por
-    conexão (D1). Sem `ON DELETE`: apagar um pai com filhos é recusado, e cada
+    conexão. Sem `ON DELETE`: apagar um pai com filhos é recusado, e cada
     endpoint trata dos filhos antes."""
     con.execute("PRAGMA foreign_keys = ON")
 
@@ -319,7 +319,7 @@ class PrecoAtivo(Base):
     __table_args__ = (UniqueConstraint("ativo_id", "data", name="uq_preco_ativo_data"),)
 
 
-# D1a: `old/migrar_tipos_ativo.py` renomeou `ativos` para `ativos_old` e depois
+# `old/migrar_tipos_ativo.py` renomeou `ativos` para `ativos_old` e depois
 # apagou-a. No RENAME o SQLite reescreveu as chaves destas tabelas para
 # `ativos_old`, e no DROP não as repôs. Uma BD dessa altura, ou um backup dela,
 # ainda tem o schema assim.
@@ -327,7 +327,7 @@ TABELAS_COM_FK_PARA_ATIVOS_OLD = ("precos_ativo", "movimentos_ativo")
 
 
 def reparar_fk_ativos(caminho: str = DB_PATH) -> list[str]:
-    """Repõe `REFERENCES ativos` onde o schema aponta para `ativos_old` (D1a).
+    """Repõe `REFERENCES ativos` onde o schema aponta para `ativos_old`.
 
     Idempotente: se nenhuma tabela mencionar `ativos_old`, não escreve nada.
     Cada tabela é recriada com o seu próprio DDL, só com a referência mudada, e
@@ -390,7 +390,7 @@ def criar_tabelas():
     reparadas = reparar_fk_ativos()
     if reparadas:
         print(
-            f"Schema reparado (D1a): {', '.join(reparadas)}, SQLite {sqlite3.sqlite_version}",
+            f"Schema reparado (chaves para ativos_old): {', '.join(reparadas)}, SQLite {sqlite3.sqlite_version}",
             flush=True,
         )
 

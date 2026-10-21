@@ -61,7 +61,7 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
         )
 
         def apanha(t):
-            # O mesmo motor da importação: uma regra de exclusão ganha (D8)
+            # O mesmo motor da importação: uma regra de exclusão ganha
             return casa_palavra(nova.palavra_chave, t.descricao) and not any(
                 casa_palavra(e.palavra_chave, t.descricao) for e in exclusoes
             )
