@@ -873,7 +873,7 @@ isoladamente.
   `_resolver_base_dir()` (`backend/database.py`): `RASTREIO_DB_DIR`, depois
   `sys.frozen`, depois `backend/`.
 
-## ⚪ D13 — Qualidade de código
+## ⚪ D13 — Qualidade de código — resolvido
 
 Não é bug. Dividido em sub-itens, cada um com o seu commit:
 
