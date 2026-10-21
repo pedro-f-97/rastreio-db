@@ -274,26 +274,26 @@ def test_preview_com_perfil_inexistente_da_404(client):
 
 
 def test_preview_com_ficheiro_indescodificavel_da_400(client, session):
-    """Bytes que não são UTF-8 válido fazem o parser rebentar e o router dar 400.
+    """Bytes que não são UTF-8 nem Windows-1252 dão 400 com uma mensagem em PT-PT.
 
-    O perfil é CSV, logo `_ler_linhas_csv` chama `file_bytes.decode("utf-8-sig")`
-    (`parser_importacao.py:47`); `0xff` não é um início válido e levanta
-    `UnicodeDecodeError`. O `except Exception` do router (`importacao.py:21`)
-    apanha-a e responde 400 com `detail=str(e)`.
+    O perfil é CSV, logo `_ler_linhas_csv` chama `_decodificar_csv`. `0xc1`
+    não pode começar um carácter em UTF-8, e `0x81` é um dos cinco bytes sem
+    carácter em Windows-1252, por isso as duas leituras falham e sai
+    `ErroParsing`. O `except Exception` do router apanha-o e responde 400 com
+    `detail=str(e)`.
 
     Nota de comportamento: este `except Exception` transforma **qualquer** erro
     de programação em 400, o que esconde bugs servidor. Não é corrigido aqui.
-    A mensagem real é do codec, por isso só se afirma o código e que `detail`
-    é uma string não vazia.
     """
     perfil = _criar_perfil(session)
-    conteudo_invalido = b'\xff\xfe31/01/2026,Supermercado,"-45,60"'
+    conteudo_invalido = b'\xc1\x8131/01/2026,Supermercado,"-45,60"'
 
     r = _pedido_preview(client, perfil.id, conteudo_invalido)
 
     assert r.status_code == 400
-    detalhe = r.json()["detail"]
-    assert isinstance(detalhe, str) and detalhe
+    assert r.json() == {
+        "detail": "Não foi possível ler o ficheiro: a codificação não é UTF-8 nem Windows-1252."
+    }
 
 
 # ---------------------------------------------------------------------------

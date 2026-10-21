@@ -76,8 +76,23 @@ def _detectar_delimitador(linhas_de_dados: list[str]) -> str:
     return melhor
 
 
+def _decodificar_csv(file_bytes: bytes) -> str:
+    """UTF-8 (com ou sem marca de ordem dos bytes) e, se falhar, Windows-1252,
+    em que muitos bancos portugueses exportam o CSV."""
+    try:
+        return file_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        pass
+    try:
+        return file_bytes.decode("cp1252")
+    except UnicodeDecodeError:
+        raise ErroParsing(
+            "Não foi possível ler o ficheiro: a codificação não é UTF-8 nem Windows-1252."
+        ) from None
+
+
 def _ler_linhas_csv(file_bytes: bytes, linha_inicio: int, separador_decimal: str) -> list[tuple]:
-    texto = file_bytes.decode("utf-8-sig")
+    texto = _decodificar_csv(file_bytes)
     delimitador = _detectar_delimitador(texto.splitlines()[linha_inicio - 1 : linha_inicio + 19])
     reader = csv.reader(io.StringIO(texto), delimiter=delimitador)
     linhas = []

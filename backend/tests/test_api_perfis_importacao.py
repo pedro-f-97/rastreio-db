@@ -237,6 +237,42 @@ def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas(clie
     assert r.json()["linhas"] == [["a", "b"], ["1", "2"]]
 
 
+def test_analisar_ficheiro_csv_em_windows_1252_le_os_acentos(client):
+    """Um CSV em Windows-1252 mostra os acentos certos, em vez de dar 500.
+
+    Cálculo à mão: «Descrição» e «Água» têm bytes (0xe7, 0xe3, 0xc1) que não
+    são UTF-8 válido nesta sequência; a leitura em Windows-1252 devolve o texto
+    original. `,` dá 2 colunas em cada linha -> `[["Descrição", "Valor"],
+    ["Água", "-10"]]`.
+    """
+    conteudo = "Descrição,Valor\nÁgua,-10\n".encode("cp1252")
+
+    r = client.post(
+        "/api/perfis-importacao/analisar-ficheiro",
+        files={"file": ("extracto.csv", conteudo, "text/csv")},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["linhas"] == [["Descrição", "Valor"], ["Água", "-10"]]
+
+
+def test_analisar_ficheiro_csv_que_nao_e_utf8_nem_windows_1252_da_400(client):
+    """Bytes que nenhuma das duas codificações lê dão 400 em PT-PT, não 500.
+
+    0xc1 não pode começar um carácter em UTF-8; 0x81 não tem carácter em
+    Windows-1252.
+    """
+    r = client.post(
+        "/api/perfis-importacao/analisar-ficheiro",
+        files={"file": ("extracto.csv", b"\xc1\x81,a\n", "text/csv")},
+    )
+
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": "Não foi possível ler o ficheiro: a codificação não é UTF-8 nem Windows-1252."
+    }
+
+
 def test_analisar_ficheiro_csv_com_extensao_em_maiusculas(client):
     """Um `EXTRACTO.CSV` é lido como CSV, e não aberto como Excel.
 
