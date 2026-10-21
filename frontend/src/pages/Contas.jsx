@@ -86,6 +86,7 @@ export default function Contas() {
                 />
                 <input
                     type="date"
+                    title="Dia a que o saldo de referência diz respeito, no fim do dia (por exemplo, hoje, com o saldo que o banco mostra)"
                     value={novaConta.data_referencia}
                     onChange={e => setNovaConta(p => ({ ...p, data_referencia: e.target.value }))}
                 />
@@ -130,6 +131,7 @@ export default function Contas() {
                                     <label>Data de referência</label>
                                     <input
                                         type="date"
+                                        title="Dia a que o saldo de referência diz respeito, no fim do dia (por exemplo, hoje, com o saldo que o banco mostra)"
                                         value={editando.data_referencia}
                                         onChange={e => setEditando(p => ({ ...p, data_referencia: e.target.value }))}
                                     />

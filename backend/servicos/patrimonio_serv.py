@@ -160,22 +160,25 @@ def saldo_conta_em(db: Session, conta: ContaModel, data_alvo: date) -> float:
     """Saldo de uma conta no fim de `data_alvo`, arredondado ao cêntimo.
 
     É o único cálculo do saldo: serve o saldo de hoje (`/contas/{id}/saldo`) e
-    a liquidez da evolução. O saldo de referência é o do fim desse dia, por
-    isso só somam as transacções depois dele e até `data_alvo`.
+    a liquidez da evolução. O saldo de referência é o do fim desse dia. Para a
+    frente, somam-se as transacções em ]referência, data_alvo]; para trás,
+    tiram-se as de ]data_alvo, referência], que ainda não tinham acontecido.
     """
-    if conta.data_referencia > data_alvo:
-        return 0.0
+    if data_alvo >= conta.data_referencia:
+        de, ate, sinal = conta.data_referencia, data_alvo, 1
+    else:
+        de, ate, sinal = data_alvo, conta.data_referencia, -1
     soma_transacoes = (
         db.query(func.sum(TransacaoModel.valor))
         .filter(
             TransacaoModel.conta_id == conta.id,
-            TransacaoModel.data > conta.data_referencia,
-            TransacaoModel.data <= data_alvo,
+            TransacaoModel.data > de,
+            TransacaoModel.data <= ate,
         )
         .scalar()
         or 0.0
     )
-    return arredondar(conta.saldo_referencia + soma_transacoes)
+    return arredondar(conta.saldo_referencia + sinal * soma_transacoes)
 
 
 def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = False) -> dict:

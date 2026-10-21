@@ -42,7 +42,7 @@ que o sinal gravado não altera nada.
 | id | int | PK |
 | nome | str(100) | obrigatório, único |
 | saldo_referencia | float | obrigatório, default `0` |
-| data_referencia | date | obrigatório — o `saldo_referencia` é o saldo no fim deste dia: só as transacções posteriores (`data > data_referencia`) e até ao dia em causa entram no saldo; o saldo de hoje e a evolução usam o mesmo cálculo (`saldo_conta_em`) |
+| data_referencia | date | obrigatório — o `saldo_referencia` é o saldo no fim deste dia: para um dia depois dele somam-se as transacções em ]data_referencia, dia]; para um dia antes, tiram-se as de ]dia, data_referencia]. O saldo de hoje e a evolução usam o mesmo cálculo (`saldo_conta_em`) |
 | ativa | bool | default `True` |
 
 **Relações:** 1:N com `Transacao` (`transacoes`), 1:N com `PerfilImportacao` (`perfis_importacao`)

@@ -1059,16 +1059,18 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
       - liquidez: conta A `1000.00 + (-200.00) = 800.00`. A transação de
         `2025-01-01 +50.00` fica de fora: o filtro é `data >
         conta.data_referencia` (estrito: o saldo de referência é o do fim do dia), e é exactamente a
-        data de referência. A conta B ainda não entrou (referência
-        `2025-02-01 > 2025-01-31`).
+        data de referência. A conta B, com referência `2025-02-01`, calcula-se
+        para trás: `100.00 - (transações em ]2025-01-31, 2025-02-01]) =
+        100.00 - 0 = 100.00` (antes do achado 4.1 valia 0). Liquidez:
+        `800.00 + 100.00 = 900.00`.
       - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
         `2025-03-15` é posterior) -> `10 x 25.00 = 250.00`.
       - ativos_físicos: ainda sem preço até esta data -> vale o custo,
         `15000.00` (antes da correcção era 0.0).
-      - total: `800.00 + 250.00 + 15000.00 = 16050.00`.
+      - total: `900.00 + 250.00 + 15000.00 = 16150.00`.
     * **2025-02-28**
-      - liquidez: `800.00` (conta A) `+ 100.00` (conta B, cuja referência
-        `2025-02-01` já passou e sem transações próprias) `= 900.00`.
+      - liquidez: `800.00` (conta A) `+ 100.00` (conta B, sem transações
+        próprias) `= 900.00`.
       - investimentos: `250.00` (o preço de 30.00 só chega a `2025-03-15`).
       - ativos_físicos: ainda sem preço -> custo, `15000.00`.
       - total: `900.00 + 250.00 + 15000.00 = 16150.00`.
@@ -1119,10 +1121,10 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
 
     assert pontos[0] == {
         "data": "2025-01-31",
-        "liquidez": 800.00,
+        "liquidez": 900.00,
         "investimentos": 250.00,
         "ativos_fisicos": 15000.00,
-        "total": 16050.00,
+        "total": 16150.00,
     }
     assert pontos[1] == {
         "data": "2025-02-28",

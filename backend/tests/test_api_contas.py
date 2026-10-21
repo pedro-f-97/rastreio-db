@@ -341,21 +341,60 @@ def test_liquidez_e_a_soma_dos_saldos_arredondados(client, session):
     assert _liquidez_em(client, "2025-01-31") == 20.02
 
 
-def test_saldo_de_hoje_com_referencia_no_futuro_vale_zero(client, session, monkeypatch):
-    """Uma conta cuja referência ainda não chegou vale 0, no saldo e na evolução.
+def test_saldo_de_hoje_com_referencia_no_futuro_calcula_para_tras(client, session, monkeypatch):
+    """Uma conta cuja referência ainda não chegou calcula-se para trás (4.1).
 
-    Comportamento fixado pela unificação, a rever no achado 4.1 (o saldo antes
-    da data de referência). Com hoje = 2025-06-30 e 300.00 de referência em
-    2025-07-01: 2025-07-01 > 2025-06-30 -> 0.00 (antes, o saldo dava 300.00 e
-    a evolução 0.00).
+    Com hoje = 2025-06-30, 300.00 de referência em 2025-07-01 e +40.00 em
+    2025-07-01 (no próprio dia, já incluído na referência):
+      saldo = 300.00 - (transacções em ]2025-06-30, 2025-07-01]) = 300.00 - 40.00
+            = 260.00, no saldo de hoje e na evolução
+    (antes da unificação o saldo dava 300.00; depois dela e antes do 4.1, 0.00).
     """
     _hoje_fixo(monkeypatch, 2025, 6, 30)
     conta = semear_conta(session, "Nova", 300.0, date(2025, 7, 1))
+    semear_transacao(session, date(2025, 7, 1), "Depósito", 40.0, conta)
 
     saldo = client.get(f"/api/contas/{conta.id}/saldo").json()["saldo_atual"]
 
-    assert saldo == 0.0
-    assert _liquidez_em(client, "2025-06-30") == 0.0
+    assert saldo == 260.0
+    assert _liquidez_em(client, "2025-06-30") == 260.0
+
+
+def test_evolucao_antes_da_referencia_calcula_para_tras(client, session):
+    """Antes da data de referência, o saldo é a referência menos o que veio depois.
+
+    O exemplo do achado 4.1: a conta é criada com o saldo de hoje e o histórico
+    é importado. Referência: 2150.00 no fim de 2026-04-30. Transacções:
+      +400.00 em 2026-02-10
+      +400.00 em 2026-03-31 (no último dia do mês: conta nesse mês)
+      +1200.00 em 2026-04-10
+      -50.00 em 2026-04-30 (no dia da referência: já está nos 2150.00)
+
+    Cálculo à mão, saldo(d) = 2150.00 - soma das transacções em ]d, 2026-04-30]:
+      2026-01-31: 2150.00 - (400 + 400 + 1200 - 50) = 2150.00 - 1950.00 = 200.00
+      2026-02-28: 2150.00 - (400 + 1200 - 50)       = 2150.00 - 1550.00 = 600.00
+      2026-03-31: 2150.00 - (1200 - 50)             = 2150.00 - 1150.00 = 1000.00
+      2026-04-30: a própria referência              = 2150.00
+    Antes da correcção, os três primeiros meses davam 0.00.
+    """
+    conta = semear_conta(session, "Corrente", 2150.0, date(2026, 4, 30))
+    semear_transacao(session, date(2026, 2, 10), "Salário", 400.0, conta)
+    semear_transacao(session, date(2026, 3, 31), "Salário", 400.0, conta)
+    semear_transacao(session, date(2026, 4, 10), "Prémio", 1200.0, conta)
+    semear_transacao(session, date(2026, 4, 30), "Compras", -50.0, conta)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2026-01-01", "data_fim": "2026-04-30"},
+    )
+
+    assert r.status_code == 200
+    assert [(p["data"], p["liquidez"]) for p in r.json()] == [
+        ("2026-01-31", 200.0),
+        ("2026-02-28", 600.0),
+        ("2026-03-31", 1000.0),
+        ("2026-04-30", 2150.0),
+    ]
 
 
 # ---------------------------------------------------------------------------
