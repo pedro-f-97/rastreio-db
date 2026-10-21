@@ -319,9 +319,9 @@ class PrecoAtivo(Base):
     __table_args__ = (UniqueConstraint("ativo_id", "data", name="uq_preco_ativo_data"),)
 
 
-# `old/migrar_tipos_ativo.py` renomeou `ativos` para `ativos_old` e depois
-# apagou-a. No RENAME o SQLite reescreveu as chaves destas tabelas para
-# `ativos_old`, e no DROP não as repôs. Uma BD dessa altura, ou um backup dela,
+# Uma migração antiga renomeou `ativos` para `ativos_old` e depois apagou-a.
+# No RENAME o SQLite reescreveu as chaves destas tabelas para `ativos_old`, e
+# no DROP não as repôs. Uma BD dessa altura, ou um backup dela,
 # ainda tem o schema assim.
 TABELAS_COM_FK_PARA_ATIVOS_OLD = ("precos_ativo", "movimentos_ativo")
 

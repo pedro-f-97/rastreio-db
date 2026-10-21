@@ -20,7 +20,7 @@ docs/       # Documentação (este ficheiro, modelo de dados, guia de desenvolvi
 - **`database.py`**: modelos SQLAlchemy e ligação à BD. A BD é `dados/rastreio.db` dentro de uma pasta-base resolvida por `_resolver_base_dir()`, por esta ordem: a variável de ambiente `RASTREIO_DB_DIR`, se definida (instalações sem permissões de escrita junto ao executável, e os testes); `dirname(sys.executable)` quando empacotado (`sys.frozen`), para manter os dados junto ao executável; e `backend/` em dev
 - **`schemas.py`**: schemas Pydantic para validação de entrada/saída da API
 - **`routers/`**: um ficheiro por domínio (categorias, contas, transações, património, etc.). Cada novo domínio funcional ganha o seu próprio router, montado em `main.py`
-- **Migrações**: alterações de schema não-triviais (ex. coluna não-nula, recriação de tabela) são feitas via scripts manuais `migrar_*.py` na raiz do backend, usando recriação de tabela para preservar IDs e FKs. Scripts já aplicados são arquivados em `backend/old/`
+- **Migrações**: alterações de schema não-triviais (ex. coluna não-nula, recriação de tabela) são feitas via scripts manuais `migrar_*.py` na raiz do backend, usando recriação de tabela para preservar IDs e FKs. Um script obtém a BD do `database` (`DB_PATH`, `engine` ou `SessionLocal`), nunca de um caminho próprio, para que `RASTREIO_DB_DIR` se aplique, e corre primeiro numa cópia. Depois de aplicado, apaga-se: fica no histórico do git
 - **Dados iniciais**: as listas de categorias, subcategorias e tipos de ativo e a função que as cria (`semear_dados_iniciais`) estão em `dados_iniciais.py`; o endpoint `/configuracao/inicializar` chama-a, e ela cria só o que falta, pelo nome
 
 ## Frontend

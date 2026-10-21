@@ -2,8 +2,6 @@
 # schemas, routers e servicos sejam reconhecidos como módulos do projecto.
 target-version = "py314"
 line-length = 100
-# Scripts de migração já aplicados; não voltam a ser alterados.
-extend-exclude = ["old"]
 
 [lint]
 select = ["E4", "E7", "E9", "F", "I"]

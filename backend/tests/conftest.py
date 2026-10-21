@@ -158,8 +158,8 @@ def criar_bd_com_fk_partida():
     """Devolve uma função que cria, num caminho, uma BD com as chaves para `ativos_old`.
 
     O schema não é escrito à mão: é reproduzido como aconteceu na BD real.
-    Cria-se o modelo actual, semeiam-se dados, e repete-se o que
-    `old/migrar_tipos_ativo.py` fez a `ativos` — RENAME para `ativos_old`,
+    Cria-se o modelo actual, semeiam-se dados, e repete-se o que uma migração
+    antiga fez a `ativos` — RENAME para `ativos_old`,
     tabela nova, cópia, DROP. O SQLite (>= 3.26) reescreve no RENAME as chaves
     de `precos_ativo` e `movimentos_ativo` para `ativos_old`, e o DROP deixa-as
     assim. Os testes confirmam esse estado antes de o reparar.
@@ -210,7 +210,6 @@ def criar_bd_com_fk_partida():
                 ],
             )
 
-            # O que old/migrar_tipos_ativo.py fez, passo a passo.
             con.execute("ALTER TABLE ativos RENAME TO ativos_old")
             con.execute(
                 str(CreateTable(Ativo.__table__).compile(dialect=dialecto_sqlite.dialect()))

@@ -112,7 +112,9 @@ build.bat           # Windows
 
 ## Gotchas
 
-* **No DB migrations framework**: schema changes use manual scripts (`migrar_*.py`). Applied ones live in `backend/old/`. Use table recreation preserving IDs/FKs.
+* **No DB migrations framework**: schema changes use manual scripts (`migrar_*.py`). Use table recreation preserving IDs/FKs.
+  A script gets the DB from `database` (`DB_PATH`, `engine` or `SessionLocal`), never from a path of its own,
+  so `RASTREIO_DB_DIR` applies to it; run it against a copy first. Once applied, delete it: git history keeps it.
 * **DB location**: `dados/rastreio.db` relative to the executable. In dev, `backend/dados/rastreio.db`.
 * **Frontend proxy**: Vite proxies `/api` to `:9742`. The executable serves both API and SPA.
 * **CI**: `build.sh`/`build.bat` assume `node_modules` exists. CI runs `npm ci` first.

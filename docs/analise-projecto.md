@@ -60,7 +60,7 @@ Três achados confirmados: um de gravidade alta (não há controlo da versão do
 A aplicação não guarda que versão de schema tem a BD. `criar_tabelas()` só cria as tabelas que faltam e nunca acrescenta colunas. Os scripts `migrar_*.py` não vão no executável. Quem actualiza a aplicação e mantém a pasta `dados/` antiga, ou restaura um backup antigo, vê a aplicação abrir normalmente e depois receber erros 500.
 
 - **Gravidade:** alta. **Categoria:** robustez / estrutura. **Estado:** confirmado.
-- **Onde:** `backend/database.py:384-386` (só `create_all` e a reparação de `ativos_old`). Não há `user_version` em parte nenhuma. O padrão manual vê-se em `backend/old/migrar_fee.py`.
+- **Onde:** `backend/database.py:384-386` (só `create_all` e a reparação de `ativos_old`). Não há `user_version` em parte nenhuma. O padrão manual via-se nos scripts de `backend/old/`, apagados no 11.1 (estão no histórico do git).
 - **Prova:** `/tmp/rastreio-analise/area1b.py` corre numa cópia sem a coluna `coluna_fee`. O arranque (`_preflight`) conclui sem erro; `/api/perfis-importacao/` dá 500 e `/api/transacoes/` dá 200.
 - **Opções:**
   - (a) `PRAGMA user_version` com migrações aplicadas no arranque. É o mais completo; os scripts futuros passam a seguir esse formato.
@@ -643,7 +643,7 @@ O `docs/modelo-dados.md` está certo e é útil. Os outros documentos têm erros
 
 ### 11.1 Os scripts de migração ignoram `RASTREIO_DB_DIR`, e a regra do AGENTS.md dá uma falsa segurança
 
-O AGENTS.md manda definir `RASTREIO_DB_DIR` antes de correr qualquer script que importe `database`. Os scripts `migrar_*.py` não importam `database`: calculam o caminho da BD a partir da própria pasta e ignoram a variável. Um script novo na raiz do backend, feito com o mesmo padrão, abre `backend/dados/rastreio.db` mesmo com `RASTREIO_DB_DIR` apontado para uma cópia. Os scripts já arquivados em `backend/old/` apontam para `backend/old/dados/`, uma pasta que não existe.
+O AGENTS.md manda definir `RASTREIO_DB_DIR` antes de correr qualquer script que importe `database`. Três dos oito scripts `migrar_*.py` (`migrar_contas.py`, `migrar_fee.py` e `migrar_patrimonio.py`) não passam por `database`: calculam o caminho da BD a partir da própria pasta e ignoram a variável. Um script novo na raiz do backend, feito com o mesmo padrão, abre `backend/dados/rastreio.db` mesmo com `RASTREIO_DB_DIR` apontado para uma cópia. Os scripts já arquivados em `backend/old/` apontam para `backend/old/dados/`, uma pasta que não existe.
 
 - **Gravidade:** alta (risco directo para a BD real, o que o AGENTS.md quer impedir). **Categoria:** segurança dos dados / documentação. **Estado:** confirmado por leitura (`backend/old/migrar_fee.py:5-10`, com `BASE_DIR` calculado a partir de `__file__`). Não corri nenhum script.
 - **Opções:**
