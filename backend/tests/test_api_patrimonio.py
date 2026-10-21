@@ -1316,6 +1316,65 @@ def test_evolucao_ignora_preco_posterior_ao_data_alvo(client, session):
     assert ponto["total"] == 100.0
 
 
+def test_evolucao_conta_tudo_o_que_tem_a_data_do_ponto(client, session):
+    """O ponto é o fim do dia `data_alvo`: tudo o que tem essa data entra.
+
+    Fixa as quatro fronteiras de `calcular_patrimonio_em`: a transacção, a conta
+    cuja referência é o próprio dia, o movimento e o preço, todos com a data do
+    ponto, `2025-03-31`.
+
+    Semente:
+      * conta A: `1000.00`, referência `2025-01-01`; transacção `2025-03-31
+        -100.00`;
+      * conta B: `50.00`, referência `2025-03-31`, sem transacções;
+      * ativo com unidades: compras `2025-01-10` de 10 un. por 200.00 e
+        `2025-03-31` de 5 un. por 150.00; preços `2025-02-01=20.00` e
+        `2025-03-31=30.00`.
+
+    Cálculo à mão, para o ponto `2025-03-31` (passado, sem preços futuros):
+      * liquidez: `1000.00 - 100.00 + 50.00 = 950.00`;
+      * investimentos: `(10 + 5) x 30.00 = 450.00`;
+      * total: `950.00 + 450.00 = 1400.00`.
+
+    Se uma fronteira deixasse o dia de fora: sem a transacção, liquidez
+    `1050.00`; sem a conta B, `900.00`; sem o preço do dia, investimentos
+    `15 x 20.00 = 300.00`; sem a compra do dia, `10 x 30.00 = 300.00`.
+    """
+    conta_a = semear_conta(session, "A", 1000.00, date(2025, 1, 1))
+    semear_conta(session, "B", 50.00, date(2025, 3, 31))
+    session.add(
+        Transacao(data=date(2025, 3, 31), descricao="Saída", valor=-100.0, conta_id=conta_a.id)
+    )
+    session.commit()
+
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 3, 31), valor_total=-150.0, quantidade=5
+    )
+    semear_preco(session, ativo, date(2025, 2, 1), 20.00)
+    semear_preco(session, ativo, date(2025, 3, 31), 30.00)
+
+    r = client.get(
+        "/api/patrimonio/evolucao",
+        params={"data_inicio": "2025-03-31", "data_fim": "2025-03-31"},
+    )
+
+    assert r.status_code == 200
+    assert r.json() == [
+        {
+            "data": "2025-03-31",
+            "liquidez": 950.00,
+            "investimentos": 450.00,
+            "ativos_fisicos": 0.0,
+            "total": 1400.00,
+        }
+    ]
+
+
 def test_evolucao_ponto_de_hoje_usa_o_preco_mais_recente_como_o_resumo(
     client, session, monkeypatch
 ):
