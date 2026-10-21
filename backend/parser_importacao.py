@@ -144,7 +144,9 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
                     if raw_credito not in (None, "", "None")
                     else 0.0
                 )
-                valor = credito - debito
+                # O débito sai sempre e o crédito entra sempre, venha o sinal
+                # que vier: há bancos que escrevem o débito com sinal menos
+                valor = abs(credito) - abs(debito)
 
             if perfil.coluna_fee is not None:
                 raw_fee = celula(perfil.coluna_fee)

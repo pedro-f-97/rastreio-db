@@ -116,6 +116,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 - As médias mensais das estatísticas contam todos os meses que têm transações, incluindo os que só têm transferências ou transações por categorizar; pressupõe-se que as transações importadas são categorizadas logo a seguir à importação
 - Uma importação é tudo ou nada: basta uma linha com erro (data inválida, valor que não bate com o separador decimal do perfil, linha de totais no fim do extracto) para o ficheiro inteiro ser recusado, e a pré-visualização mostra todas as linhas com erro
 - A coluna de comissão de um perfil de importação é sempre tratada como um pagamento: entra com sinal negativo, venha positiva ou negativa no extracto
+- No modo de duas colunas de um perfil de importação, o débito sai sempre e o crédito entra sempre, venha o sinal que vier no extracto: o valor é `|crédito| − |débito|`, porque há bancos que escrevem o débito com sinal menos
 - O sistema de regras usa correspondência por substring intuitiva
 - Quando várias regras casam com a mesma descrição, ganha a de palavra-chave mais longa (a mais específica) e, em empate, a mais antiga; essa primeira regra decide sozinha a categoria e a subcategoria, mesmo que deixe a subcategoria por preencher
 - Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada

@@ -26,9 +26,9 @@ Convenções que estes testes fixam
   vez de ser lido mil ou cem vezes errado (secção C).
 * `_parse_valor` não arredonda. Onde o valor sai directamente de `float(texto)`
   — quase sempre — a comparação é por `==` exacta, porque o literal escrito no
-  teste e o literal interpretado pelo `float` são a mesma dupla. Só a secção E,
-  onde há uma subtracção entre duas colunas, usa `pytest.approx` com meio
-  cêntimo de tolerância.
+  teste e o literal interpretado pelo `float` são a mesma dupla. Só as secções
+  E e H, onde há uma subtracção entre duas colunas, usam `pytest.approx` com
+  meio cêntimo de tolerância.
 * Célula vazia não é a mesma coisa em todo o lado. Em `coluna_unica` não há
   guarda nenhuma, e uma célula vazia dá erro. Em `duas_colunas`, no `fee` e no
   `saldo` a guarda é `raw not in (None, "", "None")` e a célula vazia vale zero
@@ -789,3 +789,46 @@ def test_valor_nao_finito_levanta_erro_de_parsing(entrada, nota):
         _parse_valor(entrada, ",")
 
     assert str(erro.value) == f"valor inválido: '{entrada}'", nota
+
+
+# ---------------------------------------------------------------------------
+# Secção H — duas colunas: o sinal com que vêm o débito e o crédito
+# ---------------------------------------------------------------------------
+
+# Extrato de um banco que escreve o débito (e às vezes o crédito) com sinal.
+CSV_DEBITO_COM_SINAL = (
+    "Data,Descrição,Débito,Crédito",
+    '31/01/2026,Supermercado,"-12,50",',
+    '01/02/2026,Salário,,"-1500,00"',
+    '02/02/2026,Ajuste,"-20,00","-5,00"',
+)
+
+
+def test_duas_colunas_debito_negativo_e_uma_saida(tmp_path):
+    """Um débito escrito com sinal menos entra negativo, como um sem sinal.
+
+    Antes da correcção, `crédito - débito` dava 0,00 - (-12,50) = +12,50 e a
+    compra entrava como receita (achado 3.1). Decisão do utilizador: o débito
+    sai sempre e o crédito entra sempre, `abs(crédito) - abs(débito)`, como a
+    comissão.
+    """
+    caminho = escrever_csv(tmp_path / "debito_com_sinal.csv", CSV_DEBITO_COM_SINAL)
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            modo_valor=ModoValor.duas_colunas,
+            coluna_valor=None,
+            coluna_debito=2,
+            coluna_credito=3,
+        ),
+    )
+
+    valores = [t["valor"] for t in resultado["transacoes"]]
+    # Linha 2: abs(0,00) - abs(-12,50) = -12,50 (antes dava +12,50)
+    # Linha 3: abs(-1500,00) - abs(0,00) = 1500,00 (antes dava -1500,00)
+    # Linha 4: abs(-5,00) - abs(-20,00) = 5,00 - 20,00 = -15,00 (antes +15,00)
+    assert valores[0] == pytest.approx(-12.50, abs=0.005)
+    assert valores[1] == pytest.approx(1500.00, abs=0.005)
+    assert valores[2] == pytest.approx(-15.00, abs=0.005)
+    assert resultado["erros"] == []
+    assert resultado["total_linhas"] == 3
