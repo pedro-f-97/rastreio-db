@@ -2,9 +2,9 @@
 
 ## Requisitos
 
-- Python 3.11 ou superior — https://www.python.org/downloads/
+- Python 3.14 ou superior — https://www.python.org/downloads/
   - Durante a instalação, marcar "Add Python to PATH"
-- Node.js 18 ou superior — https://nodejs.org/
+- Node.js 22.12 ou superior (ou 20.19 ou superior, no 20) — https://nodejs.org/
 
 ## Passos
 

@@ -2,7 +2,7 @@
 
 ## Requisitos
 - Python 3.14+
-- Node.js 18+
+- Node.js 22.12+ (ou 20.19+, no 20)
 
 ## Clone
 ```bash

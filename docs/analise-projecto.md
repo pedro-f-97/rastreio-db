@@ -636,6 +636,7 @@ As dependências estão fixadas e o build é reprodutível. Os problemas estão 
 - **Opções:**
   - (a) Corrigir os documentos para Python 3.14 e Node 20.19 ou superior.
   - (b) Acrescentar `engines` ao `package.json` e `requires-python` ao backend, para o erro aparecer cedo.
+- **Resolvido:** com as opções (a) e (b). O `WINDOWS.md` e o `docs/desenvolvimento.md` pedem Python 3.14 e Node 22.12 (ou 20.19, no 20); o `frontend/package.json` tem os mesmos `engines` do Vite, e o novo `backend/pyproject.toml` só declara `requires-python = ">=3.14"`. O `npm install` só avisa sobre o `engines`, e o `requires-python` não tem efeito com `pip install -r requirements.txt`; ficam como documentação que as ferramentas lêem.
 
 ### 10.2 Uma release pode sair sem os testes terem passado
 
@@ -757,7 +758,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 15 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5 e 9.1) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 16 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1 e 10.1) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -777,7 +778,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 8.2 | O mês incompleto entra nas médias (decisão a rever) | média | lógica de negócio | confirmado | decisão documentada no README |
 | 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado | resolvido |
 | 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado | `5f639a2`, `bfe60ab`, `2f156fc` |
-| 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado |  |
+| 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado | resolvido |
 | 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura |  |
 | 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura |  |
 | 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura |  |
