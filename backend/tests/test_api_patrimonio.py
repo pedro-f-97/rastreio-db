@@ -1228,7 +1228,7 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
     que a liquidez é `100.00`.
 
     O saldo de referência é o do fim desse dia, que já inclui as transacções
-    do dia. O `/api/contas/{id}/saldo` (`routers/contas.py:62`) usa o mesmo
+    do dia. O `/api/contas/{id}/saldo` (`saldo_conta_em`) usa o mesmo
     `>`; antes da correcção usava `>=` e devolvia `150.00` para esta conta.
     """
     conta = semear_conta(session, "A", 100.0, date(2025, 1, 1))

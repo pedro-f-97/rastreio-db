@@ -156,26 +156,35 @@ def primeira_sobre_venda(movimentos):
     return None
 
 
+def saldo_conta_em(db: Session, conta: ContaModel, data_alvo: date) -> float:
+    """Saldo de uma conta no fim de `data_alvo`, arredondado ao cêntimo.
+
+    É o único cálculo do saldo: serve o saldo de hoje (`/contas/{id}/saldo`) e
+    a liquidez da evolução. O saldo de referência é o do fim desse dia, por
+    isso só somam as transacções depois dele e até `data_alvo`.
+    """
+    if conta.data_referencia > data_alvo:
+        return 0.0
+    soma_transacoes = (
+        db.query(func.sum(TransacaoModel.valor))
+        .filter(
+            TransacaoModel.conta_id == conta.id,
+            TransacaoModel.data > conta.data_referencia,
+            TransacaoModel.data <= data_alvo,
+        )
+        .scalar()
+        or 0.0
+    )
+    return arredondar(conta.saldo_referencia + soma_transacoes)
+
+
 def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = False) -> dict:
     # --- Liquidez ---
-    liquidez = 0.0
     # Todas as contas, activas ou não: desactivar só esconde a conta das listas,
-    # e o dinheiro que lá esteve continua a fazer parte do histórico
+    # e o dinheiro que lá esteve continua a fazer parte do histórico. Soma os
+    # saldos já arredondados, como o cartão Liquidez da página Património
     contas = db.query(ContaModel).all()
-    for conta in contas:
-        if conta.data_referencia > data_alvo:
-            continue
-        soma_transacoes = (
-            db.query(func.sum(TransacaoModel.valor))
-            .filter(
-                TransacaoModel.conta_id == conta.id,
-                TransacaoModel.data > conta.data_referencia,
-                TransacaoModel.data <= data_alvo,
-            )
-            .scalar()
-            or 0.0
-        )
-        liquidez += conta.saldo_referencia + soma_transacoes
+    liquidez = sum(saldo_conta_em(db, conta, data_alvo) for conta in contas)
 
     # --- Investimentos e Ativos físicos ---
     investimentos = 0.0

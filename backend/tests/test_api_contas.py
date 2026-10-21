@@ -9,6 +9,7 @@ nenhum destes testes assenta na data de hoje nem toca na base de dados real
 from datetime import date
 
 from database import Conta, ModoValor, PerfilImportacao, Transacao
+from routers import contas as contas_router
 
 # ---------------------------------------------------------------------------
 # Auxiliares
@@ -280,6 +281,83 @@ def test_conta_desativada_continua_no_historico_da_liquidez(client, session):
     ]
 
 
+def _hoje_fixo(monkeypatch, ano, mes, dia):
+    """Fixa o `date.today()` do router de contas, como em test_api_patrimonio.py."""
+    from datetime import date as Date
+
+    class HojeFixo(Date):
+        @classmethod
+        def today(cls):
+            return cls(ano, mes, dia)
+
+    monkeypatch.setattr(contas_router, "date", HojeFixo)
+
+
+def _liquidez_em(client, dia):
+    r = client.get("/api/patrimonio/evolucao", params={"data_inicio": dia, "data_fim": dia})
+    assert r.status_code == 200
+    return r.json()[0]["liquidez"]
+
+
+def test_saldo_de_hoje_ignora_transacao_com_data_futura(client, session, monkeypatch):
+    """O saldo de hoje e a evolução usam o mesmo cálculo: o futuro não conta.
+
+    Cenário, com hoje = 2025-06-30: conta com 100.00 de referência em
+    2025-06-01; +20.00 em 2025-06-15; +50.00 em 2025-07-10 (data futura).
+
+    Cálculo à mão: entra só o que está em ]2025-06-01, 2025-06-30]:
+      saldo = 100.00 + 20.00 = 120.00
+    Antes da unificação, o saldo não tinha limite superior e dava
+    100.00 + 20.00 + 50.00 = 170.00, enquanto a evolução já dava 120.00.
+    """
+    _hoje_fixo(monkeypatch, 2025, 6, 30)
+    conta = semear_conta(session, "Corrente", 100.0, date(2025, 6, 1))
+    semear_transacao(session, date(2025, 6, 15), "Reembolso", 20.0, conta)
+    semear_transacao(session, date(2025, 7, 10), "Agendada", 50.0, conta)
+
+    saldo = client.get(f"/api/contas/{conta.id}/saldo").json()["saldo_atual"]
+
+    assert saldo == 120.0
+    assert _liquidez_em(client, "2025-06-30") == 120.0
+
+
+def test_liquidez_e_a_soma_dos_saldos_arredondados(client, session):
+    """A liquidez soma os saldos de cada conta já arredondados, como o cartão.
+
+    Cenário (meio cêntimo semeado à mão, só para forçar o arredondamento):
+    duas contas com 10.005 de referência em 2025-01-01, sem transacções.
+
+    Cálculo à mão: cada saldo arredonda para 10.01 (metade para longe de
+    zero); o cartão soma 10.01 + 10.01 = 20.02, e a evolução a 2025-01-31
+    também. Antes da unificação, a evolução arredondava a soma:
+    10.005 + 10.005 = 20.01 -> 20.01, um cêntimo abaixo do cartão.
+    """
+    a = semear_conta(session, "A", 10.005, date(2025, 1, 1))
+    b = semear_conta(session, "B", 10.005, date(2025, 1, 1))
+
+    saldos = [client.get(f"/api/contas/{c.id}/saldo").json()["saldo_atual"] for c in (a, b)]
+
+    assert saldos == [10.01, 10.01]
+    assert _liquidez_em(client, "2025-01-31") == 20.02
+
+
+def test_saldo_de_hoje_com_referencia_no_futuro_vale_zero(client, session, monkeypatch):
+    """Uma conta cuja referência ainda não chegou vale 0, no saldo e na evolução.
+
+    Comportamento fixado pela unificação, a rever no achado 4.1 (o saldo antes
+    da data de referência). Com hoje = 2025-06-30 e 300.00 de referência em
+    2025-07-01: 2025-07-01 > 2025-06-30 -> 0.00 (antes, o saldo dava 300.00 e
+    a evolução 0.00).
+    """
+    _hoje_fixo(monkeypatch, 2025, 6, 30)
+    conta = semear_conta(session, "Nova", 300.0, date(2025, 7, 1))
+
+    saldo = client.get(f"/api/contas/{conta.id}/saldo").json()["saldo_atual"]
+
+    assert saldo == 0.0
+    assert _liquidez_em(client, "2025-06-30") == 0.0
+
+
 # ---------------------------------------------------------------------------
 # B6 — GET /api/contas/{id}/saldo e /api/patrimonio/evolucao concordam
 # ---------------------------------------------------------------------------
@@ -298,7 +376,7 @@ def test_saldo_conta_e_evolucao_excluem_a_data_de_referencia(client, session):
       -20.00 em 2024-12-31  (antes da referência, não conta em lado nenhum)
 
     Cálculo à mão:
-      saldo: a query usa `data > :data_referencia` (routers/contas.py:62):
+      saldo: `saldo_conta_em` usa `data > data_referencia`:
         entra só o +30.00; ficam de fora o +50.00 da própria data e o -20.00
         de 2024.
         saldo = 100.00 + 30.00 = 130.0
