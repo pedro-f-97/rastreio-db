@@ -233,6 +233,7 @@ Uma linha é considerada duplicada se já existe na conta outra com a mesma data
 
 Muitos bancos exportam CSV em Windows-1252 ou ISO-8859-1. Com um ficheiro desses, a pré-visualização dá uma mensagem técnica em inglês. Ao criar o perfil, a análise do ficheiro dá erro 500.
 
+- **Resolvido:** em `10b9157`, com as opções (a) e (c). O CSV lê-se em UTF-8 e, se falhar, em Windows-1252. Se nenhuma servir, a pré-visualização, a importação e a análise do ficheiro respondem 400 com uma mensagem em PT-PT. Um ficheiro numa terceira codificação entraria com os acentos trocados, sem erro.
 - **Gravidade:** média. **Categoria:** robustez. **Estado:** confirmado.
 - **Onde:** `backend/parser_importacao.py:83` e `backend/routers/perfis_importacao.py:47`, ambos com `decode("utf-8-sig")`.
 - **Prova:** caso 2 → `400 'utf-8' codec can't decode byte 0xc1`; caso 2b → `analisar-ficheiro 500 Internal Server Error`.
@@ -753,7 +754,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 11 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 4.3 e 7.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 12 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3 e 7.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -766,7 +767,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 11.1 | Os scripts de migração ignoram `RASTREIO_DB_DIR` | alta | segurança dos dados | confirmado por leitura | `e9936b9` |
 | 2.1 | Não se consegue mudar a categoria de uma transação com subcategoria | média | correcção | confirmado (backend), por leitura (frontend) | `b78dcb8` |
 | 3.2 | Uma transação igual a outra já importada é descartada | média | perda de dados | confirmado | `58573d4` |
-| 3.3 | Só se aceita CSV em UTF-8 | média | robustez | confirmado |  |
+| 3.3 | Só se aceita CSV em UTF-8 | média | robustez | confirmado | `10b9157` |
 | 4.3 | Um reembolso numa categoria de receita aparece diferente em cada ecrã | média | lógica de negócio | confirmado | `2f156fc` |
 | 6.1 | Um backup de uma versão anterior é recusado | média | perda de dados | confirmado | em parte, `cf92195` |
 | 7.2 | O servidor aceita qualquer `Host` (DNS rebinding) | média | segurança | confirmado em parte | `59aab1f` |
