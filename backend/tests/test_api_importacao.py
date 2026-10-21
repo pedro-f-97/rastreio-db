@@ -31,9 +31,10 @@ Regra de deduplicação, lida do código (`importador_transacoes.py:31-48`)
    (`filter(Transacao.conta_id == conta_id)`). Com `conta_id=None` o SQLAlchemy
    traduz `== None` para `IS NULL`, pelo que só compara com transacções de
    `conta_id` NULL.
-3. `existentes` é lido uma vez, antes do ciclo, e **nunca é actualizado** durante
-   a inserção: linhas repetidas **dentro do mesmo ficheiro** não são
-   deduplicadas.
+3. `existentes` conta quantas vezes cada chave já está na conta, e cada cópia
+   absorve **uma** linha igual do ficheiro. Com 1 na BD e 2 no ficheiro, entra
+   1 (achado 3.2: antes entrava 0). Linhas repetidas **dentro do mesmo
+   ficheiro**, sem cópias na BD, entram todas.
 
 Convenções fixadas (comportamento actual, não corrigido)
 --------------------------------------------------------
@@ -59,6 +60,8 @@ atribui, nunca números fixos.
 """
 
 from datetime import date
+
+import pytest
 
 from database import (
     Categoria,
@@ -518,11 +521,12 @@ def test_dedup_e_por_conta(client, session, tmp_path):
 def test_linhas_repetidas_no_mesmo_ficheiro_nao_sao_deduplicadas(client, session, tmp_path):
     """Duas linhas iguais no mesmo ficheiro entram as duas.
 
-    Comportamento actual: `existentes` é lido antes do ciclo e nunca recebe as
-    chaves novas, por isso a segunda linha repetida não é vista como duplicada
-    -> `{"inseridas": 2, "duplicadas": 0}`. É defensável: dois movimentos iguais
-    no mesmo dia podem ser reais (dois cafés) e a deduplicação é, por desenho,
-    só contra o que já existia na conta. Fixa-se o comportamento actual.
+    Comportamento actual: `existentes` conta só o que já estava na conta (0
+    cópias) e nunca recebe as chaves novas, por isso a segunda linha repetida
+    não é vista como duplicada -> `{"inseridas": 2, "duplicadas": 0}`. É
+    defensável: dois movimentos iguais no mesmo dia podem ser reais (dois
+    cafés) e a deduplicação é, por desenho, só contra o que já existia na
+    conta. Fixa-se o comportamento actual.
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
@@ -562,6 +566,64 @@ def test_importar_perfil_sem_conta_deduplica_por_is_null(client, session, tmp_pa
     assert segunda.json() == {"inseridas": 0, "duplicadas": 2}
     assert session.query(Transacao).count() == 2
     assert all(t.conta_id is None for t in session.query(Transacao).all())
+
+
+@pytest.mark.parametrize(
+    "na_bd, no_ficheiro, esperado, total",
+    [
+        # O exemplo do achado 3.2: um café no 1.º extracto, dois no seguinte.
+        # 1 cópia na BD absorve 1 linha; sobra 1 -> 1 inserida, 1 duplicada;
+        # BD: 1 + 1 = 2.
+        (1, 2, {"inseridas": 1, "duplicadas": 1}, 2),
+        # A prova da análise: 2 na BD, 3 no ficheiro (antes dava 0 e 3).
+        # 2 absorvidas, sobra 1 -> 1 inserida, 2 duplicadas; BD: 2 + 1 = 3.
+        (2, 3, {"inseridas": 1, "duplicadas": 2}, 3),
+        # O ficheiro traz menos do que a BD: as 2 cópias chegam para a 1 linha
+        # -> 0 inseridas, 1 duplicada; BD fica com 2.
+        (2, 1, {"inseridas": 0, "duplicadas": 1}, 2),
+    ],
+)
+def test_dedup_conta_as_copias_que_ja_existem(
+    client, session, tmp_path, na_bd, no_ficheiro, esperado, total
+):
+    """Linhas iguais: entram as que o ficheiro tem a mais do que a BD (3.2)."""
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    cabecalho = ("Data,Descrição,Valor",)
+    cafe = '03/02/2026,Café,"-0,80"'
+    primeiro = escrever_csv(tmp_path / "primeiro.csv", cabecalho + (cafe,) * na_bd)
+    segundo = escrever_csv(tmp_path / "segundo.csv", cabecalho + (cafe,) * no_ficheiro)
+
+    _pedido_importar(client, perfil.id, primeiro.read_bytes())
+    r = _pedido_importar(client, perfil.id, segundo.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == esperado
+    assert session.query(Transacao).count() == total
+
+
+def test_dedup_por_contagem_nao_mistura_chaves(client, session, tmp_path):
+    """A cópia de um café não absorve uma linha diferente.
+
+    BD: 1 café. Ficheiro: 2 cafés e 1 supermercado.
+      café: 2 no ficheiro - 1 na BD -> 1 inserido, 1 duplicado
+      supermercado: 0 na BD -> 1 inserido
+    -> {"inseridas": 2, "duplicadas": 1}; BD: 1 + 2 = 3, com 2 cafés.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    cabecalho = ("Data,Descrição,Valor",)
+    cafe = '03/02/2026,Café,"-0,80"'
+    supermercado = '03/02/2026,Supermercado,"-45,60"'
+    primeiro = escrever_csv(tmp_path / "primeiro.csv", cabecalho + (cafe,))
+    segundo = escrever_csv(tmp_path / "segundo.csv", cabecalho + (cafe, supermercado, cafe))
+
+    _pedido_importar(client, perfil.id, primeiro.read_bytes())
+    r = _pedido_importar(client, perfil.id, segundo.read_bytes())
+
+    assert r.json() == {"inseridas": 2, "duplicadas": 1}
+    assert session.query(Transacao).count() == 3
+    assert session.query(Transacao).filter(Transacao.descricao == "Café").count() == 2
 
 
 # ---------------------------------------------------------------------------
