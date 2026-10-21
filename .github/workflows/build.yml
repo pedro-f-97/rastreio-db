@@ -1,7 +1,8 @@
 # Corre num runner Windows e num runner Linux sempre que uma tag no formato
-# "v*" (ex. v1.0.0) é criada e enviada para o GitHub. Gera os executáveis
-# com os scripts de build existentes e publica-os como anexos de uma
-# Release automática.
+# "v*" (ex. v1.0.0) é criada e enviada para o GitHub. Primeiro corre os testes
+# e o lint do test.yml; só se passarem gera os executáveis com os scripts de
+# build existentes. A Release automática só é publicada, com os dois anexos,
+# se os dois builds passarem.
 
 name: Build
 
@@ -15,7 +16,14 @@ permissions:
   contents: write
 
 jobs:
+  # As mesmas verificações que correm em cada branch (ruff, pyright, pytest e o
+  # lint do frontend), para uma tag num commit com a CI a falhar não gerar uma
+  # Release.
+  testes:
+    uses: ./.github/workflows/test.yml
+
   build-windows:
+    needs: testes
     runs-on: windows-latest
 
     steps:
@@ -57,14 +65,16 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path dist_executavel\* -DestinationPath rastreio-db-windows.zip
 
-      # Cria/atualiza a Release associada à tag (ex. v1.0.0) e anexa o .zip
-      - name: Criar Release
-        uses: softprops/action-gh-release@v2
+      # Guarda o .zip para o trabalho "publicar", que cria a Release
+      - name: Guardar o .zip
+        uses: actions/upload-artifact@v4
         with:
-          files: rastreio-db-windows.zip
+          name: rastreio-db-windows
+          path: rastreio-db-windows.zip
 
+  # Depende só dos testes, não do Windows: os dois builds correm em paralelo.
   build-linux:
-    needs: build-windows
+    needs: testes
     runs-on: ubuntu-latest
 
     steps:
@@ -101,8 +111,32 @@ jobs:
       - name: Compactar dist_executavel
         run: tar -czf rastreio-db-linux.tar.gz -C dist_executavel .
 
-      # Cria/atualiza a Release associada à tag e anexa o .tar.gz
+      # Guarda o .tar.gz para o trabalho "publicar", que cria a Release
+      - name: Guardar o .tar.gz
+        uses: actions/upload-artifact@v4
+        with:
+          name: rastreio-db-linux
+          path: rastreio-db-linux.tar.gz
+
+  # Cria a Release uma só vez, depois dos dois builds: se os dois corressem em
+  # paralelo a criá-la, podiam tentar criar a mesma Release ao mesmo tempo. Se
+  # um dos builds falhar, não sai nenhuma Release.
+  publicar:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+
+    steps:
+      # Junta os anexos dos dois builds na mesma pasta
+      - name: Descarregar os executáveis
+        uses: actions/download-artifact@v4
+        with:
+          path: anexos
+          merge-multiple: true
+
+      # Cria a Release associada à tag (ex. v1.0.0) e anexa os dois ficheiros
       - name: Criar Release
         uses: softprops/action-gh-release@v2
         with:
-          files: rastreio-db-linux.tar.gz
+          files: |
+            anexos/rastreio-db-windows.zip
+            anexos/rastreio-db-linux.tar.gz

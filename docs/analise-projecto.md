@@ -647,6 +647,7 @@ O `build.yml` corre quando se cria uma tag e não tem nenhum passo de testes nem
   - (a) Chamar o `test.yml` a partir do `build.yml` (`workflow_call`) e pôr os builds a depender dele.
   - (b) Correr pelo menos `pytest` antes do build em cada sistema.
   - (c) Tirar o `needs` entre o Windows e o Linux.
+- **Resolvido:** com as opções (a) e (c). O `build.yml` chama o `test.yml` (`workflow_call`), e os dois builds dependem só dele e correm em paralelo: uma tag num commit com a CI a falhar não gera release. Para os dois não criarem a mesma release ao mesmo tempo, guardam os ficheiros e um trabalho final, `publicar`, cria a release com os dois anexos; se um build falhar, não sai nenhuma. Verificado com um parser de YAML; não testado no GitHub.
 
 ### 10.3 A aplicação não mostra a sua versão
 
@@ -758,7 +759,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 16 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1 e 10.1) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
+**Progresso:** 17 resolvidos (os 7 de gravidade alta, 2.1, 3.2, 3.3, 4.3, 7.2, 8.2, 8.5, 9.1, 10.1 e 10.2) e 2 em parte (1.2 e 6.1). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -779,7 +780,7 @@ São 44 achados: 7 de gravidade alta, 13 médios, 23 baixos e 1 por classificar,
 | 8.5 | No detalhe do Histórico, as subcategorias de receita mostram o total da categoria | média | correcção | confirmado | resolvido |
 | 9.1 | Três comportamentos críticos sem teste (M1, M3, M6) | média | testes | confirmado | `5f639a2`, `bfe60ab`, `2f156fc` |
 | 10.1 | Os requisitos de Python e de Node nos documentos impedem o build | média | documentação | confirmado | resolvido |
-| 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura |  |
+| 10.2 | Uma release pode sair sem os testes terem passado | média | CI | confirmado por leitura | resolvido |
 | 11.2 | O AGENTS.md contradiz as suas próprias regras | média | documentação | confirmado por leitura |  |
 | 11.3 | Os documentos de instalação e de build têm passos errados | média | documentação | confirmado por leitura |  |
 | 1.2 | Apagar uma conta tira-a, sem aviso, aos perfis | baixa | correcção | confirmado | em parte, `bc2f774` |
