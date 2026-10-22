@@ -414,6 +414,35 @@ def test_por_categoria_mediana_por_mes_e_nao_por_subcategoria(client, session):
     ]
 
 
+def test_por_categoria_devolve_o_tipo_de_cada_categoria(client, session):
+    """Cada categoria traz o seu tipo, para a página agrupar a tabela.
+
+    Cenário semeado (um só mês, 2025-03):
+      Casa         despesa        -50,00
+      Receita      receita      +1000,00
+      Investimento investimento  -200,00
+
+    Cálculo à mão: com um só mês, a média e a mediana de cada categoria são o
+    próprio total. O tipo é o da categoria, escrito no seu `tipo`.
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    receita = semear_categoria(session, "Receita", TipoCategoria.receita)
+    investimento = semear_categoria(session, "Investimento", TipoCategoria.investimento)
+
+    semear_transacao(session, date(2025, 3, 2), "Água", -50.00, casa)
+    semear_transacao(session, date(2025, 3, 5), "Vencimento", 1000.00, receita)
+    semear_transacao(session, date(2025, 3, 9), "ETF", -200.00, investimento)
+
+    r = client.get("/api/estatisticas/por-categoria")
+
+    assert r.status_code == 200
+    assert {c["categoria_nome"]: (c["tipo"], c["media"], c["mediana"]) for c in r.json()} == {
+        "Casa": (TipoCategoria.despesa.value, -50.0, -50.0),
+        "Receita": (TipoCategoria.receita.value, 1000.0, 1000.0),
+        "Investimento": (TipoCategoria.investimento.value, -200.0, -200.0),
+    }
+
+
 # ---------------------------------------------------------------------------
 # A5/A6 — GET /api/estatisticas/por-subcategoria
 # ---------------------------------------------------------------------------

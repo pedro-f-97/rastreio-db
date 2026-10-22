@@ -164,6 +164,11 @@
     transition: background 0.15s;
 }
 
+/* Cabeçalho de um grupo da tabela por categoria: não abre nada */
+.linha-grupo {
+    cursor: default;
+}
+
 .linha-ano td:first-child {
     color: var(--text-primary);
     letter-spacing: 0.03em;

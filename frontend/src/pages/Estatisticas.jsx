@@ -88,6 +88,15 @@ function GraficoDistribuicao({ dados, chaveSeleccionada = null, onSeleccionar })
     );
 }
 
+// Grupos da tabela «Por categoria», pela ordem em que aparecem. O `campo` é o
+// total do tipo em cada mês do resumo mensal, de onde vêm a média e a mediana
+// do grupo
+const GRUPOS_CATEGORIA = [
+    { tipo: 'despesa', titulo: 'Despesas', campo: 'Despesas' },
+    { tipo: 'receita', titulo: 'Receitas', campo: 'Receitas' },
+    { tipo: 'investimento', titulo: 'Investimento', campo: 'Investimento' },
+];
+
 export default function Estatisticas() {
     const [resumo, setResumo] = useState(null);
     const [erro, setErro] = useState(null);
@@ -416,39 +425,55 @@ export default function Estatisticas() {
                         </tr>
                     </thead>
                     <tbody>
-                        {[...porCategoria]
-                            .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
-                            .map(c => (
-                                <Fragment key={c.categoria_id}>
-                                    <tr
-                                        className="linha-ano"
-                                        onClick={() => setCategoriaExpandida(
-                                            categoriaExpandida === c.categoria_id ? null : c.categoria_id
-                                        )}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        <td>
-                                            <span className="seta-expansao">
-                                                {categoriaExpandida === c.categoria_id ? '▼' : '▶'}
-                                            </span>
-                                            {c.categoria_nome}
-                                        </td>
-                                        <td className={classeValor(c.media)}>{formatarEuros(c.media)}</td>
-                                        <td className={classeValor(c.mediana)}>{formatarEuros(c.mediana)}</td>
+                        {GRUPOS_CATEGORIA.map(grupo => {
+                            const categorias = porCategoria
+                                .filter(c => c.tipo === grupo.tipo)
+                                .sort((a, b) => Math.abs(b.media) - Math.abs(a.media));
+                            if (categorias.length === 0) return null;
+                            // Os mesmos meses das categorias: a linha das despesas
+                            // bate certo com o cartão «Despesas mensais»
+                            const totais = dadosGraficoFiltrados.map(m => m[grupo.campo]);
+                            const media = calcularMedia(totais);
+                            const mediana = calcularMediana(totais);
+                            return (
+                                <Fragment key={grupo.tipo}>
+                                    <tr className="linha-ano linha-grupo">
+                                        <td>{grupo.titulo}</td>
+                                        <td className={classeValor(media)}>{formatarEuros(media)}</td>
+                                        <td className={classeValor(mediana)}>{formatarEuros(mediana)}</td>
                                     </tr>
-                                    {categoriaExpandida === c.categoria_id &&
-                                        [...c.subcategorias]
-                                            .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
-                                            .map(sub => (
-                                                <tr key={sub.subcategoria_nome} className="linha-mes">
-                                                    <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                    <td className={classeValor(sub.media)}>{formatarEuros(sub.media)}</td>
-                                                    <td className={classeValor(sub.mediana)}>{formatarEuros(sub.mediana)}</td>
+                                    {categorias.map(c => {
+                                        const expandida = categoriaExpandida === c.categoria_id;
+                                        return (
+                                            <Fragment key={c.categoria_id}>
+                                                <tr
+                                                    className={`linha-mes ${expandida ? 'linha-mes-activa' : ''}`}
+                                                    onClick={() => setCategoriaExpandida(expandida ? null : c.categoria_id)}
+                                                >
+                                                    <td>
+                                                        <span className="seta-expansao">{expandida ? '▼' : '▶'}</span>
+                                                        {c.categoria_nome}
+                                                    </td>
+                                                    <td className={classeValor(c.media)}>{formatarEuros(c.media)}</td>
+                                                    <td className={classeValor(c.mediana)}>{formatarEuros(c.mediana)}</td>
                                                 </tr>
-                                            ))
-                                    }
+                                                {expandida &&
+                                                    [...c.subcategorias]
+                                                        .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
+                                                        .map(sub => (
+                                                            <tr key={sub.subcategoria_nome} className="linha-subcategoria-detalhe">
+                                                                <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                                                <td className={classeValor(sub.media)}>{formatarEuros(sub.media)}</td>
+                                                                <td className={classeValor(sub.mediana)}>{formatarEuros(sub.mediana)}</td>
+                                                            </tr>
+                                                        ))
+                                                }
+                                            </Fragment>
+                                        );
+                                    })}
                                 </Fragment>
-                            ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             </section>
