@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
 import {
     ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    Line, Legend, CartesianGrid, Cell, LabelList
+    Line, Legend, CartesianGrid, Cell, LabelList, ReferenceLine
 } from 'recharts';
 import './Estatisticas.css';
 import '../componentes.css';
@@ -37,6 +37,23 @@ function calcularMediana(valores) {
 function calcularMedia(valores) {
     if (valores.length === 0) return 0;
     return valores.reduce((s, v) => s + v, 0) / valores.length;
+}
+
+// Taxa de poupança dos `n` meses que acabam em cada mês. Soma a poupança e as
+// receitas da janela antes de dividir, para que um salário que caia no fim do
+// mês anterior não crie picos. Sem `n` meses de histórico, não há valor. Os
+// meses vêm ordenados, como os devolve o resumo mensal
+function taxaMovel(meses, n) {
+    const indice = m => m.ano * 12 + m.mes;
+    const primeiro = meses.length > 0 ? indice(meses[0]) : 0;
+    return meses.map(m => {
+        const fim = indice(m);
+        if (fim - n + 1 < primeiro) return null;
+        const janela = meses.filter(x => indice(x) > fim - n && indice(x) <= fim);
+        const receitas = janela.reduce((s, x) => s + x.receitas, 0);
+        const poupanca = janela.reduce((s, x) => s + x.poupanca, 0);
+        return receitas > 0 ? parseFloat(((poupanca / receitas) * 100).toFixed(1)) : null;
+    });
 }
 
 // Barras horizontais da distribuição da despesa, para as categorias e para as
@@ -133,7 +150,12 @@ export default function Estatisticas() {
             return { dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
         }
 
-        const dadosGrafico = resumo.meses.map(m => ({
+        // As médias móveis calculam-se sobre todos os meses, antes do filtro de
+        // ano: assim, janeiro de um ano usa os meses do ano anterior
+        const movel3 = taxaMovel(resumo.meses, 3);
+        const movel12 = taxaMovel(resumo.meses, 12);
+
+        const dadosGrafico = resumo.meses.map((m, i) => ({
             ano: m.ano,
             label: labelMes(m.ano, m.mes),
             Receitas: m.receitas,
@@ -141,6 +163,8 @@ export default function Estatisticas() {
             Investimento: m.investimento,
             Poupança: m.poupanca,
             'Taxa de Poupança': m.receitas > 0 ? parseFloat(((m.poupanca / m.receitas) * 100).toFixed(1)) : null,
+            'Média de 3 meses': movel3[i],
+            'Média de 12 meses': movel12[i],
         }));
 
         const filtrados = anoSeleccionado === 'todos'
@@ -327,9 +351,9 @@ export default function Estatisticas() {
 
             {/* GRÁFICO TAXA DE POUPANÇA */}
             <section className="secao">
-                <h2 className="titulo-secao">Taxa de poupança mensal</h2>
+                <h2 className="titulo-secao">Taxa de poupança</h2>
                 <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
+                    <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 100, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
                         <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v}%`} />
@@ -338,7 +362,23 @@ export default function Estatisticas() {
                             labelStyle={{ color: 'var(--text-primary)' }}
                             formatter={(v) => formatarPercentagem(v)}
                         />
-                        <Line dataKey="Taxa de Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls={false} />
+                        <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
+                        {cardTaxa.periodo !== null && (
+                            <ReferenceLine
+                                y={cardTaxa.periodo}
+                                stroke="var(--text-secondary)"
+                                strokeDasharray="6 4"
+                                ifOverflow="extendDomain"
+                                label={{
+                                    value: `Período: ${formatarPercentagem(cardTaxa.periodo)}`,
+                                    position: 'right',
+                                    fill: 'var(--text-secondary)',
+                                    fontSize: 11,
+                                }}
+                            />
+                        )}
+                        <Line dataKey="Média de 3 meses" type="monotone" stroke="var(--accent)" strokeWidth={2} dot={false} connectNulls={false} />
+                        <Line dataKey="Média de 12 meses" type="monotone" stroke="var(--chart-2)" strokeWidth={2} dot={false} connectNulls={false} />
                     </ComposedChart>
                 </ResponsiveContainer>
             </section>
