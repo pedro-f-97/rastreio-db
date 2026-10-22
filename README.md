@@ -149,6 +149,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 - Armazenamento local apenas - sem sincronização entre dispositivos ou cloud - é recomendado utilizar métodos comuns de backup
 - Utilizador único, sem gestão de múltiplos perfis
+- Tudo é em euros: um ativo cotado noutra moeda (ex. um ETF em dólares) tem de ter os preços escritos já convertidos para euros
 - As transações só entram por importação de extractos: não se podem criar nem apagar à mão. Uma despesa em dinheiro vivo não se consegue registar, e uma importação feita para a conta errada só se desfaz restaurando um backup anterior
 
 ## Documentação adicional
