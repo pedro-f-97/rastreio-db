@@ -35,14 +35,12 @@ def resumo_mensal(db: Session = Depends(get_db)):
             meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
 
     resultados = []
-    totais_despesas = []
 
     for (ano, mes), v in sorted(meses.items()):
         despesas = arredondar(v["despesas"])
         receitas = arredondar(v["receitas"])
         investimento = arredondar(v["investimento"])
         poupanca = arredondar(receitas + despesas)
-        totais_despesas.append(exato(despesas))
 
         resultados.append(
             {
@@ -55,16 +53,9 @@ def resumo_mensal(db: Session = Depends(get_db)):
             }
         )
 
-    # Média e mediana em Decimal: um empate no meio cêntimo arredonda sempre
-    # para longe de zero, e não ao sabor do binário do float
-    media = arredondar(sum(totais_despesas) / len(totais_despesas)) if totais_despesas else 0
-    mediana = arredondar(median(totais_despesas)) if totais_despesas else 0
-
-    return {
-        "meses": resultados,
-        "media_mensal": media,
-        "mediana_mensal": mediana,
-    }
+    # A média e a mediana dos cartões calculam-se na página, a partir dos meses
+    # do ano filtrado (achado 8.4)
+    return {"meses": resultados}
 
 
 def _mediana_mensal(totais, meses_distintos):
