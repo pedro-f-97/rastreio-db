@@ -2,7 +2,7 @@
 
 ## Requisitos
 - Python 3.14+
-- Node.js 18+
+- Node.js 22.12+ (ou 20.19+, no 20)
 
 ## Clone
 ```bash
@@ -34,7 +34,7 @@ npm install
 npm run dev
 ```
 
-Fica disponível em `http://localhost:9743`, com proxy para o backend configurado no Vite.
+Fica disponível em `http://localhost:9743`. Em dev, o frontend chama o backend directamente em `http://localhost:9742/api` (`src/api/client.js`), por isso o backend tem de estar a correr nessa porta; o proxy de `/api` no `vite.config.js` não é usado.
 
 ## Testes
 A suite vive em `backend/tests/` e corre com o `pytest`. O `pytest.ini` está em `backend/`, por isso os testes correm sempre a partir de `backend/` — é lá que estão o `testpaths = tests` e o `pythonpath = .` de que os imports (`from database import ...`) dependem.
@@ -81,4 +81,4 @@ Em ambos os casos, o executável é gerado em `dist_executavel/`.
 > **Nota:** A base de dados fica em `dist_executavel/dados/rastreio.db`. Esta pasta deve ser preservada entre atualizações — apagá-la equivale a perder todos os dados.
 
 ### Primeiro arranque do executável
-A aplicação abre automaticamente no browser em `http://localhost:9743`. Uma pequena janela de controlo (`tray.py`, tkinter) permite reabrir o browser ou encerrar a aplicação.
+A aplicação abre automaticamente no browser em `http://localhost:9742`. Uma pequena janela de controlo (`tray.py`, tkinter) permite reabrir o browser ou encerrar a aplicação.

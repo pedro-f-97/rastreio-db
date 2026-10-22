@@ -1,6 +1,48 @@
+import json
 import os
+import socket
 import subprocess
 import sys
+import urllib.request
+
+
+def quem_esta_na_porta(porta: int) -> str:
+    """O que está à escuta em `127.0.0.1:<porta>`, antes de a aplicação arrancar.
+
+    Devolve "livre" se ninguém aceita a ligação, "rastreio" se responde como o
+    Rastreio-DB (outra instância aberta) e "outro" se é outro programa.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(1)
+        if s.connect_ex(("127.0.0.1", porta)) != 0:
+            return "livre"
+    try:
+        url = f"http://127.0.0.1:{porta}/api/configuracao/estado"
+        with urllib.request.urlopen(url, timeout=2) as resposta:
+            dados = json.load(resposta)
+    except Exception:
+        return "outro"
+    if isinstance(dados, dict) and set(dados) == {"inicializado", "tour_visto"}:
+        return "rastreio"
+    return "outro"
+
+
+def mostrar_erro(mensagem: str) -> None:
+    """Mostra um erro do arranque numa caixa de diálogo.
+
+    No executável não há consola, e sem isto o erro só ia para o log. Se o
+    tkinter não existir ou não houver ecrã, não faz nada: o erro continua no log.
+    """
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+
+        raiz = tk.Tk()
+        raiz.withdraw()
+        messagebox.showerror("Rastreio-DB", mensagem, parent=raiz)
+        raiz.destroy()
+    except Exception:
+        pass
 
 
 def iniciar_tray(parar_servidor_fn, porta):

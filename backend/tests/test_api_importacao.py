@@ -31,9 +31,10 @@ Regra de deduplicação, lida do código (`importador_transacoes.py:31-48`)
    (`filter(Transacao.conta_id == conta_id)`). Com `conta_id=None` o SQLAlchemy
    traduz `== None` para `IS NULL`, pelo que só compara com transacções de
    `conta_id` NULL.
-3. `existentes` é lido uma vez, antes do ciclo, e **nunca é actualizado** durante
-   a inserção: linhas repetidas **dentro do mesmo ficheiro** não são
-   deduplicadas.
+3. `existentes` conta quantas vezes cada chave já está na conta, e cada cópia
+   absorve **uma** linha igual do ficheiro. Com 1 na BD e 2 no ficheiro, entra
+   1 (antes entrava 0). Linhas repetidas **dentro do mesmo
+   ficheiro**, sem cópias na BD, entram todas.
 
 Convenções fixadas (comportamento actual, não corrigido)
 --------------------------------------------------------
@@ -59,6 +60,8 @@ atribui, nunca números fixos.
 """
 
 from datetime import date
+
+import pytest
 
 from database import (
     Categoria,
@@ -271,26 +274,26 @@ def test_preview_com_perfil_inexistente_da_404(client):
 
 
 def test_preview_com_ficheiro_indescodificavel_da_400(client, session):
-    """Bytes que não são UTF-8 válido fazem o parser rebentar e o router dar 400.
+    """Bytes que não são UTF-8 nem Windows-1252 dão 400 com uma mensagem em PT-PT.
 
-    O perfil é CSV, logo `_ler_linhas_csv` chama `file_bytes.decode("utf-8-sig")`
-    (`parser_importacao.py:47`); `0xff` não é um início válido e levanta
-    `UnicodeDecodeError`. O `except Exception` do router (`importacao.py:21`)
-    apanha-a e responde 400 com `detail=str(e)`.
+    O perfil é CSV, logo `_ler_linhas_csv` chama `_decodificar_csv`. `0xc1`
+    não pode começar um carácter em UTF-8, e `0x81` é um dos cinco bytes sem
+    carácter em Windows-1252, por isso as duas leituras falham e sai
+    `ErroParsing`. O `except Exception` do router apanha-o e responde 400 com
+    `detail=str(e)`.
 
     Nota de comportamento: este `except Exception` transforma **qualquer** erro
     de programação em 400, o que esconde bugs servidor. Não é corrigido aqui.
-    A mensagem real é do codec, por isso só se afirma o código e que `detail`
-    é uma string não vazia.
     """
     perfil = _criar_perfil(session)
-    conteudo_invalido = b'\xff\xfe31/01/2026,Supermercado,"-45,60"'
+    conteudo_invalido = b'\xc1\x8131/01/2026,Supermercado,"-45,60"'
 
     r = _pedido_preview(client, perfil.id, conteudo_invalido)
 
     assert r.status_code == 400
-    detalhe = r.json()["detail"]
-    assert isinstance(detalhe, str) and detalhe
+    assert r.json() == {
+        "detail": "Não foi possível ler o ficheiro: a codificação não é UTF-8 nem Windows-1252."
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -302,8 +305,7 @@ def test_importar_insere_e_devolve_contagens(client, session, tmp_path):
     """Duas linhas novas: 200 com `{"inseridas": 2, "duplicadas": 0}`.
 
     Estado final, lido pela sessão: 2 transacções na conta do perfil, sem
-    categoria nem subcategoria (não há regras semeadas), `saldo` None e
-    `reembolso` False (o default do modelo).
+    categoria nem subcategoria (não há regras semeadas) e `saldo` None.
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
@@ -324,12 +326,11 @@ def test_importar_insere_e_devolve_contagens(client, session, tmp_path):
             t.conta_id,
             t.categoria_id,
             t.subcategoria_id,
-            t.reembolso,
         )
         for t in guardadas
     ] == [
-        (date(2026, 1, 31), "Supermercado", -45.6, None, conta.id, None, None, False),
-        (date(2026, 2, 2), "Salário", 1500.0, None, conta.id, None, None, False),
+        (date(2026, 1, 31), "Supermercado", -45.6, None, conta.id, None, None),
+        (date(2026, 2, 2), "Salário", 1500.0, None, conta.id, None, None),
     ]
 
 
@@ -518,11 +519,12 @@ def test_dedup_e_por_conta(client, session, tmp_path):
 def test_linhas_repetidas_no_mesmo_ficheiro_nao_sao_deduplicadas(client, session, tmp_path):
     """Duas linhas iguais no mesmo ficheiro entram as duas.
 
-    Comportamento actual: `existentes` é lido antes do ciclo e nunca recebe as
-    chaves novas, por isso a segunda linha repetida não é vista como duplicada
-    -> `{"inseridas": 2, "duplicadas": 0}`. É defensável: dois movimentos iguais
-    no mesmo dia podem ser reais (dois cafés) e a deduplicação é, por desenho,
-    só contra o que já existia na conta. Fixa-se o comportamento actual.
+    Comportamento actual: `existentes` conta só o que já estava na conta (0
+    cópias) e nunca recebe as chaves novas, por isso a segunda linha repetida
+    não é vista como duplicada -> `{"inseridas": 2, "duplicadas": 0}`. É
+    defensável: dois movimentos iguais no mesmo dia podem ser reais (dois
+    cafés) e a deduplicação é, por desenho, só contra o que já existia na
+    conta. Fixa-se o comportamento actual.
     """
     conta = _criar_conta(session)
     perfil = _criar_perfil(session, conta_id=conta.id)
@@ -542,26 +544,80 @@ def test_linhas_repetidas_no_mesmo_ficheiro_nao_sao_deduplicadas(client, session
     assert session.query(Transacao).count() == 2
 
 
-def test_importar_perfil_sem_conta_deduplica_por_is_null(client, session, tmp_path):
-    """Sem conta, o perfil escreve `conta_id=None` e a dedup compara `IS NULL`.
+def test_importar_com_perfil_sem_conta_da_400_e_nao_grava(client, session, tmp_path):
+    """Um perfil sem conta (por exemplo, a conta foi apagada) não importa (4.1).
 
-    Cálculo à mão: `filter(Transacao.conta_id == None)` é traduzido pelo
-    SQLAlchemy para `IS NULL`. A 1.ª importação cria 2 transacções com
-    `conta_id=None`; na 2.ª, essas 2 entram em `existentes` e o ficheiro repete
-    as mesmas chaves -> `{"inseridas": 0, "duplicadas": 2}`.
+    Antes, as linhas entravam com `conta_id=None`: contavam nas estatísticas mas
+    nunca na liquidez. Cálculo à mão: um pedido recusado -> 0 transacções.
     """
     perfil = _criar_perfil(session, conta_id=None)
     caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
-    conteudo = caminho.read_bytes()
 
-    primeira = _pedido_importar(client, perfil.id, conteudo)
-    segunda = _pedido_importar(client, perfil.id, conteudo)
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
 
-    assert primeira.json() == {"inseridas": 2, "duplicadas": 0}
-    assert segunda.status_code == 200
-    assert segunda.json() == {"inseridas": 0, "duplicadas": 2}
-    assert session.query(Transacao).count() == 2
-    assert all(t.conta_id is None for t in session.query(Transacao).all())
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": "Este perfil não tem conta associada. Edita o perfil e escolhe uma conta."
+    }
+    assert session.query(Transacao).count() == 0
+
+
+@pytest.mark.parametrize(
+    "na_bd, no_ficheiro, esperado, total",
+    [
+        # O exemplo: um café no 1.º extracto, dois no seguinte.
+        # 1 cópia na BD absorve 1 linha; sobra 1 -> 1 inserida, 1 duplicada;
+        # BD: 1 + 1 = 2.
+        (1, 2, {"inseridas": 1, "duplicadas": 1}, 2),
+        # 2 na BD, 3 no ficheiro (antes dava 0 e 3).
+        # 2 absorvidas, sobra 1 -> 1 inserida, 2 duplicadas; BD: 2 + 1 = 3.
+        (2, 3, {"inseridas": 1, "duplicadas": 2}, 3),
+        # O ficheiro traz menos do que a BD: as 2 cópias chegam para a 1 linha
+        # -> 0 inseridas, 1 duplicada; BD fica com 2.
+        (2, 1, {"inseridas": 0, "duplicadas": 1}, 2),
+    ],
+)
+def test_dedup_conta_as_copias_que_ja_existem(
+    client, session, tmp_path, na_bd, no_ficheiro, esperado, total
+):
+    """Linhas iguais: entram as que o ficheiro tem a mais do que a BD (3.2)."""
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    cabecalho = ("Data,Descrição,Valor",)
+    cafe = '03/02/2026,Café,"-0,80"'
+    primeiro = escrever_csv(tmp_path / "primeiro.csv", cabecalho + (cafe,) * na_bd)
+    segundo = escrever_csv(tmp_path / "segundo.csv", cabecalho + (cafe,) * no_ficheiro)
+
+    _pedido_importar(client, perfil.id, primeiro.read_bytes())
+    r = _pedido_importar(client, perfil.id, segundo.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == esperado
+    assert session.query(Transacao).count() == total
+
+
+def test_dedup_por_contagem_nao_mistura_chaves(client, session, tmp_path):
+    """A cópia de um café não absorve uma linha diferente.
+
+    BD: 1 café. Ficheiro: 2 cafés e 1 supermercado.
+      café: 2 no ficheiro - 1 na BD -> 1 inserido, 1 duplicado
+      supermercado: 0 na BD -> 1 inserido
+    -> {"inseridas": 2, "duplicadas": 1}; BD: 1 + 2 = 3, com 2 cafés.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    cabecalho = ("Data,Descrição,Valor",)
+    cafe = '03/02/2026,Café,"-0,80"'
+    supermercado = '03/02/2026,Supermercado,"-45,60"'
+    primeiro = escrever_csv(tmp_path / "primeiro.csv", cabecalho + (cafe,))
+    segundo = escrever_csv(tmp_path / "segundo.csv", cabecalho + (cafe, supermercado, cafe))
+
+    _pedido_importar(client, perfil.id, primeiro.read_bytes())
+    r = _pedido_importar(client, perfil.id, segundo.read_bytes())
+
+    assert r.json() == {"inseridas": 2, "duplicadas": 1}
+    assert session.query(Transacao).count() == 3
+    assert session.query(Transacao).filter(Transacao.descricao == "Café").count() == 2
 
 
 # ---------------------------------------------------------------------------

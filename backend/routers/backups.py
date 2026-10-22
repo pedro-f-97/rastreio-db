@@ -1,24 +1,63 @@
 # backend/routers/backups.py
+import glob
 import os
 import shutil
 import sqlite3
-from pathlib import Path
+from datetime import datetime
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import text
+from sqlalchemy import Enum as SAEnum, create_engine, text
 
-from database import DB_PATH, Base, engine, reparar_fk_ativos
+from database import DB_PATH, Base, aplicar_migracoes, colunas_em_falta, engine
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
-# A lista de tabelas validadas deriva do modelo: um backup a que falte
-# qualquer tabela do modelo é rejeitado.
-TABELAS_ESPERADAS = {tabela.name for tabela in Base.metadata.sorted_tables}
-
-# Mensagem única para qualquer problema de estrutura — tabela ou coluna em
-# falta. Não diz o que falta: é propositado.
+# Mensagens para um problema de estrutura (tabela ou coluna em falta). Não
+# dizem o que falta, só se o ficheiro parece um backup do Rastreio-DB: as três
+# tabelas de sempre presentes indicam um backup de uma versão anterior que as
+# migrações já não cobrem; sem elas, o ficheiro não é um backup do Rastreio-DB.
 MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
+MENSAGEM_VERSAO_ANTERIOR = (
+    "Este backup é de uma versão anterior do Rastreio-DB e já não pode ser "
+    "actualizado para esta versão. A base de dados actual não foi alterada."
+)
+MENSAGEM_VALORES = (
+    "O backup tem valores inválidos e não pode ser restaurado. "
+    "A base de dados actual não foi alterada."
+)
+TABELAS_DE_SEMPRE = {"transacoes", "categorias", "contas"}
+
+# Cada restauro guarda a BD que substitui numa cópia com a data e a hora no nome
+# (`rastreio.db.anterior-AAAA-MM-DD-HHMMSS`), e ficam só as mais recentes
+ANTERIORES_A_MANTER = 5
+
+
+def _caminho_anterior() -> str:
+    """Um nome novo para a cópia deste restauro. Dois restauros no mesmo
+    segundo ganham um sufixo, `-2`, `-3`, para não se substituírem."""
+    base = f"{DB_PATH}.anterior-{datetime.now():%Y-%m-%d-%H%M%S}"
+    caminho, n = base, 1
+    while os.path.exists(caminho):
+        n += 1
+        caminho = f"{base}-{n}"
+    return caminho
+
+
+def _apagar_anteriores_a_mais() -> None:
+    """Apaga as cópias mais antigas, para ficarem só `ANTERIORES_A_MANTER`.
+
+    O nome ordena-as por data; a cópia `.anterior` sem data, de versões
+    anteriores, não é tocada.
+    """
+    copias = sorted(
+        c for c in glob.glob(glob.escape(DB_PATH) + ".anterior-*") if not c.endswith(".tmp")
+    )
+    for antiga in copias[:-ANTERIORES_A_MANTER]:
+        try:
+            os.remove(antiga)
+        except OSError:
+            pass
 
 
 def _limpar_wal_shm(db_path: str) -> None:
@@ -62,35 +101,66 @@ def _validar_sqlite(path: str) -> set[str]:
     return tabelas
 
 
+def _criar_tabelas_em_falta(path: str, tabelas: set[str]) -> None:
+    """Cria, vazias, as tabelas do modelo que o ficheiro não tem.
+
+    É o que o arranque faz com o `create_all`: uma tabela nova não tem migração,
+    e sem isto um backup de antes dela era recusado. Só num ficheiro com as três
+    tabelas de sempre: noutro SQLite qualquer, criá-las fazia-o passar por um
+    backup vazio do Rastreio-DB.
+    """
+    if not TABELAS_DE_SEMPRE <= tabelas:
+        return
+    motor = create_engine(f"sqlite:///{path}")
+    try:
+        Base.metadata.create_all(bind=motor)
+    finally:
+        motor.dispose()
+
+
 def _validar_estrutura(path: str) -> None:
     """Confirma que `path` tem todas as tabelas e colunas do modelo.
 
-    Só leitura: o ficheiro é aberto com `mode=ro` (URI), portanto nunca há
-    escrita à toa. Tabelas e colunas a mais são aceites; qualquer falta levanta
-    HTTPException 400 com a mensagem genérica.
+    É a mesma verificação do arranque (`colunas_em_falta`), só de leitura.
+    Tabelas e colunas a mais são aceites; qualquer falta levanta HTTPException
+    400, com a mensagem de versão anterior se as três tabelas de sempre lá
+    estiverem, e com a genérica se não.
     """
     try:
-        con = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
-        try:
-            linhas = con.execute(
-                "SELECT m.name, p.name FROM sqlite_master AS m "
-                "JOIN pragma_table_info(m.name) AS p WHERE m.type = 'table'"
-            ).fetchall()
-        finally:
-            con.close()
+        em_falta = colunas_em_falta(path)
     except sqlite3.Error:
         raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
-
-    reais: dict[str, set[str]] = {}
-    for nome_tabela, nome_coluna in linhas:
-        reais.setdefault(nome_tabela, set()).add(nome_coluna)
-
-    if TABELAS_ESPERADAS - reais.keys():
+    if em_falta:
+        # `em_falta` traz as tabelas em falta pelo nome, sem ponto
+        if TABELAS_DE_SEMPRE.isdisjoint(em_falta):
+            raise HTTPException(status_code=400, detail=MENSAGEM_VERSAO_ANTERIOR)
         raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
 
-    for tabela in Base.metadata.sorted_tables:
-        if {coluna.name for coluna in tabela.columns} - reais[tabela.name]:
-            raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
+
+def _validar_valores(path: str) -> None:
+    """Confirma os valores que a estrutura não garante.
+
+    As colunas de enumeração não têm `CHECK` na BD: um valor desconhecido
+    passava e deixava as páginas em erro 500. E as chaves estrangeiras só se
+    verificam ao escrever, por isso confere-se o ficheiro todo com
+    `PRAGMA foreign_key_check`. Qualquer falha levanta 400.
+    """
+    con = sqlite3.connect(path)
+    try:
+        if con.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise HTTPException(status_code=400, detail=MENSAGEM_VALORES)
+        for tabela in Base.metadata.sorted_tables:
+            for coluna in tabela.columns:
+                if not isinstance(coluna.type, SAEnum):
+                    continue
+                valores = con.execute(
+                    f'SELECT DISTINCT "{coluna.name}" FROM "{tabela.name}" '
+                    f'WHERE "{coluna.name}" IS NOT NULL'
+                ).fetchall()
+                if {v for (v,) in valores} - set(coluna.type.enums):
+                    raise HTTPException(status_code=400, detail=MENSAGEM_VALORES)
+    finally:
+        con.close()
 
 
 @router.post("/importar")
@@ -103,10 +173,8 @@ async def importar_backup(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Ficheiro vazio")
 
     temp_path = DB_PATH + ".tmp"
-    anterior_path = DB_PATH + ".anterior"
 
-    # limpar só o temporário: o `.anterior` fica no disco até um restauro que
-    # passe a validação o substituir
+    # limpar só o temporário: as cópias anteriores ficam no disco
     if os.path.exists(temp_path):
         os.remove(temp_path)
 
@@ -117,21 +185,31 @@ async def importar_backup(file: UploadFile = File(...)):
         os.fsync(f.fileno())
 
     try:
-        _validar_sqlite(temp_path)
+        tabelas = _validar_sqlite(temp_path)
+        # Um backup de uma versão anterior é actualizado antes de ser validado,
+        # no temporário, pela mesma ordem do arranque (tabelas novas, depois
+        # migrações): se algo falhar, a BD actual não foi tocada
+        _criar_tabelas_em_falta(temp_path, tabelas)
+        aplicar_migracoes(temp_path)
         _validar_estrutura(temp_path)
+        _validar_valores(temp_path)
     except HTTPException:
         os.remove(temp_path)
         raise
+    except Exception as e:
+        os.remove(temp_path)
+        raise HTTPException(status_code=500, detail=f"Falha ao restaurar: {e}")
 
     # 2) Só agora mexemos no DB real
     engine.dispose()
 
+    anterior_path = _caminho_anterior()
     anterior_tmp = anterior_path + ".tmp"
     anterior_pronto = False
     try:
         if os.path.exists(DB_PATH):
-            # Copiar ao lado e renomear: o `.anterior` só é substituído quando
-            # a cópia nova está completa
+            # Copiar ao lado e renomear: a cópia só ganha o nome final quando
+            # está completa
             shutil.copy2(DB_PATH, anterior_tmp)
             os.replace(anterior_tmp, anterior_path)
             anterior_pronto = True
@@ -143,16 +221,12 @@ async def importar_backup(file: UploadFile = File(...)):
         # 3) Verificação pós-troca: a MESMA validação sobre a BD trocada
         _validar_estrutura(DB_PATH)
 
-        # Um backup antigo pode ter chaves a apontar para `ativos_old`. Se a reparação
-        # falhar, o rollback abaixo repõe a BD anterior.
-        reparar_fk_ativos(DB_PATH)
-
     except Exception as e:
         # rollback
         engine.dispose()
         try:
-            # Só o `.anterior` deste pedido serve para repor: se a cópia falhou,
-            # a BD ainda não foi tocada e um `.anterior` antigo apagaria dados
+            # Só a cópia deste pedido serve para repor: se a cópia falhou, a
+            # BD ainda não foi tocada e uma cópia antiga apagaria dados
             if anterior_pronto:
                 shutil.copy2(anterior_path, anterior_tmp)
                 os.replace(anterior_tmp, DB_PATH)
@@ -169,5 +243,6 @@ async def importar_backup(file: UploadFile = File(...)):
         _limpar_wal_shm(DB_PATH)
         raise HTTPException(status_code=500, detail=f"Falha ao restaurar: {e}")
 
-    # 4) O `.anterior` fica no disco: é substituído no restauro seguinte
+    # 4) A cópia deste restauro fica no disco; saem só as mais antigas
+    _apagar_anteriores_a_mais()
     return {"ok": True, "mensagem": "Base de dados restaurada"}

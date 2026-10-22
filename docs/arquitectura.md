@@ -20,7 +20,7 @@ docs/       # Documentação (este ficheiro, modelo de dados, guia de desenvolvi
 - **`database.py`**: modelos SQLAlchemy e ligação à BD. A BD é `dados/rastreio.db` dentro de uma pasta-base resolvida por `_resolver_base_dir()`, por esta ordem: a variável de ambiente `RASTREIO_DB_DIR`, se definida (instalações sem permissões de escrita junto ao executável, e os testes); `dirname(sys.executable)` quando empacotado (`sys.frozen`), para manter os dados junto ao executável; e `backend/` em dev
 - **`schemas.py`**: schemas Pydantic para validação de entrada/saída da API
 - **`routers/`**: um ficheiro por domínio (categorias, contas, transações, património, etc.). Cada novo domínio funcional ganha o seu próprio router, montado em `main.py`
-- **Migrações**: alterações de schema não-triviais (ex. coluna não-nula, recriação de tabela) são feitas via scripts manuais `migrar_*.py` na raiz do backend, usando recriação de tabela para preservar IDs e FKs. Scripts já aplicados são arquivados em `backend/old/`
+- **Migrações**: cada alteração de schema é uma migração numerada na lista `MIGRACOES` de `database.py`, e a BD guarda em `PRAGMA user_version` a última que levou. As que faltam correm no arranque (`criar_tabelas`) e, num restauro, no ficheiro temporário do backup, antes de este ser validado. Uma BD nova fica logo na última versão. Para mudar o schema, muda-se o modelo e acrescenta-se no fim da lista (nunca se tira nem se troca a ordem) uma função que recebe o caminho da BD, a leva ao mesmo estado, devolve se mudou alguma coisa e é idempotente; para recriar uma tabela, preservam-se os IDs e as FKs. Uma tabela nova não precisa de migração, porque o `create_all` a cria. Se, depois das migrações, ainda faltar alguma coluna do modelo, o arranque recusa com uma mensagem que diz o que falta (`colunas_em_falta`), e o restauro recusa o backup
 - **Dados iniciais**: as listas de categorias, subcategorias e tipos de ativo e a função que as cria (`semear_dados_iniciais`) estão em `dados_iniciais.py`; o endpoint `/configuracao/inicializar` chama-a, e ela cria só o que falta, pelo nome
 
 ## Frontend
@@ -34,12 +34,13 @@ docs/       # Documentação (este ficheiro, modelo de dados, guia de desenvolvi
 
 ## CI/CD
 
-- `.github/workflows/build.yml`: build automático (Windows + Linux) disparado por tags de versão, publica executáveis como GitHub Release
+- `.github/workflows/test.yml`: em cada push para um ramo e em cada pull request, corre o ruff, o pyright, os testes (`pytest`) e o lint do frontend
+- `.github/workflows/build.yml`: disparado por tags de versão (`v*`). Corre primeiro o `test.yml`; se passar, faz o build em Windows e em Linux em paralelo e, só se os dois passarem, publica os executáveis numa GitHub Release
 
 ## Convenção para novas funcionalidades
 
 Uma feature nova tipicamente atravessa, por esta ordem:
-1. Modelo em `database.py` (+ migração manual, se aplicável)
+1. Modelo em `database.py` (+ migração em `MIGRACOES`, se mudar uma tabela que já existe)
 2. Schema Pydantic em `schemas.py`
 3. Router novo ou endpoint num router existente
 4. Ficheiro de API no frontend (`api/dominio.js`)

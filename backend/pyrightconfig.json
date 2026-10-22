@@ -1,6 +1,6 @@
 {
   "include": ["."],
-  "exclude": ["old", "tests", "venv", "**/__pycache__"],
+  "exclude": ["tests", "venv", "**/__pycache__"],
   "pythonVersion": "3.14",
   "typeCheckingMode": "standard",
   "venvPath": ".",

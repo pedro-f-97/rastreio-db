@@ -4,6 +4,7 @@ import re
 import sqlite3
 import sys
 from datetime import date
+from pathlib import Path
 from typing import List, Optional
 
 from sqlalchemy import (
@@ -90,8 +91,10 @@ def anunciar_bd_ativa() -> None:
 
 def ligar_chaves_estrangeiras(con, _registo) -> None:
     """O SQLite só aplica as chaves estrangeiras com esta pragma, e é por
-    conexão. Sem `ON DELETE`: apagar um pai com filhos é recusado, e cada
-    endpoint trata dos filhos antes."""
+    conexão. Sem `ON DELETE`, o SQLite recusa apagar um pai com filhos. Mas,
+    numa `relationship` sem `cascade` de delete, o SQLAlchemy põe antes a chave
+    dos filhos a NULL e o `DELETE` passa; por isso cada endpoint trata dos
+    filhos antes."""
     con.execute("PRAGMA foreign_keys = ON")
 
 
@@ -202,7 +205,6 @@ class Transacao(Base):
     saldo: Mapped[Optional[float]] = mapped_column(
         Float
     )  # Optional[] define automaticamente nullable=True
-    reembolso: Mapped[bool] = mapped_column(Boolean, default=False)
     notas: Mapped[Optional[str]] = mapped_column(String(500))
 
     categoria_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categorias.id"))
@@ -319,9 +321,9 @@ class PrecoAtivo(Base):
     __table_args__ = (UniqueConstraint("ativo_id", "data", name="uq_preco_ativo_data"),)
 
 
-# `old/migrar_tipos_ativo.py` renomeou `ativos` para `ativos_old` e depois
-# apagou-a. No RENAME o SQLite reescreveu as chaves destas tabelas para
-# `ativos_old`, e no DROP não as repôs. Uma BD dessa altura, ou um backup dela,
+# Uma migração antiga renomeou `ativos` para `ativos_old` e depois apagou-a.
+# No RENAME o SQLite reescreveu as chaves destas tabelas para `ativos_old`, e
+# no DROP não as repôs. Uma BD dessa altura, ou um backup dela,
 # ainda tem o schema assim.
 TABELAS_COM_FK_PARA_ATIVOS_OLD = ("precos_ativo", "movimentos_ativo")
 
@@ -384,14 +386,129 @@ def _recriar_com_fk_para_ativos(con: sqlite3.Connection, nome: str, sql: str) ->
         raise RuntimeError(f"A cópia de {nome} não é igual à original")
 
 
+def remover_coluna_reembolso(caminho: str = DB_PATH) -> bool:
+    """Apaga a coluna `transacoes.reembolso`, se ainda existir.
+
+    A marca de reembolso foi retirada: só tinha efeito nas
+    receitas, e só nalguns ecrãs. A coluna era `NOT NULL` sem valor por
+    omissão, por isso não pode ficar na BD sem o modelo a preencher.
+    Idempotente: sem a coluna, não escreve nada. Devolve se a apagou.
+    """
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(transacoes)")}
+        if "reembolso" not in colunas:
+            return False
+        con.execute("ALTER TABLE transacoes DROP COLUMN reembolso")
+    finally:
+        con.close()
+    return True
+
+
+# As migrações do schema, por ordem: a posição na lista é a versão a que cada
+# uma leva a BD. A BD guarda em `PRAGMA user_version` a última que já levou, e
+# no arranque e no restauro de um backup correm as que faltam. Uma BD nova é
+# criada pelo modelo já com o schema final, e fica logo na última versão.
+#
+# Para mudar o schema: mudar o modelo e acrescentar aqui, no fim, a função que
+# leva uma BD antiga ao mesmo estado. Recebe o caminho da BD, devolve se mudou
+# alguma coisa, e tem de ser idempotente: se falhar depois de fazer o trabalho e
+# antes de a versão subir, volta a correr. Uma tabela nova não precisa de
+# migração, porque o `create_all` cria-a. Nunca se tira nem se troca a ordem de
+# uma migração que já saiu: a versão das BDs existentes aponta para ela.
+MIGRACOES = (
+    ("chaves para ativos_old reparadas", reparar_fk_ativos),
+    ("coluna transacoes.reembolso removida", remover_coluna_reembolso),
+)
+
+
+def _versao_schema(caminho: str) -> int:
+    con = sqlite3.connect(caminho)
+    try:
+        return con.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        con.close()
+
+
+def _marcar_versao_schema(caminho: str, versao: int) -> None:
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        con.execute(f"PRAGMA user_version = {int(versao)}")
+    finally:
+        con.close()
+
+
+def aplicar_migracoes(caminho: str = DB_PATH) -> list[str]:
+    """Corre, por ordem, as migrações que a BD ainda não levou.
+
+    A versão sobe a seguir a cada migração: se uma falhar, a BD fica na versão
+    da anterior e as seguintes não correm. Uma BD de uma versão mais recente do
+    que a lista (um backup de uma aplicação mais nova) não é tocada. Devolve as
+    descrições das migrações que mudaram alguma coisa.
+    """
+    feitas = []
+    versao = _versao_schema(caminho)
+    for numero, (descricao, migracao) in enumerate(MIGRACOES, start=1):
+        if numero <= versao:
+            continue
+        if migracao(caminho):
+            feitas.append(descricao)
+        _marcar_versao_schema(caminho, numero)
+    return feitas
+
+
+def colunas_em_falta(caminho: str = DB_PATH) -> list[str]:
+    """As tabelas e as colunas do modelo que a BD em `caminho` não tem.
+
+    Uma tabela em falta aparece como `tabela`, uma coluna como `tabela.coluna`.
+    Tabelas e colunas a mais não contam. Só leitura: o ficheiro é aberto com
+    `mode=ro` (URI), e um ficheiro que não é SQLite levanta `sqlite3.Error`.
+    """
+    con = sqlite3.connect(Path(caminho).resolve().as_uri() + "?mode=ro", uri=True)
+    try:
+        linhas = con.execute(
+            "SELECT m.name, p.name FROM sqlite_master AS m "
+            "JOIN pragma_table_info(m.name) AS p WHERE m.type = 'table'"
+        ).fetchall()
+    finally:
+        con.close()
+
+    reais: dict[str, set[str]] = {}
+    for nome_tabela, nome_coluna in linhas:
+        reais.setdefault(nome_tabela, set()).add(nome_coluna)
+
+    em_falta = []
+    for tabela in Base.metadata.sorted_tables:
+        if tabela.name not in reais:
+            em_falta.append(tabela.name)
+            continue
+        em_falta += [
+            f"{tabela.name}.{coluna.name}"
+            for coluna in tabela.columns
+            if coluna.name not in reais[tabela.name]
+        ]
+    return em_falta
+
+
 def criar_tabelas():
     garantir_pasta_dados()
+    with engine.connect() as con:
+        nova = not con.exec_driver_sql("SELECT 1 FROM sqlite_master WHERE type = 'table'").first()
     Base.metadata.create_all(bind=engine)
-    reparadas = reparar_fk_ativos()
-    if reparadas:
-        print(
-            f"Schema reparado (chaves para ativos_old): {', '.join(reparadas)}, SQLite {sqlite3.sqlite_version}",
-            flush=True,
+    if nova:
+        _marcar_versao_schema(DB_PATH, len(MIGRACOES))
+    for descricao in aplicar_migracoes():
+        print(f"Schema actualizado: {descricao}", flush=True)
+
+    # Uma BD mais antiga do que as migrações conhecem abria sem erro e dava
+    # erros 500 nas páginas que precisam do que lhe falta
+    em_falta = colunas_em_falta()
+    if em_falta:
+        raise RuntimeError(
+            "A base de dados é de uma versão anterior do Rastreio-DB que não se "
+            "consegue actualizar automaticamente.\n"
+            f"  {DB_PATH}\n"
+            f"Falta: {', '.join(em_falta)}"
         )
 
 

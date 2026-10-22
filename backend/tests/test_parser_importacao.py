@@ -26,9 +26,9 @@ Convenções que estes testes fixam
   vez de ser lido mil ou cem vezes errado (secção C).
 * `_parse_valor` não arredonda. Onde o valor sai directamente de `float(texto)`
   — quase sempre — a comparação é por `==` exacta, porque o literal escrito no
-  teste e o literal interpretado pelo `float` são a mesma dupla. Só a secção E,
-  onde há uma subtracção entre duas colunas, usa `pytest.approx` com meio
-  cêntimo de tolerância.
+  teste e o literal interpretado pelo `float` são a mesma dupla. Só as secções
+  E e H, onde há uma subtracção entre duas colunas, usam `pytest.approx` com
+  meio cêntimo de tolerância.
 * Célula vazia não é a mesma coisa em todo o lado. Em `coluna_unica` não há
   guarda nenhuma, e uma célula vazia dá erro. Em `duas_colunas`, no `fee` e no
   `saldo` a guarda é `raw not in (None, "", "None")` e a célula vazia vale zero
@@ -39,6 +39,7 @@ Convenções que estes testes fixam
   do ficheiro, não o índice dentro do que foi lido.
 * `_ler_linhas_csv` detecta o separador de colunas (`,`, `;` ou tabulação)
   com `_detectar_delimitador`, sobre as linhas de dados.
+* O CSV lê-se em UTF-8 e, se falhar, em Windows-1252 (`_decodificar_csv`).
 * `openpyxl` é uma dependência de produção, não de teste: está em
   `backend/requirements.txt`. Estes testes geram um `.xlsx` verdadeiro com ele.
 """
@@ -425,6 +426,41 @@ def test_csv_com_marca_de_ordem_dos_bytes(tmp_path):
     assert resultado["total_linhas"] == 1
 
 
+def test_csv_em_windows_1252_le_os_acentos(tmp_path):
+    """Um CSV em Windows-1252, como o de muitos bancos, lê-se com os acentos certos.
+
+    Em Windows-1252, «á» é o byte 0xe1 e «ç»/«ê» são 0xe7/0xea. Seguido de uma
+    consoante, 0xe1 não é UTF-8 válido, por isso a leitura em UTF-8 falha e
+    entra a de Windows-1252. As transacções são as mesmas do
+    `test_csv_lido_a_partir_da_segunda_linha`, com «Salário» e «Transferência»
+    escritos por inteiro.
+    """
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_EXTRATO, codificacao="cp1252")
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil(linha_inicio_dados=2))
+
+    assert resultado["transacoes"] == [
+        {"data": date(2026, 1, 31), "descricao": "Supermercado", "valor": -45.6, "saldo": None},
+        {"data": date(2026, 2, 2), "descricao": "Salário", "valor": 1500.0, "saldo": None},
+        {"data": date(2026, 2, 5), "descricao": "Transferência", "valor": 1234.56, "saldo": None},
+    ]
+    assert resultado["erros"] == [{"linha": 6, "erro": "valor inválido: ''"}]
+    assert resultado["total_linhas"] == 4
+
+
+def test_csv_que_nao_e_utf8_nem_windows_1252_e_recusado():
+    """Bytes que nenhuma das duas codificações lê dão `ErroParsing` em PT-PT.
+
+    0xc1 não pode começar um carácter em UTF-8; 0x81 é um dos cinco bytes sem
+    carácter em Windows-1252 (0x81, 0x8d, 0x8f, 0x90 e 0x9d).
+    """
+    with pytest.raises(ErroParsing) as erro:
+        parse_ficheiro(b"\xc1\x81,a,1\n", perfil(linha_inicio_dados=1))
+
+    assert str(erro.value) == (
+        "Não foi possível ler o ficheiro: a codificação não é UTF-8 nem Windows-1252."
+    )
+
+
 def test_csv_duas_colunas_credito_menos_debito(tmp_path):
     """No modo de duas colunas, o valor é o crédito menos o débito."""
     caminho = escrever_csv(tmp_path / "duas_colunas.csv", CSV_DEBITO_CREDITO)
@@ -789,3 +825,46 @@ def test_valor_nao_finito_levanta_erro_de_parsing(entrada, nota):
         _parse_valor(entrada, ",")
 
     assert str(erro.value) == f"valor inválido: '{entrada}'", nota
+
+
+# ---------------------------------------------------------------------------
+# Secção H — duas colunas: o sinal com que vêm o débito e o crédito
+# ---------------------------------------------------------------------------
+
+# Extrato de um banco que escreve o débito (e às vezes o crédito) com sinal.
+CSV_DEBITO_COM_SINAL = (
+    "Data,Descrição,Débito,Crédito",
+    '31/01/2026,Supermercado,"-12,50",',
+    '01/02/2026,Salário,,"-1500,00"',
+    '02/02/2026,Ajuste,"-20,00","-5,00"',
+)
+
+
+def test_duas_colunas_debito_negativo_e_uma_saida(tmp_path):
+    """Um débito escrito com sinal menos entra negativo, como um sem sinal.
+
+    Antes da correcção, `crédito - débito` dava 0,00 - (-12,50) = +12,50 e a
+    compra entrava como receita. Decisão do utilizador: o débito
+    sai sempre e o crédito entra sempre, `abs(crédito) - abs(débito)`, como a
+    comissão.
+    """
+    caminho = escrever_csv(tmp_path / "debito_com_sinal.csv", CSV_DEBITO_COM_SINAL)
+    resultado = parse_ficheiro(
+        caminho.read_bytes(),
+        perfil(
+            modo_valor=ModoValor.duas_colunas,
+            coluna_valor=None,
+            coluna_debito=2,
+            coluna_credito=3,
+        ),
+    )
+
+    valores = [t["valor"] for t in resultado["transacoes"]]
+    # Linha 2: abs(0,00) - abs(-12,50) = -12,50 (antes dava +12,50)
+    # Linha 3: abs(-1500,00) - abs(0,00) = 1500,00 (antes dava -1500,00)
+    # Linha 4: abs(-5,00) - abs(-20,00) = 5,00 - 20,00 = -15,00 (antes +15,00)
+    assert valores[0] == pytest.approx(-12.50, abs=0.005)
+    assert valores[1] == pytest.approx(1500.00, abs=0.005)
+    assert valores[2] == pytest.approx(-15.00, abs=0.005)
+    assert resultado["erros"] == []
+    assert resultado["total_linhas"] == 3

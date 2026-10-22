@@ -15,7 +15,7 @@
 Aplicação web local e portable para gestão e análise de extratos bancários, sem dependência de serviços externos. Nasceu da necessidade de algo mais robusto do que a típica folha de Excel. Permite importar extratos em Excel (.xlsx, .csv), com perfis configuráveis por banco e conta, categorizar transações automaticamente com regras dinâmicas, marcar transações como património para registo de bens ou investimentos, e acompanhar a evolução financeira através de estatísticas detalhadas.
 
 ### Transações
-- Listagem paginada com edição inline de categoria, subcategoria, reembolso, conta e notas
+- Listagem paginada com edição inline de categoria, subcategoria e notas
 - Filtros por ano, mês e categoria, incluindo filtro rápido de transações por categorizar
 - Histórico com totais por ano/mês e drill-down por categoria
 - Categorização automática por regras de substring, com sugestões automáticas de novas regras
@@ -35,9 +35,26 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 
 ### Geral
 - Tema claro/escuro com persistência entre sessões
-- Backup e restauro da base de dados, com auto-backup de segurança antes de cada restauro
+- Backup e restauro da base de dados, com auto-backup de segurança antes de cada restauro (ficam as 5 cópias mais recentes, em `dados/`, com a data e a hora no nome)
 - Página de primeiro uso com criação opcional de categorias standard, seguido de tour guiado interativo
 - Página de Conceitos com explicação das principais áreas e workflow da aplicação
+
+## Instalar e actualizar
+
+### Instalar
+1. Descarregar da [última versão](https://github.com/pedro-f-97/rastreio-db/releases/latest) o `rastreio-db-windows.zip` (Windows) ou o `rastreio-db-linux.tar.gz` (Linux)
+2. Extrair para uma pasta à escolha
+3. Correr `rastreio-db.exe` (Windows) ou `./rastreio-db` (Linux). O browser abre em `http://localhost:9742`, e uma pequena janela permite reabri-lo ou encerrar a aplicação
+
+### Onde ficam os dados
+Todos os dados ficam num só ficheiro, `dados/rastreio.db`, dentro da pasta da aplicação. Apagar a pasta `dados/` é perder todos os dados.
+
+### Actualizar
+1. Na página Transações, fazer **Exportar DB** para guardar um backup
+2. Encerrar a aplicação
+3. Extrair a versão nova para uma pasta nova
+4. Copiar a pasta `dados/` da versão antiga para a pasta da versão nova
+5. Correr a versão nova. Se algo correr mal, a versão antiga continua intacta na sua pasta
 
 ## Preview
 
@@ -109,16 +126,23 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 ## Decisões de design
 
-- Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas
+- Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas: um reembolso regista-se na categoria de despesa a que diz respeito, e o valor positivo reduz a despesa. Não há marca de reembolso; o tipo da categoria e o sinal decidem tudo, da mesma forma em todos os ecrãs
 - Transferências internas são excluídas de todas as métricas para não distorcer os dados reais
+- Os nomes de categorias, e os de subcategorias dentro da mesma categoria, não se repetem nem ficam vazios. Para comparar, ignoram-se as maiúsculas e os acentos: «Salário», «salário» e «salario» são o mesmo nome
 - Uma categoria com transações não se pode apagar (é preciso mudá-las de categoria primeiro); sem transações, apaga-se com as suas subcategorias e regras. Apagar uma subcategoria deixa as suas transações por categorizar na mesma categoria, e as regras que apontavam para ela ficam sem subcategoria
+- Uma conta com transações não se pode apagar, só desactivar. Desactivar esconde-a das listas de contas, mas a conta continua a contar no património e na sua evolução; na página Património aparece, marcada como inactiva, enquanto o saldo não for zero
+- O saldo de referência de uma conta é o saldo no fim da data de referência, que pode ser qualquer dia (por exemplo, o de hoje). O saldo noutro dia calcula-se a partir dele: para a frente somam-se as transações seguintes, para trás tiram-se as que ainda não tinham acontecido
 - Um bem sem unidades (ex. imóvel, viatura) vende-se sempre por inteiro: qualquer venda desconta o custo acumulado todo e o bem deixa de contar para o património. Para vender partes de um bem, regista-se o bem com unidades (ex. 100 unidades = 100%), e as vendas parciais passam pelo FIFO
 - As médias mensais das estatísticas contam todos os meses que têm transações, incluindo os que só têm transferências ou transações por categorizar; pressupõe-se que as transações importadas são categorizadas logo a seguir à importação
+- Nas médias e medianas das estatísticas, um mês conta como inteiro mesmo que esteja incompleto: o mês em curso, ou um mês cujas transações ainda não foram todas importadas. Um mês assim puxa as médias para baixo, tanto mais quanto menos meses tiver o período filtrado. A aplicação não tenta adivinhar se um mês está completo
 - Uma importação é tudo ou nada: basta uma linha com erro (data inválida, valor que não bate com o separador decimal do perfil, linha de totais no fim do extracto) para o ficheiro inteiro ser recusado, e a pré-visualização mostra todas as linhas com erro
+- Na importação, uma linha igual a outra já existente na conta (mesma data, descrição, valor e saldo) é duplicada, mas conta-se quantas cópias há: entram as linhas iguais que o extracto traz a mais do que a conta já tem (dois cafés iguais no mesmo dia, um deles só no extracto seguinte)
+- Um perfil de importação tem sempre uma conta: as transações sem conta contariam nas estatísticas mas nunca na liquidez. Por isso, uma conta sem transações não se pode apagar enquanto um perfil a usar (é preciso apagar o perfil primeiro), e um perfil que tenha ficado sem conta deixa de poder importar
 - A coluna de comissão de um perfil de importação é sempre tratada como um pagamento: entra com sinal negativo, venha positiva ou negativa no extracto
+- No modo de duas colunas de um perfil de importação, o débito sai sempre e o crédito entra sempre, venha o sinal que vier no extracto: o valor é `|crédito| − |débito|`, porque há bancos que escrevem o débito com sinal menos
 - O sistema de regras usa correspondência por substring intuitiva
 - Quando várias regras casam com a mesma descrição, ganha a de palavra-chave mais longa (a mais específica) e, em empate, a mais antiga; essa primeira regra decide sozinha a categoria e a subcategoria, mesmo que deixe a subcategoria por preencher
-- Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada
+- Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada. Uma exclusão ganha sempre, seja qual for o comprimento: uma exclusão «MB» deixa por categorizar uma descrição que também case com «MB WAY SALARIO». Para não bloquear uma regra, a exclusão tem de ser mais específica
 - Os valores em euros arredondam ao cêntimo com a metade para longe de zero, como o ARRED do Excel: 2,345 dá 2,35 e -2,345 dá -2,35. Quantidades e preços guardam a precisão com que foram introduzidos, e valores não numéricos (NaN, infinito) são recusados
 - A base de dados fica em `dados/rastreio.db`, junto ao executável, para portabilidade e acesso fácil ao ficheiro
 
@@ -126,6 +150,8 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 - Armazenamento local apenas - sem sincronização entre dispositivos ou cloud - é recomendado utilizar métodos comuns de backup
 - Utilizador único, sem gestão de múltiplos perfis
+- Tudo é em euros: um ativo cotado noutra moeda (ex. um ETF em dólares) tem de ter os preços escritos já convertidos para euros
+- As transações só entram por importação de extractos: não se podem criar nem apagar à mão. Uma despesa em dinheiro vivo não se consegue registar, e uma importação feita para a conta errada só se desfaz restaurando um backup anterior
 
 ## Documentação adicional
 

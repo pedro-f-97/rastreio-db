@@ -1,12 +1,12 @@
+from datetime import date
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 import schemas
 from database import Conta as ContaModel, Transacao as TransacaoModel, get_db
-from servicos.dinheiro import arredondar
+from servicos.patrimonio_serv import saldo_conta_em
 
 router = APIRouter(prefix="/contas", tags=["contas"])
 
@@ -53,6 +53,13 @@ def apagar_ou_desativar_conta(conta_id: int, db: Session = Depends(get_db)):
         conta.ativa = False
         db.commit()
         return {"acao": "desativada", "conta_id": conta_id}
+    if conta.perfis_importacao:
+        # Apagada, a conta sairia dos perfis sem aviso, e um perfil sem conta
+        # não importa
+        raise HTTPException(
+            status_code=409,
+            detail="Não é possível apagar uma conta com perfis de importação associados.",
+        )
     db.delete(conta)
     db.commit()
     return {"acao": "eliminada", "conta_id": conta_id}
@@ -63,16 +70,7 @@ def saldo_conta(conta_id: int, db: Session = Depends(get_db)):
     conta = db.query(ContaModel).filter(ContaModel.id == conta_id).first()
     if not conta:
         raise HTTPException(status_code=404, detail="Conta não encontrada.")
-    resultado = db.execute(
-        text("""
-        SELECT COALESCE(SUM(valor), 0)
-        FROM transacoes
-        WHERE conta_id = :conta_id
-        AND data > :data_referencia
-    """),
-        {"conta_id": conta_id, "data_referencia": str(conta.data_referencia)},
-    ).scalar()
-    saldo = arredondar(float(conta.saldo_referencia) + float(resultado or 0))
+    saldo = saldo_conta_em(db, conta, date.today())
     return {
         "conta_id": conta_id,
         "nome": conta.nome,

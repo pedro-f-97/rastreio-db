@@ -39,9 +39,7 @@ if not exist "venv" (
 echo.
 echo A instalar dependencias...
 call venv\Scripts\activate.bat
-venv\Scripts\pip install -r requirements.txt --quiet
-if errorlevel 1 goto erro
-venv\Scripts\pip install pyinstaller --quiet
+venv\Scripts\pip install -r requirements-build.txt --quiet
 if errorlevel 1 goto erro
 
 :: 5. Executar PyInstaller

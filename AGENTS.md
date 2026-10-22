@@ -55,8 +55,8 @@ anyone decided whether that was acceptable. Neither was necessary — a copy in
 
 ## Stack & Ports
 
-* **Backend**: Python 3.14, FastAPI, SQLAlchemy, SQLite — `uvicorn main:app --reload --port 9742`
-* **Frontend**: React + Vite — `npm run dev` on port **9743**, proxies `/api` → `localhost:9742`
+* **Backend**: Python 3.14, FastAPI, SQLAlchemy, SQLite — `RASTREIO_DB_DIR=/tmp/rastreio-sandbox uvicorn main:app --reload --port 9742`
+* **Frontend**: React + Vite — `npm run dev` on port **9743**; in dev it calls `http://localhost:9742/api` directly (`client.js`), not through the Vite proxy
 * **Executable**: PyInstaller `--onedir --windowed`, served from `main:app` via `__main__` entrypoint
 
 ## Development Commands
@@ -112,9 +112,16 @@ build.bat           # Windows
 
 ## Gotchas
 
-* **No DB migrations framework**: schema changes use manual scripts (`migrar_*.py`). Applied ones live in `backend/old/`. Use table recreation preserving IDs/FKs.
+* **Schema changes are numbered migrations** in `MIGRACOES` (`backend/database.py`); the DB keeps the last one
+  applied in `PRAGMA user_version`. They run at startup (`criar_tabelas`) and on the temp file of a restored
+  backup, before validation. To change the schema: change the model, then append (never reorder or remove) a
+  function that takes the DB path, brings an old DB to the same state, returns whether it changed anything, and
+  is idempotent. Use table recreation preserving IDs/FKs. A new table needs no migration (`create_all` makes it).
+  Add a test with an old DB, and run it against a copy first. A DB still missing columns after the migrations
+  is refused at startup (`colunas_em_falta`), so a forgotten migration fails loudly, not with a 500.
+  No more standalone `migrar_*.py` scripts.
 * **DB location**: `dados/rastreio.db` relative to the executable. In dev, `backend/dados/rastreio.db`.
-* **Frontend proxy**: Vite proxies `/api` to `:9742`. The executable serves both API and SPA.
+* **Frontend in dev**: `client.js` calls `http://localhost:9742/api` directly, so the `/api` proxy in `vite.config.js` is not used (see rule 4). The executable serves both API and SPA.
 * **CI**: `build.sh`/`build.bat` assume `node_modules` exists. CI runs `npm ci` first.
 * **Tray**: `tray.py` manages the executable lifecycle and degrades gracefully if unavailable.
 * **Stats**: refunds reduce expense (not revenue); transfers are excluded from metrics.

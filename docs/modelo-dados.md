@@ -42,7 +42,7 @@ que o sinal gravado não altera nada.
 | id | int | PK |
 | nome | str(100) | obrigatório, único |
 | saldo_referencia | float | obrigatório, default `0` |
-| data_referencia | date | obrigatório — o `saldo_referencia` é o saldo no fim deste dia: só as transacções posteriores (`data > data_referencia`) entram no saldo actual |
+| data_referencia | date | obrigatório — o `saldo_referencia` é o saldo no fim deste dia: para um dia depois dele somam-se as transacções em ]data_referencia, dia]; para um dia antes, tiram-se as de ]dia, data_referencia]. O saldo de hoje e a evolução usam o mesmo cálculo (`saldo_conta_em`) |
 | ativa | bool | default `True` |
 
 **Relações:** 1:N com `Transacao` (`transacoes`), 1:N com `PerfilImportacao` (`perfis_importacao`)
@@ -77,7 +77,6 @@ que o sinal gravado não altera nada.
 | descricao | str(255) | obrigatório |
 | valor | float | obrigatório |
 | saldo | float | opcional |
-| reembolso | bool | default `False` — nos totais mensais (`_calculate_totals`) só pesa nas receitas: uma receita positiva com a marca fica de fora do cesto de `receitas` e conta em `despesas`; uma receita negativa (estorno) conta sempre em `receitas`, com o sinal, com ou sem a marca; numa despesa o sinal decide e a marca não altera o total; as queries de `por-subcategoria` e `detalhe-mensal` não projectam a coluna |
 | notas | str(500) | opcional |
 | categoria_id | int | FK → `categorias.id`, opcional |
 | subcategoria_id | int | FK → `subcategorias.id`, opcional |
@@ -115,7 +114,7 @@ que o sinal gravado não altera nada.
 | tem_saldo | bool | obrigatório, default `False` |
 | coluna_saldo | int | opcional |
 | coluna_fee | int | opcional |
-| conta_id | int | FK → `contas.id`, opcional |
+| conta_id | int | FK → `contas.id`; obrigatório ao criar e ao editar o perfil, e a importação recusa um perfil que o tenha perdido (a coluna aceita `NULL`, por perfis antigos) |
 
 **Relações:** N:1 com `Conta` (`conta`)
 

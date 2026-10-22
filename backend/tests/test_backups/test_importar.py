@@ -11,30 +11,33 @@ O endpoint, lido por ordem
 
 1. o nome tem de acabar em `.db`; caso contrário, 400 `Ficheiro inválido`.
 2. o conteúdo não pode ser vazio; caso contrário, 400 `Ficheiro vazio`.
-3. os caminhos são `DB_PATH + ".tmp"` e `DB_PATH + ".anterior"`, ao lado da BD
-   — que, por causa do `conftest`, está no directório temporário.
-4. a limpeza inicial remove só o `.tmp`: um `.anterior` pré-existente fica no
-   disco até um restauro que passe a validação o substituir.
-5. o conteúdo vai para o `.tmp`, e só depois é validado, em dois passe:
+3. o temporário é `DB_PATH + ".tmp"`, ao lado da BD — que, por causa do
+   `conftest`, está no directório temporário.
+4. a limpeza inicial remove só o `.tmp`: as cópias `.anterior-<data>` que já
+   existam ficam no disco.
+5. o conteúdo vai para o `.tmp`, e só depois é validado:
    `_validar_sqlite` (PRAGMA integrity_check e leitura de `sqlite_master`,
-   com as mensagens próprias de «não é SQLite» e «corrompida») e
-   `_validar_estrutura` (tabelas e colunas contra
-   `Base.metadata.sorted_tables`; qualquer falta → 400 com a mensagem
-   genérica, sem dizer o que falta).
+   com as mensagens próprias de «não é SQLite» e «corrompida»), depois
+   `aplicar_migracoes` no `.tmp` (uma falha → 500 `Falha ao restaurar: ...`,
+   sem tocar na BD), e por fim `_validar_estrutura` (`colunas_em_falta`, as
+   tabelas e colunas de `Base.metadata.sorted_tables`; qualquer falta → 400
+   com a mensagem genérica, sem dizer o que falta).
 6. `engine.dispose()` fecha as ligações antes de mexer no ficheiro.
 7. `shutil.copy2(DB_PATH, anterior_tmp)` seguido de
-   `os.replace(anterior_tmp, anterior_path)` cria ou substitui o `.anterior`
-   só quando a cópia está completa.
+   `os.replace(anterior_tmp, anterior_path)` cria uma cópia nova,
+   `DB_PATH + ".anterior-AAAA-MM-DD-HHMMSS"` (com `-2`, `-3` no mesmo
+   segundo), só quando a cópia está completa.
 8. `os.replace(temp_path, DB_PATH)` — a BD é mesmo substituída.
 9. verificação pós-troca: `_validar_estrutura(DB_PATH)`, a MESMA validação de
    tabelas e colunas, agora sobre a BD trocada.
-10. em erro no bloco 7-9, rollback: `dispose`, repõe a BD a partir do
-    `.anterior` **sem o apagar** — mas só se esse `.anterior` foi criado neste
-    pedido, e também por cópia ao lado seguida de `os.replace` —, remove o
-    `.tmp` e o `.anterior.tmp` que tenham ficado, e
-    responde 500 `Falha ao restaurar: ...`.
-11. no sucesso, o `.anterior` fica no disco até o restauro seguinte o
-    substituir — o endpoint nunca o apaga.
+10. em erro no bloco 7-9, rollback: `dispose`, repõe a BD a partir da cópia
+    **sem a apagar** — mas só se essa cópia foi criada neste pedido, e também
+    por cópia ao lado seguida de `os.replace` —, remove o `.tmp` e o
+    `.tmp` da cópia que tenham ficado, e responde 500
+    `Falha ao restaurar: ...`.
+11. no sucesso, a cópia fica no disco, e das cópias `.anterior-<data>` ficam
+    só as 5 mais recentes; a `.anterior` sem data, de versões
+    anteriores, nunca é apagada.
 
 Os testes
 ---------
@@ -62,16 +65,18 @@ reposição feita pelo próprio rollback.
 """
 
 import os
+import re
 import shutil
 import sqlite3
 from datetime import date
 from pathlib import Path
 
+import pytest
 from sqlalchemy import create_engine
 
-from database import Ativo, Base, Conta, SessionLocal, engine
+import database
+from database import Ativo, Base, Conta, SessionLocal, colunas_em_falta, engine
 from routers import backups
-from routers.backups import TABELAS_ESPERADAS
 
 # ---------------------------------------------------------------------------
 # Auxiliares
@@ -102,10 +107,16 @@ TABELAS_DO_MODELO = {
     "transacoes",
 }
 
-# A frase única que o endpoint devolve a qualquer problema de estrutura (tabela
-# em falta ou coluna em falta). Escrita à mão de propósito: se o router mudar o
-# texto, este teste tem de ser actualizado por uma pessoa.
+# As frases que o endpoint devolve a um problema de estrutura (tabela ou coluna
+# em falta). Escritas à mão de propósito: se o router mudar o texto, estes
+# testes têm de ser actualizados por uma pessoa. A genérica é para um ficheiro
+# a que falta `transacoes`, `categorias` ou `contas`; a de versão anterior,
+# para um que tem as três e lhe falta outra coisa.
 MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
+MENSAGEM_VERSAO_ANTERIOR = (
+    "Este backup é de uma versão anterior do Rastreio-DB e já não pode ser "
+    "actualizado para esta versão. A base de dados actual não foi alterada."
+)
 
 # Uma conta semeada antes de cada cenário. O saldo e a data não são lidos por
 # nenhum destes testes: o que interessa é o nome, para se ver o que sobrevive a
@@ -204,8 +215,8 @@ def nomes_das_contas() -> list[str]:
 def caminho_do(bd: Path, sufixo: str) -> Path:
     """O caminho com aquele sufixo ao lado da BD.
 
-    O endpoint monta `DB_PATH + ".tmp"` e `DB_PATH + ".anterior"`, pelo que é
-    aqui que se vai procurar o que ficou.
+    O endpoint monta `DB_PATH + ".tmp"`, pelo que é aqui que se vai procurar o
+    que ficou. As cópias `.anterior-<data>` procuram-se com `anteriores`.
     """
     return Path(str(bd) + sufixo)
 
@@ -213,6 +224,28 @@ def caminho_do(bd: Path, sufixo: str) -> Path:
 def existe(caminho_bd: Path, sufixo: str) -> bool:
     """Se existe o ficheiro que o endpoint usa com aquele sufixo."""
     return caminho_do(caminho_bd, sufixo).exists()
+
+
+def anteriores(bd: Path) -> list[Path]:
+    """As cópias `.anterior-<data>` terminadas, da mais antiga para a mais recente.
+
+    O nome tem a data e a hora (`rastreio.db.anterior-AAAA-MM-DD-HHMMSS`, com
+    `-2`, `-3` se houver mais de um restauro no mesmo segundo), por isso a ordem
+    dos nomes é a ordem dos restauros.
+    """
+    return sorted(c for c in bd.parent.glob(bd.name + ".anterior-*") if c.suffix != ".tmp")
+
+
+def ultimo_anterior(bd: Path) -> Path:
+    """A cópia do restauro mais recente."""
+    copias = anteriores(bd)
+    assert copias, "Não há nenhuma cópia `.anterior-<data>`."
+    return copias[-1]
+
+
+def anteriores_tmp(bd: Path) -> list[Path]:
+    """As cópias a meio (`.anterior-<data>.tmp`) que tenham ficado no disco."""
+    return list(bd.parent.glob(bd.name + ".anterior-*.tmp"))
 
 
 def contas_em(caminho: Path) -> list[str]:
@@ -261,7 +294,7 @@ def test_nao_sqlite_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_ficheiro):
     assert resposta.status_code == 400
     assert resposta.json()["detail"].startswith("O ficheiro não é uma base de dados SQLite válida")
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -285,7 +318,7 @@ def test_sqlite_sem_as_tabelas_do_modelo_e_rejeitado(client, bd_em_ficheiro, tmp
     assert resposta.status_code == 400
     assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -418,8 +451,8 @@ def test_ida_e_volta_sem_alteracoes_preserva_os_dados(client, bd_em_ficheiro):
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [CONTA_REAL]
+    assert len(anteriores(bd_em_ficheiro)) == 1
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [CONTA_REAL]
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -453,41 +486,21 @@ def test_ida_e_volta_traz_de_volta_o_estado_anterior(client, bd_em_ficheiro):
 
     assert resposta.status_code == 200
     assert resposta.json()["ok"] is True
-    assert existe(bd_em_ficheiro, ".anterior")
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+    assert len(anteriores(bd_em_ficheiro)) == 1
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [
         "Conta Nova",
         "Conta Real",
     ]
     assert nomes_das_contas() == [CONTA_REAL]
 
 
-def test_tabelas_esperadas_existem_no_modelo():
-    """Cada nome de `TABELAS_ESPERADAS` é mesmo o nome de uma tabela do modelo.
-
-    Amarração de uma ponta: se alguém voltar a fixar em `backups.py` um
-    conjunto de nomes à mão, e esse conjunto pedir uma tabela que o modelo não
-    tem, o restauro passa a recusar ficheiros bons. Isto apanha esse erro.
-
-    A outra ponta — a lista ser completa — é
-    `test_a_lista_validada_e_a_do_modelo`.
-
-    Não pede a BD: é uma comparação entre a constante do router e o modelo.
-    """
-    do_modelo = {tabela.name for tabela in Base.metadata.sorted_tables}
-
-    assert TABELAS_ESPERADAS <= do_modelo, (
-        f"TABELAS_ESPERADAS pede tabelas que o modelo não tem: "
-        f"{sorted(TABELAS_ESPERADAS - do_modelo)}"
-    )
-
-
-def test_a_lista_validada_e_a_do_modelo():
+def test_a_lista_validada_e_a_do_modelo(tmp_path):
     """A lista de tabelas que o endpoint valida é exatamente a do modelo.
 
-    Amarra a outra ponta do teste anterior: `TABELAS_ESPERADAS` deriva de
-    `Base.metadata.sorted_tables`, e esta asserção falha se alguém voltar
-    a escrever o conjunto à mão com menos nomes — que foi exactamente o defeito
-    original: 3 nomes fixos em vez das 11 tabelas do modelo.
+    `colunas_em_falta` percorre `Base.metadata.sorted_tables`, e esta asserção
+    falha se alguém voltar a escrever o conjunto à mão com menos nomes — que
+    foi exactamente o defeito original: 3 nomes fixos em vez das 11 tabelas do
+    modelo. Num ficheiro SQLite sem tabelas, faltam as 11, e só elas.
 
     As 11 tabelas, escritas à mão e por ordem alfabética, são
     `TABELAS_DO_MODELO`; a comparação com o modelo está logo abaixo, e a
@@ -500,12 +513,9 @@ def test_a_lista_validada_e_a_do_modelo():
         f"O modelo mudou: {sorted(do_modelo ^ TABELAS_DO_MODELO)}. "
         "Actualiza TABELAS_DO_MODELO e o comentário deste teste."
     )
-    assert TABELAS_ESPERADAS == do_modelo, (
-        "TABELAS_ESPERADAS já não coincide com Base.metadata.sorted_tables: "
-        f"falta {sorted(do_modelo - TABELAS_ESPERADAS)}, "
-        f"sobra {sorted(TABELAS_ESPERADAS - do_modelo)}. "
-        "Se a lista voltou a ser fixada à mão, o defeito regressou."
-    )
+    vazia = tmp_path / "vazia.db"
+    sqlite3.connect(vazia).close()
+    assert set(colunas_em_falta(str(vazia))) == TABELAS_DO_MODELO
 
 
 # ---------------------------------------------------------------------------
@@ -523,9 +533,11 @@ def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_fichei
     Cálculo à mão: o ficheiro tem `transacoes`, `categorias` e `contas`, e
     faltam as outras oito de `TABELAS_DO_MODELO` — escritas à mão, por ordem
     alfabética: ativos, configuracao, movimentos_ativo, perfis_importacao,
-    precos_ativo, regras_categorizacao, subcategorias, tipos_ativo. A validação
-    responde 400 com a mensagem genérica, o `.tmp` é apagado e o `.anterior`
-    não chega a ser criado.
+    precos_ativo, regras_categorizacao, subcategorias, tipos_ativo. Como as três
+    tabelas de sempre estão lá, as oito são criadas vazias no temporário (6.4),
+    mas as três têm colunas a menos (`MINIMO_3`): a validação responde 400 com a
+    mensagem de versão anterior, o `.tmp` é apagado e o `.anterior` não chega a
+    ser criado.
 
     A BD fica como estava, e lê-se pelas duas pontas: a `Conta Real` continua
     lá, e a tabela `ativos` existe e vem vazia (era uma das oito que ninguém
@@ -537,9 +549,9 @@ def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_fichei
     resposta = importar(client, conteudo)
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
     db = sessao_nova()
@@ -557,10 +569,11 @@ def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tm
     apagado.
 
     Cálculo à mão: o ficheiro tem as tabelas `transacoes`, `categorias` e
-    `contas`, cada uma só com a coluna `id`. A validação de estrutura responde
-    400 com a mensagem genérica. Repare-se que, com este ficheiro, a recusa já
-    vem das oito tabelas em falta — como **teste de colunas em concreto** ele
-    não prova nada, e é por isso que existe
+    `contas`, cada uma só com a coluna `id`. As três tabelas de sempre estão lá,
+    pelo que a validação de estrutura responde 400 com a mensagem de versão
+    anterior. As oito tabelas em falta são criadas no temporário (6.4), por isso
+    a recusa vem mesmo das colunas; ainda assim, o teste de uma só coluna em
+    falta é
     `test_coluna_em_falta_numa_so_tabela_e_rejeitado`, que tem as 11 tabelas e
     só uma coluna a menos.
 
@@ -576,9 +589,9 @@ def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tm
     resposta = importar(client, conteudo)
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
     db = sessao_nova()
@@ -594,7 +607,8 @@ def test_rejeicao_nao_toca_no_anterior_pre_existente(client, bd_em_ficheiro, tmp
     Cálculo à mão: o primeiro pedido é um restauro bom (exportar → importar),
     que deixa no `.anterior` o estado anterior àquele restauro — aqui, só a
     `Conta Real`. Guardam-se os bytes. O segundo pedido é um `.db` com as 3
-    tabelas, rejeitado com 400: a limpeza inicial tira do caminho só o `.tmp`,
+    tabelas, rejeitado com 400 (mensagem de versão anterior, porque tem as três
+    tabelas de sempre): a limpeza inicial tira do caminho só o `.tmp`,
     e a cópia do `.anterior` está depois da validação, pelo que nenhum dos
     caminhos de rejeição chega a tocar naquele ficheiro. Os bytes têm de ser
     os mesmos.
@@ -606,16 +620,17 @@ def test_rejeicao_nao_toca_no_anterior_pre_existente(client, bd_em_ficheiro, tmp
     primeiro = importar(client, exportado.content)
     assert primeiro.status_code == 200
 
-    anterior = caminho_do(bd_em_ficheiro, ".anterior")
-    assert anterior.exists(), "O restauro bom devia ter criado o `.anterior`."
+    anterior = ultimo_anterior(bd_em_ficheiro)
     bytes_antes = anterior.read_bytes()
 
     conteudo = criar_sqlite(tmp_path / "tres.db", MINIMO_3)
     resposta = importar(client, conteudo)
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
-    assert anterior.exists(), "A rejeição apagou o `.anterior` pré-existente."
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
+    assert anteriores(bd_em_ficheiro) == [anterior], (
+        "A rejeição apagou o `.anterior` pré-existente ou criou outro."
+    )
     assert anterior.read_bytes() == bytes_antes, (
         "A rejeição alterou o conteúdo do `.anterior` pré-existente."
     )
@@ -655,9 +670,43 @@ def test_modelo_completo_com_coluna_extra_e_aceite(client, bd_em_ficheiro, tmp_p
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [CONTA_REAL]
+    assert len(anteriores(bd_em_ficheiro)) == 1
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [CONTA_REAL]
     assert nomes_das_contas() == ["Conta Extra"]
+
+
+def test_backup_antigo_com_reembolso_e_aceite_e_perde_a_coluna(client, bd_em_ficheiro, tmp_path):
+    """Um backup de antes do 4.3, com `transacoes.reembolso`, é restaurado sem ela.
+
+    Cálculo à mão: o ficheiro tem o modelo completo mais a coluna antiga (uma
+    coluna a mais é aceite pela validação). Depois da troca,
+    `remover_coluna_reembolso` apaga-a: a BD restaurada não tem a coluna e
+    guarda a única transacção do backup.
+    """
+    caminho = tmp_path / "antigo.db"
+    criar_bd_do_modelo(caminho)
+    con = sqlite3.connect(caminho)
+    try:
+        con.execute("ALTER TABLE transacoes ADD COLUMN reembolso BOOLEAN NOT NULL DEFAULT 0")
+        con.execute(
+            "INSERT INTO transacoes (data, descricao, valor, reembolso) "
+            "VALUES ('2025-03-18', 'Reembolso seguros', 50.0, 1)"
+        )
+        con.commit()
+    finally:
+        con.close()
+
+    resposta = importar(client, caminho.read_bytes())
+
+    assert resposta.status_code == 200
+    con = sqlite3.connect(bd_em_ficheiro)
+    try:
+        nomes = [linha[1] for linha in con.execute("PRAGMA table_info(transacoes)")]
+        transacoes = con.execute("SELECT descricao, valor FROM transacoes").fetchall()
+    finally:
+        con.close()
+    assert "reembolso" not in nomes
+    assert transacoes == [("Reembolso seguros", 50.0)]
 
 
 def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_path):
@@ -671,8 +720,9 @@ def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_
     validadas (o das colunas erradas tem 8 tabelas a menos e seria recusado de
     qualquer modo).
 
-    A recusa é 400 com a mensagem genérica, sem dizer a tabela nem a coluna, e
-    a BD fica como estava.
+    É o caso de um backup de uma versão anterior: a recusa é 400 com a mensagem
+    de versão anterior, sem dizer a tabela nem a coluna, e a BD fica como
+    estava.
     """
     semear_conta_real()
     caminho = tmp_path / "sem_valor.db"
@@ -688,49 +738,183 @@ def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_
     resposta = importar(client, caminho.read_bytes())
 
     assert resposta.status_code == 400
-    assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+    assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
 
-def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_ficheiro, tmp_path):
-    """Falta de QUALQUER tabela do modelo é recusada — tabela a tabela.
+def _completo_sem(tmp_path: Path, completo: bytes, nome: str) -> bytes:
+    """O `.db` completo sem a tabela `nome` (`DROP TABLE`; o `sqlite3` dos
+    testes não impõe chaves estrangeiras, pelo que o `DROP` corre)."""
+    caminho = tmp_path / f"sem_{nome}.db"
+    caminho.write_bytes(completo)
+    con = sqlite3.connect(caminho)
+    try:
+        con.execute(f"DROP TABLE {nome}")
+        con.commit()
+    finally:
+        con.close()
+    return caminho.read_bytes()
 
-    Cálculo à mão: `TABELAS_DO_MODELO` tem 11 tabelas. Para cada uma, copia-se
-    o `.db` completo e apaga-se **só** essa tabela (`DROP TABLE`; o `sqlite3`
-    dos testes não impõe chaves estrangeiras, pelo que o `DROP` corre), pelo
-    que as outras dez continuam presentes. Os onze pedidos têm de dar 400 com
-    a mesma mensagem genérica — mesmo para as três tabelas que a validação
-    antiga conhecia.
 
-    Um teste só com uma tabela a menos apanharia apenas o mutante que ignora
-    essa tabela; correr as onze cobre qualquer uma delas. No fim, a BD tem de
-    continuar com a `Conta Real` e sem restos em disco.
+TABELAS_DE_SEMPRE = ("categorias", "contas", "transacoes")
+
+
+def test_ficheiro_sem_uma_das_tres_tabelas_de_sempre_e_rejeitado(client, bd_em_ficheiro, tmp_path):
+    """Sem `transacoes`, `categorias` ou `contas`, o ficheiro é recusado.
+
+    Cálculo à mão: para cada uma das três, copia-se o `.db` completo e apaga-se
+    só essa tabela; as outras dez continuam. Sem uma das três de sempre, o
+    ficheiro não parece um backup do Rastreio-DB: as tabelas em falta não são
+    criadas (6.4) e a resposta é 400 com a mensagem genérica (6.1). Duas das
+    três não chegam. No fim, a BD continua com a `Conta Real`, sem restos.
     """
     semear_conta_real()
     completo = criar_bd_do_modelo(tmp_path / "completo.db")
 
-    for nome in sorted(TABELAS_DO_MODELO):
-        caminho = tmp_path / f"sem_{nome}.db"
-        caminho.write_bytes(completo)
-        con = sqlite3.connect(caminho)
-        try:
-            con.execute(f"DROP TABLE {nome}")
-            con.commit()
-        finally:
-            con.close()
+    for nome in TABELAS_DE_SEMPRE:
+        resposta = importar(client, _completo_sem(tmp_path, completo, nome))
 
-        resposta = importar(client, caminho.read_bytes())
-
-        assert resposta.status_code == 400, (
-            f"Um `.db` sem a tabela {nome!r} foi aceite com {resposta.status_code}: {resposta.text}"
-        )
-        assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
+        assert (resposta.status_code, resposta.json()["detail"]) == (400, MENSAGEM_ESTRUTURA), nome
 
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
+
+
+def test_backup_sem_uma_tabela_nova_e_aceite_com_ela_vazia(client, bd_em_ficheiro, tmp_path):
+    """A um backup que só não tem uma das outras oito tabelas, ela é criada vazia.
+
+    Uma tabela nova não tem migração, e o restauro faz
+    o que o arranque faz, cria-a vazia. Para cada uma das oito, copia-se o
+    `.db` completo, com a conta «Conta do backup», e apaga-se só essa tabela.
+
+    Cálculo à mão, por restauro: 200; a BD passa a ser o backup (a única conta
+    é «Conta do backup»); a tabela apagada existe outra vez e está vazia; e não
+    falta nenhuma tabela nem coluna. São 8 restauros bons, cada um com a sua
+    cópia `.anterior-<data>`, e ficam as 5 mais recentes (6.3).
+    """
+    semear_conta_real()
+    caminho_completo = tmp_path / "completo.db"
+    criar_bd_do_modelo(caminho_completo)
+    con = sqlite3.connect(caminho_completo)
+    try:
+        con.execute(
+            "INSERT INTO contas (nome, saldo_referencia, data_referencia, ativa) "
+            "VALUES ('Conta do backup', 1.0, '2024-03-01', 1)"
+        )
+        con.commit()
+    finally:
+        con.close()
+    completo = caminho_completo.read_bytes()
+
+    outras = sorted(TABELAS_DO_MODELO - set(TABELAS_DE_SEMPRE))
+    assert len(outras) == 8
+    for nome in outras:
+        resposta = importar(client, _completo_sem(tmp_path, completo, nome))
+
+        assert resposta.status_code == 200, (nome, resposta.text)
+        assert nomes_das_contas() == ["Conta do backup"], nome
+        con = sqlite3.connect(bd_em_ficheiro)
+        try:
+            assert con.execute(f"SELECT count(*) FROM {nome}").fetchone() == (0,), nome
+        finally:
+            con.close()
+        assert colunas_em_falta(str(bd_em_ficheiro)) == [], nome
+
+    assert len(anteriores(bd_em_ficheiro)) == 5
+    assert not existe(bd_em_ficheiro, ".tmp")
+
+
+# ---------------------------------------------------------------------------
+# Valores inválidos
+# ---------------------------------------------------------------------------
+
+MENSAGEM_VALORES = (
+    "O backup tem valores inválidos e não pode ser restaurado. "
+    "A base de dados actual não foi alterada."
+)
+
+
+def _completo_com(tmp_path: Path, *sql: str) -> bytes:
+    """O `.db` completo do modelo, com as instruções `sql` corridas sem chaves
+    estrangeiras (o `sqlite3` não as impõe por omissão)."""
+    caminho = tmp_path / "com_valores.db"
+    criar_bd_do_modelo(caminho)
+    con = sqlite3.connect(caminho)
+    try:
+        for instrucao in sql:
+            con.execute(instrucao)
+        con.commit()
+    finally:
+        con.close()
+    return caminho.read_bytes()
+
+
+def test_backup_com_tipo_de_categoria_desconhecido_e_rejeitado(client, bd_em_ficheiro, tmp_path):
+    """Um tipo de categoria que a enumeração não tem («poupanca») é recusado.
+
+    Cálculo à mão: `TipoCategoria` tem despesa, receita, investimento e
+    transferencia; "poupanca" não é nenhum. Antes da correcção, o restauro dava
+    200 e as páginas das categorias, transações e estatísticas davam 500.
+    Agora: 400, a BD fica com a `Conta Real` e não há cópias novas.
+    """
+    semear_conta_real()
+    conteudo = _completo_com(
+        tmp_path, "INSERT INTO categorias (nome, tipo) VALUES ('Mealheiro', 'poupanca')"
+    )
+
+    resposta = importar(client, conteudo)
+
+    assert (resposta.status_code, resposta.json()["detail"]) == (400, MENSAGEM_VALORES)
+    assert nomes_das_contas() == [CONTA_REAL]
+    assert anteriores(bd_em_ficheiro) == []
+    assert not existe(bd_em_ficheiro, ".tmp")
+
+
+def test_backup_com_chave_estrangeira_partida_e_rejeitado(client, bd_em_ficheiro, tmp_path):
+    """Uma transacção que aponta para uma categoria que não existe é recusada.
+
+    Cálculo à mão: a única transacção tem `categoria_id = 999`, e a tabela de
+    categorias está vazia -> uma linha no `PRAGMA foreign_key_check` -> 400, e a
+    BD fica como estava.
+    """
+    semear_conta_real()
+    conteudo = _completo_com(
+        tmp_path,
+        "INSERT INTO transacoes (data, descricao, valor, categoria_id) "
+        "VALUES ('2025-01-01', 'Café', -1.0, 999)",
+    )
+
+    resposta = importar(client, conteudo)
+
+    assert (resposta.status_code, resposta.json()["detail"]) == (400, MENSAGEM_VALORES)
+    assert nomes_das_contas() == [CONTA_REAL]
+    assert anteriores(bd_em_ficheiro) == []
+
+
+def test_backup_com_valores_validos_de_todas_as_enumeracoes_e_aceite(
+    client, bd_em_ficheiro, tmp_path
+):
+    """Valores válidos passam: a verificação não recusa um backup bom.
+
+    Cálculo à mão: uma categoria `receita` e uma `transferencia`, com uma
+    transacção ligada à primeira -> as enumerações batem e não há chaves
+    partidas -> 200.
+    """
+    semear_conta_real()
+    conteudo = _completo_com(
+        tmp_path,
+        "INSERT INTO categorias (id, nome, tipo) VALUES (1, 'Receita', 'receita')",
+        "INSERT INTO categorias (id, nome, tipo) VALUES (2, 'Transf', 'transferencia')",
+        "INSERT INTO transacoes (data, descricao, valor, categoria_id) "
+        "VALUES ('2025-01-01', 'Salário', 100.0, 1)",
+    )
+
+    resposta = importar(client, conteudo)
+
+    assert resposta.status_code == 200, resposta.text
 
 
 # ---------------------------------------------------------------------------
@@ -762,7 +946,7 @@ def test_extensao_db_maiuscula_e_aceite(client, bd_em_ficheiro):
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
+    assert len(anteriores(bd_em_ficheiro)) == 1
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -787,7 +971,7 @@ def test_extensao_db_com_capitalizacao_mista_e_aceite(client, bd_em_ficheiro):
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
+    assert len(anteriores(bd_em_ficheiro)) == 1
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -812,6 +996,77 @@ def test_extensao_errada_continua_a_ser_rejeitada(client, bd_em_ficheiro):
     assert resposta.json()["detail"] == "Ficheiro inválido"
     assert not existe(bd_em_ficheiro, ".tmp")
     assert nomes_das_contas() == [CONTA_REAL]
+
+
+# ---------------------------------------------------------------------------
+# Várias cópias `.anterior-<data>`
+# ---------------------------------------------------------------------------
+
+
+def test_dois_restauros_guardam_duas_copias(client, bd_em_ficheiro):
+    """Um segundo restauro não apaga a cópia do primeiro.
+
+    É o caso que perdia dados: restaura-se o backup errado e depois outro para
+    corrigir. Com um só `.anterior`, o segundo restauro substituía a BD original
+    pelo backup errado.
+
+    Cálculo à mão:
+      * a BD tem `Conta Real`; exporta-se (o «backup errado»);
+      * cria-se `Conta Nova`: a BD original tem as duas contas;
+      * 1.º restauro do export -> a 1.ª cópia guarda a BD original, com as duas
+        contas, e a BD fica só com a `Conta Real`;
+      * 2.º restauro do mesmo export -> a 2.ª cópia guarda só a `Conta Real`.
+    As duas cópias ficam, por esta ordem, e a original continua recuperável.
+    Os dois restauros podem cair no mesmo segundo: o 2.º leva então `-2` no
+    nome, que ordena depois do 1.º.
+    """
+    semear_conta_real()
+    exportado = client.get("/api/backups/exportar").content
+    db = sessao_nova()
+    try:
+        db.add(Conta(nome="Conta Nova", saldo_referencia=50.0, data_referencia=date(2024, 2, 1)))
+        db.commit()
+    finally:
+        db.close()
+
+    assert importar(client, exportado).status_code == 200
+    assert importar(client, exportado).status_code == 200
+
+    copias = anteriores(bd_em_ficheiro)
+    assert [contas_em(c) for c in copias] == [["Conta Nova", CONTA_REAL], [CONTA_REAL]]
+    for copia in copias:
+        assert re.fullmatch(
+            re.escape(bd_em_ficheiro.name) + r"\.anterior-\d{4}-\d{2}-\d{2}-\d{6}(-\d+)?",
+            copia.name,
+        ), copia.name
+    assert nomes_das_contas() == [CONTA_REAL]
+
+
+def test_ficam_so_as_cinco_copias_mais_recentes(client, bd_em_ficheiro):
+    """Um restauro com 5 cópias no disco apaga a mais antiga e fica com 5.
+
+    Cálculo à mão: semeiam-se 5 cópias com datas de 2020 (dias 1 a 5) e um
+    `.anterior` sem data, de uma versão anterior da aplicação. O restauro cria
+    a 6.ª cópia, com a data de hoje, que ordena depois das de 2020. Ficam as 5
+    mais recentes: as de 2020 dos dias 2 a 5 e a de hoje. Sai a do dia 1. O
+    `.anterior` sem data não conta para as 5 e fica no disco.
+    """
+    semear_conta_real()
+    antigas = [Path(f"{bd_em_ficheiro}.anterior-2020-01-0{dia}-120000") for dia in range(1, 6)]
+    for antiga in antigas:
+        antiga.write_bytes(b"copia antiga")
+    sem_data = caminho_do(bd_em_ficheiro, ".anterior")
+    sem_data.write_bytes(b"copia de uma versao anterior")
+
+    exportado = client.get("/api/backups/exportar").content
+    assert importar(client, exportado).status_code == 200
+
+    copias = anteriores(bd_em_ficheiro)
+    assert copias[:4] == antigas[1:]
+    assert len(copias) == 5
+    assert contas_em(copias[4]) == [CONTA_REAL]
+    assert not antigas[0].exists()
+    assert sem_data.read_bytes() == b"copia de uma versao anterior"
 
 
 # ---------------------------------------------------------------------------
@@ -840,7 +1095,7 @@ def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
     finally:
         db.close()
 
-    anterior = caminho_do(bd_em_ficheiro, ".anterior")
+    anterior = ultimo_anterior(bd_em_ficheiro)
     assert contas_em(anterior) == [CONTA_REAL]
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
     return exportado.content, anterior.read_bytes()
@@ -881,11 +1136,11 @@ def test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd(client, bd_em_fic
 
     assert resposta.status_code == 500
     assert resposta.json()["detail"] == "Falha ao restaurar: disco cheio (simulado)"
-    assert caminho_do(bd_em_ficheiro, ".anterior").read_bytes() == anterior_antes
+    assert [c.read_bytes() for c in anteriores(bd_em_ficheiro)] == [anterior_antes]
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
     assert integridade(bd_em_ficheiro) == ("linha", "ok")
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+    assert anteriores_tmp(bd_em_ficheiro) == []
 
 
 def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
@@ -894,11 +1149,12 @@ def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
     Antes da correcção, o rollback não removia o `.tmp`, que só
     desaparecia no pedido seguinte.
 
-    Só a troca `.tmp` → BD é sabotada; a do `.anterior.tmp` → `.anterior`
-    passa. Cálculo à mão:
+    Só a troca `.tmp` → BD é sabotada; a da cópia `.tmp` → cópia final passa.
+    Cálculo à mão:
       * 500;
       * a BD continua com as duas contas (o `os.replace` é atómico e falhou);
-      * o `.anterior` foi criado neste pedido, com as duas contas, e fica;
+      * há duas cópias: a do restauro bom (`Conta Real`) e a deste pedido, com
+        as duas contas, que fica;
       * o `.tmp` foi removido.
     """
     exportado, _ = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
@@ -917,12 +1173,13 @@ def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
     assert resposta.status_code == 500
     assert resposta.json()["detail"] == "Falha ao restaurar: troca falhada (simulado)"
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+    assert len(anteriores(bd_em_ficheiro)) == 2
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [
         "Conta Nova",
         CONTA_REAL,
     ]
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+    assert anteriores_tmp(bd_em_ficheiro) == []
 
 
 def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(client, bd_em_ficheiro, monkeypatch):
@@ -953,7 +1210,7 @@ def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(client, bd_em_fic
     assert resposta.status_code == 500
     assert resposta.json()["detail"] == ("Falha ao restaurar: verificação falhada (simulado)")
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [
         "Conta Nova",
         CONTA_REAL,
     ]
@@ -980,7 +1237,6 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
     exportado, _ = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
     validar_real = backups._validar_estrutura
     copia_real = shutil.copy2
-    anterior = caminho_do(bd_em_ficheiro, ".anterior")
 
     def validar_falha_na_bd(caminho):
         if Path(caminho).resolve() == bd_em_ficheiro:
@@ -988,7 +1244,9 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
         return validar_real(caminho)
 
     def reposicao_cortada(origem, destino, *args, **kwargs):
-        if Path(origem).resolve() == anterior:
+        # A única cópia que não parte da BD é a da reposição, a partir da
+        # cópia deste pedido
+        if Path(origem).resolve() != bd_em_ficheiro:
             dados = Path(origem).read_bytes()
             Path(destino).write_bytes(dados[: len(dados) // 2])
             raise OSError("disco cheio (simulado)")
@@ -1003,9 +1261,9 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
     assert resposta.json()["detail"] == ("Falha ao restaurar: verificação falhada (simulado)")
     assert integridade(bd_em_ficheiro) == ("linha", "ok")
     assert nomes_das_contas() == [CONTA_REAL]
-    assert contas_em(anterior) == ["Conta Nova", CONTA_REAL]
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == ["Conta Nova", CONTA_REAL]
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+    assert anteriores_tmp(bd_em_ficheiro) == []
 
 
 # ---------------------------------------------------------------------------
@@ -1051,11 +1309,11 @@ def test_restaurar_backup_com_fk_partida_repara_o_schema(
 def test_falha_na_reparacao_repoe_a_bd_anterior(
     client, bd_em_ficheiro, tmp_path, criar_bd_com_fk_partida, monkeypatch
 ):
-    """Se a reparação falhar depois da troca, o restauro volta atrás.
+    """Se a reparação falhar, a BD actual não chega a ser tocada.
 
-    Cálculo à mão: a BD tem a `Conta Real` e o backup não tem contas. A troca
-    acontece, a reparação falha, e o rollback repõe a BD a partir do
-    `.anterior`: 500 com a mensagem da falha, e a `Conta Real` de volta.
+    Cálculo à mão: a BD tem a `Conta Real` e o backup não tem contas. A
+    reparação corre no `.tmp`, antes da troca, e falha: 500 com a mensagem da
+    falha, a `Conta Real` continua lá, e não há `.tmp` nem `.anterior`.
     """
     semear_conta_real()
     backup = tmp_path / "antigo.db"
@@ -1064,7 +1322,7 @@ def test_falha_na_reparacao_repoe_a_bd_anterior(
     def reparar_falha(caminho):
         raise RuntimeError("reparação falhada (simulado)")
 
-    monkeypatch.setattr(backups, "reparar_fk_ativos", reparar_falha)
+    monkeypatch.setattr(database, "MIGRACOES", (("reparação", reparar_falha),))
 
     resposta = importar(client, backup.read_bytes())
 
@@ -1072,6 +1330,7 @@ def test_falha_na_reparacao_repoe_a_bd_anterior(
     assert resposta.json()["detail"] == ("Falha ao restaurar: reparação falhada (simulado)")
     assert nomes_das_contas() == [CONTA_REAL]
     assert not existe(bd_em_ficheiro, ".tmp")
+    assert anteriores(bd_em_ficheiro) == []
 
 
 def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partida):
@@ -1090,3 +1349,130 @@ def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partid
 
     for tabela in ("precos_ativo", "movimentos_ativo"):
         assert "ativos_old" not in _ddl_em(bd_em_ficheiro, tabela)
+    assert _versao_em(bd_em_ficheiro) == 2
+
+
+# ---------------------------------------------------------------------------
+# Versão do schema e colunas em falta
+# ---------------------------------------------------------------------------
+
+
+def _versao_em(caminho: Path) -> int:
+    con = sqlite3.connect(caminho)
+    try:
+        return con.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        con.close()
+
+
+def _sem_coluna_fee(caminho: Path) -> None:
+    """Tira `perfis_importacao.coluna_fee`, como numa BD de antes de Junho."""
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        con.execute("ALTER TABLE perfis_importacao DROP COLUMN coluna_fee")
+    finally:
+        con.close()
+
+
+def _acrescentar_coluna_fee(caminho):
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(perfis_importacao)")}
+        if "coluna_fee" in colunas:
+            return False
+        con.execute("ALTER TABLE perfis_importacao ADD COLUMN coluna_fee INTEGER")
+    finally:
+        con.close()
+    return True
+
+
+def test_backup_antigo_e_migrado_antes_de_ser_validado(
+    client, bd_em_ficheiro, tmp_path, monkeypatch
+):
+    """Um backup sem uma coluna que uma migração acrescenta é aceite.
+
+    Cálculo à mão: o backup está na versão 0 e não tem `coluna_fee`. Com uma
+    3.ª migração que a acrescenta, a migração corre no `.tmp` antes da
+    validação, que passa: 200, a coluna existe e a BD fica na versão 3. Sem a
+    migração, o mesmo ficheiro é recusado
+    (`test_coluna_em_falta_numa_so_tabela_e_rejeitado`).
+    """
+    backup = tmp_path / "antigo.db"
+    criar_bd_do_modelo(backup)
+    _sem_coluna_fee(backup)
+    monkeypatch.setattr(
+        database, "MIGRACOES", database.MIGRACOES + (("coluna_fee", _acrescentar_coluna_fee),)
+    )
+
+    resposta = importar(client, backup.read_bytes())
+
+    assert resposta.status_code == 200
+    assert colunas_em_falta(str(bd_em_ficheiro)) == []
+    assert _versao_em(bd_em_ficheiro) == 3
+
+
+def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_path):
+    """Cálculo à mão: um backup na versão 0, com as 2 migrações, fica na 2."""
+    backup = tmp_path / "antigo.db"
+    criar_bd_do_modelo(backup)
+    assert _versao_em(backup) == 0
+
+    resposta = importar(client, backup.read_bytes())
+
+    assert resposta.status_code == 200
+    assert _versao_em(bd_em_ficheiro) == 2
+
+
+def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, monkeypatch):
+    """Uma BD criada agora já tem o schema final: nenhuma migração corre.
+
+    Cálculo à mão: duas migrações falsas, que registariam se corressem; a BD
+    fica na versão 2 e a lista fica vazia.
+    """
+    corridas = []
+
+    def migracao(caminho):
+        corridas.append(caminho)
+        return True
+
+    monkeypatch.setattr(database, "MIGRACOES", (("um", migracao), ("dois", migracao)))
+    engine.dispose()
+    bd_em_ficheiro.unlink()
+
+    database.criar_tabelas()
+
+    assert corridas == []
+    assert _versao_em(bd_em_ficheiro) == 2
+
+
+def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
+    """Cálculo à mão: uma BD na versão 0 com a 3.ª migração falsa corre-a, e fica na 3."""
+    monkeypatch.setattr(
+        database, "MIGRACOES", database.MIGRACOES + (("coluna_fee", _acrescentar_coluna_fee),)
+    )
+    engine.dispose()
+    _sem_coluna_fee(bd_em_ficheiro)
+
+    database.criar_tabelas()
+
+    assert colunas_em_falta(str(bd_em_ficheiro)) == []
+    assert _versao_em(bd_em_ficheiro) == 3
+
+
+def test_arranque_recusa_bd_com_colunas_em_falta(bd_em_ficheiro):
+    """Sem migração que a acrescente, falta `coluna_fee`: o arranque recusa.
+
+    Antes do 1.1, a aplicação abria e `/api/perfis-importacao/` dava 500.
+    """
+    engine.dispose()
+    _sem_coluna_fee(bd_em_ficheiro)
+
+    with pytest.raises(RuntimeError) as erro:
+        database.criar_tabelas()
+
+    assert str(erro.value) == (
+        "A base de dados é de uma versão anterior do Rastreio-DB que não se "
+        "consegue actualizar automaticamente.\n"
+        f"  {database.DB_PATH}\n"
+        "Falta: perfis_importacao.coluna_fee"
+    )

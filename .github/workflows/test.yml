@@ -1,7 +1,8 @@
 # Corre a suite de testes em cada push para uma branch e em cada pedido de
-# integração. As tags não correm aqui: o build.yml é quem as trata e quem gera
-# os executáveis. Chega definir `branches` sem `tags`, porque o GitHub só
-# dispara o trabalho para o tipo de ref definido.
+# integração. As tags não disparam este workflow directamente: o build.yml
+# chama-o (workflow_call) e só gera os executáveis se ele passar. Chega definir
+# `branches` sem `tags`, porque o GitHub só dispara o trabalho para o tipo de
+# ref definido.
 
 name: Testes
 
@@ -10,6 +11,7 @@ on:
     branches:
       - "**"
   pull_request:
+  workflow_call:
 
 # Só precisa de ler o repositório. O build.yml pede contents: write porque cria
 # Releases.

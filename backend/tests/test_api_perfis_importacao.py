@@ -21,9 +21,9 @@ O frontend **nao tem interlocutor de `PUT`**: `atualizarPerfil` esta definido
 em `frontend/src/api/perfisImportacao.js:5`, mas nenhuma pagina o importa nem
 o chama; o formulario de perfis (`frontend/src/pages/Importacao.jsx:154`) so
 invoca `criarPerfil` (POST). O `PUT` reescreve todos os campos com
-`dados.model_dump()` (`routers/perfis_importacao.py:57-58`), pelo que um corpo
-sem `conta_id` a repoe a `None`. Fica fixado como comportamento actual do
-endpoint; nao ha, hoje, caminho de UI que o exercite.
+`dados.model_dump()` (`routers/perfis_importacao.py:57-58`). A conta e
+obrigatoria ao criar e ao editar: um corpo sem `conta_id` da 422.
+Nao ha, hoje, caminho de UI que exercite o `PUT`.
 
 Valores esperados
 -----------------
@@ -38,8 +38,9 @@ from openpyxl import Workbook
 
 from database import Conta, ModoValor, PerfilImportacao, TipoFicheiro
 
-# Payload minimo valido para `PerfilImportacaoCreate` (schema, linhas 71-100):
-# os restantes campos tem valores por omissao. `coluna_valor` e obrigatoria
+# Payload minimo para `PerfilImportacaoCreate` (schema, linhas 71-100), sem a
+# conta: cada teste junta `conta_id` de uma conta semeada, porque e obrigatoria.
+# Os restantes campos tem valores por omissao. `coluna_valor` e obrigatoria
 # para `modo_valor="coluna_unica"`.
 PERFIL_BASE = {
     "nome": "Demo",
@@ -131,13 +132,15 @@ def test_criar_perfil_grava_e_devolve_201(client, session):
     Cálculo à mão: um `POST`, uma linha. O `status_code=201` esta declarado na
     rota (`routers/perfis_importacao.py:16`).
     """
-    r = client.post("/api/perfis-importacao/", json=payload(nome="Demo"))
+    conta = semear_conta(session, "Banco")
+    r = client.post("/api/perfis-importacao/", json=payload(nome="Demo", conta_id=conta.id))
 
     assert r.status_code == 201
     corpo = r.json()
     assert corpo["id"] == 1
     assert corpo["nome"] == "Demo"
     assert corpo["coluna_valor"] == 2
+    assert corpo["conta_id"] == conta.id
 
     assert session.query(PerfilImportacao).count() == 1
     perfil = session.query(PerfilImportacao).one()
@@ -152,12 +155,25 @@ def test_criar_perfil_com_nome_duplicado_da_409(client, session):
     com 1 linha.
     """
     semear_perfil(session, "Demo")
+    conta = semear_conta(session, "Banco")
 
-    r = client.post("/api/perfis-importacao/", json=payload(nome="Demo"))
+    r = client.post("/api/perfis-importacao/", json=payload(nome="Demo", conta_id=conta.id))
 
     assert r.status_code == 409
     assert r.json()["detail"] == "Já existe um perfil com esse nome."
     assert session.query(PerfilImportacao).count() == 1
+
+
+def test_criar_perfil_sem_conta_da_422(client, session):
+    """Sem `conta_id`, o perfil nao e criado.
+
+    As transacções de um perfil sem conta contavam nas estatisticas mas nunca
+    na liquidez. Cálculo à mão: um `POST` recusado -> 0 perfis na BD.
+    """
+    r = client.post("/api/perfis-importacao/", json=payload(nome="Demo"))
+
+    assert r.status_code == 422
+    assert session.query(PerfilImportacao).count() == 0
 
 
 def test_criar_perfil_sem_coluna_valor_da_422(client, session):
@@ -219,6 +235,42 @@ def test_analisar_ficheiro_csv_delimitado_por_ponto_e_virgula_le_as_colunas(clie
 
     assert r.status_code == 200
     assert r.json()["linhas"] == [["a", "b"], ["1", "2"]]
+
+
+def test_analisar_ficheiro_csv_em_windows_1252_le_os_acentos(client):
+    """Um CSV em Windows-1252 mostra os acentos certos, em vez de dar 500.
+
+    Cálculo à mão: «Descrição» e «Água» têm bytes (0xe7, 0xe3, 0xc1) que não
+    são UTF-8 válido nesta sequência; a leitura em Windows-1252 devolve o texto
+    original. `,` dá 2 colunas em cada linha -> `[["Descrição", "Valor"],
+    ["Água", "-10"]]`.
+    """
+    conteudo = "Descrição,Valor\nÁgua,-10\n".encode("cp1252")
+
+    r = client.post(
+        "/api/perfis-importacao/analisar-ficheiro",
+        files={"file": ("extracto.csv", conteudo, "text/csv")},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["linhas"] == [["Descrição", "Valor"], ["Água", "-10"]]
+
+
+def test_analisar_ficheiro_csv_que_nao_e_utf8_nem_windows_1252_da_400(client):
+    """Bytes que nenhuma das duas codificações lê dão 400 em PT-PT, não 500.
+
+    0xc1 não pode começar um carácter em UTF-8; 0x81 não tem carácter em
+    Windows-1252.
+    """
+    r = client.post(
+        "/api/perfis-importacao/analisar-ficheiro",
+        files={"file": ("extracto.csv", b"\xc1\x81,a\n", "text/csv")},
+    )
+
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": "Não foi possível ler o ficheiro: a codificação não é UTF-8 nem Windows-1252."
+    }
 
 
 def test_analisar_ficheiro_csv_com_extensao_em_maiusculas(client):
@@ -304,10 +356,11 @@ def test_atualizar_perfil_grava_os_campos(client, session):
     resposta e a BD passam a 5.
     """
     perfil = semear_perfil(session, "Demo")
+    conta = semear_conta(session, "Banco")
 
     r = client.put(
         f"/api/perfis-importacao/{perfil.id}",
-        json=payload(nome="Demo2", coluna_valor=5),
+        json=payload(nome="Demo2", coluna_valor=5, conta_id=conta.id),
     )
 
     assert r.status_code == 200
@@ -327,10 +380,11 @@ def test_atualizar_perfil_com_o_proprio_nome_nao_da_conflito(client, session):
     `POST` devolveria 409.
     """
     perfil = semear_perfil(session, "Demo")
+    conta = semear_conta(session, "Banco")
 
     r = client.put(
         f"/api/perfis-importacao/{perfil.id}",
-        json=payload(nome="Demo"),
+        json=payload(nome="Demo", conta_id=conta.id),
     )
 
     assert r.status_code == 200
@@ -345,10 +399,11 @@ def test_atualizar_perfil_com_nome_de_outro_da_409(client, session):
     """
     alfa = semear_perfil(session, "Alfa")
     semear_perfil(session, "Beta")
+    conta = semear_conta(session, "Banco")
 
     r = client.put(
         f"/api/perfis-importacao/{alfa.id}",
-        json=payload(nome="Beta"),
+        json=payload(nome="Beta", conta_id=conta.id),
     )
 
     assert r.status_code == 409
@@ -359,26 +414,21 @@ def test_atualizar_perfil_com_nome_de_outro_da_409(client, session):
 
 def test_atualizar_perfil_inexistente_da_404(client, session):
     """Um id que nao existe responde 404 e nao grava nada."""
-    r = client.put("/api/perfis-importacao/999", json=payload())
+    # O corpo tem de ser valido para chegar a rota; o perfil e procurado antes
+    # da conta, por isso a conta 1 inexistente nao chega a ser vista
+    r = client.put("/api/perfis-importacao/999", json=payload(conta_id=1))
 
     assert r.status_code == 404
     assert r.json()["detail"] == "Perfil não encontrado."
     assert session.query(PerfilImportacao).count() == 0
 
 
-def test_atualizar_perfil_reescreve_conta_id_para_none(client, session):
-    """O `PUT` reescreve todos os campos: omitir `conta_id` repoe-o a `None`.
+def test_atualizar_perfil_sem_conta_da_422_e_mantem_a_conta(client, session):
+    """O `PUT` sem `conta_id` e recusado (422) e o perfil fica com a conta.
 
-    O corpo e aplicado com `dados.model_dump()`
-    (`routers/perfis_importacao.py:57-58`), por isso os campos ausentes ficam
-    com o valor por omissao do schema (`conta_id=None`). É o comportamento
-    actual do `PUT`.
-
-    Nota: o frontend nao chama este endpoint — `atualizarPerfil` esta
-    definido em `frontend/src/api/perfisImportacao.js:5` mas nenhuma pagina o
-    usa; o formulario so chama `criarPerfil` (POST,
-    `frontend/src/pages/Importacao.jsx:154`). Nao ha, por isso, caminho de UI
-    que apague a conta desta forma.
+    Antes da correcção, o `PUT` reescrevia todos os campos e um corpo sem
+    `conta_id` repunha-o a `None`, sem erro. A conta passou a ser obrigatoria
+    em `PerfilImportacaoCreate`.
     """
     conta = semear_conta(session, "Banco")
     perfil = semear_perfil(session, "Demo")
@@ -390,9 +440,9 @@ def test_atualizar_perfil_reescreve_conta_id_para_none(client, session):
         json=payload(nome="Demo"),
     )
 
-    assert r.status_code == 200
+    assert r.status_code == 422
     session.refresh(perfil)
-    assert perfil.conta_id is None
+    assert perfil.conta_id == conta.id
 
 
 # ---------------------------------------------------------------------------
@@ -447,11 +497,10 @@ def test_associar_conta_grava_o_conta_id(client, session):
     assert perfil.conta_id == conta.id
 
 
-def test_associar_conta_nula_remove_a_associacao(client, session):
-    """`conta_id: null` desassocia: resposta e BD com `None`.
+def test_associar_conta_nula_da_422_e_mantem_a_conta(client, session):
+    """`conta_id: null` e recusado (422): um perfil nao pode ficar sem conta.
 
-    Cálculo à mão: perfil associado a uma conta + `PATCH {"conta_id": null}`
-    -> `conta_id` volta a `None`.
+    Antes da correcção, `PATCH {"conta_id": null}` desassociava a conta.
     """
     conta = semear_conta(session, "Banco")
     perfil = semear_perfil(session, "Demo")
@@ -463,17 +512,16 @@ def test_associar_conta_nula_remove_a_associacao(client, session):
         json={"conta_id": None},
     )
 
-    assert r.status_code == 200
-    assert r.json() == {"ok": True, "conta_id": None}
+    assert r.status_code == 422
     session.refresh(perfil)
-    assert perfil.conta_id is None
+    assert perfil.conta_id == conta.id
 
 
 def test_associar_conta_perfil_inexistente_da_404(client, session):
     """Associar num perfil que nao existe responde 404."""
     r = client.patch(
         "/api/perfis-importacao/999/conta",
-        json={"conta_id": None},
+        json={"conta_id": 1},
     )
 
     assert r.status_code == 404

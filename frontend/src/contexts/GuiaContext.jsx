@@ -19,7 +19,7 @@ const PASSOS = [
     id: 'perfil-importacao',
     rota: '/importacao',
     dataTour: 'importacao-novo-perfil',
-    texto: 'Cria um perfil por banco — define como as colunas do extracto correspondem aos dados da aplicação.',
+    texto: 'Cria um perfil por banco, associado à conta desse banco — define como as colunas do extracto correspondem aos dados da aplicação.',
   },
   {
     id: 'importar-ficheiro',

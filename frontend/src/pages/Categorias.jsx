@@ -59,14 +59,24 @@ export default function Categorias() {
 
     async function aoAdicionarSubcategoria(categoriaId, nome, trataPatrimonio = false) {
         if (!nome.trim()) return;
-        await criarSubcategoria(categoriaId, nome.trim(), trataPatrimonio);
-        carregar();
+        setErro('');
+        try {
+            await criarSubcategoria(categoriaId, nome.trim(), trataPatrimonio);
+            carregar();
+        } catch (e) {
+            setErro(e.response?.data?.detail || 'Erro ao criar subcategoria.');
+        }
     }
 
     async function aoRenomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio) {
-        await renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio);
-        setEditando({});
-        carregar();
+        setErro('');
+        try {
+            await renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio);
+            setEditando({});
+            carregar();
+        } catch (e) {
+            setErro(e.response?.data?.detail || 'Erro ao renomear subcategoria.');
+        }
     }
 
     async function aoApagarSubcategoria(categoriaId, subcategoriaId) {

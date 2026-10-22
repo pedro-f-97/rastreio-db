@@ -1,3 +1,5 @@
+from collections import Counter
+
 from sqlalchemy.orm import Session
 
 from database import RegraCategorizacao, Transacao
@@ -49,12 +51,16 @@ def importar_transacoes(
             Transacao.data, Transacao.descricao, Transacao.valor, Transacao.saldo
         ).filter(Transacao.conta_id == conta_id)
 
-        existentes = set((r.data, r.descricao, r.valor, r.saldo) for r in query_existentes)
+        # Conta-se quantas vezes cada linha já existe: cada cópia na BD absorve
+        # uma linha igual do ficheiro, e as restantes são transações novas
+        # (dois cafés iguais no mesmo dia, um deles só no extracto seguinte)
+        existentes = Counter((r.data, r.descricao, r.valor, r.saldo) for r in query_existentes)
 
         for t in transacoes_parsed:
             chave = (t["data"], t["descricao"], t["valor"], t["saldo"])
 
-            if chave in existentes:
+            if existentes[chave] > 0:
+                existentes[chave] -= 1
                 duplicadas += 1
                 continue
 

@@ -103,7 +103,6 @@ def _estado(session, transacao_id):
     return {
         "categoria_id": t.categoria_id,
         "subcategoria_id": t.subcategoria_id,
-        "reembolso": t.reembolso,
         "notas": t.notas,
     }
 
@@ -479,7 +478,7 @@ def test_listar_paginacao_desempata_mesma_data_por_id_desc(client, session):
 
 
 # ---------------------------------------------------------------------------
-# PUT /api/transacoes/{id} — notas e reembolso
+# PUT /api/transacoes/{id} — notas
 # ---------------------------------------------------------------------------
 
 
@@ -506,7 +505,6 @@ def test_put_notas_omitido_null_e_vazio(client, session):
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_despesa"].id,
         "subcategoria_id": d["sub_despesa"].id,
-        "reembolso": False,
         "notas": "almoço",
     }
 
@@ -515,7 +513,6 @@ def test_put_notas_omitido_null_e_vazio(client, session):
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_despesa"].id,
         "subcategoria_id": d["sub_despesa"].id,
-        "reembolso": False,
         "notas": "almoço",
     }
 
@@ -524,39 +521,26 @@ def test_put_notas_omitido_null_e_vazio(client, session):
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_despesa"].id,
         "subcategoria_id": d["sub_despesa"].id,
-        "reembolso": False,
         "notas": "",
     }
 
 
-def test_put_reembolso_false_grava_e_omitido_mantem(client, session):
-    """`reembolso` grava `False` (não é `None`) e o campo omitido não é tocado.
+def test_put_reembolso_e_ignorado_e_nao_aparece(client, session):
+    """A marca de reembolso foi retirada: o campo é ignorado.
 
-    Cálculo à mão:
-      {"reembolso": true}:  `True is not None` (linha 125) -> grava True
-      {"reembolso": false}: `False is not None` é verdadeiro -> grava False
-        (a guarda é `is not None`, não um teste de verdade, por isso `False`
-        passa e é mesmo escrito)
-      {"notas": "x"}: só `notas` vem no payload; `reembolso` fica False
-
-    Estado final da BD, lido em cada passo.
+    Cálculo à mão: `TransacaoUpdate` já não tem `reembolso`, e o Pydantic
+    ignora campos a mais -> 200, nada muda, e a resposta não traz o campo.
     """
     d = _semear(session)
     t1 = d["t1"]
+    antes = _estado(session, t1.id)
 
     r = client.put(f"/api/transacoes/{t1.id}", json={"reembolso": True})
-    assert r.status_code == 200
-    assert r.json()["reembolso"] is True
-    assert _estado(session, t1.id)["reembolso"] is True
 
-    r = client.put(f"/api/transacoes/{t1.id}", json={"reembolso": False})
     assert r.status_code == 200
-    assert r.json()["reembolso"] is False
-    assert _estado(session, t1.id)["reembolso"] is False
-
-    r = client.put(f"/api/transacoes/{t1.id}", json={"notas": "x"})
-    assert r.status_code == 200
-    assert _estado(session, t1.id)["reembolso"] is False
+    assert "reembolso" not in r.json()
+    assert _estado(session, t1.id) == antes
+    assert "reembolso" not in client.get("/api/transacoes/").json()["items"][0]
 
 
 # ---------------------------------------------------------------------------
@@ -590,7 +574,6 @@ def test_put_muda_so_categoria_em_transacao_sem_subcategoria(client, session):
     assert _estado(session, t4.id) == {
         "categoria_id": d["cat_receita"].id,
         "subcategoria_id": None,
-        "reembolso": False,
         "notas": None,
     }
 
@@ -630,7 +613,6 @@ def test_put_invariante_subcategoria_de_outra_categoria_da_400(client, session):
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_despesa"].id,
         "subcategoria_id": d["sub_despesa"].id,
-        "reembolso": False,
         "notas": None,
     }
 
@@ -665,7 +647,6 @@ def test_put_par_valido_atualiza_categoria_e_subcategoria(client, session):
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_receita"].id,
         "subcategoria_id": d["sub_receita"].id,
-        "reembolso": False,
         "notas": None,
     }
 
@@ -698,7 +679,50 @@ def test_put_limpar_subcategoria_com_null_mantem_categoria(client, session):
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_despesa"].id,
         "subcategoria_id": None,
-        "reembolso": False,
+        "notas": None,
+    }
+
+
+def test_put_mudar_categoria_e_limpar_subcategoria_num_so_pedido(client, session):
+    """Mudar a categoria e limpar a subcategoria no mesmo pedido é aceite.
+
+    É o pedido que a tabela de transações envia ao mudar a categoria. Em dois
+    pedidos separados, o primeiro (só `categoria_id`) dá 400 — ver
+    `test_put_invariante_subcategoria_de_outra_categoria_da_400`.
+
+    Cenário: t1 (Casa/Supermercado) e t5 (Casa/Supermercado).
+
+    Cálculo à mão:
+      t1 -> `{"categoria_id": Receita, "subcategoria_id": null}`
+        subcategoria_alvo = None -> a invariante é saltada
+        os dois campos vêm no payload -> gravam Receita e None
+      t5 -> `{"categoria_id": null, "subcategoria_id": null}` (a opção «—»)
+        subcategoria_alvo = None -> a invariante é saltada
+        categoria_id None não é procurada -> grava None e None
+
+    Estado final da BD: t1 com Receita e sem subcategoria; t5 sem nada.
+    """
+    d = _semear(session)
+    t1 = d["t1"]
+    t5 = d["t5"]
+
+    r = client.put(
+        f"/api/transacoes/{t1.id}",
+        json={"categoria_id": d["cat_receita"].id, "subcategoria_id": None},
+    )
+    assert r.status_code == 200
+
+    r = client.put(f"/api/transacoes/{t5.id}", json={"categoria_id": None, "subcategoria_id": None})
+    assert r.status_code == 200
+
+    assert _estado(session, t1.id) == {
+        "categoria_id": d["cat_receita"].id,
+        "subcategoria_id": None,
+        "notas": None,
+    }
+    assert _estado(session, t5.id) == {
+        "categoria_id": None,
+        "subcategoria_id": None,
         "notas": None,
     }
 
@@ -721,7 +745,6 @@ def test_put_subcategoria_inexistente_da_400(client, session):
     assert _estado(session, t1.id) == {
         "categoria_id": d["cat_despesa"].id,
         "subcategoria_id": d["sub_despesa"].id,
-        "reembolso": False,
         "notas": None,
     }
 
@@ -762,6 +785,5 @@ def test_put_categoria_inexistente_da_400(client, session):
     assert _estado(session, t4.id) == {
         "categoria_id": d["cat_despesa"].id,
         "subcategoria_id": None,
-        "reembolso": False,
         "notas": None,
     }

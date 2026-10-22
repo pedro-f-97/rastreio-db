@@ -1,3 +1,5 @@
+import unicodedata
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,29 @@ from database import Categoria, RegraCategorizacao, Subcategoria, Transacao, get
 from schemas import CategoriaCreate, SubcategoriaCreate
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])
+
+
+def _nome_valido(nome: str) -> str:
+    """O nome sem espaços à volta; um nome vazio é recusado."""
+    nome = nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="O nome não pode ficar vazio.")
+    return nome
+
+
+def _chave(nome: str) -> str:
+    """A forma de comparar nomes: sem maiúsculas nem acentos, para «Salário»,
+    «salário» e «salario» serem o mesmo nome."""
+    sem_acentos = "".join(
+        c for c in unicodedata.normalize("NFKD", nome) if not unicodedata.combining(c)
+    )
+    return sem_acentos.casefold()
+
+
+def _repetido(nome: str, existentes, excepto_id: int | None = None) -> bool:
+    """Se `nome` é igual, pela `_chave`, ao de algum dos `existentes` (menos `excepto_id`)."""
+    chave = _chave(nome)
+    return any(e.id != excepto_id and _chave(e.nome) == chave for e in existentes)
 
 
 @router.get("/")
@@ -34,10 +59,10 @@ def listar_subcategorias(categoria_id: int, db: Session = Depends(get_db)):
 
 @router.post("/")
 def criar_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
-    existente = db.query(Categoria).filter(Categoria.nome == categoria.nome).first()
-    if existente:
+    nome = _nome_valido(categoria.nome)
+    if _repetido(nome, db.query(Categoria).all()):
         raise HTTPException(status_code=409, detail="Já existe uma categoria com este nome.")
-    nova = Categoria(nome=categoria.nome, tipo=categoria.tipo)
+    nova = Categoria(nome=nome, tipo=categoria.tipo)
     db.add(nova)
     db.commit()
     db.refresh(nova)
@@ -51,8 +76,13 @@ def criar_subcategoria(
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    nome = _nome_valido(subcategoria.nome)
+    if _repetido(nome, cat.subcategorias):
+        raise HTTPException(
+            status_code=409, detail="Já existe uma subcategoria com este nome nesta categoria."
+        )
     nova = Subcategoria(
-        nome=subcategoria.nome,
+        nome=nome,
         categoria_id=categoria_id,
         trata_patrimonio=subcategoria.trata_patrimonio or False,
     )
@@ -100,14 +130,10 @@ def renomear_categoria(
     cat = db.query(Categoria).filter(Categoria.id == categoria_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    duplicado = (
-        db.query(Categoria)
-        .filter(Categoria.nome == categoria.nome, Categoria.id != categoria_id)
-        .first()
-    )
-    if duplicado:
+    nome = _nome_valido(categoria.nome)
+    if _repetido(nome, db.query(Categoria).all(), excepto_id=categoria_id):
         raise HTTPException(status_code=409, detail="Já existe uma categoria com este nome.")
-    cat.nome = categoria.nome
+    cat.nome = nome
     cat.tipo = categoria.tipo
     db.commit()
     db.refresh(cat)
@@ -128,7 +154,12 @@ def renomear_subcategoria(
     )
     if not sub:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
-    sub.nome = subcategoria.nome
+    nome = _nome_valido(subcategoria.nome)
+    if _repetido(nome, sub.categoria.subcategorias, excepto_id=subcategoria_id):
+        raise HTTPException(
+            status_code=409, detail="Já existe uma subcategoria com este nome nesta categoria."
+        )
+    sub.nome = nome
     if subcategoria.trata_patrimonio is not None:
         sub.trata_patrimonio = subcategoria.trata_patrimonio
     db.commit()

@@ -10,8 +10,13 @@ tray é verificada lendo `main.py` com `ast`, sem o executar.
 """
 
 import ast
+import json
 import os
+import socket
 import sys
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import MagicMock
 
 import tray
@@ -67,3 +72,162 @@ def test_main_passa_a_porta_a_tray():
 
     assert len(chamadas) == 1
     assert [ast.unparse(a) for a in chamadas[0].args] == ["parar_servidor", "PORTA"]
+
+
+# ---------------------------------------------------------------------------
+# Quem está na porta antes de arrancar
+# ---------------------------------------------------------------------------
+
+
+def _porta_livre():
+    """Uma porta que o sistema acabou de dar como livre."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@contextmanager
+def _servidor_que_responde(estado, corpo):
+    """Um servidor HTTP local, numa porta livre, que responde sempre `estado` e `corpo`."""
+
+    class Resposta(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(estado)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(corpo)
+
+        def log_message(self, *args):
+            pass
+
+    servidor = HTTPServer(("127.0.0.1", 0), Resposta)
+    fio = threading.Thread(target=servidor.serve_forever, daemon=True)
+    fio.start()
+    try:
+        yield servidor.server_address[1]
+    finally:
+        servidor.shutdown()
+        servidor.server_close()
+
+
+def test_porta_sem_ninguem_esta_livre():
+    """Sem nada à escuta, a ligação é recusada: "livre"."""
+    assert tray.quem_esta_na_porta(_porta_livre()) == "livre"
+
+
+def test_porta_com_o_rastreio_e_outra_instancia():
+    """Um servidor que responde ao `/api/configuracao/estado` como o Rastreio-DB.
+
+    Cálculo à mão: o corpo tem exactamente as chaves `inicializado` e
+    `tour_visto`, as do router `configuracao.estado` -> "rastreio".
+    """
+    corpo = json.dumps({"inicializado": True, "tour_visto": False}).encode()
+    with _servidor_que_responde(200, corpo) as porta:
+        assert tray.quem_esta_na_porta(porta) == "rastreio"
+
+
+def test_porta_com_outro_programa():
+    """Outro programa na porta: um 404, ou um 200 com outro JSON -> "outro"."""
+    with _servidor_que_responde(404, b"{}") as porta:
+        assert tray.quem_esta_na_porta(porta) == "outro"
+    with _servidor_que_responde(200, b'{"inicializado": true}') as porta:
+        assert tray.quem_esta_na_porta(porta) == "outro"
+
+
+def test_main_verifica_a_porta_antes_do_preflight():
+    """`_main` pergunta quem está em `PORTA` antes de chamar `_preflight`.
+
+    Lido com `ast` para não importar o `main`: no corpo de `_main`, a chamada a
+    `quem_esta_na_porta(PORTA)` vem antes da chamada a `_preflight()`, para uma
+    segunda instância não tocar na BD da primeira.
+    """
+    caminho = os.path.join(os.path.dirname(tray.__file__), "main.py")
+    with open(caminho, encoding="utf-8") as f:
+        arvore = ast.parse(f.read())
+    funcao = next(
+        n for n in ast.walk(arvore) if isinstance(n, ast.FunctionDef) and n.name == "_main"
+    )
+    chamadas = [
+        ast.unparse(n)
+        for n in ast.walk(funcao)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id in ("quem_esta_na_porta", "_preflight")
+    ]
+
+    assert chamadas[:2] == ["quem_esta_na_porta(PORTA)", "_preflight()"]
+
+
+# ---------------------------------------------------------------------------
+# Erros do arranque numa caixa de diálogo
+# ---------------------------------------------------------------------------
+
+
+def test_mostrar_erro_abre_uma_caixa_com_a_mensagem(monkeypatch):
+    """`mostrar_erro` mostra a mensagem com `messagebox.showerror`, título "Rastreio-DB".
+
+    O tkinter é substituído por um `MagicMock`, como nos testes da janela de
+    controlo. A janela raiz é escondida antes e destruída depois.
+    """
+    tk_falso = MagicMock()
+    monkeypatch.setitem(sys.modules, "tkinter", tk_falso)
+    monkeypatch.setitem(sys.modules, "tkinter.messagebox", tk_falso.messagebox)
+
+    tray.mostrar_erro("A porta 9742 está ocupada.")
+
+    raiz = tk_falso.Tk.return_value
+    tk_falso.messagebox.showerror.assert_called_once_with(
+        "Rastreio-DB", "A porta 9742 está ocupada.", parent=raiz
+    )
+    raiz.withdraw.assert_called_once_with()
+    raiz.destroy.assert_called_once_with()
+
+
+def test_mostrar_erro_sem_ecra_nao_rebenta(monkeypatch):
+    """Sem ecrã, o `tk.Tk()` levanta; `mostrar_erro` engole o erro e não mostra nada."""
+    tk_falso = MagicMock()
+    tk_falso.Tk.side_effect = RuntimeError("no display name")
+    monkeypatch.setitem(sys.modules, "tkinter", tk_falso)
+    monkeypatch.setitem(sys.modules, "tkinter.messagebox", tk_falso.messagebox)
+
+    tray.mostrar_erro("qualquer")
+
+    tk_falso.messagebox.showerror.assert_not_called()
+
+
+def test_main_mostra_os_erros_do_arranque():
+    """No `main.py`, os quatro erros do arranque saem por `_sair_com_erro`.
+
+    Lido com `ast` para não importar o `main`. `_sair_com_erro` chama
+    `mostrar_erro` e depois `sys.exit`. Os códigos são 2 (pasta de dados), 3
+    (base de dados), 4 (porta ocupada por outro programa) e 1 (erro inesperado,
+    no `__main__`). Fora de `_sair_com_erro`, não sobra
+    nenhum `sys.exit` com código diferente de 0.
+    """
+    caminho = os.path.join(os.path.dirname(tray.__file__), "main.py")
+    with open(caminho, encoding="utf-8") as f:
+        arvore = ast.parse(f.read())
+
+    sair = next(
+        n for n in ast.walk(arvore) if isinstance(n, ast.FunctionDef) and n.name == "_sair_com_erro"
+    )
+    chamadas_em_sair = [ast.unparse(n.func) for n in ast.walk(sair) if isinstance(n, ast.Call)]
+    assert chamadas_em_sair.index("mostrar_erro") < chamadas_em_sair.index("sys.exit")
+
+    codigos = [
+        ast.unparse(n.args[1])
+        for n in ast.walk(arvore)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "_sair_com_erro"
+    ]
+    assert sorted(codigos) == ["1", "2", "3", "4"]
+
+    outros_exits = [
+        ast.unparse(n)
+        for n in ast.walk(arvore)
+        if isinstance(n, ast.Call)
+        and ast.unparse(n.func) == "sys.exit"
+        and n not in list(ast.walk(sair))
+    ]
+    assert outros_exits == ["sys.exit(0)"]

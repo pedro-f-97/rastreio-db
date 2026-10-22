@@ -32,8 +32,7 @@ fi
 echo ""
 echo "A instalar dependências..."
 source venv/bin/activate
-pip install -r requirements.txt --quiet
-pip install pyinstaller --quiet
+pip install -r requirements-build.txt --quiet
 
 # 5. Executar PyInstaller
 echo ""

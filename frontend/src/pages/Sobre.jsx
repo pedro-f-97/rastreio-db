@@ -61,9 +61,12 @@ export default function Sobre() {
                 <h2>Regras</h2>
                 <p>
                     Uma regra associa um padrão de descrição a uma categoria e subcategoria, e é aplicada
-                    automaticamente às transações importadas que correspondam a esse padrão. Ao criar ou editar uma
-                    regra, podes optar por aplicá-la retroactivamente às transações já existentes; se houver
-                    conflito com uma categorização manual anterior, a resolução é feita transação a transação.
+                    automaticamente às transações importadas que correspondam a esse padrão. Ao criar uma regra, ela
+                    é logo aplicada às transações já existentes que estejam por categorizar, ou que tenham a mesma
+                    categoria e ainda não tenham subcategoria; as que já têm outra categoria não são tocadas. Para
+                    essas, o botão «Aplicar regras às transações», na página Regras, mostra os conflitos com a
+                    categorização anterior e deixa decidir transação a transação. Uma regra não se edita: para a
+                    mudar, apaga-se e cria-se de novo.
                 </p>
                 <p>
                     Uma regra também pode ser marcada para <strong>nunca atribuir categoria</strong> — útil para
@@ -96,6 +99,11 @@ export default function Sobre() {
                     <span className="sobre-seta">→</span>
                     <span>contabilizacao</span>
                 </div>
+            </section>
+
+            <section className="sobre-seccao">
+                <h2>Versão</h2>
+                <p>{import.meta.env.VITE_VERSAO}</p>
             </section>
         </div>
     );

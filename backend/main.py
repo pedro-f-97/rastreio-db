@@ -9,6 +9,7 @@ from datetime import datetime
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -27,6 +28,7 @@ from routers import (
     tipos_ativo,
     transacoes,
 )
+from seguranca import ANFITRIOES_PERMITIDOS, criar_verificacao_origem
 
 # ---------------------------------------------------------------------------
 # Arranque: logging e streams
@@ -159,13 +161,23 @@ async def spa_fallback(request, exc):
     )
 
 
+PORTA = 9742
+ORIGEM_VITE = "http://localhost:9743"
+
 if not IS_FROZEN:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:9743"],
+        allow_origins=[ORIGEM_VITE],
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Só a própria aplicação (e o Vite, em dev) pode escrever: ver seguranca.py
+ORIGENS_PERMITIDAS = {f"http://localhost:{PORTA}", f"http://127.0.0.1:{PORTA}"}
+if not IS_FROZEN:
+    ORIGENS_PERMITIDAS.add(ORIGEM_VITE)
+app.middleware("http")(criar_verificacao_origem(ORIGENS_PERMITIDAS))
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ANFITRIOES_PERMITIDOS)
 
 
 ROUTERS = (
@@ -207,7 +219,18 @@ if os.path.exists(PASTA_FRONTEND):
 # Ponto de entrada (executável)
 # ---------------------------------------------------------------------------
 
-PORTA = 9742
+
+def _sair_com_erro(mensagem: str, codigo: int, detalhe: str = "") -> None:
+    """Regista o erro no log, mostra-o numa caixa de diálogo e sai com `codigo`.
+
+    O `detalhe` (por exemplo, o traceback) só vai para o log.
+    """
+    _log(f"{mensagem}\n{detalhe}" if detalhe else mensagem)
+    from tray import mostrar_erro
+
+    onde = f"\n\nMais detalhes no log:\n{LOG_ARRANQUE}" if LOG_ARRANQUE else ""
+    mostrar_erro(mensagem + onde)
+    sys.exit(codigo)
 
 
 def _preflight() -> None:
@@ -219,8 +242,7 @@ def _preflight() -> None:
     try:
         garantir_pasta_dados()
     except RuntimeError as e:
-        _log(f"Erro fatal na pasta de dados:\n{e}")
-        sys.exit(2)
+        _sair_com_erro(f"Erro fatal na pasta de dados:\n{e}", 2)
     anunciar_bd_ativa()
 
     # 2) criar tabelas ANTES de arrancar o uvicorn, para o erro não se perder
@@ -229,11 +251,31 @@ def _preflight() -> None:
     try:
         criar_tabelas()
     except Exception as e:
-        _log(f"Erro a criar tabelas: {type(e).__name__}: {e}\n{traceback.format_exc()}")
-        sys.exit(3)
+        _sair_com_erro(
+            f"Erro a preparar a base de dados:\n{e}",
+            3,
+            f"{type(e).__name__}\n{traceback.format_exc()}",
+        )
 
 
 def _main() -> None:
+    # Com a porta ocupada, o servidor não arrancava e a janela de controlo abria
+    # na mesma. Antes de tocar na BD: outra instância pode estar a
+    # usá-la.
+    from tray import quem_esta_na_porta
+
+    ocupante = quem_esta_na_porta(PORTA)
+    if ocupante == "rastreio":
+        import webbrowser
+
+        _log("O Rastreio-DB já está aberto. A abrir o browser nessa instância.")
+        webbrowser.open(f"http://localhost:{PORTA}")
+        sys.exit(0)
+    if ocupante == "outro":
+        _sair_com_erro(
+            f"A porta {PORTA} está ocupada por outro programa. Fecha-o e abre de novo.", 4
+        )
+
     _preflight()
 
     servidor = uvicorn.Server(
@@ -309,5 +351,6 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except BaseException as e:
-        _log(f"Exceção não tratada no arranque: {type(e).__name__}: {e}\n{traceback.format_exc()}")
-        sys.exit(1)
+        _sair_com_erro(
+            f"Erro inesperado no arranque:\n{type(e).__name__}: {e}", 1, traceback.format_exc()
+        )

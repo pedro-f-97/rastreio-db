@@ -48,6 +48,14 @@
     color: var(--text-primary);
 }
 
+.cartao-metade-valor.valor-positivo {
+    color: var(--valor-positivo);
+}
+
+.cartao-metade-valor.valor-negativo {
+    color: var(--valor-negativo);
+}
+
 /* classes legadas mantidas para compatibilidade */
 .cartao-label {
     font-size: var(--text-sm);

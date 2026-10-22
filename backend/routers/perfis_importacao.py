@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 import schemas
 from database import Conta, PerfilImportacao as PerfilImportacaoModel, get_db
-from parser_importacao import _detectar_delimitador
+from parser_importacao import ErroParsing, _decodificar_csv, _detectar_delimitador
 from schemas import PerfilImportacao as PerfilImportacaoSchema, PerfilImportacaoCreate
 
 router = APIRouter(prefix="/perfis-importacao", tags=["perfis-importacao"])
@@ -45,7 +45,10 @@ async def analisar_ficheiro(file: UploadFile = File(...)):
     if nome.lower().endswith(".csv"):
         import csv
 
-        texto = conteudo.decode("utf-8-sig")
+        try:
+            texto = _decodificar_csv(conteudo)
+        except ErroParsing as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
         # O perfil ainda não existe: a amostra são as primeiras linhas do ficheiro
         reader = csv.reader(
             io.StringIO(texto), delimiter=_detectar_delimitador(texto.splitlines()[:20])

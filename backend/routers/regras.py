@@ -36,13 +36,21 @@ def listar_regras(db: Session = Depends(get_db)):
 
 @router.post("/")
 def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
-    existente = db.query(RegraCategorizacao).filter_by(palavra_chave=regra.palavra_chave).first()
-    if existente:
+    # Sem distinguir maiúsculas, como `casa_palavra`: «Continente» e
+    # «CONTINENTE» casam as mesmas descrições, e a mais recente nunca seria usada
+    chave = regra.palavra_chave.upper()
+    if any(r.palavra_chave.upper() == chave for r in db.query(RegraCategorizacao).all()):
         raise HTTPException(status_code=400, detail="Já existe uma regra com esta palavra-chave")
     if regra.categoria_id is not None and db.get(Categoria, regra.categoria_id) is None:
         raise HTTPException(status_code=400, detail="Categoria não encontrada.")
-    if regra.subcategoria_id is not None and db.get(Subcategoria, regra.subcategoria_id) is None:
-        raise HTTPException(status_code=400, detail="Subcategoria não encontrada.")
+    if regra.subcategoria_id is not None:
+        sub = db.get(Subcategoria, regra.subcategoria_id)
+        if sub is None:
+            raise HTTPException(status_code=400, detail="Subcategoria não encontrada.")
+        if sub.categoria_id != regra.categoria_id:
+            raise HTTPException(
+                status_code=400, detail="A subcategoria não pertence à categoria da regra."
+            )
 
     nova = RegraCategorizacao(
         palavra_chave=regra.palavra_chave,
@@ -74,17 +82,20 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
             t.categoria_id = nova.categoria_id
             t.subcategoria_id = nova.subcategoria_id
 
-        # Transações com categoria coincidente mas sem subcategoria
-        com_categoria = [
-            t
-            for t in db.query(Transacao)
-            .filter(
-                Transacao.categoria_id == nova.categoria_id,
-                Transacao.subcategoria_id == None,
-            )
-            .all()
-            if apanha(t)
-        ]
+        # Transações com categoria coincidente mas sem subcategoria. Sem
+        # subcategoria na regra, não há nada a mudar nelas
+        com_categoria = []
+        if nova.subcategoria_id is not None:
+            com_categoria = [
+                t
+                for t in db.query(Transacao)
+                .filter(
+                    Transacao.categoria_id == nova.categoria_id,
+                    Transacao.subcategoria_id == None,
+                )
+                .all()
+                if apanha(t)
+            ]
         for t in com_categoria:
             t.subcategoria_id = nova.subcategoria_id
 
@@ -137,6 +148,10 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
             if regra.categoria_id is None:
                 continue
             if casa_palavra(regra.palavra_chave, t.descricao):
+                if t.categoria_id == regra.categoria_id and regra.subcategoria_id is None:
+                    # Já tem a categoria e a regra não traz subcategoria: nada
+                    # muda, por isso não aparece
+                    break
                 if t.categoria_id is None or t.categoria_id == regra.categoria_id:
                     sem_conflito.append(
                         {
@@ -226,6 +241,9 @@ def aplicar_em_massa(
                 invalidas.append(item.id)
                 continue
 
+        if (t.categoria_id, t.subcategoria_id) == (item.categoria_id, item.subcategoria_id):
+            # Já está assim: não conta como aplicada
+            continue
         t.categoria_id = item.categoria_id
         t.subcategoria_id = item.subcategoria_id
         aplicadas += 1

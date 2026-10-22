@@ -1,6 +1,7 @@
 # Base de dados
 rastreio.db
 *.db.anterior
+*.db.anterior-*
 *.db
 *.pre_import
 *.bak

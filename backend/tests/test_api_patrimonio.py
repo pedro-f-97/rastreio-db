@@ -242,8 +242,7 @@ def test_editar_ativo_muda_apenas_o_nome(client, session):
     """Editar só o nome deixa o símbolo intacto.
 
     Cálculo à mão: ativo `A`/`AAA`; `PUT {"nome": "B"}` -> nome `B` e símbolo
-    ainda `AAA` (o router só toca nos campos não nulos,
-    `routers/patrimonio.py:66-69`).
+    ainda `AAA` (o router só muda o símbolo se o campo vier no pedido).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "A", tipo, simbolo="AAA")
@@ -256,6 +255,24 @@ def test_editar_ativo_muda_apenas_o_nome(client, session):
     session.refresh(ativo)
     assert ativo.nome == "B"
     assert ativo.simbolo == "AAA"
+
+
+def test_editar_ativo_com_simbolo_null_apaga_o_simbolo(client, session):
+    """`simbolo: null` apaga o símbolo, e o nome fica.
+
+    Cálculo à mão: ativo `A`/`AAA`; `PUT {"nome": "A", "simbolo": null}`, que é
+    o que a página envia com o campo vazio -> símbolo `None`. Antes da
+    correcção, `null` contava como «não alterar» e o símbolo ficava `AAA`.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "A", tipo, simbolo="AAA")
+
+    r = client.put(f"/api/patrimonio/ativos/{ativo.id}", json={"nome": "A", "simbolo": None})
+
+    assert r.status_code == 200
+    assert (r.json()["nome"], r.json()["simbolo"]) == ("A", None)
+    session.refresh(ativo)
+    assert ativo.simbolo is None
 
 
 def test_editar_ativo_com_simbolo_de_outro_da_409(client, session):
@@ -433,12 +450,14 @@ def test_compra_no_mesmo_dia_actualiza_o_preco(client, session):
     assert precos[0].preco == 21.0
 
 
-def test_venda_nao_cria_preco(client, session):
-    """Só a `compra` faz upsert; uma `venda` com preço não grava preço.
+def test_venda_regista_o_preco_como_cotacao(client, session):
+    """Uma `venda` com preço também regista a cotação do dia.
 
-    Cálculo à mão: uma compra (cria 1 preço) + uma venda com `preco_unitario`
-    -> 2 movimentos e **1** preço. A condição é
-    `payload.tipo_movimento.value == "compra"` (`routers/patrimonio.py:97`).
+    Cálculo à mão: uma compra de 10 a 20.0 em 2025-01-10 (cria o preço 20.0) e
+    uma venda de 4 a 30.0 em 2025-03-10 -> 2 movimentos e **2** preços. O resumo
+    usa o preço mais recente: restam 10 - 4 = 6 unidades, avaliadas a 30.0 ->
+    6 * 30.0 = 180.0. Antes da correcção, a venda não gravava preço e as 6
+    unidades ficavam a 20.0 (120.0).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
@@ -460,15 +479,92 @@ def test_venda_nao_cria_preco(client, session):
             "ativo_id": ativo.id,
             "tipo_movimento": "venda",
             "data": "2025-03-10",
-            "quantidade": 10,
+            "quantidade": 4,
             "preco_unitario": 30.0,
-            "valor_total": 300.0,
+            "valor_total": 120.0,
         },
     )
 
     assert r.status_code == 200
     assert session.query(MovimentoAtivo).count() == 2
-    assert session.query(PrecoAtivo).count() == 1
+    assert sorted((p.data, p.preco) for p in session.query(PrecoAtivo).all()) == [
+        (date(2025, 1, 10), 20.0),
+        (date(2025, 3, 10), 30.0),
+    ]
+
+    resumo = client.get(f"/api/patrimonio/ativos/{ativo.id}/resumo").json()
+    assert (resumo["quantidade"], resumo["preco_atual"], resumo["data_preco"]) == (
+        6.0,
+        30.0,
+        "2025-03-10",
+    )
+    assert resumo["valor_atual"] == 180.0
+
+
+def test_venda_recusada_nao_regista_preco(client, session):
+    """Uma venda acima da posição é recusada, e o seu preço também não fica.
+
+    Cálculo à mão: compra de 10 a 20.0 (1 preço); venda de 15 a 30.0 -> 15 > 10,
+    422. O movimento e o preço da venda iam no mesmo `commit`, que não chega a
+    correr: ficam 1 movimento e 1 preço (o da compra, 20.0).
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "compra",
+            "data": "2025-01-10",
+            "quantidade": 10,
+            "preco_unitario": 20.0,
+            "valor_total": -200.0,
+        },
+    )
+
+    r = client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "venda",
+            "data": "2025-03-10",
+            "quantidade": 15,
+            "preco_unitario": 30.0,
+            "valor_total": 450.0,
+        },
+    )
+
+    assert r.status_code == 422
+    session.rollback()
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 1
+    assert [p.preco for p in session.query(PrecoAtivo).all()] == [20.0]
+
+
+def test_dividendo_nao_regista_preco(client, session):
+    """Um `dividendo` com preço não regista cotação: não é uma troca de unidades.
+
+    Cálculo à mão: só compras e vendas gravam preço; um dividendo com
+    `preco_unitario` 0.5 -> 1 movimento e 0 preços.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+
+    r = client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "dividendo",
+            "data": "2025-03-10",
+            "quantidade": 10,
+            "preco_unitario": 0.5,
+            "valor_total": 5.0,
+        },
+    )
+
+    assert r.status_code == 200
+    assert session.query(MovimentoAtivo).count() == 1
+    assert session.query(PrecoAtivo).count() == 0
 
 
 def test_compra_sem_preco_unitario_nao_cria_preco(client, session):
@@ -1059,16 +1155,18 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
       - liquidez: conta A `1000.00 + (-200.00) = 800.00`. A transação de
         `2025-01-01 +50.00` fica de fora: o filtro é `data >
         conta.data_referencia` (estrito: o saldo de referência é o do fim do dia), e é exactamente a
-        data de referência. A conta B ainda não entrou (referência
-        `2025-02-01 > 2025-01-31`).
+        data de referência. A conta B, com referência `2025-02-01`, calcula-se
+        para trás: `100.00 - (transações em ]2025-01-31, 2025-02-01]) =
+        100.00 - 0 = 100.00` (antes da correcção valia 0). Liquidez:
+        `800.00 + 100.00 = 900.00`.
       - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
         `2025-03-15` é posterior) -> `10 x 25.00 = 250.00`.
       - ativos_físicos: ainda sem preço até esta data -> vale o custo,
         `15000.00` (antes da correcção era 0.0).
-      - total: `800.00 + 250.00 + 15000.00 = 16050.00`.
+      - total: `900.00 + 250.00 + 15000.00 = 16150.00`.
     * **2025-02-28**
-      - liquidez: `800.00` (conta A) `+ 100.00` (conta B, cuja referência
-        `2025-02-01` já passou e sem transações próprias) `= 900.00`.
+      - liquidez: `800.00` (conta A) `+ 100.00` (conta B, sem transações
+        próprias) `= 900.00`.
       - investimentos: `250.00` (o preço de 30.00 só chega a `2025-03-15`).
       - ativos_físicos: ainda sem preço -> custo, `15000.00`.
       - total: `900.00 + 250.00 + 15000.00 = 16150.00`.
@@ -1119,10 +1217,10 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
 
     assert pontos[0] == {
         "data": "2025-01-31",
-        "liquidez": 800.00,
+        "liquidez": 900.00,
         "investimentos": 250.00,
         "ativos_fisicos": 15000.00,
-        "total": 16050.00,
+        "total": 16150.00,
     }
     assert pontos[1] == {
         "data": "2025-02-28",
@@ -1228,7 +1326,7 @@ def test_evolucao_exclui_transacao_na_data_de_referencia(client, session):
     que a liquidez é `100.00`.
 
     O saldo de referência é o do fim desse dia, que já inclui as transacções
-    do dia. O `/api/contas/{id}/saldo` (`routers/contas.py:62`) usa o mesmo
+    do dia. O `/api/contas/{id}/saldo` (`saldo_conta_em`) usa o mesmo
     `>`; antes da correcção usava `>=` e devolvia `150.00` para esta conta.
     """
     conta = semear_conta(session, "A", 100.0, date(2025, 1, 1))

@@ -42,7 +42,7 @@ export default function Transacoes({ onDadosAlterados }) {
 
         const confirmar = window.confirm(
             "⚠️ Restaurar um backup substitui os dados atuais.\n\n" +
-            "O estado atual fica guardado num ficheiro .anterior, ao lado da base de dados, até ao próximo restauro.\n\n" +
+            "O estado atual fica guardado numa cópia com a data e a hora no nome (rastreio.db.anterior-...), na pasta dados, ao lado da base de dados. Ficam as 5 cópias mais recentes.\n\n" +
             "Queres continuar?"
         );
         if (!confirmar) return;
@@ -97,14 +97,22 @@ export default function Transacoes({ onDadosAlterados }) {
         setFiltros(prev => ({ ...prev, ...novosFiltros, pagina: 1 }));
     }
 
-    async function guardarCampo(id, campo, valor) {
-        await atualizarTransacao(id, { [campo]: valor });
+    // Grava vários campos num só pedido: categoria e subcategoria mudam juntas,
+    // senão o backend recusa o par intermédio. Devolve se gravou.
+    async function guardarCampos(id, campos) {
+        try {
+            await atualizarTransacao(id, campos);
+        } catch (err) {
+            alert("Erro ao guardar a transação: " + (err.response?.data?.detail || err.message));
+            return false;
+        }
         // Atualiza só a linha afetada localmente — sem recarregar tudo
         setTransacoes(prev =>
-            prev.map(t => t.id === id ? { ...t, [campo]: valor } : t)
+            prev.map(t => t.id === id ? { ...t, ...campos } : t)
         );
         // A categorização afeta o contador "por categorizar" da sidebar
-        if (campo === 'categoria_id' || campo === 'subcategoria_id') onDadosAlterados?.();
+        if ('categoria_id' in campos || 'subcategoria_id' in campos) onDadosAlterados?.();
+        return true;
     }
 
     async function aoCriarRegra(novaRegra) {
@@ -156,7 +164,7 @@ export default function Transacoes({ onDadosAlterados }) {
                         transacoes={transacoes}
                         categorias={categorias}
                         regras={regras}
-                        onGuardar={guardarCampo}
+                        onGuardar={guardarCampos}
                         onCriarRegra={aoCriarRegra}
                         listarSubcategorias={listarSubcategorias}
                     />

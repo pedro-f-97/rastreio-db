@@ -22,14 +22,16 @@ export default function Patrimonio() {
   }, []);
 
   async function carregarContas() {
-    const resContas = await getContas(false);
+    // As desactivadas contam no património como no gráfico, mas só aparecem
+    // se ainda tiverem dinheiro
+    const resContas = await getContas(true);
     const contasComSaldo = await Promise.all(
       resContas.data.map(async (c) => {
         const res = await getSaldoConta(c.id);
         return { ...c, saldo_atual: res.data.saldo_atual };
       })
     );
-    setContas(contasComSaldo);
+    setContas(contasComSaldo.filter((c) => c.ativa || c.saldo_atual !== 0));
   }
 
   useEffect(() => {
@@ -117,7 +119,7 @@ export default function Patrimonio() {
             )}
             {contas.map((c) => (
               <div key={c.id} className="cartao-breakdown-linha">
-                <span className="cartao-breakdown-label">{c.nome}</span>
+                <span className="cartao-breakdown-label">{c.ativa ? c.nome : `${c.nome} (inactiva)`}</span>
                 <span className="cartao-breakdown-valor">
                   {formatarEuros(c.saldo_atual)}
                 </span>

@@ -1,0 +1,7 @@
+# Só declara a versão mínima do Python (o código usa sintaxe do 3.14).
+# As dependências estão em requirements.txt, e o ruff, o pyright e o pytest
+# lêem os seus próprios ficheiros (ruff.toml, pyrightconfig.json, pytest.ini).
+[project]
+name = "rastreio-db"
+version = "0.0.0"
+requires-python = ">=3.14"

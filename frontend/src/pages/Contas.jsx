@@ -54,9 +54,16 @@ export default function Contas() {
         const conta = contas.find(c => c.id === id);
         const msg = `Eliminar a conta "${conta.nome}"? Se tiver transacções associadas, será desactivada em vez de eliminada.`;
         if (!confirm(msg)) return;
-        const res = await apagarConta(id);
+        setErro('');
+        let res;
+        try {
+            res = await apagarConta(id);
+        } catch (e) {
+            setErro(e.response?.data?.detail || 'Erro ao apagar conta.');
+            return;
+        }
         const acao = res.data?.acao;
-        if (acao === 'desativada') alert(`A conta "${conta.nome}" foi desactivada (tem transacções associadas).`);
+        if (acao === 'desativada') alert(`A conta "${conta.nome}" foi desactivada (tem transacções associadas). Deixa de aparecer nas listas de contas, mas o seu histórico continua a contar no património, e o saldo também, se não for zero.`);
         carregar();
     }
 
@@ -86,6 +93,7 @@ export default function Contas() {
                 />
                 <input
                     type="date"
+                    title="Dia a que o saldo de referência diz respeito, no fim do dia (por exemplo, hoje, com o saldo que o banco mostra)"
                     value={novaConta.data_referencia}
                     onChange={e => setNovaConta(p => ({ ...p, data_referencia: e.target.value }))}
                 />
@@ -130,6 +138,7 @@ export default function Contas() {
                                     <label>Data de referência</label>
                                     <input
                                         type="date"
+                                        title="Dia a que o saldo de referência diz respeito, no fim do dia (por exemplo, hoje, com o saldo que o banco mostra)"
                                         value={editando.data_referencia}
                                         onChange={e => setEditando(p => ({ ...p, data_referencia: e.target.value }))}
                                     />

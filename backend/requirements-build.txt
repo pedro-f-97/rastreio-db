@@ -1,0 +1,12 @@
+# Dependências só do build do executável (PyInstaller).
+#
+# NÃO entra no requirements.txt: esse é o que o executável leva. O build.sh e o
+# build.bat instalam este ficheiro, que inclui o requirements.txt.
+#
+# Instalar com:
+#   pip install -r requirements-build.txt
+-r requirements.txt
+
+pyinstaller==6.20.0
+pyinstaller-hooks-contrib==2026.4
+setuptools==82.0.1

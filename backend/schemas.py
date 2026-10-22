@@ -45,7 +45,6 @@ class TransacaoBase(BaseModel):
     # FiniteFloat recusa NaN e Infinity, aqui e nos outros campos numéricos
     valor: FiniteFloat
     saldo: Optional[FiniteFloat] = None
-    reembolso: bool = False
     notas: Optional[str] = None
     categoria_id: Optional[int] = None
     subcategoria_id: Optional[int] = None
@@ -54,7 +53,6 @@ class TransacaoBase(BaseModel):
 class TransacaoUpdate(BaseModel):
     categoria_id: Optional[int] = None
     subcategoria_id: Optional[int] = None
-    reembolso: Optional[bool] = None
     notas: Optional[str] = None
 
 
@@ -94,7 +92,6 @@ class PerfilImportacaoBase(BaseModel):
     tem_saldo: bool = False
     coluna_saldo: Optional[int] = None
     coluna_fee: Optional[int] = None
-    conta_id: Optional[int] = None
 
     @model_validator(mode="after")
     def validar_perfil(self):
@@ -122,11 +119,15 @@ class PerfilImportacaoBase(BaseModel):
 
 
 class PerfilImportacaoCreate(PerfilImportacaoBase):
-    pass
+    # Ao criar ou editar, a conta é obrigatória: sem ela, as transacções
+    # entrariam nas estatísticas mas nunca na liquidez. A resposta continua a
+    # aceitar None, para um perfil que tenha perdido a conta.
+    conta_id: int
 
 
 class PerfilImportacao(PerfilImportacaoBase):
     id: int
+    conta_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -242,7 +243,7 @@ class Conta(ContaBase):
 
 
 class AssociarConta(BaseModel):
-    conta_id: Optional[int] = None
+    conta_id: int
 
 
 class AplicarEmMassaItem(BaseModel):

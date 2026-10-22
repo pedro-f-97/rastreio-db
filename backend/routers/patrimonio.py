@@ -81,7 +81,8 @@ def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depe
             raise HTTPException(status_code=409, detail="Já existe um ativo com este símbolo.")
     if payload.nome is not None:
         ativo.nome = payload.nome
-    if payload.simbolo is not None:
+    # `null` enviado apaga o símbolo; só um campo omitido fica como estava
+    if "simbolo" in payload.model_fields_set:
         ativo.simbolo = payload.simbolo
     db.commit()
     db.refresh(ativo)
@@ -139,7 +140,8 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
     movimento = MovimentoAtivoModel(**payload.model_dump())
     db.add(movimento)
 
-    if payload.tipo_movimento.value == "compra" and payload.preco_unitario is not None:
+    # O preço de uma compra ou de uma venda é a cotação do ativo nesse dia
+    if payload.tipo_movimento.value in ("compra", "venda") and payload.preco_unitario is not None:
         existente = (
             db.query(PrecoAtivoModel)
             .filter(

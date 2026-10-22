@@ -129,14 +129,11 @@ def semear_subcategoria(session, nome, categoria):
     return subcategoria
 
 
-def semear_transacao(
-    session, data, descricao, valor, categoria, subcategoria=None, reembolso=False
-):
+def semear_transacao(session, data, descricao, valor, categoria, subcategoria=None):
     transacao = Transacao(
         data=data,
         descricao=descricao,
         valor=valor,
-        reembolso=reembolso,
         categoria_id=categoria.id,
         subcategoria_id=subcategoria.id if subcategoria else None,
     )
@@ -156,7 +153,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
     Cenário semeado:
       2025-03-05  Receita       +1000,00  (ramo A de _calculate_totals)
       2025-03-10  Casa           -300,00  (ramo C)
-      2025-03-18  Casa            +50,00  reembolso=True (ramo D)
+      2025-03-18  Casa            +50,00  reembolso (ramo C, com sinal +)
       2025-04-02  Transferência  -500,00  (mês só com transferência)
       2025-06-25  Investimento  -1000,00  (mês só com investimento)
 
@@ -174,10 +171,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
       fevereiro (sem transacções) não está em `todos_meses`, por isso não
       aparece em lado nenhum.
 
-    Média e mediana sobre totais_despesas = [-250,0, 0,0, 0,0]:
-      media_mensal   = round((-250,0 + 0,0 + 0,0) / 3, 2)
-                     = round(-83,333…, 2) = -83.33
-      mediana_mensal = median([-250,0, 0,0, 0,0]) = 0,0 (ordenado, o central)
+    A resposta tem só os meses: a média e a mediana calculam-se na página.
 
     Estado final da BD: as 5 transacções continuam (o GET não escreve).
     """
@@ -188,7 +182,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
 
     semear_transacao(session, date(2025, 3, 5), "Ordenado", 1000.00, receita)
     semear_transacao(session, date(2025, 3, 10), "Renda", -300.00, casa)
-    semear_transacao(session, date(2025, 3, 18), "Reembolso seguros", 50.00, casa, reembolso=True)
+    semear_transacao(session, date(2025, 3, 18), "Reembolso seguros", 50.00, casa)
     semear_transacao(session, date(2025, 4, 2), "Para poupança", -500.00, transferencia)
     semear_transacao(session, date(2025, 6, 25), "Comprar ETF", -1000.00, investimento)
 
@@ -222,24 +216,21 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
                 "poupanca": 0.0,
             },
         ],
-        "media_mensal": -83.33,
-        "mediana_mensal": 0.0,
     }
     assert session.query(Transacao).count() == 5
 
 
-def test_resumo_mensal_com_bd_vazia_devolve_media_e_mediana_zero(client, session):
-    """BD vazia: meses vazio e média/mediana em 0.
+def test_resumo_mensal_com_bd_vazia_devolve_meses_vazio(client, session):
+    """BD vazia: `meses` vazio.
 
     Cálculo à mão: sem transacções, `meses` (de _calculate_totals) e
-    `todos_meses` estão vazios, o ciclo sobre os meses não corre, e o cálculo
-    de `media` e `mediana` cai no `else`: media = 0 e mediana = 0. Sem
+    `todos_meses` estão vazios, e o ciclo sobre os meses não corre. Sem
     dependência da data actual.
     """
     r = client.get("/api/estatisticas/resumo-mensal")
 
     assert r.status_code == 200
-    assert r.json() == {"meses": [], "media_mensal": 0, "mediana_mensal": 0}
+    assert r.json() == {"meses": []}
     assert session.query(Transacao).count() == 0
 
 
@@ -661,29 +652,6 @@ def test_por_categoria_media_e_mediana_no_meio_centimo(client, session):
     assert r.json()[0]["subcategorias"] == [
         {"subcategoria_nome": "Sem subcategoria", "mediana": -79.85, "media": -79.85},
     ]
-
-
-def test_resumo_mensal_media_e_mediana_no_meio_centimo(client, session):
-    """A média e a mediana das despesas mensais arredondam o empate para longe de zero.
-
-    Cenário semeado: março com -10,01 e abril com -10,00 de despesa.
-
-    Cálculo à mão:
-      totais_despesas = [-10,01, -10,00]
-      media   = (-10,01 + -10,00) / 2 = -20,01 / 2 = -10,005 -> -10,01
-      mediana = (-10,01 + -10,00) / 2 = -10,005              -> -10,01
-
-    Antes da correcção ambas davam -10,0: em float, -10,005 é -10,00499999...
-    """
-    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
-    semear_transacao(session, date(2025, 3, 10), "Luz", -10.01, casa)
-    semear_transacao(session, date(2025, 4, 10), "Luz", -10.00, casa)
-
-    r = client.get("/api/estatisticas/resumo-mensal")
-
-    assert r.status_code == 200
-    assert r.json()["media_mensal"] == -10.01
-    assert r.json()["mediana_mensal"] == -10.01
 
 
 def test_por_categoria_mediana_sem_ruido_da_soma_em_float(client, session):

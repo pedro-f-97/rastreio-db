@@ -17,7 +17,7 @@ CATEGORIAS_MINIMALISTA = {
         ("Outros", False),
     ],
     "Casa": [
-        ("Prestação", True),
+        ("Prestação", False),
         ("Renda", False),
         ("Condomínio", False),
         ("Outros", False),
@@ -52,7 +52,7 @@ CATEGORIAS_COMPLETO = {
     ],
     "Casa": [
         ("Renda", False),
-        ("Prestação", True),
+        ("Prestação", False),
         ("Condomínio", False),
         ("Manutenção", True),
         ("Equipamentos", False),

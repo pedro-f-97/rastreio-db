@@ -35,14 +35,12 @@ def resumo_mensal(db: Session = Depends(get_db)):
             meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
 
     resultados = []
-    totais_despesas = []
 
     for (ano, mes), v in sorted(meses.items()):
         despesas = arredondar(v["despesas"])
         receitas = arredondar(v["receitas"])
         investimento = arredondar(v["investimento"])
         poupanca = arredondar(receitas + despesas)
-        totais_despesas.append(exato(despesas))
 
         resultados.append(
             {
@@ -55,16 +53,9 @@ def resumo_mensal(db: Session = Depends(get_db)):
             }
         )
 
-    # Média e mediana em Decimal: um empate no meio cêntimo arredonda sempre
-    # para longe de zero, e não ao sabor do binário do float
-    media = arredondar(sum(totais_despesas) / len(totais_despesas)) if totais_despesas else 0
-    mediana = arredondar(median(totais_despesas)) if totais_despesas else 0
-
-    return {
-        "meses": resultados,
-        "media_mensal": media,
-        "mediana_mensal": mediana,
-    }
+    # A média e a mediana dos cartões calculam-se na página, a partir dos meses
+    # do ano filtrado
+    return {"meses": resultados}
 
 
 def _mediana_mensal(totais, meses_distintos):
@@ -330,16 +321,13 @@ def _calculate_totals(transacoes):
         if chave not in meses:
             meses[chave] = {"receitas": 0, "despesas": 0, "investimento": 0}
 
-        if t.categoria.tipo == TipoCategoria.receita and not t.reembolso and t.valor > 0:
-            meses[chave]["receitas"] += t.valor
-        elif t.categoria.tipo == TipoCategoria.receita and t.valor < 0:
-            # Estorno de receita: reduz as receitas com o sinal que tem
+        if t.categoria.tipo == TipoCategoria.receita:
+            # Com o sinal que tem: um estorno de receita reduz as receitas
             meses[chave]["receitas"] += t.valor
         elif t.categoria.tipo == TipoCategoria.investimento:
             meses[chave]["investimento"] += t.valor
-        elif t.valor < 0 and t.categoria.tipo != TipoCategoria.receita:
-            meses[chave]["despesas"] += t.valor
-        elif t.valor > 0:
+        else:
+            # Despesa, com o sinal que tem: um reembolso (positivo) reduz a despesa
             meses[chave]["despesas"] += t.valor
 
     return meses

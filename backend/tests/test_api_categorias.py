@@ -427,6 +427,98 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Nomes vazios ou repetidos
+# ---------------------------------------------------------------------------
+
+DUPLICADA = "Já existe uma subcategoria com este nome nesta categoria."
+
+
+def test_nome_so_com_espacos_e_recusado_e_os_espacos_a_volta_saem(client, session):
+    """Um nome só de espaços dá 400; com espaços à volta, guarda-se sem eles.
+
+    Cálculo à mão: "   " sem espaços fica "" -> 400 «O nome não pode ficar
+    vazio.», nas categorias e nas subcategorias, a criar e a renomear.
+    "  Lazer  " fica "Lazer".
+    """
+    d = _semear(session)
+    vazio = {"detail": "O nome não pode ficar vazio."}
+    casa, alim = d["cat_casa"].id, d["sub_alim"].id
+
+    pedidos = [
+        client.post("/api/categorias/", json={"nome": "   "}),
+        client.put(f"/api/categorias/{casa}", json={"nome": "  ", "tipo": "despesa"}),
+        client.post(f"/api/categorias/{casa}/subcategorias", json={"nome": " "}),
+        client.put(f"/api/categorias/{casa}/subcategorias/{alim}", json={"nome": "  "}),
+    ]
+    assert [(r.status_code, r.json()) for r in pedidos] == [(400, vazio)] * 4
+
+    r = client.post("/api/categorias/", json={"nome": "  Lazer  "})
+    assert r.status_code == 200
+    assert r.json()["nome"] == "Lazer"
+
+
+def test_categoria_com_o_mesmo_nome_sem_acentos_nem_maiusculas_e_repetida(client, session):
+    """«saude» e «SAÚDE» são o mesmo nome que «Saúde»: 409 a criar e a renomear.
+
+    Cálculo à mão: sem acentos e em minúsculas, "Saúde", "saude" e "SAÚDE"
+    dão todos "saude". Renomear a própria Saúde para "saude" não é repetido
+    (a própria fica de fora) -> 200, e o nome passa a "saude".
+    """
+    d = _semear(session)
+    repetida = {"detail": "Já existe uma categoria com este nome."}
+
+    r_criar = client.post("/api/categorias/", json={"nome": "saude"})
+    r_renomear = client.put(
+        f"/api/categorias/{d['cat_casa'].id}", json={"nome": "SAÚDE", "tipo": "despesa"}
+    )
+    assert (r_criar.status_code, r_criar.json()) == (409, repetida)
+    assert (r_renomear.status_code, r_renomear.json()) == (409, repetida)
+
+    r_propria = client.put(
+        f"/api/categorias/{d['cat_saude'].id}", json={"nome": "saude", "tipo": "despesa"}
+    )
+    assert r_propria.status_code == 200
+    assert r_propria.json()["nome"] == "saude"
+    assert session.query(Categoria).count() == 3
+
+
+def test_subcategoria_repetida_na_mesma_categoria_e_recusada(client, session):
+    """Na mesma categoria, «salario» e «SALÁRIO» repetem «Salário»: 409.
+
+    Cálculo à mão, na Receita, que já tem Salário:
+      POST "salario"                -> 409
+      POST "Prémio" (novo)          -> 200
+      PUT Prémio -> "SALÁRIO"       -> 409, e o Prémio fica com o nome
+      PUT Salário -> "salario"      -> 200 (a própria fica de fora)
+    Noutra categoria, o mesmo nome é permitido: POST "Salário" em Casa -> 200.
+    """
+    d = _semear(session)
+    receita = d["cat_receita"].id
+
+    r = client.post(f"/api/categorias/{receita}/subcategorias", json={"nome": "salario"})
+    assert (r.status_code, r.json()) == (409, {"detail": DUPLICADA})
+
+    premio = client.post(f"/api/categorias/{receita}/subcategorias", json={"nome": "Prémio"})
+    assert premio.status_code == 200
+    premio_id = premio.json()["id"]
+
+    r = client.put(f"/api/categorias/{receita}/subcategorias/{premio_id}", json={"nome": "SALÁRIO"})
+    assert (r.status_code, r.json()) == (409, {"detail": DUPLICADA})
+    session.expire_all()
+    assert session.get(Subcategoria, premio_id).nome == "Prémio"
+
+    r = client.put(
+        f"/api/categorias/{receita}/subcategorias/{d['sub_salario'].id}",
+        json={"nome": "salario"},
+    )
+    assert r.status_code == 200
+    assert r.json()["nome"] == "salario"
+
+    r = client.post(f"/api/categorias/{d['cat_casa'].id}/subcategorias", json={"nome": "Salário"})
+    assert r.status_code == 200
+
+
 def test_apagar_categoria_com_transacoes_da_409_e_nada_muda(client, session):
     """Uma categoria com transações não se apaga: 409, e nada muda.
 

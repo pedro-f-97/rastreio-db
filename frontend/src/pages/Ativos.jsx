@@ -632,7 +632,7 @@ export default function Ativos({ onDadosAlterados }) {
             <label className="label">Data
               <input className="input" type="date" max={hoje} value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
             </label>
-            <label className="label">Preço unitário (€)
+            <label className="label">Preço unitário, em euros (€)
               <input className="input" type="number" step="0.0001" value={modalPreco.preco} onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))} />
             </label>
 
