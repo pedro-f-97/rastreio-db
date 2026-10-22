@@ -128,6 +128,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 
 - Reembolsos são tratados como redução de despesa, não como receita, para efeitos de estatísticas: um reembolso regista-se na categoria de despesa a que diz respeito, e o valor positivo reduz a despesa. Não há marca de reembolso; o tipo da categoria e o sinal decidem tudo, da mesma forma em todos os ecrãs
 - Transferências internas são excluídas de todas as métricas para não distorcer os dados reais
+- Os nomes de categorias, e os de subcategorias dentro da mesma categoria, não se repetem nem ficam vazios. Para comparar, ignoram-se as maiúsculas e os acentos: «Salário», «salário» e «salario» são o mesmo nome
 - Uma categoria com transações não se pode apagar (é preciso mudá-las de categoria primeiro); sem transações, apaga-se com as suas subcategorias e regras. Apagar uma subcategoria deixa as suas transações por categorizar na mesma categoria, e as regras que apontavam para ela ficam sem subcategoria
 - Uma conta com transações não se pode apagar, só desactivar. Desactivar esconde-a das listas de contas, mas a conta continua a contar no património e na sua evolução; na página Património aparece, marcada como inactiva, enquanto o saldo não for zero
 - O saldo de referência de uma conta é o saldo no fim da data de referência, que pode ser qualquer dia (por exemplo, o de hoje). O saldo noutro dia calcula-se a partir dele: para a frente somam-se as transações seguintes, para trás tiram-se as que ainda não tinham acontecido
