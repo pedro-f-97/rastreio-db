@@ -141,7 +141,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 - No modo de duas colunas de um perfil de importação, o débito sai sempre e o crédito entra sempre, venha o sinal que vier no extracto: o valor é `|crédito| − |débito|`, porque há bancos que escrevem o débito com sinal menos
 - O sistema de regras usa correspondência por substring intuitiva
 - Quando várias regras casam com a mesma descrição, ganha a de palavra-chave mais longa (a mais específica) e, em empate, a mais antiga; essa primeira regra decide sozinha a categoria e a subcategoria, mesmo que deixe a subcategoria por preencher
-- Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada
+- Regras de categorização sem categoria definida funcionam como "nunca atribuir categoria" a transações correspondentes, para marcar transações a rever manualmente sem forçar uma categoria errada. Uma exclusão ganha sempre, seja qual for o comprimento: uma exclusão «MB» deixa por categorizar uma descrição que também case com «MB WAY SALARIO». Para não bloquear uma regra, a exclusão tem de ser mais específica
 - Os valores em euros arredondam ao cêntimo com a metade para longe de zero, como o ARRED do Excel: 2,345 dá 2,35 e -2,345 dá -2,35. Quantidades e preços guardam a precisão com que foram introduzidos, e valores não numéricos (NaN, infinito) são recusados
 - A base de dados fica em `dados/rastreio.db`, junto ao executável, para portabilidade e acesso fácil ao ficheiro
 
