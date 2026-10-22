@@ -562,6 +562,7 @@ Várias chamadas não têm `catch`. Exemplos:
 - **Opções:**
   - (a) Um interceptor no `client.js` que mostra o `detail` de qualquer erro.
   - (b) Um `catch` em cada chamada.
+- **Resolvido:** com uma variante da opção (a). Em vez de um interceptor do axios, que mostraria também os erros que as páginas já tratam, o `client.js` escuta o `unhandledrejection` do browser: um erro do axios que nenhuma página apanhou aparece num `alert` com o `detail` da resposta. As páginas Estatísticas, Histórico e Património continuam em «A carregar...» se o backend falhar, mas o erro vê-se. Verificado com o lint; não visto no browser.
 
 ### 8.4 A média e a mediana mensais calculadas no backend não são usadas
 
@@ -794,7 +795,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 42 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.4, 8.5, 8.6, 9.1, 10.1, 10.2, 10.4, 11.2, 11.3, 11.4, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
+**Progresso:** 43 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.3, 8.4, 8.5, 8.6, 9.1, 10.1, 10.2, 10.4, 11.2, 11.3, 11.4, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -833,7 +834,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 6.4 | O restauro recusa um backup a que só falta uma tabela nova | baixa | perda de dados / robustez | confirmado por leitura | resolvido |
 | 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado | resolvido |
 | 7.4 | No executável, um erro no arranque não se vê | baixa | robustez / apresentação | confirmado por leitura | resolvido |
-| 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura |  |
+| 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura | resolvido |
 | 8.4 | A média e a mediana do backend não são usadas | baixa | qualidade | confirmado | resolvido |
 | 8.6 | A taxa anual do Histórico perde a casa decimal | baixa | apresentação | confirmado | resolvido |
 | 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado |  |
