@@ -367,9 +367,9 @@ export default function Importacao({ onDadosAlterados }) {
                                         <td>{t.data}</td>
                                         <td>{t.descricao}</td>
                                         <td className={t.valor < 0 ? 'valor-negativo' : 'valor-positivo'}>
-                                            {t.valor.toFixed(2)}
+                                            {formatarEuros(t.valor)}
                                         </td>
-                                        <td>{t.saldo != null ? t.saldo.toFixed(2) : '—'}</td>
+                                        <td>{formatarEuros(t.saldo)}</td>
                                     </tr>
                                 ))}
                             </tbody>

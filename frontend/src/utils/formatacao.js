@@ -1,17 +1,31 @@
-const formatadorMonetario = new Intl.NumberFormat('pt-PT', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+/**
+ * Formata um número como valor monetário em euros, por omissão ao cêntimo.
+ * O formato toLocaleString('pt-PT') não separava corretamente os milhares.
+ * Ex: 5233.75 → "5 233,75 €"; (5.877987, 4) → "5,8780 €"
+ */
+export function formatarEuros(valor, casas = 2) {
+  if (valor == null) return "—";
+  const formatador = new Intl.NumberFormat('pt-PT', {
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas,
+    useGrouping: true,
+  });
+  return formatador.format(valor) + " €";
+}
+
+const formatadorQuantidade = new Intl.NumberFormat('pt-PT', {
+  maximumFractionDigits: 8,
   useGrouping: true,
 });
 
 /**
- * Formata um número como valor monetário em euros. 
- * O formato toLocaleString('pt-PT') não separava corretamente os milhares.
- * Ex: 5233.75 → "5 233,75 €"
+ * Formata uma quantidade (unidades de um ativo) com as casas decimais que
+ * tiver, até 8, sem o ruído das somas em vírgula flutuante.
+ * Ex: 0.1 + 0.2 = 0.30000000000000004 → "0,3"
  */
-export function formatarEuros(valor) {
+export function formatarQuantidade(valor) {
   if (valor == null) return "—";
-  return formatadorMonetario.format(valor) + " €";
+  return formatadorQuantidade.format(valor);
 }
 
 /**

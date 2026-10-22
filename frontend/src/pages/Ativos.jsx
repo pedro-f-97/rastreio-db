@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
-import { formatarEuros } from '../utils/formatacao';
+import { formatarEuros, formatarPercentagem, formatarQuantidade } from '../utils/formatacao';
 import "../componentes.css";
 
 const estadoModalInicial = {
@@ -303,7 +303,7 @@ export default function Ativos({ onDadosAlterados }) {
                         {" · "}
                         <span className={resumoTipo.resultadoTotal >= 0 ? "valor-positivo" : "valor-negativo"}>
                           {resumoTipo.resultadoTotal >= 0 ? "+" : ""}{formatarEuros(resumoTipo.resultadoTotal)}
-                          {resumoTipo.pct != null && ` (${resumoTipo.pct >= 0 ? "+" : ""}${resumoTipo.pct.toFixed(2)}%)`}
+                          {resumoTipo.pct != null && ` (${resumoTipo.pct >= 0 ? "+" : ""}${formatarPercentagem(resumoTipo.pct, 2)})`}
                         </span>
                       </span>
                     )}
@@ -411,14 +411,14 @@ export default function Ativos({ onDadosAlterados }) {
                                 <span>{formatarEuros(mmv)}</span>
                                 {pctAtivo !== null && (
                                   <span className="data-preco">
-                                    {pctAtivo >= 0 ? "+" : ""}{pctAtivo.toFixed(2)}%
+                                    {pctAtivo >= 0 ? "+" : ""}{formatarPercentagem(pctAtivo, 2)}
                                   </span>
                                 )}
                               </div>
                             ) : "—"}
                           </td>
                           <td className="col-valor col-mono">
-                            {r ? (ativo.tipo.tem_unidades ? r.quantidade : "—") : "—"}
+                            {r ? (ativo.tipo.tem_unidades ? formatarQuantidade(r.quantidade) : "—") : "—"}
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div className="accoes">
@@ -692,9 +692,9 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
           <tr key={m.id}>
             <td className="col-mono">{m.data}</td>
             <td>{m.tipo_movimento}</td>
-            <td className="col-mono">{m.quantidade ?? "—"}</td>
-            <td className="col-mono">{m.preco_unitario != null ? `${m.preco_unitario.toFixed(4)} €` : "—"}</td>
-            <td className="col-mono">{m.comissao != null ? `${m.comissao.toFixed(2)} €` : "—"}</td>
+            <td className="col-mono">{formatarQuantidade(m.quantidade)}</td>
+            <td className="col-mono">{formatarEuros(m.preco_unitario, 4)}</td>
+            <td className="col-mono">{formatarEuros(m.comissao)}</td>
             <td className="col-valor col-mono">{formatarEuros(m.valor_total)}</td>
             <td><button title="Eliminar registo" className="btn-ghost" onClick={() => handleEliminar(m.id)}>🗑</button></td>
           </tr>
