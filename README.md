@@ -15,7 +15,7 @@
 Aplicação web local e portable para gestão e análise de extratos bancários, sem dependência de serviços externos. Nasceu da necessidade de algo mais robusto do que a típica folha de Excel. Permite importar extratos em Excel (.xlsx, .csv), com perfis configuráveis por banco e conta, categorizar transações automaticamente com regras dinâmicas, marcar transações como património para registo de bens ou investimentos, e acompanhar a evolução financeira através de estatísticas detalhadas.
 
 ### Transações
-- Listagem paginada com edição inline de categoria, subcategoria, conta e notas
+- Listagem paginada com edição inline de categoria, subcategoria e notas
 - Filtros por ano, mês e categoria, incluindo filtro rápido de transações por categorizar
 - Histórico com totais por ano/mês e drill-down por categoria
 - Categorização automática por regras de substring, com sugestões automáticas de novas regras
