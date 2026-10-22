@@ -139,7 +139,8 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
     movimento = MovimentoAtivoModel(**payload.model_dump())
     db.add(movimento)
 
-    if payload.tipo_movimento.value == "compra" and payload.preco_unitario is not None:
+    # O preço de uma compra ou de uma venda é a cotação do ativo nesse dia
+    if payload.tipo_movimento.value in ("compra", "venda") and payload.preco_unitario is not None:
         existente = (
             db.query(PrecoAtivoModel)
             .filter(

@@ -433,12 +433,14 @@ def test_compra_no_mesmo_dia_actualiza_o_preco(client, session):
     assert precos[0].preco == 21.0
 
 
-def test_venda_nao_cria_preco(client, session):
-    """Só a `compra` faz upsert; uma `venda` com preço não grava preço.
+def test_venda_regista_o_preco_como_cotacao(client, session):
+    """Uma `venda` com preço também regista a cotação do dia (achado 5.3).
 
-    Cálculo à mão: uma compra (cria 1 preço) + uma venda com `preco_unitario`
-    -> 2 movimentos e **1** preço. A condição é
-    `payload.tipo_movimento.value == "compra"` (`routers/patrimonio.py:97`).
+    Cálculo à mão: uma compra de 10 a 20.0 em 2025-01-10 (cria o preço 20.0) e
+    uma venda de 4 a 30.0 em 2025-03-10 -> 2 movimentos e **2** preços. O resumo
+    usa o preço mais recente: restam 10 - 4 = 6 unidades, avaliadas a 30.0 ->
+    6 * 30.0 = 180.0. Antes da correcção, a venda não gravava preço e as 6
+    unidades ficavam a 20.0 (120.0).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "Acao", tipo)
@@ -460,15 +462,92 @@ def test_venda_nao_cria_preco(client, session):
             "ativo_id": ativo.id,
             "tipo_movimento": "venda",
             "data": "2025-03-10",
-            "quantidade": 10,
+            "quantidade": 4,
             "preco_unitario": 30.0,
-            "valor_total": 300.0,
+            "valor_total": 120.0,
         },
     )
 
     assert r.status_code == 200
     assert session.query(MovimentoAtivo).count() == 2
-    assert session.query(PrecoAtivo).count() == 1
+    assert sorted((p.data, p.preco) for p in session.query(PrecoAtivo).all()) == [
+        (date(2025, 1, 10), 20.0),
+        (date(2025, 3, 10), 30.0),
+    ]
+
+    resumo = client.get(f"/api/patrimonio/ativos/{ativo.id}/resumo").json()
+    assert (resumo["quantidade"], resumo["preco_atual"], resumo["data_preco"]) == (
+        6.0,
+        30.0,
+        "2025-03-10",
+    )
+    assert resumo["valor_atual"] == 180.0
+
+
+def test_venda_recusada_nao_regista_preco(client, session):
+    """Uma venda acima da posição é recusada, e o seu preço também não fica.
+
+    Cálculo à mão: compra de 10 a 20.0 (1 preço); venda de 15 a 30.0 -> 15 > 10,
+    422. O movimento e o preço da venda iam no mesmo `commit`, que não chega a
+    correr: ficam 1 movimento e 1 preço (o da compra, 20.0).
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "compra",
+            "data": "2025-01-10",
+            "quantidade": 10,
+            "preco_unitario": 20.0,
+            "valor_total": -200.0,
+        },
+    )
+
+    r = client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "venda",
+            "data": "2025-03-10",
+            "quantidade": 15,
+            "preco_unitario": 30.0,
+            "valor_total": 450.0,
+        },
+    )
+
+    assert r.status_code == 422
+    session.rollback()
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 1
+    assert [p.preco for p in session.query(PrecoAtivo).all()] == [20.0]
+
+
+def test_dividendo_nao_regista_preco(client, session):
+    """Um `dividendo` com preço não regista cotação: não é uma troca de unidades.
+
+    Cálculo à mão: só compras e vendas gravam preço; um dividendo com
+    `preco_unitario` 0.5 -> 1 movimento e 0 preços.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+
+    r = client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "tipo_movimento": "dividendo",
+            "data": "2025-03-10",
+            "quantidade": 10,
+            "preco_unitario": 0.5,
+            "valor_total": 5.0,
+        },
+    )
+
+    assert r.status_code == 200
+    assert session.query(MovimentoAtivo).count() == 1
+    assert session.query(PrecoAtivo).count() == 0
 
 
 def test_compra_sem_preco_unitario_nao_cria_preco(client, session):
