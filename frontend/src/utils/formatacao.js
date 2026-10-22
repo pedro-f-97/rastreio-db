@@ -13,3 +13,31 @@ export function formatarEuros(valor) {
   if (valor == null) return "—";
   return formatadorMonetario.format(valor) + " €";
 }
+
+const formatadorPercentagem = new Intl.NumberFormat('pt-PT', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+  useGrouping: true,
+});
+
+/**
+ * Formata uma percentagem com uma casa decimal, com vírgula.
+ * Ex: 44.85 → "44,9%"
+ */
+export function formatarPercentagem(valor) {
+  if (valor == null) return "—";
+  return formatadorPercentagem.format(valor) + "%";
+}
+
+const formatadorEixo = new Intl.NumberFormat('pt-PT', {
+  maximumFractionDigits: 0,
+  useGrouping: true,
+});
+
+/**
+ * Formata os valores dos eixos dos gráficos: euros sem cêntimos, com os
+ * milhares separados. Ex: 12000 → "12 000 €"
+ */
+export function formatarEurosEixo(valor) {
+  return formatadorEixo.format(valor) + " €";
+}

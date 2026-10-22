@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import './Estatisticas.css';
 import '../componentes.css';
-import { formatarEuros } from '../utils/formatacao';
+import { formatarEuros, formatarEurosEixo, formatarPercentagem } from '../utils/formatacao';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -57,7 +57,7 @@ function GraficoDistribuicao({ dados, chaveSeleccionada = null, onSeleccionar })
         <ResponsiveContainer width="100%" height={dados.length * 32 + 40}>
             <BarChart data={dados} layout="vertical" margin={{ top: 0, right: 160, left: 20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                <XAxis type="number" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v} €`} />
+                <XAxis type="number" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={formatarEurosEixo} />
                 <YAxis type="category" dataKey="nome" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} width={140} />
                 <Tooltip
                     contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
@@ -109,7 +109,7 @@ export default function Estatisticas() {
             chave,
             nome,
             valor: -total,
-            rotulo: `${formatarEuros(-total)} · ${(-total / totalDespesa * 100).toFixed(1)}%`,
+            rotulo: `${formatarEuros(-total)} · ${formatarPercentagem(-total / totalDespesa * 100)}`,
         });
         return despesas
             .map(c => ({
@@ -268,13 +268,13 @@ export default function Estatisticas() {
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Do período</span>
                                 <span className={`cartao-metade-valor ${cardTaxa.periodo !== null ? classeValor(cardTaxa.periodo) : ''}`}>
-                                    {cardTaxa.periodo !== null ? `${cardTaxa.periodo.toFixed(1)}%` : '—'}
+                                    {formatarPercentagem(cardTaxa.periodo)}
                                 </span>
                             </div>
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Mediana mensal</span>
                                 <span className={`cartao-metade-valor ${cardTaxa.mediana !== null ? classeValor(cardTaxa.mediana) : ''}`}>
-                                    {cardTaxa.mediana !== null ? `${cardTaxa.mediana.toFixed(1)}%` : '—'}
+                                    {formatarPercentagem(cardTaxa.mediana)}
                                 </span>
                             </div>
                         </div>
@@ -305,14 +305,14 @@ export default function Estatisticas() {
                         <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
                         <YAxis
                             tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
-                            tickFormatter={v => `${v} €`}
+                            tickFormatter={formatarEurosEixo}
                             domain={dominioValores}
                             allowDataOverflow={true}
                         />
                         <Tooltip
                             contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             labelStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v) => `${v.toFixed(2)} €`}
+                            formatter={(v) => formatarEuros(v)}
                         />
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
                         <Bar dataKey="Receitas" fill="var(--success)" />
@@ -333,7 +333,7 @@ export default function Estatisticas() {
                         <Tooltip
                             contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             labelStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v) => v !== null ? `${v.toFixed(1)}%` : '—'}
+                            formatter={(v) => formatarPercentagem(v)}
                         />
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
                         <Line dataKey="Taxa de Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls={false} />
