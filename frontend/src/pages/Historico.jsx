@@ -32,7 +32,7 @@ export default function Historico() {
         const despesas = meses.reduce((s, m) => s + m.despesas, 0);
         const investimento = meses.reduce((s, m) => s + m.investimento, 0);
         const poupanca = receitas + despesas;
-        const taxa = receitas > 0 ? parseFloat((poupanca / receitas * 100).toFixed(1)) : null;
+        const taxa = receitas > 0 ? poupanca / receitas * 100 : null;
         return { ano: parseInt(ano), receitas, despesas, investimento, poupanca, taxa };
     });
 
@@ -73,7 +73,7 @@ export default function Historico() {
                                         <td className="valor-negativo">{formatarEuros(totalAno.despesas)}</td>
                                         <td className={totalAno.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{formatarEuros(totalAno.investimento)}</td>
                                         <td className={totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarEuros(totalAno.poupanca)}</td>
-                                        <td className={totalAno.taxa === null ? '' : totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{totalAno.taxa !== null ? `${totalAno.taxa}%` : '—'}</td>
+                                        <td className={totalAno.taxa === null ? '' : totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{totalAno.taxa !== null ? `${totalAno.taxa.toFixed(1)}%` : '—'}</td>
                                     </tr>
                                     {mesesPorAno[ano].map(m => {
                                         const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
