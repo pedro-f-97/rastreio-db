@@ -425,6 +425,7 @@ O `.anterior` é reescrito em cada restauro. Quem restaura o ficheiro errado e d
   - (a) Guardar as cópias com data e hora e manter as N mais recentes.
   - (b) Um botão «desfazer último restauro».
   - (c) Deixar como está, já que o aviso existe.
+- **Resolvido:** com a opção (a), com 5 cópias. Cada restauro guarda a BD substituída em `rastreio.db.anterior-AAAA-MM-DD-HHMMSS` (com `-2`, `-3` no mesmo segundo) e apaga as mais antigas, para ficarem 5. A cópia `.anterior` sem data, de versões anteriores, não é tocada. Repor uma cópia continua a ser à mão.
 
 ### 6.4 O restauro recusa um backup a que só falta uma tabela nova
 
@@ -777,7 +778,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 25 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.2, 2.6, 3.2, 3.3, 4.3, 5.2, 5.3, 6.1, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
+**Progresso:** 26 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.2, 2.6, 3.2, 3.3, 4.3, 5.2, 5.3, 6.1, 6.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -812,7 +813,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 5.2 | `moeda` é guardado mas não tem efeito | baixa | estrutura | confirmado | resolvido |
 | 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado | resolvido |
 | 6.2 | Um backup com valores inválidos é aceite | baixa | robustez | confirmado |  |
-| 6.3 | Só há um `.anterior`, substituído em cada restauro | baixa | perda de dados | confirmado por leitura |  |
+| 6.3 | Só há um `.anterior`, substituído em cada restauro | baixa | perda de dados | confirmado por leitura | resolvido |
 | 6.4 | O restauro recusa um backup a que só falta uma tabela nova | baixa | perda de dados / robustez | confirmado por leitura |  |
 | 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado |  |
 | 7.4 | No executável, um erro no arranque não se vê | baixa | robustez / apresentação | confirmado por leitura |  |

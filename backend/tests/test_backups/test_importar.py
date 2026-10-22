@@ -11,10 +11,10 @@ O endpoint, lido por ordem
 
 1. o nome tem de acabar em `.db`; caso contrário, 400 `Ficheiro inválido`.
 2. o conteúdo não pode ser vazio; caso contrário, 400 `Ficheiro vazio`.
-3. os caminhos são `DB_PATH + ".tmp"` e `DB_PATH + ".anterior"`, ao lado da BD
-   — que, por causa do `conftest`, está no directório temporário.
-4. a limpeza inicial remove só o `.tmp`: um `.anterior` pré-existente fica no
-   disco até um restauro que passe a validação o substituir.
+3. o temporário é `DB_PATH + ".tmp"`, ao lado da BD — que, por causa do
+   `conftest`, está no directório temporário.
+4. a limpeza inicial remove só o `.tmp`: as cópias `.anterior-<data>` que já
+   existam ficam no disco.
 5. o conteúdo vai para o `.tmp`, e só depois é validado:
    `_validar_sqlite` (PRAGMA integrity_check e leitura de `sqlite_master`,
    com as mensagens próprias de «não é SQLite» e «corrompida»), depois
@@ -24,18 +24,20 @@ O endpoint, lido por ordem
    com a mensagem genérica, sem dizer o que falta).
 6. `engine.dispose()` fecha as ligações antes de mexer no ficheiro.
 7. `shutil.copy2(DB_PATH, anterior_tmp)` seguido de
-   `os.replace(anterior_tmp, anterior_path)` cria ou substitui o `.anterior`
-   só quando a cópia está completa.
+   `os.replace(anterior_tmp, anterior_path)` cria uma cópia nova,
+   `DB_PATH + ".anterior-AAAA-MM-DD-HHMMSS"` (com `-2`, `-3` no mesmo
+   segundo), só quando a cópia está completa.
 8. `os.replace(temp_path, DB_PATH)` — a BD é mesmo substituída.
 9. verificação pós-troca: `_validar_estrutura(DB_PATH)`, a MESMA validação de
    tabelas e colunas, agora sobre a BD trocada.
-10. em erro no bloco 7-9, rollback: `dispose`, repõe a BD a partir do
-    `.anterior` **sem o apagar** — mas só se esse `.anterior` foi criado neste
-    pedido, e também por cópia ao lado seguida de `os.replace` —, remove o
-    `.tmp` e o `.anterior.tmp` que tenham ficado, e
-    responde 500 `Falha ao restaurar: ...`.
-11. no sucesso, o `.anterior` fica no disco até o restauro seguinte o
-    substituir — o endpoint nunca o apaga.
+10. em erro no bloco 7-9, rollback: `dispose`, repõe a BD a partir da cópia
+    **sem a apagar** — mas só se essa cópia foi criada neste pedido, e também
+    por cópia ao lado seguida de `os.replace` —, remove o `.tmp` e o
+    `.tmp` da cópia que tenham ficado, e responde 500
+    `Falha ao restaurar: ...`.
+11. no sucesso, a cópia fica no disco, e das cópias `.anterior-<data>` ficam
+    só as 5 mais recentes (achado 6.3); a `.anterior` sem data, de versões
+    anteriores, nunca é apagada.
 
 Os testes
 ---------
@@ -63,6 +65,7 @@ reposição feita pelo próprio rollback.
 """
 
 import os
+import re
 import shutil
 import sqlite3
 from datetime import date
@@ -212,8 +215,8 @@ def nomes_das_contas() -> list[str]:
 def caminho_do(bd: Path, sufixo: str) -> Path:
     """O caminho com aquele sufixo ao lado da BD.
 
-    O endpoint monta `DB_PATH + ".tmp"` e `DB_PATH + ".anterior"`, pelo que é
-    aqui que se vai procurar o que ficou.
+    O endpoint monta `DB_PATH + ".tmp"`, pelo que é aqui que se vai procurar o
+    que ficou. As cópias `.anterior-<data>` procuram-se com `anteriores`.
     """
     return Path(str(bd) + sufixo)
 
@@ -221,6 +224,28 @@ def caminho_do(bd: Path, sufixo: str) -> Path:
 def existe(caminho_bd: Path, sufixo: str) -> bool:
     """Se existe o ficheiro que o endpoint usa com aquele sufixo."""
     return caminho_do(caminho_bd, sufixo).exists()
+
+
+def anteriores(bd: Path) -> list[Path]:
+    """As cópias `.anterior-<data>` terminadas, da mais antiga para a mais recente.
+
+    O nome tem a data e a hora (`rastreio.db.anterior-AAAA-MM-DD-HHMMSS`, com
+    `-2`, `-3` se houver mais de um restauro no mesmo segundo), por isso a ordem
+    dos nomes é a ordem dos restauros.
+    """
+    return sorted(c for c in bd.parent.glob(bd.name + ".anterior-*") if c.suffix != ".tmp")
+
+
+def ultimo_anterior(bd: Path) -> Path:
+    """A cópia do restauro mais recente."""
+    copias = anteriores(bd)
+    assert copias, "Não há nenhuma cópia `.anterior-<data>`."
+    return copias[-1]
+
+
+def anteriores_tmp(bd: Path) -> list[Path]:
+    """As cópias a meio (`.anterior-<data>.tmp`) que tenham ficado no disco."""
+    return list(bd.parent.glob(bd.name + ".anterior-*.tmp"))
 
 
 def contas_em(caminho: Path) -> list[str]:
@@ -269,7 +294,7 @@ def test_nao_sqlite_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_ficheiro):
     assert resposta.status_code == 400
     assert resposta.json()["detail"].startswith("O ficheiro não é uma base de dados SQLite válida")
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -293,7 +318,7 @@ def test_sqlite_sem_as_tabelas_do_modelo_e_rejeitado(client, bd_em_ficheiro, tmp
     assert resposta.status_code == 400
     assert resposta.json()["detail"] == MENSAGEM_ESTRUTURA
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -426,8 +451,8 @@ def test_ida_e_volta_sem_alteracoes_preserva_os_dados(client, bd_em_ficheiro):
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [CONTA_REAL]
+    assert len(anteriores(bd_em_ficheiro)) == 1
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [CONTA_REAL]
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -461,8 +486,8 @@ def test_ida_e_volta_traz_de_volta_o_estado_anterior(client, bd_em_ficheiro):
 
     assert resposta.status_code == 200
     assert resposta.json()["ok"] is True
-    assert existe(bd_em_ficheiro, ".anterior")
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+    assert len(anteriores(bd_em_ficheiro)) == 1
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [
         "Conta Nova",
         "Conta Real",
     ]
@@ -524,7 +549,7 @@ def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_fichei
     assert resposta.status_code == 400
     assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
     db = sessao_nova()
@@ -564,7 +589,7 @@ def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tm
     assert resposta.status_code == 400
     assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
     db = sessao_nova()
@@ -593,8 +618,7 @@ def test_rejeicao_nao_toca_no_anterior_pre_existente(client, bd_em_ficheiro, tmp
     primeiro = importar(client, exportado.content)
     assert primeiro.status_code == 200
 
-    anterior = caminho_do(bd_em_ficheiro, ".anterior")
-    assert anterior.exists(), "O restauro bom devia ter criado o `.anterior`."
+    anterior = ultimo_anterior(bd_em_ficheiro)
     bytes_antes = anterior.read_bytes()
 
     conteudo = criar_sqlite(tmp_path / "tres.db", MINIMO_3)
@@ -602,7 +626,9 @@ def test_rejeicao_nao_toca_no_anterior_pre_existente(client, bd_em_ficheiro, tmp
 
     assert resposta.status_code == 400
     assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
-    assert anterior.exists(), "A rejeição apagou o `.anterior` pré-existente."
+    assert anteriores(bd_em_ficheiro) == [anterior], (
+        "A rejeição apagou o `.anterior` pré-existente ou criou outro."
+    )
     assert anterior.read_bytes() == bytes_antes, (
         "A rejeição alterou o conteúdo do `.anterior` pré-existente."
     )
@@ -642,8 +668,8 @@ def test_modelo_completo_com_coluna_extra_e_aceite(client, bd_em_ficheiro, tmp_p
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [CONTA_REAL]
+    assert len(anteriores(bd_em_ficheiro)) == 1
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [CONTA_REAL]
     assert nomes_das_contas() == ["Conta Extra"]
 
 
@@ -712,7 +738,7 @@ def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_
     assert resposta.status_code == 400
     assert resposta.json()["detail"] == MENSAGEM_VERSAO_ANTERIOR
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -759,7 +785,7 @@ def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_fich
         assert resposta.json()["detail"] == esperada, nome
 
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -792,7 +818,7 @@ def test_extensao_db_maiuscula_e_aceite(client, bd_em_ficheiro):
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
+    assert len(anteriores(bd_em_ficheiro)) == 1
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -817,7 +843,7 @@ def test_extensao_db_com_capitalizacao_mista_e_aceite(client, bd_em_ficheiro):
         "ok": True,
         "mensagem": "Base de dados restaurada",
     }
-    assert existe(bd_em_ficheiro, ".anterior")
+    assert len(anteriores(bd_em_ficheiro)) == 1
     assert nomes_das_contas() == [CONTA_REAL]
 
 
@@ -842,6 +868,77 @@ def test_extensao_errada_continua_a_ser_rejeitada(client, bd_em_ficheiro):
     assert resposta.json()["detail"] == "Ficheiro inválido"
     assert not existe(bd_em_ficheiro, ".tmp")
     assert nomes_das_contas() == [CONTA_REAL]
+
+
+# ---------------------------------------------------------------------------
+# Várias cópias `.anterior-<data>` (achado 6.3)
+# ---------------------------------------------------------------------------
+
+
+def test_dois_restauros_guardam_duas_copias(client, bd_em_ficheiro):
+    """Um segundo restauro não apaga a cópia do primeiro.
+
+    É o caso que perdia dados: restaura-se o backup errado e depois outro para
+    corrigir. Com um só `.anterior`, o segundo restauro substituía a BD original
+    pelo backup errado.
+
+    Cálculo à mão:
+      * a BD tem `Conta Real`; exporta-se (o «backup errado»);
+      * cria-se `Conta Nova`: a BD original tem as duas contas;
+      * 1.º restauro do export -> a 1.ª cópia guarda a BD original, com as duas
+        contas, e a BD fica só com a `Conta Real`;
+      * 2.º restauro do mesmo export -> a 2.ª cópia guarda só a `Conta Real`.
+    As duas cópias ficam, por esta ordem, e a original continua recuperável.
+    Os dois restauros podem cair no mesmo segundo: o 2.º leva então `-2` no
+    nome, que ordena depois do 1.º.
+    """
+    semear_conta_real()
+    exportado = client.get("/api/backups/exportar").content
+    db = sessao_nova()
+    try:
+        db.add(Conta(nome="Conta Nova", saldo_referencia=50.0, data_referencia=date(2024, 2, 1)))
+        db.commit()
+    finally:
+        db.close()
+
+    assert importar(client, exportado).status_code == 200
+    assert importar(client, exportado).status_code == 200
+
+    copias = anteriores(bd_em_ficheiro)
+    assert [contas_em(c) for c in copias] == [["Conta Nova", CONTA_REAL], [CONTA_REAL]]
+    for copia in copias:
+        assert re.fullmatch(
+            re.escape(bd_em_ficheiro.name) + r"\.anterior-\d{4}-\d{2}-\d{2}-\d{6}(-\d+)?",
+            copia.name,
+        ), copia.name
+    assert nomes_das_contas() == [CONTA_REAL]
+
+
+def test_ficam_so_as_cinco_copias_mais_recentes(client, bd_em_ficheiro):
+    """Um restauro com 5 cópias no disco apaga a mais antiga e fica com 5.
+
+    Cálculo à mão: semeiam-se 5 cópias com datas de 2020 (dias 1 a 5) e um
+    `.anterior` sem data, de uma versão anterior da aplicação. O restauro cria
+    a 6.ª cópia, com a data de hoje, que ordena depois das de 2020. Ficam as 5
+    mais recentes: as de 2020 dos dias 2 a 5 e a de hoje. Sai a do dia 1. O
+    `.anterior` sem data não conta para as 5 e fica no disco.
+    """
+    semear_conta_real()
+    antigas = [Path(f"{bd_em_ficheiro}.anterior-2020-01-0{dia}-120000") for dia in range(1, 6)]
+    for antiga in antigas:
+        antiga.write_bytes(b"copia antiga")
+    sem_data = caminho_do(bd_em_ficheiro, ".anterior")
+    sem_data.write_bytes(b"copia de uma versao anterior")
+
+    exportado = client.get("/api/backups/exportar").content
+    assert importar(client, exportado).status_code == 200
+
+    copias = anteriores(bd_em_ficheiro)
+    assert copias[:4] == antigas[1:]
+    assert len(copias) == 5
+    assert contas_em(copias[4]) == [CONTA_REAL]
+    assert not antigas[0].exists()
+    assert sem_data.read_bytes() == b"copia de uma versao anterior"
 
 
 # ---------------------------------------------------------------------------
@@ -870,7 +967,7 @@ def _restauro_bom_e_conta_nova(client, bd_em_ficheiro):
     finally:
         db.close()
 
-    anterior = caminho_do(bd_em_ficheiro, ".anterior")
+    anterior = ultimo_anterior(bd_em_ficheiro)
     assert contas_em(anterior) == [CONTA_REAL]
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
     return exportado.content, anterior.read_bytes()
@@ -911,11 +1008,11 @@ def test_falha_a_meio_da_copia_nao_estraga_o_anterior_nem_a_bd(client, bd_em_fic
 
     assert resposta.status_code == 500
     assert resposta.json()["detail"] == "Falha ao restaurar: disco cheio (simulado)"
-    assert caminho_do(bd_em_ficheiro, ".anterior").read_bytes() == anterior_antes
+    assert [c.read_bytes() for c in anteriores(bd_em_ficheiro)] == [anterior_antes]
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
     assert integridade(bd_em_ficheiro) == ("linha", "ok")
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+    assert anteriores_tmp(bd_em_ficheiro) == []
 
 
 def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
@@ -924,11 +1021,12 @@ def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
     Antes da correcção, o rollback não removia o `.tmp`, que só
     desaparecia no pedido seguinte.
 
-    Só a troca `.tmp` → BD é sabotada; a do `.anterior.tmp` → `.anterior`
-    passa. Cálculo à mão:
+    Só a troca `.tmp` → BD é sabotada; a da cópia `.tmp` → cópia final passa.
+    Cálculo à mão:
       * 500;
       * a BD continua com as duas contas (o `os.replace` é atómico e falhou);
-      * o `.anterior` foi criado neste pedido, com as duas contas, e fica;
+      * há duas cópias: a do restauro bom (`Conta Real`) e a deste pedido, com
+        as duas contas, que fica;
       * o `.tmp` foi removido.
     """
     exportado, _ = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
@@ -947,12 +1045,13 @@ def test_falha_na_troca_remove_o_tmp(client, bd_em_ficheiro, monkeypatch):
     assert resposta.status_code == 500
     assert resposta.json()["detail"] == "Falha ao restaurar: troca falhada (simulado)"
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+    assert len(anteriores(bd_em_ficheiro)) == 2
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [
         "Conta Nova",
         CONTA_REAL,
     ]
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+    assert anteriores_tmp(bd_em_ficheiro) == []
 
 
 def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(client, bd_em_ficheiro, monkeypatch):
@@ -983,7 +1082,7 @@ def test_falha_depois_da_troca_repoe_a_bd_a_partir_do_anterior(client, bd_em_fic
     assert resposta.status_code == 500
     assert resposta.json()["detail"] == ("Falha ao restaurar: verificação falhada (simulado)")
     assert nomes_das_contas() == ["Conta Nova", CONTA_REAL]
-    assert contas_em(caminho_do(bd_em_ficheiro, ".anterior")) == [
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == [
         "Conta Nova",
         CONTA_REAL,
     ]
@@ -1010,7 +1109,6 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
     exportado, _ = _restauro_bom_e_conta_nova(client, bd_em_ficheiro)
     validar_real = backups._validar_estrutura
     copia_real = shutil.copy2
-    anterior = caminho_do(bd_em_ficheiro, ".anterior")
 
     def validar_falha_na_bd(caminho):
         if Path(caminho).resolve() == bd_em_ficheiro:
@@ -1018,7 +1116,9 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
         return validar_real(caminho)
 
     def reposicao_cortada(origem, destino, *args, **kwargs):
-        if Path(origem).resolve() == anterior:
+        # A única cópia que não parte da BD é a da reposição, a partir da
+        # cópia deste pedido
+        if Path(origem).resolve() != bd_em_ficheiro:
             dados = Path(origem).read_bytes()
             Path(destino).write_bytes(dados[: len(dados) // 2])
             raise OSError("disco cheio (simulado)")
@@ -1033,9 +1133,9 @@ def test_falha_a_meio_da_reposicao_nao_corta_a_bd(client, bd_em_ficheiro, monkey
     assert resposta.json()["detail"] == ("Falha ao restaurar: verificação falhada (simulado)")
     assert integridade(bd_em_ficheiro) == ("linha", "ok")
     assert nomes_das_contas() == [CONTA_REAL]
-    assert contas_em(anterior) == ["Conta Nova", CONTA_REAL]
+    assert contas_em(ultimo_anterior(bd_em_ficheiro)) == ["Conta Nova", CONTA_REAL]
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior.tmp")
+    assert anteriores_tmp(bd_em_ficheiro) == []
 
 
 # ---------------------------------------------------------------------------
@@ -1102,7 +1202,7 @@ def test_falha_na_reparacao_repoe_a_bd_anterior(
     assert resposta.json()["detail"] == ("Falha ao restaurar: reparação falhada (simulado)")
     assert nomes_das_contas() == [CONTA_REAL]
     assert not existe(bd_em_ficheiro, ".tmp")
-    assert not existe(bd_em_ficheiro, ".anterior")
+    assert anteriores(bd_em_ficheiro) == []
 
 
 def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partida):

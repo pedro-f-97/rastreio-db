@@ -1,7 +1,9 @@
 # backend/routers/backups.py
+import glob
 import os
 import shutil
 import sqlite3
+from datetime import datetime
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -21,6 +23,37 @@ MENSAGEM_VERSAO_ANTERIOR = (
     "actualizado para esta versão. A base de dados actual não foi alterada."
 )
 TABELAS_DE_SEMPRE = {"transacoes", "categorias", "contas"}
+
+# Cada restauro guarda a BD que substitui numa cópia com a data e a hora no nome
+# (`rastreio.db.anterior-AAAA-MM-DD-HHMMSS`), e ficam só as mais recentes
+ANTERIORES_A_MANTER = 5
+
+
+def _caminho_anterior() -> str:
+    """Um nome novo para a cópia deste restauro. Dois restauros no mesmo
+    segundo ganham um sufixo, `-2`, `-3`, para não se substituírem."""
+    base = f"{DB_PATH}.anterior-{datetime.now():%Y-%m-%d-%H%M%S}"
+    caminho, n = base, 1
+    while os.path.exists(caminho):
+        n += 1
+        caminho = f"{base}-{n}"
+    return caminho
+
+
+def _apagar_anteriores_a_mais() -> None:
+    """Apaga as cópias mais antigas, para ficarem só `ANTERIORES_A_MANTER`.
+
+    O nome ordena-as por data; a cópia `.anterior` sem data, de versões
+    anteriores, não é tocada.
+    """
+    copias = sorted(
+        c for c in glob.glob(glob.escape(DB_PATH) + ".anterior-*") if not c.endswith(".tmp")
+    )
+    for antiga in copias[:-ANTERIORES_A_MANTER]:
+        try:
+            os.remove(antiga)
+        except OSError:
+            pass
 
 
 def _limpar_wal_shm(db_path: str) -> None:
@@ -93,10 +126,8 @@ async def importar_backup(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Ficheiro vazio")
 
     temp_path = DB_PATH + ".tmp"
-    anterior_path = DB_PATH + ".anterior"
 
-    # limpar só o temporário: o `.anterior` fica no disco até um restauro que
-    # passe a validação o substituir
+    # limpar só o temporário: as cópias anteriores ficam no disco
     if os.path.exists(temp_path):
         os.remove(temp_path)
 
@@ -122,12 +153,13 @@ async def importar_backup(file: UploadFile = File(...)):
     # 2) Só agora mexemos no DB real
     engine.dispose()
 
+    anterior_path = _caminho_anterior()
     anterior_tmp = anterior_path + ".tmp"
     anterior_pronto = False
     try:
         if os.path.exists(DB_PATH):
-            # Copiar ao lado e renomear: o `.anterior` só é substituído quando
-            # a cópia nova está completa
+            # Copiar ao lado e renomear: a cópia só ganha o nome final quando
+            # está completa
             shutil.copy2(DB_PATH, anterior_tmp)
             os.replace(anterior_tmp, anterior_path)
             anterior_pronto = True
@@ -143,8 +175,8 @@ async def importar_backup(file: UploadFile = File(...)):
         # rollback
         engine.dispose()
         try:
-            # Só o `.anterior` deste pedido serve para repor: se a cópia falhou,
-            # a BD ainda não foi tocada e um `.anterior` antigo apagaria dados
+            # Só a cópia deste pedido serve para repor: se a cópia falhou, a
+            # BD ainda não foi tocada e uma cópia antiga apagaria dados
             if anterior_pronto:
                 shutil.copy2(anterior_path, anterior_tmp)
                 os.replace(anterior_tmp, DB_PATH)
@@ -161,5 +193,6 @@ async def importar_backup(file: UploadFile = File(...)):
         _limpar_wal_shm(DB_PATH)
         raise HTTPException(status_code=500, detail=f"Falha ao restaurar: {e}")
 
-    # 4) O `.anterior` fica no disco: é substituído no restauro seguinte
+    # 4) A cópia deste restauro fica no disco; saem só as mais antigas
+    _apagar_anteriores_a_mais()
     return {"ok": True, "mensagem": "Base de dados restaurada"}

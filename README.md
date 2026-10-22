@@ -35,7 +35,7 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 
 ### Geral
 - Tema claro/escuro com persistência entre sessões
-- Backup e restauro da base de dados, com auto-backup de segurança antes de cada restauro
+- Backup e restauro da base de dados, com auto-backup de segurança antes de cada restauro (ficam as 5 cópias mais recentes, em `dados/`, com a data e a hora no nome)
 - Página de primeiro uso com criação opcional de categorias standard, seguido de tour guiado interativo
 - Página de Conceitos com explicação das principais áreas e workflow da aplicação
 

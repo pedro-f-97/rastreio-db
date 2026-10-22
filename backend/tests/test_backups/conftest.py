@@ -66,10 +66,10 @@ BD_DE_PRODUCAO = (BACKEND / "dados" / "rastreio.db").resolve()
 
 # Os ficheiros que uma importação de backup pode deixar para trás, e que não
 # podem sobreviver a um teste: o temporário e os arquivos de lado do SQLite.
-# O `.anterior` ficou de fora de propósito: ele é o estado
-# anterior ao restauro, criado a cada sucesso e substituído no seguinte, e por
-# isso sobreviver a um teste é comportamento esperado — quem o limpa entre
-# testes é a fixture `bd_em_ficheiro` (ver `limpar_bd_e_irmaos`).
+# As cópias `.anterior-<data>` ficaram de fora de propósito: cada uma é o estado
+# anterior a um restauro, criada a cada sucesso, e por isso sobreviver a um
+# teste é comportamento esperado — quem as limpa entre testes é a fixture
+# `bd_em_ficheiro` (ver `limpar_bd_e_irmaos`).
 LIXO = ("*.tmp", "*.tmp-wal", "*.tmp-shm", "*-wal", "*-shm", "*-journal", "_fixture_*")
 
 
@@ -79,24 +79,28 @@ def listar_tudo(directorio: Path) -> set[str]:
 
 
 def sem_anteriores(ficheiros: set[str]) -> set[str]:
-    """Fica só com o que não é `.anterior` (ver o docstring de `guarda_ficheiros`)."""
-    return {nome for nome in ficheiros if not nome.endswith(".anterior")}
+    """Fica só com o que não é uma cópia `.anterior-<data>` terminada (ver o
+    docstring de `guarda_ficheiros`); um `.tmp` de uma cópia conta como lixo."""
+    return {nome for nome in ficheiros if ".anterior" not in nome or nome.endswith(".tmp")}
 
 
 def limpar_bd_e_irmaos(caminho: Path) -> None:
     """Apaga a BD, os arquivos de lado e o que o endpoint deixou atrás.
 
-    Vale a pena limpar também `rastreio.db.tmp` e `rastreio.db.anterior`: se um
-    pedido falhar a meio e deixar um deles para trás, esse ficheiro não é culpa do
-    teste seguinte, e deixá-lo contaminaria a leitura da guarda de ficheiros. O
-    `.anterior` é limpo aqui mesmo depois de um restauro bem sucedido (ele é
-    esperado e fica no disco) — é esta limpeza entre testes que permite
-    à `guarda_ficheiros` ignorar os `.anterior` sem ficar cega a outro lixo.
+    Vale a pena limpar também `rastreio.db.tmp` e as cópias
+    `rastreio.db.anterior*`: se um pedido falhar a meio e deixar uma delas para
+    trás, esse ficheiro não é culpa do teste seguinte, e deixá-lo contaminaria a
+    leitura da guarda de ficheiros. As cópias são limpas aqui mesmo depois de um
+    restauro bem sucedido (são esperadas e ficam no disco) — é esta limpeza
+    entre testes que permite à `guarda_ficheiros` ignorá-las sem ficar cega a
+    outro lixo.
     """
-    for sufixo in ("", "-journal", "-wal", "-shm", ".tmp", ".anterior"):
+    for sufixo in ("", "-journal", "-wal", "-shm", ".tmp"):
         alvo = Path(str(caminho) + sufixo)
         if alvo.exists():
             alvo.unlink()
+    for alvo in caminho.parent.glob(caminho.name + ".anterior*"):
+        alvo.unlink()
     for alvo in caminho.parent.glob(caminho.name + ".*-journal"):
         alvo.unlink()
 
@@ -163,11 +167,11 @@ def guarda_ficheiros(bd_em_ficheiro):
     É mais forte do que verificar os dois nomes conhecidos: apanha também um
     ficheiro de fixture criado no sítio errado.
 
-    Os `.anterior` ficam de fora da comparação e do `LIXO`: um
-    `.anterior` após um restauro bem sucedido é artefacto esperado (fica no
-    disco até ao restauro seguinte), e a `bd_em_ficheiro` o limpa entre testes
-    para não contaminar a leitura. Um `.anterior` deixado por uma tentativa
-    falhada escapa a esta guarda, mas não escapa a `test_rejeicao_nao_toca_no_anterior_pre_existente`.
+    As cópias `.anterior-<data>` ficam de fora da comparação e do `LIXO`: uma
+    cópia após um restauro bem sucedido é artefacto esperado (fica no disco), e
+    a `bd_em_ficheiro` limpa-as entre testes para não contaminar a leitura. Uma
+    cópia deixada por uma tentativa falhada escapa a esta guarda, mas não
+    escapa aos testes de rejeição, que afirmam que não há cópias novas.
 
     A listagem é tirada depois de `bd_em_ficheiro`, porque a fixture destrói o
     ficheiro da BD e a ordem de destruição é a inversa da de criação: a guarda
@@ -195,9 +199,9 @@ def guarda_ficheiros_no_fim_da_corrida():
     """No fim da sessão, o directório temporário não pode ter lixo nenhum.
 
     Rede de segurança para o caso de um teste rebentar a meio e a fixture
-    `guarda_ficheiros` não chegar a correr. Os `.anterior` ficaram de fora do
-    `LIXO` (ver `guarda_ficheiros`), mas não ficam impunes: a última
-    `bd_em_ficheiro` a desmontar limpa-os todos em `limpar_bd_e_irmaos`.
+    `guarda_ficheiros` não chegar a correr. As cópias `.anterior-<data>` ficaram
+    de fora do `LIXO` (ver `guarda_ficheiros`), mas não ficam impunes: a última
+    `bd_em_ficheiro` a desmontar limpa-as todas em `limpar_bd_e_irmaos`.
     """
     yield
 

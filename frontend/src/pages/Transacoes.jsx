@@ -42,7 +42,7 @@ export default function Transacoes({ onDadosAlterados }) {
 
         const confirmar = window.confirm(
             "⚠️ Restaurar um backup substitui os dados atuais.\n\n" +
-            "O estado atual fica guardado num ficheiro .anterior, ao lado da base de dados, até ao próximo restauro.\n\n" +
+            "O estado atual fica guardado numa cópia com a data e a hora no nome (rastreio.db.anterior-...), na pasta dados, ao lado da base de dados. Ficam as 5 cópias mais recentes.\n\n" +
             "Queres continuar?"
         );
         if (!confirmar) return;
