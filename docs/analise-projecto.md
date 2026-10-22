@@ -315,6 +315,8 @@ No resumo mensal, um valor positivo marcado como reembolso numa categoria de rec
 
 As categorias predefinidas põem «Património» (imóveis, veículos) com o tipo `despesa`. A compra de um carro entra assim nas despesas e na média mensal, e também como bem no património. O tipo `investimento` existe precisamente para «não distorcer» as despesas. «Casa › Prestação» trata património: cada prestação, juros incluídos, aumenta o custo do imóvel, e a dívida não é modelada. Onde: `backend/dados_iniciais.py:20,55`, `:108-112` e `:137`.
 
+- **Decidido:** «Património» mantém o tipo `despesa`: a compra é dinheiro que saiu, e o utilizador pode mudar o tipo na página Categorias, por isso não vai para o README. «Casa › Prestação» deixa de vir marcada como património nos dois perfis: uma prestação conta só como despesa, e o imóvel regista-se à parte. As categorias de quem já as tem não mudam.
+
 ### O que está bem
 
 - **Transferências:** são excluídas de todas as vistas de estatísticas.
@@ -770,7 +772,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 ## Resumo de achados
 
-São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
+São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
 **Progresso:** 22 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.6, 3.2, 3.3, 4.3, 6.1, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
 

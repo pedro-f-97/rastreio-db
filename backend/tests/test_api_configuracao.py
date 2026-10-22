@@ -24,6 +24,8 @@ partilham a sessão SQLAlchemy, as verificações de estado começam por
 
 """
 
+import pytest
+
 from database import Categoria, Configuracao, Subcategoria, TipoAtivo, TipoCategoria
 
 # Constantes obtidas por leitura de `dados_iniciais.py` (perfil completo)
@@ -71,6 +73,28 @@ def test_inicializar_default_cria_categorias_tipos_e_configuracao(client, sessio
     assert session.query(Categoria).count() == CATEGORIAS_COMPLETO_COUNT
     assert session.query(Subcategoria).count() == SUBCATEGORIAS_COMPLETO_COUNT
     assert session.query(TipoAtivo).count() == SEED_TIPOS_ATIVO_COUNT
+
+
+@pytest.mark.parametrize("perfil", ["completo", "minimalista"])
+def test_inicializar_a_prestacao_da_casa_nao_trata_patrimonio(client, session, perfil):
+    """A subcategoria predefinida «Casa › Prestação» não é marcada como património.
+
+    Cálculo à mão: em `dados_iniciais.py`, a «Casa» dos dois perfis tem
+    `("Prestação", False)`. Marcada, cada prestação somava ao custo do imóvel o
+    valor inteiro, juros incluídos, e a dívida não existe na aplicação (decisão
+    a rever da Área 4 da análise).
+    """
+    r = client.post("/api/configuracao/inicializar", params={"perfil": perfil})
+    assert r.status_code == 200
+
+    session.expire_all()
+    prestacao = (
+        session.query(Subcategoria)
+        .join(Categoria)
+        .filter(Categoria.nome == "Casa", Subcategoria.nome == "Prestação")
+        .one()
+    )
+    assert prestacao.trata_patrimonio is False
 
 
 def test_inicializar_cria_os_tipos_de_ativo_com_e_sem_unidades(client, session):
