@@ -187,7 +187,7 @@ def test_apagar_conta_sem_transacoes_elimina(client, session):
 
 
 def test_apagar_conta_sem_transacoes_com_perfil_e_recusado(client, session):
-    """Sem transacções mas com um perfil associado, a conta não se apaga (achado 1.2).
+    """Sem transacções mas com um perfil associado, a conta não se apaga.
 
     Cenário: conta "Poupança" sem transacções e um perfil "Banco" associado.
 
@@ -288,7 +288,7 @@ def test_apagar_conta_com_transacoes_desativa(client, session):
 
 
 def test_conta_desativada_continua_no_historico_da_liquidez(client, session):
-    """Desactivar uma conta não a tira da evolução do património (achado 4.2).
+    """Desactivar uma conta não a tira da evolução do património.
 
     Cenário:
       "Fechada": 1000.00 de referência em 2025-02-28; +1200.00 em 2025-04-10;
@@ -403,7 +403,7 @@ def test_saldo_de_hoje_com_referencia_no_futuro_calcula_para_tras(client, sessio
 def test_evolucao_antes_da_referencia_calcula_para_tras(client, session):
     """Antes da data de referência, o saldo é a referência menos o que veio depois.
 
-    O exemplo do achado 4.1: a conta é criada com o saldo de hoje e o histórico
+    O exemplo: a conta é criada com o saldo de hoje e o histórico
     é importado. Referência: 2150.00 no fim de 2026-04-30. Transacções:
       +400.00 em 2026-02-10
       +400.00 em 2026-03-31 (no último dia do mês: conta nesse mês)

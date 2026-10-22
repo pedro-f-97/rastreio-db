@@ -106,7 +106,7 @@ jobs:
           chmod +x build.sh
           ./build.sh
 
-      # Arranca o executável gerado e confirma que responde (achado 9.2): apanha
+      # Arranca o executável gerado e confirma que responde: apanha
       # um build que empacota mas não arranca. A BD fica numa pasta temporária;
       # sem ecrã, a janela de controlo não abre e a aplicação continua sem ela,
       # e BROWSER=true faz do abrir o browser um comando que não faz nada.

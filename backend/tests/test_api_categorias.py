@@ -428,7 +428,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
 
 
 # ---------------------------------------------------------------------------
-# Nomes vazios ou repetidos (achado 1.3)
+# Nomes vazios ou repetidos
 # ---------------------------------------------------------------------------
 
 DUPLICADA = "Já existe uma subcategoria com este nome nesta categoria."

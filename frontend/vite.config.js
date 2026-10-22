@@ -3,7 +3,7 @@ import process from 'node:process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// A versão que a página Conceitos mostra (achado 10.3): a variável VERSAO, se
+// A versão que a página Conceitos mostra: a variável VERSAO, se
 // existir; na CI, a tag que disparou o build (o checkout não traz as tags); em
 // local, o `git describe` (ex. v0.2.8-187-g75d261b); e "dev" sem git.
 function versao() {

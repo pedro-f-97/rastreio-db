@@ -33,7 +33,7 @@ Regra de deduplicação, lida do código (`importador_transacoes.py:31-48`)
    `conta_id` NULL.
 3. `existentes` conta quantas vezes cada chave já está na conta, e cada cópia
    absorve **uma** linha igual do ficheiro. Com 1 na BD e 2 no ficheiro, entra
-   1 (achado 3.2: antes entrava 0). Linhas repetidas **dentro do mesmo
+   1 (antes entrava 0). Linhas repetidas **dentro do mesmo
    ficheiro**, sem cópias na BD, entram todas.
 
 Convenções fixadas (comportamento actual, não corrigido)
@@ -565,11 +565,11 @@ def test_importar_com_perfil_sem_conta_da_400_e_nao_grava(client, session, tmp_p
 @pytest.mark.parametrize(
     "na_bd, no_ficheiro, esperado, total",
     [
-        # O exemplo do achado 3.2: um café no 1.º extracto, dois no seguinte.
+        # O exemplo: um café no 1.º extracto, dois no seguinte.
         # 1 cópia na BD absorve 1 linha; sobra 1 -> 1 inserida, 1 duplicada;
         # BD: 1 + 1 = 2.
         (1, 2, {"inseridas": 1, "duplicadas": 1}, 2),
-        # A prova da análise: 2 na BD, 3 no ficheiro (antes dava 0 e 3).
+        # 2 na BD, 3 no ficheiro (antes dava 0 e 3).
         # 2 absorvidas, sobra 1 -> 1 inserida, 2 duplicadas; BD: 2 + 1 = 3.
         (2, 3, {"inseridas": 1, "duplicadas": 2}, 3),
         # O ficheiro traz menos do que a BD: as 2 cópias chegam para a 1 linha

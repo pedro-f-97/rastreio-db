@@ -44,7 +44,7 @@ data de hoje.
 Os testes
 ---------
 Sete: um por ramo da resposta, mais o caso do payload inválido, o da lista
-vazia e o de um item que não muda nada (achado 2.4). Nenhum toca no `main`, na base de dados real, nem no sistema de ficheiros.
+vazia e o de um item que não muda nada. Nenhum toca no `main`, na base de dados real, nem no sistema de ficheiros.
 """
 
 from datetime import date
@@ -224,7 +224,7 @@ def test_categoria_inexistente_e_invalida(client, session):
 
 
 def test_item_igual_ao_que_ja_esta_nao_conta_como_aplicado(client, session):
-    """Um item que não muda nada não entra em `aplicadas` (achado 2.4).
+    """Um item que não muda nada não entra em `aplicadas`.
 
     Cálculo à mão: a transacção já tem a categoria e a subcategoria do item.
     Escrevê-las de novo não muda nada, por isso não conta: `aplicadas = 0`, e

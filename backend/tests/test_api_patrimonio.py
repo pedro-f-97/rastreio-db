@@ -258,7 +258,7 @@ def test_editar_ativo_muda_apenas_o_nome(client, session):
 
 
 def test_editar_ativo_com_simbolo_null_apaga_o_simbolo(client, session):
-    """`simbolo: null` apaga o símbolo, e o nome fica (achado 5.1).
+    """`simbolo: null` apaga o símbolo, e o nome fica.
 
     Cálculo à mão: ativo `A`/`AAA`; `PUT {"nome": "A", "simbolo": null}`, que é
     o que a página envia com o campo vazio -> símbolo `None`. Antes da
@@ -451,7 +451,7 @@ def test_compra_no_mesmo_dia_actualiza_o_preco(client, session):
 
 
 def test_venda_regista_o_preco_como_cotacao(client, session):
-    """Uma `venda` com preço também regista a cotação do dia (achado 5.3).
+    """Uma `venda` com preço também regista a cotação do dia.
 
     Cálculo à mão: uma compra de 10 a 20.0 em 2025-01-10 (cria o preço 20.0) e
     uma venda de 4 a 30.0 em 2025-03-10 -> 2 movimentos e **2** preços. O resumo
@@ -1157,7 +1157,7 @@ def test_evolucao_calcula_por_mes_e_por_tipo(client, session):
         conta.data_referencia` (estrito: o saldo de referência é o do fim do dia), e é exactamente a
         data de referência. A conta B, com referência `2025-02-01`, calcula-se
         para trás: `100.00 - (transações em ]2025-01-31, 2025-02-01]) =
-        100.00 - 0 = 100.00` (antes do achado 4.1 valia 0). Liquidez:
+        100.00 - 0 = 100.00` (antes da correcção valia 0). Liquidez:
         `800.00 + 100.00 = 900.00`.
       - investimentos: lote de 10 un. a 20.00; preço de `2025-01-20` (o de
         `2025-03-15` é posterior) -> `10 x 25.00 = 250.00`.

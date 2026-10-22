@@ -1,4 +1,4 @@
-"""Testes de `remover_coluna_reembolso` (achado 4.3).
+"""Testes de `remover_coluna_reembolso`.
 
 A marca de reembolso foi retirada do modelo. Numa BD antiga, a coluna
 `transacoes.reembolso` é `NOT NULL` sem valor por omissão: enquanto lá estiver,

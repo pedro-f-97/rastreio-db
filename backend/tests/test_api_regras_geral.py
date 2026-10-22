@@ -322,7 +322,7 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
     Lendo o código: a pré-visualização pré-filtra `subcategoria_id IS NULL` e,
     na fase 2, mantém as transacções cuja categoria é None ou é a da regra,
     excepto quando já têm a categoria da regra e a regra não traz
-    subcategoria: aí nada mudaria (achado 2.4). O backfill faz o mesmo: a 1.ª
+    subcategoria: aí nada mudaria. O backfill faz o mesmo: a 1.ª
     query apanha as sem categoria, e a 2.ª (mesma categoria, sem subcategoria)
     só corre se a regra tiver subcategoria.
 
@@ -398,7 +398,7 @@ def test_pre_visualizar_mostra_a_mesma_categoria_quando_a_regra_traz_subcategori
 
     Cálculo à mão: regra "PINGO" -> Casa › Alimentação; a transacção está em
     Casa, sem subcategoria. A regra dá-lhe a subcategoria, pelo que aparece em
-    `sem_conflito` com a sugestão Alimentação. É o caso que o achado 2.4 não
+    `sem_conflito` com a sugestão Alimentação. É o caso que a correcção não
     pode esconder: só desaparece quando a regra não traz subcategoria.
     """
     casa, _lazer, sub_alim = _categorias(session)
@@ -501,7 +501,7 @@ def test_criar_regra_com_categoria_inexistente_da_400(client, session):
 def test_criar_regra_repetida_noutra_caixa_da_400(client, session):
     """«continente» repete «Continente»: as regras casam sem distinguir maiúsculas.
 
-    Cálculo à mão (achado 2.5): `casa_palavra` compara em maiúsculas, por isso
+    Cálculo à mão: `casa_palavra` compara em maiúsculas, por isso
     "Continente" e "continente" casam as mesmas descrições. A segunda é
     recusada com 400, e fica 1 regra. "Continente " com espaços também,
     porque o schema tira os espaços antes.
@@ -519,7 +519,7 @@ def test_criar_regra_repetida_noutra_caixa_da_400(client, session):
 
 
 def test_criar_regra_com_subcategoria_de_outra_categoria_da_400(client, session):
-    """A subcategoria tem de ser da categoria da regra (achado 2.5).
+    """A subcategoria tem de ser da categoria da regra.
 
     Cálculo à mão: Alimentação é de Casa. Uma regra Lazer › Alimentação e uma
     regra sem categoria com Alimentação dão 400; Casa › Alimentação dá 200.

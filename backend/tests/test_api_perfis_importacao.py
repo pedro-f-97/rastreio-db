@@ -22,7 +22,7 @@ em `frontend/src/api/perfisImportacao.js:5`, mas nenhuma pagina o importa nem
 o chama; o formulario de perfis (`frontend/src/pages/Importacao.jsx:154`) so
 invoca `criarPerfil` (POST). O `PUT` reescreve todos os campos com
 `dados.model_dump()` (`routers/perfis_importacao.py:57-58`). A conta e
-obrigatoria ao criar e ao editar (achado 4.1): um corpo sem `conta_id` da 422.
+obrigatoria ao criar e ao editar: um corpo sem `conta_id` da 422.
 Nao ha, hoje, caminho de UI que exercite o `PUT`.
 
 Valores esperados
@@ -165,7 +165,7 @@ def test_criar_perfil_com_nome_duplicado_da_409(client, session):
 
 
 def test_criar_perfil_sem_conta_da_422(client, session):
-    """Sem `conta_id`, o perfil nao e criado (achado 4.1).
+    """Sem `conta_id`, o perfil nao e criado.
 
     As transacções de um perfil sem conta contavam nas estatisticas mas nunca
     na liquidez. Cálculo à mão: um `POST` recusado -> 0 perfis na BD.
@@ -426,7 +426,7 @@ def test_atualizar_perfil_inexistente_da_404(client, session):
 def test_atualizar_perfil_sem_conta_da_422_e_mantem_a_conta(client, session):
     """O `PUT` sem `conta_id` e recusado (422) e o perfil fica com a conta.
 
-    Antes do achado 4.1, o `PUT` reescrevia todos os campos e um corpo sem
+    Antes da correcção, o `PUT` reescrevia todos os campos e um corpo sem
     `conta_id` repunha-o a `None`, sem erro. A conta passou a ser obrigatoria
     em `PerfilImportacaoCreate`.
     """
@@ -500,7 +500,7 @@ def test_associar_conta_grava_o_conta_id(client, session):
 def test_associar_conta_nula_da_422_e_mantem_a_conta(client, session):
     """`conta_id: null` e recusado (422): um perfil nao pode ficar sem conta.
 
-    Antes do achado 4.1, `PATCH {"conta_id": null}` desassociava a conta.
+    Antes da correcção, `PATCH {"conta_id": null}` desassociava a conta.
     """
     conta = semear_conta(session, "Banco")
     perfil = semear_perfil(session, "Demo")

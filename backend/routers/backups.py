@@ -102,7 +102,7 @@ def _validar_sqlite(path: str) -> set[str]:
 
 
 def _criar_tabelas_em_falta(path: str, tabelas: set[str]) -> None:
-    """Cria, vazias, as tabelas do modelo que o ficheiro não tem (achado 6.4).
+    """Cria, vazias, as tabelas do modelo que o ficheiro não tem.
 
     É o que o arranque faz com o `create_all`: uma tabela nova não tem migração,
     e sem isto um backup de antes dela era recusado. Só num ficheiro com as três
@@ -138,7 +138,7 @@ def _validar_estrutura(path: str) -> None:
 
 
 def _validar_valores(path: str) -> None:
-    """Confirma os valores que a estrutura não garante (achado 6.2).
+    """Confirma os valores que a estrutura não garante.
 
     As colunas de enumeração não têm `CHECK` na BD: um valor desconhecido
     passava e deixava as páginas em erro 500. E as chaves estrangeiras só se

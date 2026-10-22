@@ -844,7 +844,7 @@ def test_duas_colunas_debito_negativo_e_uma_saida(tmp_path):
     """Um débito escrito com sinal menos entra negativo, como um sem sinal.
 
     Antes da correcção, `crédito - débito` dava 0,00 - (-12,50) = +12,50 e a
-    compra entrava como receita (achado 3.1). Decisão do utilizador: o débito
+    compra entrava como receita. Decisão do utilizador: o débito
     sai sempre e o crédito entra sempre, `abs(crédito) - abs(débito)`, como a
     comissão.
     """

@@ -10,7 +10,7 @@ router = APIRouter(prefix="/categorias", tags=["categorias"])
 
 
 def _nome_valido(nome: str) -> str:
-    """O nome sem espaços à volta; um nome vazio é recusado (achado 1.3)."""
+    """O nome sem espaços à volta; um nome vazio é recusado."""
     nome = nome.strip()
     if not nome:
         raise HTTPException(status_code=400, detail="O nome não pode ficar vazio.")

@@ -83,7 +83,7 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
             t.subcategoria_id = nova.subcategoria_id
 
         # Transações com categoria coincidente mas sem subcategoria. Sem
-        # subcategoria na regra, não há nada a mudar nelas (achado 2.4)
+        # subcategoria na regra, não há nada a mudar nelas
         com_categoria = []
         if nova.subcategoria_id is not None:
             com_categoria = [
@@ -150,7 +150,7 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
             if casa_palavra(regra.palavra_chave, t.descricao):
                 if t.categoria_id == regra.categoria_id and regra.subcategoria_id is None:
                     # Já tem a categoria e a regra não traz subcategoria: nada
-                    # muda, por isso não aparece (achado 2.4)
+                    # muda, por isso não aparece
                     break
                 if t.categoria_id is None or t.categoria_id == regra.categoria_id:
                     sem_conflito.append(
@@ -242,7 +242,7 @@ def aplicar_em_massa(
                 continue
 
         if (t.categoria_id, t.subcategoria_id) == (item.categoria_id, item.subcategoria_id):
-            # Já está assim: não conta como aplicada (achado 2.4)
+            # Já está assim: não conta como aplicada
             continue
         t.categoria_id = item.categoria_id
         t.subcategoria_id = item.subcategoria_id

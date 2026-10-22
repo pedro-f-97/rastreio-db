@@ -75,7 +75,7 @@ def test_main_passa_a_porta_a_tray():
 
 
 # ---------------------------------------------------------------------------
-# Quem está na porta antes de arrancar (achado 7.3)
+# Quem está na porta antes de arrancar
 # ---------------------------------------------------------------------------
 
 
@@ -159,7 +159,7 @@ def test_main_verifica_a_porta_antes_do_preflight():
 
 
 # ---------------------------------------------------------------------------
-# Erros do arranque numa caixa de diálogo (achado 7.4)
+# Erros do arranque numa caixa de diálogo
 # ---------------------------------------------------------------------------
 
 

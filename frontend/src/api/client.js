@@ -4,7 +4,7 @@ const api = axios.create({
   baseURL: import.meta.env.DEV ? 'http://localhost:9742/api' : '/api',
 })
 
-// Um erro da API que nenhuma página apanhou ficava em silêncio (achado 8.3).
+// Um erro da API que nenhuma página apanhou ficava em silêncio.
 // Só os pedidos sem `catch` chegam aqui: os que a página já trata não se
 // mostram duas vezes.
 window.addEventListener('unhandledrejection', (evento) => {

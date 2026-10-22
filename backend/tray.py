@@ -28,7 +28,7 @@ def quem_esta_na_porta(porta: int) -> str:
 
 
 def mostrar_erro(mensagem: str) -> None:
-    """Mostra um erro do arranque numa caixa de diálogo (achado 7.4).
+    """Mostra um erro do arranque numa caixa de diálogo.
 
     No executável não há consola, e sem isto o erro só ia para o log. Se o
     tkinter não existir ou não houver ecrã, não faz nada: o erro continua no log.

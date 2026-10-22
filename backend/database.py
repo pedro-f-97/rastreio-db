@@ -389,7 +389,7 @@ def _recriar_com_fk_para_ativos(con: sqlite3.Connection, nome: str, sql: str) ->
 def remover_coluna_reembolso(caminho: str = DB_PATH) -> bool:
     """Apaga a coluna `transacoes.reembolso`, se ainda existir.
 
-    A marca de reembolso foi retirada (achado 4.3): só tinha efeito nas
+    A marca de reembolso foi retirada: só tinha efeito nas
     receitas, e só nalguns ecrãs. A coluna era `NOT NULL` sem valor por
     omissão, por isso não pode ficar na BD sem o modelo a preencher.
     Idempotente: sem a coluna, não escreve nada. Devolve se a apagou.
@@ -501,7 +501,7 @@ def criar_tabelas():
         print(f"Schema actualizado: {descricao}", flush=True)
 
     # Uma BD mais antiga do que as migrações conhecem abria sem erro e dava
-    # erros 500 nas páginas que precisam do que lhe falta (achado 1.1)
+    # erros 500 nas páginas que precisam do que lhe falta
     em_falta = colunas_em_falta()
     if em_falta:
         raise RuntimeError(

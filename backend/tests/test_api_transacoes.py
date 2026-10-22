@@ -526,7 +526,7 @@ def test_put_notas_omitido_null_e_vazio(client, session):
 
 
 def test_put_reembolso_e_ignorado_e_nao_aparece(client, session):
-    """A marca de reembolso foi retirada (achado 4.3): o campo é ignorado.
+    """A marca de reembolso foi retirada: o campo é ignorado.
 
     Cálculo à mão: `TransacaoUpdate` já não tem `reembolso`, e o Pydantic
     ignora campos a mais -> 200, nada muda, e a resposta não traz o campo.

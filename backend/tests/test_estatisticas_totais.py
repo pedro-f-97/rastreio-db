@@ -14,7 +14,7 @@ por isso que nenhum teste pede a `session` nem a `client`. O `poupanca` de
 assunto para os testes de API, mais tarde.
 
 Os testes do sinal, da receita negativa e do arredondamento afirmam o
-comportamento corrigido. A marca de reembolso foi retirada (achado 4.3): um
+comportamento corrigido. A marca de reembolso foi retirada: um
 reembolso é um positivo numa categoria de despesa.
 
 Os objectos que entram nas funções são `SimpleNamespace` com os mesmos nomes
@@ -259,7 +259,7 @@ def test_receita_negativa_reduz_as_receitas():
 def test_positivo_numa_receita_conta_sempre_nas_receitas():
     """Um positivo numa categoria de receita é receita, mesmo que seja um reembolso.
 
-    O caso do achado 4.3: com a marca, um +200,00 numa categoria de receita
+    O caso que fez retirar a marca: com ela, um +200,00 numa categoria de receita
     saía das receitas e reduzia as despesas, mas só no resumo mensal; o detalhe
     somava-o à receita. Sem a marca, todos os ecrãs o tratam como receita.
 

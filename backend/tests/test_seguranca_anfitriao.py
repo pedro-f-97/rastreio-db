@@ -1,4 +1,4 @@
-"""Testes da lista de anfitriões permitidos (`backend/seguranca.py`, achado 7.2).
+"""Testes da lista de anfitriões permitidos (`backend/seguranca.py`).
 
 Com DNS rebinding, um site alheio passa a apontar para 127.0.0.1 e o browser
 deixa-o ler as respostas; o único sinal é o `Host` do pedido, que traz o nome

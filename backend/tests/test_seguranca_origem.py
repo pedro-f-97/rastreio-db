@@ -1,4 +1,4 @@
-"""Testes da verificação de origem (`backend/seguranca.py`, achado 7.1).
+"""Testes da verificação de origem (`backend/seguranca.py`).
 
 Uma escrita (POST, PUT, PATCH, DELETE) com um `Origin` que não seja o da
 aplicação é recusada com 403 antes de chegar à rota. Leituras e pedidos sem
@@ -90,7 +90,7 @@ def test_escrita_sem_origin_passa(cliente_minimo, chamadas):
 
 
 def test_leitura_de_outro_site_passa(cliente_minimo, chamadas):
-    # Só as escritas são verificadas; a leitura é o achado 7.2
+    # Só as escritas são verificadas; a leitura é protegida pela lista de anfitriões
     resposta = cliente_minimo.get("/rota", headers={"Origin": SITE_ALHEIO})
 
     assert resposta.status_code == 200
@@ -98,7 +98,7 @@ def test_leitura_de_outro_site_passa(cliente_minimo, chamadas):
 
 
 def test_inicializar_vindo_de_outro_site_nao_escreve_na_bd(session):
-    """O caso real do achado: `POST /api/configuracao/inicializar` sem corpo."""
+    """O caso real: `POST /api/configuracao/inicializar` sem corpo."""
     app = FastAPI()
     app.middleware("http")(criar_verificacao_origem(ORIGENS_PERMITIDAS))
     app.include_router(configuracao.router, prefix="/api")

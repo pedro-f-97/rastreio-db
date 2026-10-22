@@ -260,7 +260,7 @@ def _preflight() -> None:
 
 def _main() -> None:
     # Com a porta ocupada, o servidor não arrancava e a janela de controlo abria
-    # na mesma (achado 7.3). Antes de tocar na BD: outra instância pode estar a
+    # na mesma. Antes de tocar na BD: outra instância pode estar a
     # usá-la.
     from tray import quem_esta_na_porta
 

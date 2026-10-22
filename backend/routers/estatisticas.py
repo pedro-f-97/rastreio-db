@@ -54,7 +54,7 @@ def resumo_mensal(db: Session = Depends(get_db)):
         )
 
     # A média e a mediana dos cartões calculam-se na página, a partir dos meses
-    # do ano filtrado (achado 8.4)
+    # do ano filtrado
     return {"meses": resultados}
 
 

@@ -36,7 +36,7 @@ O endpoint, lido por ordem
     `.tmp` da cópia que tenham ficado, e responde 500
     `Falha ao restaurar: ...`.
 11. no sucesso, a cópia fica no disco, e das cópias `.anterior-<data>` ficam
-    só as 5 mais recentes (achado 6.3); a `.anterior` sem data, de versões
+    só as 5 mais recentes; a `.anterior` sem data, de versões
     anteriores, nunca é apagada.
 
 Os testes
@@ -111,7 +111,7 @@ TABELAS_DO_MODELO = {
 # em falta). Escritas à mão de propósito: se o router mudar o texto, estes
 # testes têm de ser actualizados por uma pessoa. A genérica é para um ficheiro
 # a que falta `transacoes`, `categorias` ou `contas`; a de versão anterior,
-# para um que tem as três e lhe falta outra coisa (achado 6.1).
+# para um que tem as três e lhe falta outra coisa.
 MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastreio-DB"
 MENSAGEM_VERSAO_ANTERIOR = (
     "Este backup é de uma versão anterior do Rastreio-DB e já não pode ser "
@@ -786,7 +786,7 @@ def test_ficheiro_sem_uma_das_tres_tabelas_de_sempre_e_rejeitado(client, bd_em_f
 def test_backup_sem_uma_tabela_nova_e_aceite_com_ela_vazia(client, bd_em_ficheiro, tmp_path):
     """A um backup que só não tem uma das outras oito tabelas, ela é criada vazia.
 
-    É o caso do achado 6.4: uma tabela nova não tem migração, e o restauro faz
+    Uma tabela nova não tem migração, e o restauro faz
     o que o arranque faz, cria-a vazia. Para cada uma das oito, copia-se o
     `.db` completo, com a conta «Conta do backup», e apaga-se só essa tabela.
 
@@ -828,7 +828,7 @@ def test_backup_sem_uma_tabela_nova_e_aceite_com_ela_vazia(client, bd_em_ficheir
 
 
 # ---------------------------------------------------------------------------
-# Valores inválidos (achado 6.2)
+# Valores inválidos
 # ---------------------------------------------------------------------------
 
 MENSAGEM_VALORES = (
@@ -999,7 +999,7 @@ def test_extensao_errada_continua_a_ser_rejeitada(client, bd_em_ficheiro):
 
 
 # ---------------------------------------------------------------------------
-# Várias cópias `.anterior-<data>` (achado 6.3)
+# Várias cópias `.anterior-<data>`
 # ---------------------------------------------------------------------------
 
 
@@ -1353,7 +1353,7 @@ def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partid
 
 
 # ---------------------------------------------------------------------------
-# Versão do schema e colunas em falta (achado 1.1)
+# Versão do schema e colunas em falta
 # ---------------------------------------------------------------------------
 
 

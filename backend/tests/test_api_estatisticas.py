@@ -171,8 +171,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
       fevereiro (sem transacções) não está em `todos_meses`, por isso não
       aparece em lado nenhum.
 
-    A resposta tem só os meses: a média e a mediana calculam-se na página
-    (achado 8.4).
+    A resposta tem só os meses: a média e a mediana calculam-se na página.
 
     Estado final da BD: as 5 transacções continuam (o GET não escreve).
     """

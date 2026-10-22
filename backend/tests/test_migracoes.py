@@ -1,4 +1,4 @@
-"""Testes de `aplicar_migracoes` e de `colunas_em_falta` (achado 1.1).
+"""Testes de `aplicar_migracoes` e de `colunas_em_falta`.
 
 A BD guarda em `PRAGMA user_version` a última migração que levou. As migrações
 verdadeiras são trocadas por funções falsas com `monkeypatch`, que registam

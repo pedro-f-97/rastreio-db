@@ -81,8 +81,7 @@ def test_inicializar_a_prestacao_da_casa_nao_trata_patrimonio(client, session, p
 
     Cálculo à mão: em `dados_iniciais.py`, a «Casa» dos dois perfis tem
     `("Prestação", False)`. Marcada, cada prestação somava ao custo do imóvel o
-    valor inteiro, juros incluídos, e a dívida não existe na aplicação (decisão
-    a rever da Área 4 da análise).
+    valor inteiro, juros incluídos, e a dívida não existe na aplicação.
     """
     r = client.post("/api/configuracao/inicializar", params={"perfil": perfil})
     assert r.status_code == 200
