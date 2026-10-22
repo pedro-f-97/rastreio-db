@@ -2,13 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { obterResumoMensal, obterDetalheMensal } from '../api/estatisticas';
 import './Estatisticas.css';
 import '../componentes.css';
-import { formatarEuros } from '../utils/formatacao';
-
-const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-function labelMes(ano, mes) {
-    return `${MESES[mes - 1]} ${ano}`;
-}
+import { formatarEuros, labelMes } from '../utils/formatacao';
 
 export default function Historico() {
     const [resumo, setResumo] = useState(null);

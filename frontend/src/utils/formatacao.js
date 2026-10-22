@@ -41,3 +41,12 @@ const formatadorEixo = new Intl.NumberFormat('pt-PT', {
 export function formatarEurosEixo(valor) {
   return formatadorEixo.format(valor) + " €";
 }
+
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+/**
+ * Nome curto de um mês, para os eixos e as tabelas. Ex: (2025, 3) → "Mar 2025"
+ */
+export function labelMes(ano, mes) {
+  return `${MESES[mes - 1]} ${ano}`;
+}

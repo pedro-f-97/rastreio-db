@@ -3,7 +3,7 @@ import { getContas, getSaldoConta } from "../api/contas";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
 import '../componentes.css';
-import { formatarEuros } from '../utils/formatacao';
+import { formatarEuros, labelMes } from '../utils/formatacao';
 import { obterEvolucao } from "../api/patrimonio";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
@@ -60,13 +60,11 @@ export default function Patrimonio() {
   const totalMaisValia = totalInvestimentos + totalCusto;
   const pctMaisValia = totalCusto !== 0 ? (totalMaisValia / Math.abs(totalCusto)) * 100 : null;
 
-  const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
   const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
 
   function labelMesEvolucao(dataISO) {
     const [ano, mes] = dataISO.split('-');
-    return `${MESES[parseInt(mes) - 1]} ${ano}`;
+    return labelMes(ano, parseInt(mes));
   }
 
   const dadosEvolucao = evolucao.map(p => ({

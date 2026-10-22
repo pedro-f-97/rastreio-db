@@ -6,25 +6,14 @@ import {
 } from 'recharts';
 import './Estatisticas.css';
 import '../componentes.css';
-import { formatarEuros, formatarEurosEixo, formatarPercentagem } from '../utils/formatacao';
-
-const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-function labelMes(ano, mes) {
-    return `${MESES[mes - 1]} ${ano}`;
-}
+import { formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
 
 function calcularLimiteSerie(valores, multiplicador = 4) {
     const absolutos = valores.map(Math.abs).filter(v => v > 0);
     if (absolutos.length < 3) {
         return { limite: Infinity, valoresNormais: absolutos, extremos: [] };
     }
-    const ordenados = [...absolutos].sort((a, b) => a - b);
-    const meio = Math.floor(ordenados.length / 2);
-    const mediana = ordenados.length % 2 === 0
-        ? (ordenados[meio - 1] + ordenados[meio]) / 2
-        : ordenados[meio];
-    const limite = mediana * multiplicador;
+    const limite = calcularMediana(absolutos) * multiplicador;
     return {
         limite,
         valoresNormais: absolutos.filter(v => v <= limite),
