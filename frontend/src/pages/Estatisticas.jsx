@@ -84,6 +84,7 @@ function GraficoDistribuicao({ dados, chaveSeleccionada = null, onSeleccionar })
 
 export default function Estatisticas() {
     const [resumo, setResumo] = useState(null);
+    const [erro, setErro] = useState(null);
     const [porCategoria, setPorCategoria] = useState([]);
     const [porSubcategoria, setPorSubcategoria] = useState([]);
     const [categoriaExpandida, setCategoriaExpandida] = useState(null);
@@ -92,7 +93,9 @@ export default function Estatisticas() {
     const [incluirOutliers, setIncluirOutliers] = useState(false);
 
     useEffect(() => {
-        obterResumoMensal().then(res => setResumo(res.data));
+        obterResumoMensal()
+            .then(res => setResumo(res.data))
+            .catch(() => setErro('Não foi possível carregar as estatísticas.'));
     }, []);
 
     useEffect(() => {
@@ -194,6 +197,7 @@ export default function Estatisticas() {
         };
     }, [dadosGraficoFiltrados]);
 
+    if (erro) return <p className="erro">{erro}</p>;
     if (!resumo) return <p className="carregando">A carregar...</p>;
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();

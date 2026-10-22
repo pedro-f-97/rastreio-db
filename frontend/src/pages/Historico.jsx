@@ -12,13 +12,17 @@ function labelMes(ano, mes) {
 
 export default function Historico() {
     const [resumo, setResumo] = useState(null);
+    const [erro, setErro] = useState(null);
     const [mesSeleccionado, setMesSeleccionado] = useState(null);
     const [detalheMes, setDetalheMes] = useState([]);
 
     useEffect(() => {
-        obterResumoMensal().then(res => setResumo(res.data));
+        obterResumoMensal()
+            .then(res => setResumo(res.data))
+            .catch(() => setErro('Não foi possível carregar o histórico.'));
     }, []);
 
+    if (erro) return <p className="erro">{erro}</p>;
     if (!resumo) return <p className="carregando">A carregar...</p>;
 
     const mesesPorAno = resumo.meses.reduce((acc, m) => {
