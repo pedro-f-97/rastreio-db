@@ -81,8 +81,26 @@ que o sinal gravado não altera nada.
 | categoria_id | int | FK → `categorias.id`, opcional |
 | subcategoria_id | int | FK → `subcategorias.id`, opcional |
 | conta_id | int | FK → `contas.id`, opcional |
+| importacao_id | int | FK → `importacoes.id`, opcional — a importação que trouxe a transação; desfazê-la apaga as transações com o seu id |
 
 **Relações:** N:1 com `Conta`, N:1 com `Categoria`, N:1 com `Subcategoria`
+
+## Importacao
+
+Uma importação que inseriu pelo menos uma transação. Uma importação só com linhas duplicadas não fica registada.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | int | PK |
+| data_hora | datetime | obrigatório — hora local do pedido |
+| conta_id | int | FK → `contas.id`, obrigatório |
+| ficheiro | str(255) | obrigatório — o nome com que o ficheiro foi enviado |
+| inseridas | int | obrigatório |
+| duplicadas | int | obrigatório |
+
+**Relações:** N:1 com `Conta` (`conta`)
+
+**Uso:** só a de maior `id` de cada conta se pode desfazer (`DELETE /api/importacao/{id}`); desfeita, o registo é apagado.
 
 ## RegraCategorizacao
 

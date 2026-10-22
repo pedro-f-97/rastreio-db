@@ -21,6 +21,7 @@ Aplicação web local e portable para gestão e análise de extratos bancários,
 - Categorização automática por regras de substring, com sugestões automáticas de novas regras
 - Aplicação de regras em massa, com resolução individual de conflitos
 - Importação de Excel e CSV (separado por vírgula, ponto e vírgula ou tabulação, detetado automaticamente), com perfis de mapeamento de colunas por banco e conta, com deteção automática de duplicados
+- Histórico de importações, com a possibilidade de desfazer a mais recente de cada conta
 
 ### Análise
 - Estatísticas mensais: evolução, médias e medianas por categoria, distribuição com drill-down para subcategorias, taxa de poupança e totalizadores anuais
@@ -137,6 +138,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 - Nas médias e medianas das estatísticas, um mês conta como inteiro mesmo que esteja incompleto: o mês em curso, ou um mês cujas transações ainda não foram todas importadas. Um mês assim puxa as médias para baixo, tanto mais quanto menos meses tiver o período filtrado. A aplicação não tenta adivinhar se um mês está completo
 - Uma importação é tudo ou nada: basta uma linha com erro (data inválida, valor que não bate com o separador decimal do perfil, linha de totais no fim do extracto) para o ficheiro inteiro ser recusado, e a pré-visualização mostra todas as linhas com erro
 - Na importação, uma linha igual a outra já existente na conta (mesma data, descrição, valor e saldo) é duplicada, mas conta-se quantas cópias há: entram as linhas iguais que o extracto traz a mais do que a conta já tem (dois cafés iguais no mesmo dia, um deles só no extracto seguinte)
+- Só se desfaz a importação mais recente de cada conta: uma anterior pode ter linhas que as seguintes deram como duplicadas, e desfazê-la apagava-as. Desfazer apaga as transações que a importação trouxe, com as categorias, subcategorias e notas que entretanto ganharam, e a importação sai do histórico. Se alguma dessas transações já foi tratada como ativo, a aplicação mostra os movimentos e pergunta se os apaga também; sem essa confirmação, não apaga nada. Os preços que os movimentos gravaram ficam, e se apagar uma compra deixar uma venda com mais unidades do que as que havia nessa data, nada é apagado
 - Um perfil de importação tem sempre uma conta: as transações sem conta contariam nas estatísticas mas nunca na liquidez. Por isso, uma conta sem transações não se pode apagar enquanto um perfil a usar (é preciso apagar o perfil primeiro), e um perfil que tenha ficado sem conta deixa de poder importar
 - A coluna de comissão de um perfil de importação é sempre tratada como um pagamento: entra com sinal negativo, venha positiva ou negativa no extracto
 - No modo de duas colunas de um perfil de importação, o débito sai sempre e o crédito entra sempre, venha o sinal que vier no extracto: o valor é `|crédito| − |débito|`, porque há bancos que escrevem o débito com sinal menos
@@ -151,7 +153,7 @@ Transações de subcategorias marcadas com o indicador de património alimentam 
 - Armazenamento local apenas - sem sincronização entre dispositivos ou cloud - é recomendado utilizar métodos comuns de backup
 - Utilizador único, sem gestão de múltiplos perfis
 - Tudo é em euros: um ativo cotado noutra moeda (ex. um ETF em dólares) tem de ter os preços escritos já convertidos para euros
-- As transações só entram por importação de extractos: não se podem criar nem apagar à mão. Uma despesa em dinheiro vivo não se consegue registar, e uma importação feita para a conta errada só se desfaz restaurando um backup anterior
+- As transações só entram por importação de extractos: não se podem criar nem apagar à mão. Uma despesa em dinheiro vivo não se consegue registar, e uma importação feita para a conta errada desfaz-se no histórico de importações, depois de desfeitas as que vieram a seguir nessa conta
 
 ## Documentação adicional
 
