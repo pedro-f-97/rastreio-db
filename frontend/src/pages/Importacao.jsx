@@ -409,9 +409,7 @@ export default function Importacao({ onDadosAlterados }) {
                 </div>
 
                 {historico.length === 0 ? (
-                    <p className="estado-vazio-sm">
-                        Nenhuma importação registada. As transações importadas antes desta versão não aparecem aqui nem se podem desfazer.
-                    </p>
+                    <p className="estado-vazio-sm">Nenhuma importação registada.</p>
                 ) : (
                     <table className="tabela-base">
                         <thead>
