@@ -100,6 +100,11 @@ export default function Sobre() {
                     <span>contabilizacao</span>
                 </div>
             </section>
+
+            <section className="sobre-seccao">
+                <h2>Versão</h2>
+                <p>{import.meta.env.VITE_VERSAO}</p>
+            </section>
         </div>
     );
 }
