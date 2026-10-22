@@ -828,6 +828,96 @@ def test_backup_sem_uma_tabela_nova_e_aceite_com_ela_vazia(client, bd_em_ficheir
 
 
 # ---------------------------------------------------------------------------
+# Valores inválidos (achado 6.2)
+# ---------------------------------------------------------------------------
+
+MENSAGEM_VALORES = (
+    "O backup tem valores inválidos e não pode ser restaurado. "
+    "A base de dados actual não foi alterada."
+)
+
+
+def _completo_com(tmp_path: Path, *sql: str) -> bytes:
+    """O `.db` completo do modelo, com as instruções `sql` corridas sem chaves
+    estrangeiras (o `sqlite3` não as impõe por omissão)."""
+    caminho = tmp_path / "com_valores.db"
+    criar_bd_do_modelo(caminho)
+    con = sqlite3.connect(caminho)
+    try:
+        for instrucao in sql:
+            con.execute(instrucao)
+        con.commit()
+    finally:
+        con.close()
+    return caminho.read_bytes()
+
+
+def test_backup_com_tipo_de_categoria_desconhecido_e_rejeitado(client, bd_em_ficheiro, tmp_path):
+    """Um tipo de categoria que a enumeração não tem («poupanca») é recusado.
+
+    Cálculo à mão: `TipoCategoria` tem despesa, receita, investimento e
+    transferencia; "poupanca" não é nenhum. Antes da correcção, o restauro dava
+    200 e as páginas das categorias, transações e estatísticas davam 500.
+    Agora: 400, a BD fica com a `Conta Real` e não há cópias novas.
+    """
+    semear_conta_real()
+    conteudo = _completo_com(
+        tmp_path, "INSERT INTO categorias (nome, tipo) VALUES ('Mealheiro', 'poupanca')"
+    )
+
+    resposta = importar(client, conteudo)
+
+    assert (resposta.status_code, resposta.json()["detail"]) == (400, MENSAGEM_VALORES)
+    assert nomes_das_contas() == [CONTA_REAL]
+    assert anteriores(bd_em_ficheiro) == []
+    assert not existe(bd_em_ficheiro, ".tmp")
+
+
+def test_backup_com_chave_estrangeira_partida_e_rejeitado(client, bd_em_ficheiro, tmp_path):
+    """Uma transacção que aponta para uma categoria que não existe é recusada.
+
+    Cálculo à mão: a única transacção tem `categoria_id = 999`, e a tabela de
+    categorias está vazia -> uma linha no `PRAGMA foreign_key_check` -> 400, e a
+    BD fica como estava.
+    """
+    semear_conta_real()
+    conteudo = _completo_com(
+        tmp_path,
+        "INSERT INTO transacoes (data, descricao, valor, categoria_id) "
+        "VALUES ('2025-01-01', 'Café', -1.0, 999)",
+    )
+
+    resposta = importar(client, conteudo)
+
+    assert (resposta.status_code, resposta.json()["detail"]) == (400, MENSAGEM_VALORES)
+    assert nomes_das_contas() == [CONTA_REAL]
+    assert anteriores(bd_em_ficheiro) == []
+
+
+def test_backup_com_valores_validos_de_todas_as_enumeracoes_e_aceite(
+    client, bd_em_ficheiro, tmp_path
+):
+    """Valores válidos passam: a verificação não recusa um backup bom.
+
+    Cálculo à mão: uma categoria `receita` e uma `transferencia`, com uma
+    transacção ligada à primeira -> as enumerações batem e não há chaves
+    partidas -> 200.
+    """
+    semear_conta_real()
+    conteudo = _completo_com(
+        tmp_path,
+        "INSERT INTO categorias (id, nome, tipo) VALUES (1, 'Receita', 'receita')",
+        "INSERT INTO categorias (id, nome, tipo) VALUES (2, 'Transf', 'transferencia')",
+        "INSERT INTO transacoes (data, descricao, valor, categoria_id) "
+        "VALUES ('2025-01-01', 'Salário', 100.0, 1)",
+    )
+
+    resposta = importar(client, conteudo)
+
+    assert resposta.status_code == 200, resposta.text
+
+
+# ---------------------------------------------------------------------------
 # A extensão é aceite com qualquer capitalização
 # ---------------------------------------------------------------------------
 

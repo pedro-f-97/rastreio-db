@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import create_engine, text
+from sqlalchemy import Enum as SAEnum, create_engine, text
 
 from database import DB_PATH, Base, aplicar_migracoes, colunas_em_falta, engine
 
@@ -21,6 +21,10 @@ MENSAGEM_ESTRUTURA = "O ficheiro não corresponde a um backup válido do Rastrei
 MENSAGEM_VERSAO_ANTERIOR = (
     "Este backup é de uma versão anterior do Rastreio-DB e já não pode ser "
     "actualizado para esta versão. A base de dados actual não foi alterada."
+)
+MENSAGEM_VALORES = (
+    "O backup tem valores inválidos e não pode ser restaurado. "
+    "A base de dados actual não foi alterada."
 )
 TABELAS_DE_SEMPRE = {"transacoes", "categorias", "contas"}
 
@@ -133,6 +137,32 @@ def _validar_estrutura(path: str) -> None:
         raise HTTPException(status_code=400, detail=MENSAGEM_ESTRUTURA)
 
 
+def _validar_valores(path: str) -> None:
+    """Confirma os valores que a estrutura não garante (achado 6.2).
+
+    As colunas de enumeração não têm `CHECK` na BD: um valor desconhecido
+    passava e deixava as páginas em erro 500. E as chaves estrangeiras só se
+    verificam ao escrever, por isso confere-se o ficheiro todo com
+    `PRAGMA foreign_key_check`. Qualquer falha levanta 400.
+    """
+    con = sqlite3.connect(path)
+    try:
+        if con.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise HTTPException(status_code=400, detail=MENSAGEM_VALORES)
+        for tabela in Base.metadata.sorted_tables:
+            for coluna in tabela.columns:
+                if not isinstance(coluna.type, SAEnum):
+                    continue
+                valores = con.execute(
+                    f'SELECT DISTINCT "{coluna.name}" FROM "{tabela.name}" '
+                    f'WHERE "{coluna.name}" IS NOT NULL'
+                ).fetchall()
+                if {v for (v,) in valores} - set(coluna.type.enums):
+                    raise HTTPException(status_code=400, detail=MENSAGEM_VALORES)
+    finally:
+        con.close()
+
+
 @router.post("/importar")
 async def importar_backup(file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith(".db"):
@@ -162,6 +192,7 @@ async def importar_backup(file: UploadFile = File(...)):
         _criar_tabelas_em_falta(temp_path, tabelas)
         aplicar_migracoes(temp_path)
         _validar_estrutura(temp_path)
+        _validar_valores(temp_path)
     except HTTPException:
         os.remove(temp_path)
         raise
