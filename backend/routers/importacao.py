@@ -133,7 +133,7 @@ def desfazer_importacao(
         raise HTTPException(
             status_code=409,
             detail={
-                "mensagem": "Há transacções desta importação já tratadas como ativos.",
+                "mensagem": "Há transações desta importação já tratadas como ativos.",
                 "movimentos": [
                     {
                         "id": m.id,

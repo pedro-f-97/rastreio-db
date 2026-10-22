@@ -1086,7 +1086,7 @@ def test_com_movimentos_sem_confirmar_da_409_com_a_lista(client, session, tmp_pa
     assert r.status_code == 409
     assert r.json() == {
         "detail": {
-            "mensagem": "Há transacções desta importação já tratadas como ativos.",
+            "mensagem": "Há transações desta importação já tratadas como ativos.",
             "movimentos": [
                 {
                     "id": movimento.id,
