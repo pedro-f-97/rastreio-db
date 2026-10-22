@@ -534,8 +534,10 @@ def test_so_as_tres_tabelas_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_fichei
     faltam as outras oito de `TABELAS_DO_MODELO` — escritas à mão, por ordem
     alfabética: ativos, configuracao, movimentos_ativo, perfis_importacao,
     precos_ativo, regras_categorizacao, subcategorias, tipos_ativo. Como as três
-    tabelas de sempre estão lá, a validação responde 400 com a mensagem de
-    versão anterior, o `.tmp` é apagado e o `.anterior` não chega a ser criado.
+    tabelas de sempre estão lá, as oito são criadas vazias no temporário (6.4),
+    mas as três têm colunas a menos (`MINIMO_3`): a validação responde 400 com a
+    mensagem de versão anterior, o `.tmp` é apagado e o `.anterior` não chega a
+    ser criado.
 
     A BD fica como estava, e lê-se pelas duas pontas: a `Conta Real` continua
     lá, e a tabela `ativos` existe e vem vazia (era uma das oito que ninguém
@@ -569,9 +571,9 @@ def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tm
     Cálculo à mão: o ficheiro tem as tabelas `transacoes`, `categorias` e
     `contas`, cada uma só com a coluna `id`. As três tabelas de sempre estão lá,
     pelo que a validação de estrutura responde 400 com a mensagem de versão
-    anterior. Repare-se que, com este ficheiro, a recusa já
-    vem das oito tabelas em falta — como **teste de colunas em concreto** ele
-    não prova nada, e é por isso que existe
+    anterior. As oito tabelas em falta são criadas no temporário (6.4), por isso
+    a recusa vem mesmo das colunas; ainda assim, o teste de uma só coluna em
+    falta é
     `test_coluna_em_falta_numa_so_tabela_e_rejeitado`, que tem as 11 tabelas e
     só uma coluna a menos.
 
@@ -742,51 +744,87 @@ def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_
     assert nomes_das_contas() == [CONTA_REAL]
 
 
-def test_ficheiro_sem_uma_tabela_do_modelo_e_sempre_rejeitado(client, bd_em_ficheiro, tmp_path):
-    """Falta de QUALQUER tabela do modelo é recusada — tabela a tabela.
+def _completo_sem(tmp_path: Path, completo: bytes, nome: str) -> bytes:
+    """O `.db` completo sem a tabela `nome` (`DROP TABLE`; o `sqlite3` dos
+    testes não impõe chaves estrangeiras, pelo que o `DROP` corre)."""
+    caminho = tmp_path / f"sem_{nome}.db"
+    caminho.write_bytes(completo)
+    con = sqlite3.connect(caminho)
+    try:
+        con.execute(f"DROP TABLE {nome}")
+        con.commit()
+    finally:
+        con.close()
+    return caminho.read_bytes()
 
-    Cálculo à mão: `TABELAS_DO_MODELO` tem 11 tabelas. Para cada uma, copia-se
-    o `.db` completo e apaga-se **só** essa tabela (`DROP TABLE`; o `sqlite3`
-    dos testes não impõe chaves estrangeiras, pelo que o `DROP` corre), pelo
-    que as outras dez continuam presentes. Os onze pedidos têm de dar 400. A
-    mensagem depende da tabela apagada: sem `transacoes`, `categorias` ou
-    `contas` (as três de sempre), é a genérica, porque o ficheiro já não parece
-    um backup do Rastreio-DB; sem qualquer uma das outras oito, é a de versão
-    anterior. Esta é também a fronteira do critério: duas das três tabelas de
-    sempre não chegam.
 
-    Um teste só com uma tabela a menos apanharia apenas o mutante que ignora
-    essa tabela; correr as onze cobre qualquer uma delas. No fim, a BD tem de
-    continuar com a `Conta Real` e sem restos em disco.
+TABELAS_DE_SEMPRE = ("categorias", "contas", "transacoes")
+
+
+def test_ficheiro_sem_uma_das_tres_tabelas_de_sempre_e_rejeitado(client, bd_em_ficheiro, tmp_path):
+    """Sem `transacoes`, `categorias` ou `contas`, o ficheiro é recusado.
+
+    Cálculo à mão: para cada uma das três, copia-se o `.db` completo e apaga-se
+    só essa tabela; as outras dez continuam. Sem uma das três de sempre, o
+    ficheiro não parece um backup do Rastreio-DB: as tabelas em falta não são
+    criadas (6.4) e a resposta é 400 com a mensagem genérica (6.1). Duas das
+    três não chegam. No fim, a BD continua com a `Conta Real`, sem restos.
     """
     semear_conta_real()
     completo = criar_bd_do_modelo(tmp_path / "completo.db")
 
-    for nome in sorted(TABELAS_DO_MODELO):
-        caminho = tmp_path / f"sem_{nome}.db"
-        caminho.write_bytes(completo)
-        con = sqlite3.connect(caminho)
-        try:
-            con.execute(f"DROP TABLE {nome}")
-            con.commit()
-        finally:
-            con.close()
+    for nome in TABELAS_DE_SEMPRE:
+        resposta = importar(client, _completo_sem(tmp_path, completo, nome))
 
-        resposta = importar(client, caminho.read_bytes())
-
-        assert resposta.status_code == 400, (
-            f"Um `.db` sem a tabela {nome!r} foi aceite com {resposta.status_code}: {resposta.text}"
-        )
-        esperada = (
-            MENSAGEM_ESTRUTURA
-            if nome in ("transacoes", "categorias", "contas")
-            else MENSAGEM_VERSAO_ANTERIOR
-        )
-        assert resposta.json()["detail"] == esperada, nome
+        assert (resposta.status_code, resposta.json()["detail"]) == (400, MENSAGEM_ESTRUTURA), nome
 
     assert not existe(bd_em_ficheiro, ".tmp")
     assert anteriores(bd_em_ficheiro) == []
     assert nomes_das_contas() == [CONTA_REAL]
+
+
+def test_backup_sem_uma_tabela_nova_e_aceite_com_ela_vazia(client, bd_em_ficheiro, tmp_path):
+    """A um backup que só não tem uma das outras oito tabelas, ela é criada vazia.
+
+    É o caso do achado 6.4: uma tabela nova não tem migração, e o restauro faz
+    o que o arranque faz, cria-a vazia. Para cada uma das oito, copia-se o
+    `.db` completo, com a conta «Conta do backup», e apaga-se só essa tabela.
+
+    Cálculo à mão, por restauro: 200; a BD passa a ser o backup (a única conta
+    é «Conta do backup»); a tabela apagada existe outra vez e está vazia; e não
+    falta nenhuma tabela nem coluna. São 8 restauros bons, cada um com a sua
+    cópia `.anterior-<data>`, e ficam as 5 mais recentes (6.3).
+    """
+    semear_conta_real()
+    caminho_completo = tmp_path / "completo.db"
+    criar_bd_do_modelo(caminho_completo)
+    con = sqlite3.connect(caminho_completo)
+    try:
+        con.execute(
+            "INSERT INTO contas (nome, saldo_referencia, data_referencia, ativa) "
+            "VALUES ('Conta do backup', 1.0, '2024-03-01', 1)"
+        )
+        con.commit()
+    finally:
+        con.close()
+    completo = caminho_completo.read_bytes()
+
+    outras = sorted(TABELAS_DO_MODELO - set(TABELAS_DE_SEMPRE))
+    assert len(outras) == 8
+    for nome in outras:
+        resposta = importar(client, _completo_sem(tmp_path, completo, nome))
+
+        assert resposta.status_code == 200, (nome, resposta.text)
+        assert nomes_das_contas() == ["Conta do backup"], nome
+        con = sqlite3.connect(bd_em_ficheiro)
+        try:
+            assert con.execute(f"SELECT count(*) FROM {nome}").fetchone() == (0,), nome
+        finally:
+            con.close()
+        assert colunas_em_falta(str(bd_em_ficheiro)) == [], nome
+
+    assert len(anteriores(bd_em_ficheiro)) == 5
+    assert not existe(bd_em_ficheiro, ".tmp")
 
 
 # ---------------------------------------------------------------------------

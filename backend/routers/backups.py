@@ -7,9 +7,9 @@ from datetime import datetime
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 
-from database import DB_PATH, aplicar_migracoes, colunas_em_falta, engine
+from database import DB_PATH, Base, aplicar_migracoes, colunas_em_falta, engine
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
@@ -97,6 +97,23 @@ def _validar_sqlite(path: str) -> set[str]:
     return tabelas
 
 
+def _criar_tabelas_em_falta(path: str, tabelas: set[str]) -> None:
+    """Cria, vazias, as tabelas do modelo que o ficheiro não tem (achado 6.4).
+
+    É o que o arranque faz com o `create_all`: uma tabela nova não tem migração,
+    e sem isto um backup de antes dela era recusado. Só num ficheiro com as três
+    tabelas de sempre: noutro SQLite qualquer, criá-las fazia-o passar por um
+    backup vazio do Rastreio-DB.
+    """
+    if not TABELAS_DE_SEMPRE <= tabelas:
+        return
+    motor = create_engine(f"sqlite:///{path}")
+    try:
+        Base.metadata.create_all(bind=motor)
+    finally:
+        motor.dispose()
+
+
 def _validar_estrutura(path: str) -> None:
     """Confirma que `path` tem todas as tabelas e colunas do modelo.
 
@@ -138,9 +155,11 @@ async def importar_backup(file: UploadFile = File(...)):
         os.fsync(f.fileno())
 
     try:
-        _validar_sqlite(temp_path)
+        tabelas = _validar_sqlite(temp_path)
         # Um backup de uma versão anterior é actualizado antes de ser validado,
-        # no temporário: se uma migração falhar, a BD actual não foi tocada
+        # no temporário, pela mesma ordem do arranque (tabelas novas, depois
+        # migrações): se algo falhar, a BD actual não foi tocada
+        _criar_tabelas_em_falta(temp_path, tabelas)
         aplicar_migracoes(temp_path)
         _validar_estrutura(temp_path)
     except HTTPException:

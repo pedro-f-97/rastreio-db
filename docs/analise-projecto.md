@@ -439,6 +439,7 @@ Encontrado ao corrigir o 6.1. Uma tabela nova não tem migração, porque no arr
 - **Opções:**
   - (a) No restauro, criar no ficheiro temporário as tabelas em falta (o `create_all` com um engine para esse ficheiro) antes de validar.
   - (b) Corrigir só o `AGENTS.md`: uma tabela nova também precisa de migração, para os backups.
+- **Resolvido:** com a opção (a). No restauro, antes das migrações e da validação, o temporário ganha, vazias, as tabelas do modelo que lhe faltam (o `create_all`, como no arranque), mas só se tiver `transacoes`, `categorias` e `contas`; noutro SQLite, não se cria nada e a recusa é a genérica. O teste que apagava uma tabela de cada vez passou a dois: sem uma das três de sempre, recusa; sem uma das outras oito, aceita e cria-a vazia. A ordem «tabelas, depois migrações» não é distinguida pelos testes: com as migrações de hoje, as duas ordens dão o mesmo (mutante equivalente).
 
 ### O que está bem
 
@@ -785,7 +786,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 33 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.4, 2.6, 3.2, 3.3, 3.4, 4.3, 5.2, 5.3, 6.1, 6.3, 7.2, 7.3, 7.4, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2, 11.3, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
+**Progresso:** 34 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.4, 2.6, 3.2, 3.3, 3.4, 4.3, 5.2, 5.3, 6.1, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2, 11.3, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -821,7 +822,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado | resolvido |
 | 6.2 | Um backup com valores inválidos é aceite | baixa | robustez | confirmado |  |
 | 6.3 | Só há um `.anterior`, substituído em cada restauro | baixa | perda de dados | confirmado por leitura | resolvido |
-| 6.4 | O restauro recusa um backup a que só falta uma tabela nova | baixa | perda de dados / robustez | confirmado por leitura |  |
+| 6.4 | O restauro recusa um backup a que só falta uma tabela nova | baixa | perda de dados / robustez | confirmado por leitura | resolvido |
 | 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado | resolvido |
 | 7.4 | No executável, um erro no arranque não se vê | baixa | robustez / apresentação | confirmado por leitura | resolvido |
 | 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura |  |
