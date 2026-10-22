@@ -3,7 +3,7 @@ import { getContas, getSaldoConta } from "../api/contas";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
 import '../componentes.css';
-import { formatarEuros, labelMes } from '../utils/formatacao';
+import { formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
 import { obterEvolucao } from "../api/patrimonio";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
@@ -141,7 +141,7 @@ export default function Patrimonio() {
               return (
                 <div key={a.id} className="cartao-breakdown-linha">
                   <span className="cartao-breakdown-label">{a.nome}</span>
-                  <span className="cartao-breakdown-valor">{pct.toFixed(1)}%</span>
+                  <span className="cartao-breakdown-valor">{formatarPercentagem(pct)}</span>
                 </div>
               );
             })}
@@ -157,7 +157,7 @@ export default function Patrimonio() {
             </span>
             {pctMaisValia !== null && (
               <span className={`cartao-subvalor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
-                {pctMaisValia >= 0 ? "+" : ""}{pctMaisValia.toFixed(2)}%
+                {pctMaisValia >= 0 ? "+" : ""}{formatarPercentagem(pctMaisValia, 2)}
               </span>
             )}
           </div>
@@ -175,7 +175,7 @@ export default function Patrimonio() {
                   <span className="cartao-breakdown-label">{a.nome}</span>
                   {pct !== null ? (
                     <span className={`cartao-breakdown-valor ${pct >= 0 ? "valor-positivo" : "valor-negativo"}`}>
-                      {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                      {pct >= 0 ? "+" : ""}{formatarPercentagem(pct, 2)}
                     </span>
                   ) : (
                     <span className="cartao-breakdown-valor">—</span>
@@ -205,7 +205,7 @@ export default function Patrimonio() {
           <LineChart data={dadosEvolucaoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
-            <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v} €`} />
+            <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={formatarEurosEixo} />
             <Tooltip
               contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               labelStyle={{ color: 'var(--text-primary)' }}

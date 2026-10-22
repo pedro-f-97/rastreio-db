@@ -14,19 +14,18 @@ export function formatarEuros(valor) {
   return formatadorMonetario.format(valor) + " €";
 }
 
-const formatadorPercentagem = new Intl.NumberFormat('pt-PT', {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-  useGrouping: true,
-});
-
 /**
- * Formata uma percentagem com uma casa decimal, com vírgula.
- * Ex: 44.85 → "44,9%"
+ * Formata uma percentagem com vírgula, por omissão com uma casa decimal.
+ * Ex: 44.85 → "44,9%"; (2.345, 2) → "2,35%"
  */
-export function formatarPercentagem(valor) {
+export function formatarPercentagem(valor, casas = 1) {
   if (valor == null) return "—";
-  return formatadorPercentagem.format(valor) + "%";
+  const formatador = new Intl.NumberFormat('pt-PT', {
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas,
+    useGrouping: true,
+  });
+  return formatador.format(valor) + "%";
 }
 
 const formatadorEixo = new Intl.NumberFormat('pt-PT', {
