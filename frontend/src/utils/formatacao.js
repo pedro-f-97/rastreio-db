@@ -1,6 +1,7 @@
 /**
  * Formata um número como valor monetário em euros, por omissão ao cêntimo.
  * O formato toLocaleString('pt-PT') não separava corretamente os milhares.
+ * Um valor que arredonda a zero sai sem sinal: -0.004 → "0,00 €".
  * Ex: 5233.75 → "5 233,75 €"; (5.877987, 4) → "5,8780 €"
  */
 export function formatarEuros(valor, casas = 2) {
@@ -9,6 +10,7 @@ export function formatarEuros(valor, casas = 2) {
     minimumFractionDigits: casas,
     maximumFractionDigits: casas,
     useGrouping: true,
+    signDisplay: 'negative',
   });
   return formatador.format(valor) + " €";
 }
@@ -29,6 +31,7 @@ export function classeValor(valor, casas = 2) {
 const formatadorQuantidade = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 8,
   useGrouping: true,
+  signDisplay: 'negative',
 });
 
 /**
@@ -51,6 +54,7 @@ export function formatarPercentagem(valor, casas = 1) {
     minimumFractionDigits: casas,
     maximumFractionDigits: casas,
     useGrouping: true,
+    signDisplay: 'negative',
   });
   return formatador.format(valor) + "%";
 }
@@ -58,6 +62,7 @@ export function formatarPercentagem(valor, casas = 1) {
 const formatadorEixo = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 0,
   useGrouping: true,
+  signDisplay: 'negative',
 });
 
 /**
