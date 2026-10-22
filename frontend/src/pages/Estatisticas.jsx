@@ -99,8 +99,18 @@ export default function Estatisticas() {
     }, []);
 
     useEffect(() => {
-        obterPorCategoria(anoSeleccionado).then(res => setPorCategoria(res.data));
-        obterPorSubcategoria(anoSeleccionado).then(res => setPorSubcategoria(res.data));
+        // Ao trocar de ano depressa, a resposta de um ano anterior pode chegar
+        // depois da do ano escolhido: é ignorada
+        let cancelado = false;
+        obterPorCategoria(anoSeleccionado).then(res => {
+            if (!cancelado) setPorCategoria(res.data);
+        });
+        obterPorSubcategoria(anoSeleccionado).then(res => {
+            if (!cancelado) setPorSubcategoria(res.data);
+        });
+        return () => {
+            cancelado = true;
+        };
     }, [anoSeleccionado]);
 
     // Só a despesa: as percentagens são sobre o total gasto no período. Uma
