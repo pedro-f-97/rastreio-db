@@ -36,13 +36,21 @@ def listar_regras(db: Session = Depends(get_db)):
 
 @router.post("/")
 def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
-    existente = db.query(RegraCategorizacao).filter_by(palavra_chave=regra.palavra_chave).first()
-    if existente:
+    # Sem distinguir maiúsculas, como `casa_palavra`: «Continente» e
+    # «CONTINENTE» casam as mesmas descrições, e a mais recente nunca seria usada
+    chave = regra.palavra_chave.upper()
+    if any(r.palavra_chave.upper() == chave for r in db.query(RegraCategorizacao).all()):
         raise HTTPException(status_code=400, detail="Já existe uma regra com esta palavra-chave")
     if regra.categoria_id is not None and db.get(Categoria, regra.categoria_id) is None:
         raise HTTPException(status_code=400, detail="Categoria não encontrada.")
-    if regra.subcategoria_id is not None and db.get(Subcategoria, regra.subcategoria_id) is None:
-        raise HTTPException(status_code=400, detail="Subcategoria não encontrada.")
+    if regra.subcategoria_id is not None:
+        sub = db.get(Subcategoria, regra.subcategoria_id)
+        if sub is None:
+            raise HTTPException(status_code=400, detail="Subcategoria não encontrada.")
+        if sub.categoria_id != regra.categoria_id:
+            raise HTTPException(
+                status_code=400, detail="A subcategoria não pertence à categoria da regra."
+            )
 
     nova = RegraCategorizacao(
         palavra_chave=regra.palavra_chave,

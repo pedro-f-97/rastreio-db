@@ -498,6 +498,53 @@ def test_criar_regra_com_categoria_inexistente_da_400(client, session):
     assert session.get(Transacao, t.id).categoria_id is None
 
 
+def test_criar_regra_repetida_noutra_caixa_da_400(client, session):
+    """«continente» repete «Continente»: as regras casam sem distinguir maiúsculas.
+
+    Cálculo à mão (achado 2.5): `casa_palavra` compara em maiúsculas, por isso
+    "Continente" e "continente" casam as mesmas descrições. A segunda é
+    recusada com 400, e fica 1 regra. "Continente " com espaços também,
+    porque o schema tira os espaços antes.
+    """
+    session.add(RegraCategorizacao(palavra_chave="Continente"))
+    session.commit()
+
+    r = client.post("/api/regras/", json={"palavra_chave": "continente"})
+    r_espacos = client.post("/api/regras/", json={"palavra_chave": " CONTINENTE "})
+
+    esperado = (400, {"detail": "Já existe uma regra com esta palavra-chave"})
+    assert (r.status_code, r.json()) == esperado
+    assert (r_espacos.status_code, r_espacos.json()) == esperado
+    assert session.query(RegraCategorizacao).count() == 1
+
+
+def test_criar_regra_com_subcategoria_de_outra_categoria_da_400(client, session):
+    """A subcategoria tem de ser da categoria da regra (achado 2.5).
+
+    Cálculo à mão: Alimentação é de Casa. Uma regra Lazer › Alimentação e uma
+    regra sem categoria com Alimentação dão 400; Casa › Alimentação dá 200.
+    """
+    casa, lazer, sub_alim = _categorias(session)
+    erro = (400, {"detail": "A subcategoria não pertence à categoria da regra."})
+
+    r_lazer = client.post(
+        "/api/regras/",
+        json={"palavra_chave": "pingo", "categoria_id": lazer.id, "subcategoria_id": sub_alim.id},
+    )
+    r_sem = client.post(
+        "/api/regras/", json={"palavra_chave": "doce", "subcategoria_id": sub_alim.id}
+    )
+    assert (r_lazer.status_code, r_lazer.json()) == erro
+    assert (r_sem.status_code, r_sem.json()) == erro
+    assert session.query(RegraCategorizacao).count() == 0
+
+    r_ok = client.post(
+        "/api/regras/",
+        json={"palavra_chave": "pingo", "categoria_id": casa.id, "subcategoria_id": sub_alim.id},
+    )
+    assert r_ok.status_code == 200
+
+
 def test_criar_regra_com_subcategoria_inexistente_da_400(client, session):
     """Uma subcategoria que não existe dá 400 e a regra não é gravada.
 
