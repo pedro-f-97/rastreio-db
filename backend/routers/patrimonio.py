@@ -81,7 +81,8 @@ def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depe
             raise HTTPException(status_code=409, detail="Já existe um ativo com este símbolo.")
     if payload.nome is not None:
         ativo.nome = payload.nome
-    if payload.simbolo is not None:
+    # `null` enviado apaga o símbolo; só um campo omitido fica como estava (achado 5.1)
+    if "simbolo" in payload.model_fields_set:
         ativo.simbolo = payload.simbolo
     db.commit()
     db.refresh(ativo)

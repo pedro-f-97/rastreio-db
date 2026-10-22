@@ -242,8 +242,7 @@ def test_editar_ativo_muda_apenas_o_nome(client, session):
     """Editar só o nome deixa o símbolo intacto.
 
     Cálculo à mão: ativo `A`/`AAA`; `PUT {"nome": "B"}` -> nome `B` e símbolo
-    ainda `AAA` (o router só toca nos campos não nulos,
-    `routers/patrimonio.py:66-69`).
+    ainda `AAA` (o router só muda o símbolo se o campo vier no pedido).
     """
     tipo = semear_tipo(session, "Acoes", tem_unidades=True)
     ativo = semear_ativo(session, "A", tipo, simbolo="AAA")
@@ -256,6 +255,24 @@ def test_editar_ativo_muda_apenas_o_nome(client, session):
     session.refresh(ativo)
     assert ativo.nome == "B"
     assert ativo.simbolo == "AAA"
+
+
+def test_editar_ativo_com_simbolo_null_apaga_o_simbolo(client, session):
+    """`simbolo: null` apaga o símbolo, e o nome fica (achado 5.1).
+
+    Cálculo à mão: ativo `A`/`AAA`; `PUT {"nome": "A", "simbolo": null}`, que é
+    o que a página envia com o campo vazio -> símbolo `None`. Antes da
+    correcção, `null` contava como «não alterar» e o símbolo ficava `AAA`.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "A", tipo, simbolo="AAA")
+
+    r = client.put(f"/api/patrimonio/ativos/{ativo.id}", json={"nome": "A", "simbolo": None})
+
+    assert r.status_code == 200
+    assert (r.json()["nome"], r.json()["simbolo"]) == ("A", None)
+    session.refresh(ativo)
+    assert ativo.simbolo is None
 
 
 def test_editar_ativo_com_simbolo_de_outro_da_409(client, session):

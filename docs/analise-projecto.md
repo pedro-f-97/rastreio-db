@@ -354,6 +354,7 @@ Quando se apaga o símbolo na edição, o frontend envia `null`. O backend lê `
 - **Opções:**
   - (a) O backend usa `model_fields_set`, como já faz o `PUT` de transações.
   - (b) O frontend envia "" e o backend converte "" em `NULL`.
+- **Resolvido:** com a opção (a). O `PUT` de um ativo muda o símbolo sempre que o campo vem no pedido, também com `null`; um campo omitido fica como estava. Mutações: o código antigo e mudar sempre, ambos mortos.
 
 ### 5.2 O campo `moeda` dos ativos é guardado mas não tem efeito
 
@@ -789,7 +790,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 37 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.2, 5.3, 6.1, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.4, 8.5, 9.1, 10.1, 10.2, 11.2, 11.3, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
+**Progresso:** 38 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.4, 8.5, 9.1, 10.1, 10.2, 11.2, 11.3, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -820,7 +821,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 2.4 | «Aplicar regras» conta casos sem efeito | baixa | correcção | confirmado | resolvido |
 | 2.5 | Uma regra aceita uma subcategoria de outra categoria | baixa | robustez | confirmado | resolvido |
 | 3.4 | Não há forma de editar um perfil de importação na interface | baixa | funcionalidade em falta | confirmado por leitura | resolvido |
-| 5.1 | Não se consegue apagar o símbolo de um ativo | baixa | correcção | confirmado |  |
+| 5.1 | Não se consegue apagar o símbolo de um ativo | baixa | correcção | confirmado | resolvido |
 | 5.2 | `moeda` é guardado mas não tem efeito | baixa | estrutura | confirmado | resolvido |
 | 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado | resolvido |
 | 6.2 | Um backup com valores inválidos é aceite | baixa | robustez | confirmado |  |
