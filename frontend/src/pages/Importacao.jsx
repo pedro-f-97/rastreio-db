@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { listarPerfis, criarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
+import { listarPerfis, criarPerfil, atualizarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
 import { previewExtrato, importarExtrato } from '../api/importacao'
 import { getContas } from '../api/contas'
 import '../componentes.css'
@@ -48,6 +48,8 @@ function itemChecklist(label, preenchido) {
 export default function Importacao({ onDadosAlterados }) {
     const [perfis, setPerfis] = useState([])
     const [modalAberto, setModalAberto] = useState(false)
+    // null ao criar; o id do perfil ao editar
+    const [perfilEmEdicao, setPerfilEmEdicao] = useState(null)
     const [form, setForm] = useState(PERFIL_VAZIO)
     const [linhasAnalisadas, setLinhasAnalisadas] = useState(null)
     const [campoActivo, setCampoActivo] = useState(null)
@@ -73,7 +75,18 @@ export default function Importacao({ onDadosAlterados }) {
     }
 
     function abrirModalNovo() {
+        setPerfilEmEdicao(null)
         setForm(PERFIL_VAZIO)
+        setLinhasAnalisadas(null)
+        setCampoActivo(null)
+        setNumColunas(0)
+        setModalAberto(true)
+    }
+
+    function abrirModalEditar(perfil) {
+        const { id, ...dados } = perfil
+        setPerfilEmEdicao(id)
+        setForm({ ...PERFIL_VAZIO, ...dados, tem_fee: dados.coluna_fee !== null })
         setLinhasAnalisadas(null)
         setCampoActivo(null)
         setNumColunas(0)
@@ -152,7 +165,8 @@ export default function Importacao({ onDadosAlterados }) {
             return
         }
         try {
-            await criarPerfil(form)
+            if (perfilEmEdicao) await atualizarPerfil(perfilEmEdicao, form)
+            else await criarPerfil(form)
             fecharModal()
             carregar()
         } catch (err) {
@@ -239,6 +253,7 @@ export default function Importacao({ onDadosAlterados }) {
                                         </span>
                                     </div>
                                     <div className="accoes">
+                                        <button className="btn-ghost" onClick={() => abrirModalEditar(p)} title="Editar perfil">✎</button>
                                         <button className="btn-ghost" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
                                     </div>
                                 </div>
@@ -348,7 +363,7 @@ export default function Importacao({ onDadosAlterados }) {
                 <div className="modal-overlay" onClick={fecharModal}>
                     <div className="modal modal-larga" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>Novo perfil</h3>
+                            <h3>{perfilEmEdicao ? 'Editar perfil' : 'Novo perfil'}</h3>
                             <button className="modal-fechar" onClick={fecharModal}>✕</button>
                         </div>
 
@@ -356,6 +371,11 @@ export default function Importacao({ onDadosAlterados }) {
                             {/* Passo 1 */}
                             <div className="modal-passo">
                                 <div className="modal-passo-titulo">1. Carrega um ficheiro exemplo</div>
+                                {perfilEmEdicao && !linhasAnalisadas && (
+                                    <div className="modal-passo-ajuda">
+                                        Para mudar as colunas, carrega um ficheiro exemplo; sem ficheiro, ficam como estão.
+                                    </div>
+                                )}
                                 <input type="file" accept=".xlsx,.csv" onChange={aoAnalisarFicheiro} />
                             </div>
 

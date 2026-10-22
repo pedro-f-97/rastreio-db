@@ -253,6 +253,7 @@ O formulário de perfis só cria (`criarPerfil`). As funções `atualizarPerfil`
 - **Opções:**
   - (a) O formulário passa a abrir também em modo de edição, com o `PUT`.
   - (b) Manter: apagar e criar de novo.
+- **Resolvido:** com a opção (a). Cada perfil tem um botão ✎ que abre o formulário preenchido e grava com o `PUT`; as colunas mudam-se carregando um ficheiro exemplo. A mensagem da importação de um perfil sem conta diz agora para o editar. `atualizarPerfil` e `eliminarPerfil` chamavam `/perfis-importacao/{id}/`, com barra no fim, a que o backend responde com um redireccionamento (307) para o endereço sem barra. Numa cópia da BD, a pré-verificação CORS e o 307 trazem os cabeçalhos CORS, e o pedido chega ao fim depois do redireccionamento: não era um defeito, só um passo a mais. A barra saiu, para o endereço ser o do router. Verificado com o lint, os testes do backend e pedidos `curl` ao backend numa cópia da BD.
 
 ### O que está bem
 
@@ -778,7 +779,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 26 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.2, 2.6, 3.2, 3.3, 4.3, 5.2, 5.3, 6.1, 6.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
+**Progresso:** 27 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.2, 2.6, 3.2, 3.3, 3.4, 4.3, 5.2, 5.3, 6.1, 6.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -808,7 +809,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 2.3 | A página Conceitos descreve funcionalidades de regras que não existem | baixa | documentação | confirmado |  |
 | 2.4 | «Aplicar regras» conta casos sem efeito | baixa | correcção | confirmado |  |
 | 2.5 | Uma regra aceita uma subcategoria de outra categoria | baixa | robustez | confirmado |  |
-| 3.4 | Não há forma de editar um perfil de importação na interface | baixa | funcionalidade em falta | confirmado por leitura |  |
+| 3.4 | Não há forma de editar um perfil de importação na interface | baixa | funcionalidade em falta | confirmado por leitura | resolvido |
 | 5.1 | Não se consegue apagar o símbolo de um ativo | baixa | correcção | confirmado |  |
 | 5.2 | `moeda` é guardado mas não tem efeito | baixa | estrutura | confirmado | resolvido |
 | 5.3 | O preço de uma venda não actualiza a cotação | baixa | lógica de negócio | confirmado | resolvido |

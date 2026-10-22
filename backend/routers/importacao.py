@@ -47,7 +47,7 @@ async def importar_extrato(
     if perfil.conta_id is None:
         raise HTTPException(
             status_code=400,
-            detail="Este perfil não tem conta associada. Elimina-o e cria-o de novo com uma conta.",
+            detail="Este perfil não tem conta associada. Edita o perfil e escolhe uma conta.",
         )
     conteudo = await file.read()
     try:

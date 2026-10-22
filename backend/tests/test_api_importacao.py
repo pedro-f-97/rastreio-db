@@ -557,7 +557,7 @@ def test_importar_com_perfil_sem_conta_da_400_e_nao_grava(client, session, tmp_p
 
     assert r.status_code == 400
     assert r.json() == {
-        "detail": "Este perfil não tem conta associada. Elimina-o e cria-o de novo com uma conta."
+        "detail": "Este perfil não tem conta associada. Edita o perfil e escolhe uma conta."
     }
     assert session.query(Transacao).count() == 0
 
