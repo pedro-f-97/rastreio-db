@@ -13,3 +13,7 @@ export const importarExtrato = (perfilId, file) => {
     form.append('file', file)
     return client.post(`${BASE}/importar`, form, { params: { perfil_id: perfilId } })
 }
+export const listarHistorico = () => client.get(`${BASE}/historico`)
+
+export const desfazerImportacao = (id, apagarMovimentos = false) =>
+    client.delete(`${BASE}/${id}`, { params: apagarMovimentos ? { apagar_movimentos: true } : {} })

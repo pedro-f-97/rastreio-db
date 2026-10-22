@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { listarPerfis, criarPerfil, atualizarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
-import { previewExtrato, importarExtrato } from '../api/importacao'
+import { previewExtrato, importarExtrato, listarHistorico, desfazerImportacao } from '../api/importacao'
 import { getContas } from '../api/contas'
+import { formatarEuros } from '../utils/formatacao'
 import '../componentes.css'
 import './Importacao.css'
 
@@ -63,15 +64,22 @@ export default function Importacao({ onDadosAlterados }) {
     const inputFicheiroRef = useRef(null)
 
     const [contas, setContas] = useState([])
+    const [historico, setHistorico] = useState([])
 
     useEffect(() => {
         carregar()
+        carregarHistorico()
         getContas().then(res => setContas(res.data))
     }, [])
 
     async function carregar() {
         const res = await listarPerfis()
         setPerfis(res.data)
+    }
+
+    async function carregarHistorico() {
+        const res = await listarHistorico()
+        setHistorico(res.data)
     }
 
     function abrirModalNovo() {
@@ -220,12 +228,48 @@ export default function Importacao({ onDadosAlterados }) {
             setPreview(null)
             setFicheiro(null)
             if (inputFicheiroRef.current) inputFicheiroRef.current.value = ''
+            carregarHistorico()
             onDadosAlterados?.()
         } catch (err) {
             alert(err.response?.data?.detail || 'Erro na importação.')
         } finally {
             setAImportar(false)
         }
+    }
+
+    async function aoDesfazer(imp) {
+        const n = imp.inseridas
+        if (!confirm(
+            `Desfazer a importação de «${imp.ficheiro}» (${imp.conta_nome})?\n\n` +
+            `${n === 1 ? 'Vai ser apagada 1 transação' : `Vão ser apagadas ${n} transações`}, ` +
+            'com as categorias, subcategorias e notas que lhes deste.'
+        )) return
+        try {
+            await desfazerImportacao(imp.id)
+        } catch (err) {
+            const detail = err.response?.data?.detail
+            // 409 com movimentos: há transações já tratadas como ativos
+            if (!detail?.movimentos) {
+                alert(detail || 'Erro ao desfazer a importação.')
+                return
+            }
+            const lista = detail.movimentos
+                .map(m => `• ${m.ativo_nome}: ${m.tipo_movimento} de ${m.data}, ${formatarEuros(m.valor_total)}`)
+                .join('\n')
+            if (!confirm(
+                `${detail.mensagem}\n\n${lista}\n\n` +
+                'Apagar também estes movimentos? Se não, a importação fica como está.'
+            )) return
+            try {
+                await desfazerImportacao(imp.id, true)
+            } catch (err2) {
+                alert(err2.response?.data?.detail || 'Erro ao desfazer a importação.')
+                return
+            }
+        }
+        setResultado(null)
+        carregarHistorico()
+        onDadosAlterados?.()
     }
 
     const checklist = calcularChecklist()
@@ -355,6 +399,54 @@ export default function Importacao({ onDadosAlterados }) {
                         <span className="resultado-inseridas">✓ {resultado.inseridas} inseridas</span>
                         <span className="resultado-duplicadas">{resultado.duplicadas} duplicadas</span>
                     </div>
+                )}
+            </section>
+
+            {/* SECÇÃO: HISTÓRICO */}
+            <section className="importacao-secao">
+                <div className="importacao-secao-header">
+                    <h2>Histórico de importações</h2>
+                </div>
+
+                {historico.length === 0 ? (
+                    <p className="estado-vazio-sm">
+                        Nenhuma importação registada. As transações importadas antes desta versão não aparecem aqui nem se podem desfazer.
+                    </p>
+                ) : (
+                    <table className="tabela-base">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Conta</th>
+                                <th>Ficheiro</th>
+                                <th>Inseridas</th>
+                                <th>Duplicadas</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {historico.map(i => (
+                                <tr key={i.id}>
+                                    <td>{i.data_hora.slice(0, 16).replace('T', ' ')}</td>
+                                    <td>{i.conta_nome}</td>
+                                    <td>{i.ficheiro}</td>
+                                    <td>{i.inseridas}</td>
+                                    <td>{i.duplicadas}</td>
+                                    <td>
+                                        {i.pode_desfazer && (
+                                            <button
+                                                className="btn-ghost"
+                                                onClick={() => aoDesfazer(i)}
+                                                title="Só a importação mais recente de cada conta se pode desfazer"
+                                            >
+                                                Desfazer
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 )}
             </section>
 
