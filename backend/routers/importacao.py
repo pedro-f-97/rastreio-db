@@ -66,4 +66,6 @@ async def importar_extrato(
                 "Corrige o ficheiro ou o perfil; a pré-visualização mostra todas."
             ),
         )
-    return importar_transacoes(resultado["transacoes"], db, conta_id=perfil.conta_id)
+    return importar_transacoes(
+        resultado["transacoes"], db, conta_id=perfil.conta_id, ficheiro=file.filename or ""
+    )

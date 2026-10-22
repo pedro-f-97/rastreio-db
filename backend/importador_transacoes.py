@@ -1,8 +1,9 @@
 from collections import Counter
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from database import RegraCategorizacao, Transacao
+from database import Importacao, RegraCategorizacao, Transacao
 
 
 def casa_palavra(palavra_chave: str, descricao: str) -> bool:
@@ -40,10 +41,10 @@ def regras_por_precedencia(db: Session) -> list[RegraCategorizacao]:
 
 
 def importar_transacoes(
-    transacoes_parsed: list[dict], db: Session, conta_id: int | None = None
+    transacoes_parsed: list[dict], db: Session, conta_id: int, ficheiro: str
 ) -> dict:
     regras = regras_por_precedencia(db)
-    inseridas = 0
+    novas = []
     duplicadas = 0
 
     try:
@@ -72,12 +73,27 @@ def importar_transacoes(
                 conta_id=conta_id,
             )
             aplicar_regras(nova, regras)
-            db.add(nova)
-            inseridas += 1
+            novas.append(nova)
+
+        # Só uma importação que inseriu alguma coisa fica registada: é a que
+        # se pode desfazer. Tudo no mesmo commit que as transacções
+        if novas:
+            importacao = Importacao(
+                data_hora=datetime.now(),
+                conta_id=conta_id,
+                ficheiro=ficheiro,
+                inseridas=len(novas),
+                duplicadas=duplicadas,
+            )
+            db.add(importacao)
+            db.flush()
+            for nova in novas:
+                nova.importacao_id = importacao.id
+            db.add_all(novas)
 
         db.commit()
     except Exception:
         db.rollback()
         raise
 
-    return {"inseridas": inseridas, "duplicadas": duplicadas}
+    return {"inseridas": len(novas), "duplicadas": duplicadas}

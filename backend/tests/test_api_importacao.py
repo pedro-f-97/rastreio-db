@@ -59,13 +59,14 @@ e a conta são criados com as classes e enums reais (`PerfilImportacao`,
 atribui, nunca números fixos.
 """
 
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
 from database import (
     Categoria,
     Conta,
+    Importacao,
     ModoValor,
     PerfilImportacao,
     RegraCategorizacao,
@@ -779,3 +780,100 @@ def test_importar_com_perfil_inexistente_da_404(client):
 
     assert r.status_code == 404
     assert r.json() == {"detail": "Perfil não encontrado."}
+
+
+# ---------------------------------------------------------------------------
+# /importar — registo da importação, para a poder desfazer
+# ---------------------------------------------------------------------------
+
+
+def test_importar_regista_a_importacao_e_marca_as_transaccoes(client, session, tmp_path):
+    """Uma importação que insere fica registada, e as suas linhas levam o id dela.
+
+    Cálculo à mão: `CSV_DUAS_LINHAS` insere 2 linhas novas e nenhuma duplicada,
+    numa conta vazia. Fica 1 importação, da conta do perfil, com o nome com que o
+    ficheiro foi enviado, `inseridas` 2, `duplicadas` 0 e a data e a hora do
+    pedido; as 2 transacções têm `importacao_id` igual ao id dela.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
+
+    antes = datetime.now()
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes(), nome="janeiro.csv")
+    depois = datetime.now()
+
+    assert r.status_code == 200
+    importacao = session.query(Importacao).one()
+    assert (
+        importacao.conta_id,
+        importacao.ficheiro,
+        importacao.inseridas,
+        importacao.duplicadas,
+    ) == (conta.id, "janeiro.csv", 2, 0)
+    assert antes <= importacao.data_hora <= depois
+    assert [t.importacao_id for t in session.query(Transacao).all()] == [
+        importacao.id,
+        importacao.id,
+    ]
+
+
+def test_importacao_com_novas_e_duplicadas_so_marca_as_novas(client, session, tmp_path):
+    """As linhas duplicadas não são da importação nova: ficam com a marca antiga.
+
+    Cálculo à mão: a 1.ª importação traz Supermercado e Salário (importação A).
+    A 2.ª traz as mesmas duas mais uma Renda de -600,00: 1 inserida e 2
+    duplicadas (importação B). Supermercado e Salário ficam com A, a Renda com B.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    primeiro = escrever_csv(tmp_path / "a.csv", CSV_DUAS_LINHAS)
+    segundo = escrever_csv(tmp_path / "b.csv", CSV_DUAS_LINHAS + ('03/02/2026,Renda,"-600,00"',))
+
+    _pedido_importar(client, perfil.id, primeiro.read_bytes(), nome="a.csv")
+    r = _pedido_importar(client, perfil.id, segundo.read_bytes(), nome="b.csv")
+
+    assert r.json() == {"inseridas": 1, "duplicadas": 2}
+    a, b = session.query(Importacao).order_by(Importacao.id).all()
+    assert (a.ficheiro, a.inseridas, a.duplicadas) == ("a.csv", 2, 0)
+    assert (b.ficheiro, b.inseridas, b.duplicadas) == ("b.csv", 1, 2)
+    marcas = {t.descricao: t.importacao_id for t in session.query(Transacao).all()}
+    assert marcas == {"Supermercado": a.id, "Salário": a.id, "Renda": b.id}
+
+
+def test_importacao_so_com_duplicadas_nao_fica_registada(client, session, tmp_path):
+    """Sem nada inserido, não há nada a desfazer: não se regista.
+
+    Cálculo à mão: o mesmo ficheiro duas vezes; a 2.ª dá 0 inseridas e 2
+    duplicadas, e continua a haver só a importação da 1.ª.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    conteudo = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS).read_bytes()
+
+    _pedido_importar(client, perfil.id, conteudo)
+    r = _pedido_importar(client, perfil.id, conteudo)
+
+    assert r.json() == {"inseridas": 0, "duplicadas": 2}
+    assert session.query(Importacao).count() == 1
+
+
+def test_importacao_recusada_nao_fica_registada(client, session, tmp_path):
+    """Um ficheiro com uma linha com erro não importa nada, nem o registo.
+
+    Cálculo à mão: a 2.ª linha tem a data «32/01/2026», inválida; o endpoint dá
+    400 antes de chamar `importar_transacoes`, e ficam 0 importações e 0
+    transacções.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(
+        tmp_path / "erro.csv",
+        ("Data,Descrição,Valor", '31/01/2026,Supermercado,"-45,60"', '32/01/2026,Café,"-0,80"'),
+    )
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 400
+    assert session.query(Importacao).count() == 0
+    assert session.query(Transacao).count() == 0

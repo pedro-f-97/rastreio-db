@@ -72,7 +72,7 @@ o cálculo no comentário de cada teste.
 from datetime import date
 from types import SimpleNamespace
 
-from database import Categoria, RegraCategorizacao, TipoCategoria, Transacao
+from database import Categoria, Conta, RegraCategorizacao, TipoCategoria, Transacao
 from importador_transacoes import aplicar_regras, importar_transacoes
 
 # ---------------------------------------------------------------------------
@@ -478,9 +478,14 @@ def test_palavra_chave_vazia_casa_em_tudo():
 
 def _importar_uma(session, descricao):
     """Importa uma linha com `importar_transacoes` e devolve a transacção gravada."""
+    conta = Conta(nome=f"Conta {descricao}", data_referencia=date(2025, 1, 1))
+    session.add(conta)
+    session.commit()
     importar_transacoes(
         [{"data": date(2025, 3, 10), "descricao": descricao, "valor": -12.75, "saldo": None}],
         session,
+        conta_id=conta.id,
+        ficheiro="extrato.csv",
     )
     return session.query(Transacao).filter_by(descricao=descricao).one()
 

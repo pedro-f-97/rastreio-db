@@ -82,7 +82,7 @@ from routers import backups
 # Auxiliares
 # ---------------------------------------------------------------------------
 
-# Três das onze tabelas do modelo, cada uma só com as colunas mínimas. É o
+# Três das doze tabelas do modelo, cada uma só com as colunas mínimas. É o
 # ficheiro mais magro que o endpoint já aceitou (o da validação antiga)
 # e continua a servir de entrada a vários cenários de rejeição.
 MINIMO_3 = {
@@ -92,12 +92,13 @@ MINIMO_3 = {
     "data_referencia TEXT, ativa INTEGER",
 }
 
-# As 11 tabelas do modelo (`Base.metadata.sorted_tables`), escritas à mão.
+# As 12 tabelas do modelo (`Base.metadata.sorted_tables`), escritas à mão.
 TABELAS_DO_MODELO = {
     "ativos",
     "categorias",
     "configuracao",
     "contas",
+    "importacoes",
     "movimentos_ativo",
     "perfis_importacao",
     "precos_ativo",
@@ -146,7 +147,7 @@ def criar_sqlite(caminho: Path, tabelas: dict[str, str]) -> bytes:
 
 
 def criar_bd_do_modelo(caminho: Path) -> bytes:
-    """Cria um `.db` com as 11 tabelas e TODAS as colunas do modelo.
+    """Cria um `.db` com as 12 tabelas e TODAS as colunas do modelo.
 
     O esquema é criado pelo próprio `Base.metadata.create_all`, e não escrito
     à mão: o ficheiro tem de bater certo com o modelo porque é o modelo que a
@@ -301,7 +302,7 @@ def test_nao_sqlite_e_rejeitado_e_a_bd_fica_intacta(client, bd_em_ficheiro):
 def test_sqlite_sem_as_tabelas_do_modelo_e_rejeitado(client, bd_em_ficheiro, tmp_path):
     """Um SQLite válido sem nenhuma tabela do modelo é recusado, sem detalhes.
 
-    Cálculo à mão: o ficheiro tem só a tabela `lixo`, pelo que falham as onze
+    Cálculo à mão: o ficheiro tem só a tabela `lixo`, pelo que falham as doze
     tabelas de `TABELAS_DO_MODELO`. A validação de estrutura responde com o 400
     genérico e **não** lista o que falta — a lista
     `['categorias', 'contas', 'transacoes']` que este teste fixava antes da correcção
@@ -430,7 +431,7 @@ def test_ficheiro_corrompido_e_rejeitado(client, bd_em_ficheiro, tmp_path):
 def test_ida_e_volta_sem_alteracoes_preserva_os_dados(client, bd_em_ficheiro):
     """Exportar e reimportar o export, sem mexer em nada, não perde nada.
 
-    Cálculo à mão: o `.db` exportado tem as 11 tabelas — é a BD da fixture, com
+    Cálculo à mão: o `.db` exportado tem as 12 tabelas — é a BD da fixture, com
     o esquema inteiro —, logo a validação de tabelas e colunas passa e o
     `os.replace` substitui o ficheiro por ele próprio, byte a byte. A `Conta Real`
     continua lá, com a mesma linha.
@@ -499,13 +500,13 @@ def test_a_lista_validada_e_a_do_modelo(tmp_path):
 
     `colunas_em_falta` percorre `Base.metadata.sorted_tables`, e esta asserção
     falha se alguém voltar a escrever o conjunto à mão com menos nomes — que
-    foi exactamente o defeito original: 3 nomes fixos em vez das 11 tabelas do
-    modelo. Num ficheiro SQLite sem tabelas, faltam as 11, e só elas.
+    foi exactamente o defeito original: 3 nomes fixos em vez das 12 tabelas do
+    modelo. Num ficheiro SQLite sem tabelas, faltam as 12, e só elas.
 
-    As 11 tabelas, escritas à mão e por ordem alfabética, são
+    As 12 tabelas, escritas à mão e por ordem alfabética, são
     `TABELAS_DO_MODELO`; a comparação com o modelo está logo abaixo, e a
     diferença que o teste antigo fixava (`transacoes`, `categorias` e `contas`
-    só) passaria a ter oito nomes a menos.
+    só) passaria a ter nove nomes a menos.
     """
     do_modelo = {tabela.name for tabela in Base.metadata.sorted_tables}
 
@@ -574,7 +575,7 @@ def test_tres_tabelas_com_colunas_erradas_e_rejeitado(client, bd_em_ficheiro, tm
     anterior. As oito tabelas em falta são criadas no temporário (6.4), por isso
     a recusa vem mesmo das colunas; ainda assim, o teste de uma só coluna em
     falta é
-    `test_coluna_em_falta_numa_so_tabela_e_rejeitado`, que tem as 11 tabelas e
+    `test_coluna_em_falta_numa_so_tabela_e_rejeitado`, que tem as 12 tabelas e
     só uma coluna a menos.
 
     A BD fica como estava: a `Conta Real` lê-se, e o saldo continua a ser os
@@ -638,9 +639,9 @@ def test_rejeicao_nao_toca_no_anterior_pre_existente(client, bd_em_ficheiro, tmp
 
 
 def test_modelo_completo_com_coluna_extra_e_aceite(client, bd_em_ficheiro, tmp_path):
-    """As 11 tabelas do modelo com uma coluna extra são aceites.
+    """As 12 tabelas do modelo com uma coluna extra são aceites.
 
-    Cálculo à mão: o ficheiro tem as 11 tabelas do modelo com todas as colunas
+    Cálculo à mão: o ficheiro tem as 12 tabelas do modelo com todas as colunas
     — criadas pelo próprio `Base.metadata` — mais `contas.coluna_extra`, que
     ninguém pediu. Colunas (e tabelas) a mais são aceites: só as em falta
     contam. A validação passa, o `os.replace` troca a BD, e:
@@ -712,10 +713,10 @@ def test_backup_antigo_com_reembolso_e_aceite_e_perde_a_coluna(client, bd_em_fic
 def test_coluna_em_falta_numa_so_tabela_e_rejeitado(client, bd_em_ficheiro, tmp_path):
     """Um `.db` completo com UMA coluna em falta numa só tabela é recusado.
 
-    Cálculo à mão: o ficheiro tem as 11 tabelas com todas as colunas do modelo,
+    Cálculo à mão: o ficheiro tem as 12 tabelas com todas as colunas do modelo,
     à excepção de `transacoes.valor` (`database.py`, coluna `valor` da
     `Transacao`), removida com `ALTER TABLE transacoes DROP COLUMN valor`. As
-    onze tabelas estão presentes, portanto só a comparação de colunas pode
+    doze tabelas estão presentes, portanto só a comparação de colunas pode
     apanhar a falta — é este o teste que prova que as colunas são mesmo
     validadas (o das colunas erradas tem 8 tabelas a menos e seria recusado de
     qualquer modo).
@@ -784,15 +785,15 @@ def test_ficheiro_sem_uma_das_tres_tabelas_de_sempre_e_rejeitado(client, bd_em_f
 
 
 def test_backup_sem_uma_tabela_nova_e_aceite_com_ela_vazia(client, bd_em_ficheiro, tmp_path):
-    """A um backup que só não tem uma das outras oito tabelas, ela é criada vazia.
+    """A um backup que só não tem uma das outras nove tabelas, ela é criada vazia.
 
     Uma tabela nova não tem migração, e o restauro faz
-    o que o arranque faz, cria-a vazia. Para cada uma das oito, copia-se o
+    o que o arranque faz, cria-a vazia. Para cada uma das nove, copia-se o
     `.db` completo, com a conta «Conta do backup», e apaga-se só essa tabela.
 
     Cálculo à mão, por restauro: 200; a BD passa a ser o backup (a única conta
     é «Conta do backup»); a tabela apagada existe outra vez e está vazia; e não
-    falta nenhuma tabela nem coluna. São 8 restauros bons, cada um com a sua
+    falta nenhuma tabela nem coluna. São 9 restauros bons, cada um com a sua
     cópia `.anterior-<data>`, e ficam as 5 mais recentes (6.3).
     """
     semear_conta_real()
@@ -810,7 +811,7 @@ def test_backup_sem_uma_tabela_nova_e_aceite_com_ela_vazia(client, bd_em_ficheir
     completo = caminho_completo.read_bytes()
 
     outras = sorted(TABELAS_DO_MODELO - set(TABELAS_DE_SEMPRE))
-    assert len(outras) == 8
+    assert len(outras) == 9
     for nome in outras:
         resposta = importar(client, _completo_sem(tmp_path, completo, nome))
 
@@ -1349,7 +1350,7 @@ def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partid
 
     for tabela in ("precos_ativo", "movimentos_ativo"):
         assert "ativos_old" not in _ddl_em(bd_em_ficheiro, tabela)
-    assert _versao_em(bd_em_ficheiro) == 2
+    assert _versao_em(bd_em_ficheiro) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -1392,8 +1393,8 @@ def test_backup_antigo_e_migrado_antes_de_ser_validado(
     """Um backup sem uma coluna que uma migração acrescenta é aceite.
 
     Cálculo à mão: o backup está na versão 0 e não tem `coluna_fee`. Com uma
-    3.ª migração que a acrescenta, a migração corre no `.tmp` antes da
-    validação, que passa: 200, a coluna existe e a BD fica na versão 3. Sem a
+    4.ª migração que a acrescenta, a migração corre no `.tmp` antes da
+    validação, que passa: 200, a coluna existe e a BD fica na versão 4. Sem a
     migração, o mesmo ficheiro é recusado
     (`test_coluna_em_falta_numa_so_tabela_e_rejeitado`).
     """
@@ -1408,11 +1409,11 @@ def test_backup_antigo_e_migrado_antes_de_ser_validado(
 
     assert resposta.status_code == 200
     assert colunas_em_falta(str(bd_em_ficheiro)) == []
-    assert _versao_em(bd_em_ficheiro) == 3
+    assert _versao_em(bd_em_ficheiro) == 4
 
 
 def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_path):
-    """Cálculo à mão: um backup na versão 0, com as 2 migrações, fica na 2."""
+    """Cálculo à mão: um backup na versão 0, com as 3 migrações, fica na 3."""
     backup = tmp_path / "antigo.db"
     criar_bd_do_modelo(backup)
     assert _versao_em(backup) == 0
@@ -1420,7 +1421,7 @@ def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_pat
     resposta = importar(client, backup.read_bytes())
 
     assert resposta.status_code == 200
-    assert _versao_em(bd_em_ficheiro) == 2
+    assert _versao_em(bd_em_ficheiro) == 3
 
 
 def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, monkeypatch):
@@ -1446,7 +1447,7 @@ def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, m
 
 
 def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
-    """Cálculo à mão: uma BD na versão 0 com a 3.ª migração falsa corre-a, e fica na 3."""
+    """Cálculo à mão: uma BD na versão 0 com a 4.ª migração falsa corre-a, e fica na 4."""
     monkeypatch.setattr(
         database, "MIGRACOES", database.MIGRACOES + (("coluna_fee", _acrescentar_coluna_fee),)
     )
@@ -1456,7 +1457,7 @@ def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
     database.criar_tabelas()
 
     assert colunas_em_falta(str(bd_em_ficheiro)) == []
-    assert _versao_em(bd_em_ficheiro) == 3
+    assert _versao_em(bd_em_ficheiro) == 4
 
 
 def test_arranque_recusa_bd_com_colunas_em_falta(bd_em_ficheiro):
