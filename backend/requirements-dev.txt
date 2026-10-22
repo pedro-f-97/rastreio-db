@@ -1,7 +1,8 @@
 # Dependências só de desenvolvimento (testes).
 #
-# NÃO entra no requirements.txt: build.sh / build.bat instalam esse ficheiro
-# antes do PyInstaller, e o executável não deve embarcar pytest nem httpx.
+# NÃO entra no requirements.txt: é o que o executável leva (o build.sh e o
+# build.bat instalam-no através do requirements-build.txt), e o executável não
+# deve embarcar pytest nem httpx.
 #
 # Instalar com:
 #   pip install -r requirements-dev.txt

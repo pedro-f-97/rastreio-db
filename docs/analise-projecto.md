@@ -590,7 +590,7 @@ A taxa de cada ano passa por `parseFloat(... .toFixed(1))`, que tira o zero fina
 - **Onde:** `frontend/src/pages/Historico.jsx:35` e `:76`.
 - **Opções:**
   - (a) Guardar o número sem `toFixed` e formatar com `.toFixed(1)` só ao mostrar, como nos meses.
-- **Resolvido:** com a opção (a). A taxa anual guarda-se sem arredondar e mostra-se com `.toFixed(1)`, como a dos meses («−89,0%»). Verificado com o lint; não visto no browser.
+- **Resolvido:** com a opção (a). A taxa anual guarda-se sem arredondar e mostra-se com `.toFixed(1)`, como a dos meses (por exemplo «-89.0%»). Verificado com o lint; não visto no browser.
 
 ### O que está bem
 
@@ -692,6 +692,7 @@ O `requirements.txt` inclui `pyinstaller`, `pyinstaller-hooks-contrib` e `setupt
 - **Gravidade:** baixa. **Categoria:** estrutura. **Estado:** confirmado (`backend/requirements.txt:13-16`, `build.sh:36`, `build.bat:44`).
 - **Opções:**
   - (a) Um `requirements-build.txt` com o `pyinstaller` fixado, usado pelos scripts de build.
+- **Resolvido:** com a opção (a). O `pyinstaller`, o `pyinstaller-hooks-contrib` e o `setuptools` saíram do `requirements.txt` para o `requirements-build.txt`, que inclui o `requirements.txt`; o `build.sh` e o `build.bat` instalam só esse, com as versões fixadas. Verificado com `pip install --dry-run -r requirements-build.txt`; o build não foi corrido.
 
 ### Suspeito, por confirmar
 
@@ -791,7 +792,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 39 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.4, 8.5, 8.6, 9.1, 10.1, 10.2, 11.2, 11.3, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
+**Progresso:** 40 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.4, 8.5, 8.6, 9.1, 10.1, 10.2, 10.4, 11.2, 11.3, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -835,7 +836,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 8.6 | A taxa anual do Histórico perde a casa decimal | baixa | apresentação | confirmado | resolvido |
 | 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado |  |
 | 10.3 | A aplicação não mostra a sua versão | baixa | estrutura | confirmado |  |
-| 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado |  |
+| 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado | resolvido |
 | 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado |  |
 | 11.5 | Ficheiros soltos e restos | baixa | estrutura | confirmado | resolvido |
 | 11.6 | O README diz que se pode editar a conta de uma transação | baixa | documentação | confirmado por leitura | resolvido |
