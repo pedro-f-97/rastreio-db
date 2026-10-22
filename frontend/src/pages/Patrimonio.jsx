@@ -3,7 +3,7 @@ import { getContas, getSaldoConta } from "../api/contas";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
 import '../componentes.css';
-import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes, prefixoSinal } from '../utils/formatacao';
 import { obterEvolucao } from "../api/patrimonio";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
@@ -157,7 +157,7 @@ export default function Patrimonio() {
             </span>
             {pctMaisValia !== null && (
               <span className={`cartao-subvalor ${classeValor(pctMaisValia, 2)}`}>
-                {pctMaisValia >= 0 ? "+" : ""}{formatarPercentagem(pctMaisValia, 2)}
+                {prefixoSinal(pctMaisValia)}{formatarPercentagem(pctMaisValia, 2)}
               </span>
             )}
           </div>
@@ -175,7 +175,7 @@ export default function Patrimonio() {
                   <span className="cartao-breakdown-label">{a.nome}</span>
                   {pct !== null ? (
                     <span className={`cartao-breakdown-valor ${classeValor(pct, 2)}`}>
-                      {pct >= 0 ? "+" : ""}{formatarPercentagem(pct, 2)}
+                      {prefixoSinal(pct)}{formatarPercentagem(pct, 2)}
                     </span>
                   ) : (
                     <span className="cartao-breakdown-valor">—</span>

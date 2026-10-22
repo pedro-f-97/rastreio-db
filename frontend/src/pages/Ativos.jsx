@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
-import { classeValor, formatarEuros, formatarPercentagem, formatarQuantidade } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarPercentagem, formatarQuantidade, prefixoSinal } from '../utils/formatacao';
 import "../componentes.css";
 
 const estadoModalInicial = {
@@ -302,8 +302,8 @@ export default function Ativos({ onDadosAlterados }) {
                         {formatarEuros(resumoTipo.valorAtualTotal)}
                         {" · "}
                         <span className={classeValor(resumoTipo.resultadoTotal)}>
-                          {resumoTipo.resultadoTotal >= 0 ? "+" : ""}{formatarEuros(resumoTipo.resultadoTotal)}
-                          {resumoTipo.pct != null && ` (${resumoTipo.pct >= 0 ? "+" : ""}${formatarPercentagem(resumoTipo.pct, 2)})`}
+                          {prefixoSinal(resumoTipo.resultadoTotal)}{formatarEuros(resumoTipo.resultadoTotal)}
+                          {resumoTipo.pct != null && ` (${prefixoSinal(resumoTipo.pct)}${formatarPercentagem(resumoTipo.pct, 2)})`}
                         </span>
                       </span>
                     )}
@@ -411,7 +411,7 @@ export default function Ativos({ onDadosAlterados }) {
                                 <span>{formatarEuros(mmv)}</span>
                                 {pctAtivo !== null && (
                                   <span className="data-preco">
-                                    {pctAtivo >= 0 ? "+" : ""}{formatarPercentagem(pctAtivo, 2)}
+                                    {prefixoSinal(pctAtivo)}{formatarPercentagem(pctAtivo, 2)}
                                   </span>
                                 )}
                               </div>

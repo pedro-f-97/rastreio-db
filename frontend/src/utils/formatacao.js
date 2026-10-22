@@ -28,6 +28,14 @@ export function classeValor(valor, casas = 2) {
   return "valor-zero";
 }
 
+/**
+ * "+" antes de um valor positivo, para os resultados; nada antes de um zero
+ * ou de um negativo (o negativo já traz o "-"). Segue a mesma regra da cor.
+ */
+export function prefixoSinal(valor, casas = 2) {
+  return classeValor(valor, casas) === "valor-positivo" ? "+" : "";
+}
+
 const formatadorQuantidade = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 8,
   useGrouping: true,
