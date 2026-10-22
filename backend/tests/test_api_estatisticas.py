@@ -477,12 +477,15 @@ def test_por_subcategoria_soma_em_centimos_ordena_categorias_e_esconde_zero(clie
 
     por_nome = {c["categoria_nome"]: c for c in resposta}
     assert por_nome["Casa"]["categoria_id"] == casa.id
+    # O tipo da categoria vai na resposta, para a página filtrar as despesas
+    assert por_nome["Casa"]["tipo"] == TipoCategoria.despesa.value
     assert por_nome["Casa"]["total"] == -130.0
     assert {s["subcategoria_nome"]: s["total"] for s in por_nome["Casa"]["subcategorias"]} == {
         "Renda": -100.0,
         "Sem subcategoria": -30.0,
     }
     assert por_nome["Receita"]["categoria_id"] == receita.id
+    assert por_nome["Receita"]["tipo"] == TipoCategoria.receita.value
     assert por_nome["Receita"]["total"] == 1500.0
     assert {s["subcategoria_nome"]: s["total"] for s in por_nome["Receita"]["subcategorias"]} == {
         "Salário": 1500.0,
@@ -516,6 +519,7 @@ def test_por_subcategoria_com_ano_ignora_outros_anos(client, session):
         {
             "categoria_id": casa.id,
             "categoria_nome": "Casa",
+            "tipo": TipoCategoria.despesa.value,
             "total": -100.0,
             "subcategorias": [{"subcategoria_nome": "Renda", "total": -100.0}],
         }
