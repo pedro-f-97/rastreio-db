@@ -286,6 +286,11 @@
     font-family: var(--font-mono);
 }
 
+.valor-zero {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
 /* --- Botão primário (aproveita base de `button` do index.css) --- */
 .btn-primario {
     background: var(--accent);
@@ -411,6 +416,12 @@
     padding-bottom: var(--space-sm);
 }
 
+/* Cabeçalho de secção sem a linha por baixo */
+.secao-cabecalho-limpo {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
 .secao-cabecalho h2 {
     border-bottom: none;
     padding-bottom: 0;
@@ -474,4 +485,11 @@
 .estado-vazio-sm {
     color: var(--text-secondary);
     font-size: var(--text-sm);
+}
+
+/* --- Gráficos --- */
+/* O recharts dá foco a uma camada do gráfico ao clicar, e o browser
+   desenhava-lhe um contorno; com o teclado o contorno continua */
+.recharts-wrapper :focus:not(:focus-visible) {
+    outline: none;
 }

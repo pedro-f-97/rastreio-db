@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
-import { formatarEuros } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarPercentagem, formatarQuantidade, prefixoSinal } from '../utils/formatacao';
 import "../componentes.css";
 
 const estadoModalInicial = {
@@ -272,7 +272,7 @@ export default function Ativos({ onDadosAlterados }) {
                 <tr key={t.id}>
                   <td className="col-mono">{t.data}</td>
                   <td>{t.descricao}</td>
-                  <td className={`col-valor col-mono ${t.valor < 0 ? "valor-negativo" : "valor-positivo"}`}>
+                  <td className={`col-valor col-mono ${classeValor(t.valor)}`}>
                     {formatarEuros(t.valor)}
                   </td>
                   <td>
@@ -301,9 +301,9 @@ export default function Ativos({ onDadosAlterados }) {
                       <span className="secao-resumo">
                         {formatarEuros(resumoTipo.valorAtualTotal)}
                         {" · "}
-                        <span className={resumoTipo.resultadoTotal >= 0 ? "valor-positivo" : "valor-negativo"}>
-                          {resumoTipo.resultadoTotal >= 0 ? "+" : ""}{formatarEuros(resumoTipo.resultadoTotal)}
-                          {resumoTipo.pct != null && ` (${resumoTipo.pct >= 0 ? "+" : ""}${resumoTipo.pct.toFixed(2)}%)`}
+                        <span className={classeValor(resumoTipo.resultadoTotal)}>
+                          {prefixoSinal(resumoTipo.resultadoTotal)}{formatarEuros(resumoTipo.resultadoTotal)}
+                          {resumoTipo.pct != null && ` (${prefixoSinal(resumoTipo.pct)}${formatarPercentagem(resumoTipo.pct, 2)})`}
                         </span>
                       </span>
                     )}
@@ -403,7 +403,7 @@ export default function Ativos({ onDadosAlterados }) {
                               </div>
                             ) : "—"}
                           </td>
-                          <td className={`col-valor col-mono ${mmv != null && !semPreco ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                          <td className={`col-valor col-mono ${mmv != null && !semPreco ? classeValor(mmv) : ""}`}>
                             {semPreco ? (
                               <span className="data-preco" title="Sem preço registado: regista um preço para ver a mais-valia.">sem preço</span>
                             ) : mmv != null ? (
@@ -411,14 +411,14 @@ export default function Ativos({ onDadosAlterados }) {
                                 <span>{formatarEuros(mmv)}</span>
                                 {pctAtivo !== null && (
                                   <span className="data-preco">
-                                    {pctAtivo >= 0 ? "+" : ""}{pctAtivo.toFixed(2)}%
+                                    {prefixoSinal(pctAtivo)}{formatarPercentagem(pctAtivo, 2)}
                                   </span>
                                 )}
                               </div>
                             ) : "—"}
                           </td>
                           <td className="col-valor col-mono">
-                            {r ? (ativo.tipo.tem_unidades ? r.quantidade : "—") : "—"}
+                            {r ? (ativo.tipo.tem_unidades ? formatarQuantidade(r.quantidade) : "—") : "—"}
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div className="accoes">
@@ -692,9 +692,9 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
           <tr key={m.id}>
             <td className="col-mono">{m.data}</td>
             <td>{m.tipo_movimento}</td>
-            <td className="col-mono">{m.quantidade ?? "—"}</td>
-            <td className="col-mono">{m.preco_unitario != null ? `${m.preco_unitario.toFixed(4)} €` : "—"}</td>
-            <td className="col-mono">{m.comissao != null ? `${m.comissao.toFixed(2)} €` : "—"}</td>
+            <td className="col-mono">{formatarQuantidade(m.quantidade)}</td>
+            <td className="col-mono">{formatarEuros(m.preco_unitario, 4)}</td>
+            <td className="col-mono">{formatarEuros(m.comissao)}</td>
             <td className="col-valor col-mono">{formatarEuros(m.valor_total)}</td>
             <td><button title="Eliminar registo" className="btn-ghost" onClick={() => handleEliminar(m.id)}>🗑</button></td>
           </tr>

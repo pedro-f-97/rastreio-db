@@ -33,7 +33,6 @@
 }
 
 .cartao-metade-label {
-    font-size: var(--text-sm);
     color: var(--text-secondary);
     opacity: 0.7;
     text-transform: uppercase;
@@ -56,9 +55,7 @@
     color: var(--valor-negativo);
 }
 
-/* classes legadas mantidas para compatibilidade */
-.cartao-label {
-    font-size: var(--text-sm);
+.cartao-metade-valor.valor-zero {
     color: var(--text-secondary);
 }
 
@@ -84,6 +81,10 @@
     color: var(--valor-negativo);
 }
 
+.tabela-stats td.valor-zero {
+    color: var(--text-secondary);
+}
+
 .tabela-stats tr.linha-categoria-detalhe td {
     background: var(--bg-primary);
     font-weight: var(--font-weight-medium);
@@ -102,15 +103,6 @@
 
 .tabela-stats tr.linha-subcategoria-detalhe td.celula-subcategoria-nome {
     padding-left: calc(var(--space-2xl) + var(--space-xl));
-}
-
-
-.mes-positivo td {
-    border-left: 2px solid var(--valor-positivo);
-}
-
-.mes-negativo td:first-child {
-    border-left: 2px solid var(--valor-negativo);
 }
 
 .subcategoria-detalhe {
@@ -178,6 +170,11 @@
     border-top: 2px solid var(--border);
     cursor: pointer;
     transition: background 0.15s;
+}
+
+/* Cabeçalho de um grupo da tabela por categoria: não abre nada */
+.linha-grupo {
+    cursor: default;
 }
 
 .linha-ano td:first-child {

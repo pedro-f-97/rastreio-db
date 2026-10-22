@@ -3,7 +3,7 @@ import { getContas, getSaldoConta } from "../api/contas";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
 import '../componentes.css';
-import { formatarEuros } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes, prefixoSinal } from '../utils/formatacao';
 import { obterEvolucao } from "../api/patrimonio";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
@@ -60,13 +60,11 @@ export default function Patrimonio() {
   const totalMaisValia = totalInvestimentos + totalCusto;
   const pctMaisValia = totalCusto !== 0 ? (totalMaisValia / Math.abs(totalCusto)) * 100 : null;
 
-  const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
   const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
 
   function labelMesEvolucao(dataISO) {
     const [ano, mes] = dataISO.split('-');
-    return `${MESES[parseInt(mes) - 1]} ${ano}`;
+    return labelMes(ano, parseInt(mes));
   }
 
   const dadosEvolucao = evolucao.map(p => ({
@@ -143,7 +141,7 @@ export default function Patrimonio() {
               return (
                 <div key={a.id} className="cartao-breakdown-linha">
                   <span className="cartao-breakdown-label">{a.nome}</span>
-                  <span className="cartao-breakdown-valor">{pct.toFixed(1)}%</span>
+                  <span className="cartao-breakdown-valor">{formatarPercentagem(pct)}</span>
                 </div>
               );
             })}
@@ -154,12 +152,12 @@ export default function Patrimonio() {
         <div className="cartao">
           <span className="cartao-titulo">Resultados</span>
           <div className="cartao-valor-linha">
-            <span className={`cartao-valor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+            <span className={`cartao-valor ${classeValor(totalMaisValia)}`}>
               {formatarEuros(totalMaisValia)}
             </span>
             {pctMaisValia !== null && (
-              <span className={`cartao-subvalor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
-                {pctMaisValia >= 0 ? "+" : ""}{pctMaisValia.toFixed(2)}%
+              <span className={`cartao-subvalor ${classeValor(pctMaisValia, 2)}`}>
+                {prefixoSinal(pctMaisValia)}{formatarPercentagem(pctMaisValia, 2)}
               </span>
             )}
           </div>
@@ -176,8 +174,8 @@ export default function Patrimonio() {
                 <div key={a.id} className="cartao-breakdown-linha">
                   <span className="cartao-breakdown-label">{a.nome}</span>
                   {pct !== null ? (
-                    <span className={`cartao-breakdown-valor ${pct >= 0 ? "valor-positivo" : "valor-negativo"}`}>
-                      {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                    <span className={`cartao-breakdown-valor ${classeValor(pct, 2)}`}>
+                      {prefixoSinal(pct)}{formatarPercentagem(pct, 2)}
                     </span>
                   ) : (
                     <span className="cartao-breakdown-valor">—</span>
@@ -190,7 +188,7 @@ export default function Patrimonio() {
       </div>
       {/* EVOLUÇÃO DO PATRIMÓNIO */}
       <section className="secao">
-        <div className="secao-cabecalho" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+        <div className="secao-cabecalho secao-cabecalho-limpo">
           <h2>Evolução do património</h2>
           <select
             value={anoSeleccionado}
@@ -207,7 +205,7 @@ export default function Patrimonio() {
           <LineChart data={dadosEvolucaoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
-            <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v} €`} />
+            <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={formatarEurosEixo} />
             <Tooltip
               contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               labelStyle={{ color: 'var(--text-primary)' }}

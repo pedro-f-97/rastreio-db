@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { listarPerfis, criarPerfil, atualizarPerfil, eliminarPerfil, analisarFicheiro } from '../api/perfisImportacao'
 import { previewExtrato, importarExtrato, listarHistorico, desfazerImportacao } from '../api/importacao'
 import { getContas } from '../api/contas'
-import { formatarEuros } from '../utils/formatacao'
+import { classeValor, formatarEuros } from '../utils/formatacao'
 import '../componentes.css'
 import './Importacao.css'
 
@@ -366,10 +366,10 @@ export default function Importacao({ onDadosAlterados }) {
                                     <tr key={i}>
                                         <td>{t.data}</td>
                                         <td>{t.descricao}</td>
-                                        <td className={t.valor < 0 ? 'valor-negativo' : 'valor-positivo'}>
-                                            {t.valor.toFixed(2)}
+                                        <td className={classeValor(t.valor)}>
+                                            {formatarEuros(t.valor)}
                                         </td>
-                                        <td>{t.saldo != null ? t.saldo.toFixed(2) : '—'}</td>
+                                        <td>{formatarEuros(t.saldo)}</td>
                                     </tr>
                                 ))}
                             </tbody>

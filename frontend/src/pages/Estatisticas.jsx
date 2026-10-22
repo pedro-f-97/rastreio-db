@@ -1,30 +1,19 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { obterResumoMensal, obterPorCategoria } from '../api/estatisticas';
+import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
 import {
-    ComposedChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    Line, Legend, CartesianGrid
+    ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+    Line, Legend, CartesianGrid, Cell, LabelList, ReferenceLine
 } from 'recharts';
 import './Estatisticas.css';
 import '../componentes.css';
-import { formatarEuros } from '../utils/formatacao';
-
-const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-function labelMes(ano, mes) {
-    return `${MESES[mes - 1]} ${ano}`;
-}
+import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
 
 function calcularLimiteSerie(valores, multiplicador = 4) {
     const absolutos = valores.map(Math.abs).filter(v => v > 0);
     if (absolutos.length < 3) {
         return { limite: Infinity, valoresNormais: absolutos, extremos: [] };
     }
-    const ordenados = [...absolutos].sort((a, b) => a - b);
-    const meio = Math.floor(ordenados.length / 2);
-    const mediana = ordenados.length % 2 === 0
-        ? (ordenados[meio - 1] + ordenados[meio]) / 2
-        : ordenados[meio];
-    const limite = mediana * multiplicador;
+    const limite = calcularMediana(absolutos) * multiplicador;
     return {
         limite,
         valoresNormais: absolutos.filter(v => v <= limite),
@@ -50,20 +39,118 @@ function calcularMedia(valores) {
     return valores.reduce((s, v) => s + v, 0) / valores.length;
 }
 
+// Taxa de poupança dos `n` meses que acabam em cada mês. Soma a poupança e as
+// receitas da janela antes de dividir, para que um salário que caia no fim do
+// mês anterior não crie picos. Sem `n` meses de histórico, não há valor. Os
+// meses vêm ordenados, como os devolve o resumo mensal
+function taxaMovel(meses, n) {
+    const indice = m => m.ano * 12 + m.mes;
+    const primeiro = meses.length > 0 ? indice(meses[0]) : 0;
+    return meses.map(m => {
+        const fim = indice(m);
+        if (fim - n + 1 < primeiro) return null;
+        const janela = meses.filter(x => indice(x) > fim - n && indice(x) <= fim);
+        const receitas = janela.reduce((s, x) => s + x.receitas, 0);
+        const poupanca = janela.reduce((s, x) => s + x.poupanca, 0);
+        return receitas > 0 ? parseFloat(((poupanca / receitas) * 100).toFixed(1)) : null;
+    });
+}
+
+// Barras horizontais da distribuição da despesa, para as categorias e para as
+// subcategorias da categoria escolhida
+function GraficoDistribuicao({ dados, chaveSeleccionada = null, onSeleccionar }) {
+    return (
+        <ResponsiveContainer width="100%" height={dados.length * 32 + 40}>
+            <BarChart data={dados} layout="vertical" margin={{ top: 0, right: 160, left: 20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                <XAxis type="number" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={formatarEurosEixo} />
+                <YAxis type="category" dataKey="nome" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} width={140} />
+                <Tooltip
+                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                    labelStyle={{ color: 'var(--text-primary)' }}
+                    cursor={{ fill: 'var(--bg-tertiary)' }}
+                    formatter={(_v, _nome, item) => [item.payload.rotulo, 'Despesa']}
+                />
+                <Bar
+                    dataKey="valor"
+                    fill="var(--danger)"
+                    radius={[0, 4, 4, 0]}
+                    onClick={onSeleccionar ? item => onSeleccionar(item.payload) : undefined}
+                    style={onSeleccionar ? { cursor: 'pointer' } : undefined}
+                >
+                    {dados.map(d => (
+                        <Cell key={d.chave} fillOpacity={chaveSeleccionada === null || chaveSeleccionada === d.chave ? 1 : 0.4} />
+                    ))}
+                    <LabelList dataKey="rotulo" position="right" fill="var(--text-secondary)" fontSize={11} />
+                </Bar>
+            </BarChart>
+        </ResponsiveContainer>
+    );
+}
+
+// Grupos da tabela «Por categoria», pela ordem em que aparecem. O `campo` é o
+// total do tipo em cada mês do resumo mensal, de onde vêm a média e a mediana
+// do grupo
+const GRUPOS_CATEGORIA = [
+    { tipo: 'despesa', titulo: 'Despesas', campo: 'Despesas' },
+    { tipo: 'receita', titulo: 'Receitas', campo: 'Receitas' },
+    { tipo: 'investimento', titulo: 'Investimento', campo: 'Investimento' },
+];
+
 export default function Estatisticas() {
     const [resumo, setResumo] = useState(null);
+    const [erro, setErro] = useState(null);
     const [porCategoria, setPorCategoria] = useState([]);
+    const [porSubcategoria, setPorSubcategoria] = useState([]);
     const [categoriaExpandida, setCategoriaExpandida] = useState(null);
+    const [categoriaDistribuicao, setCategoriaDistribuicao] = useState(null);
     const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
     const [incluirOutliers, setIncluirOutliers] = useState(false);
 
     useEffect(() => {
-        obterResumoMensal().then(res => setResumo(res.data));
+        obterResumoMensal()
+            .then(res => setResumo(res.data))
+            .catch(() => setErro('Não foi possível carregar as estatísticas.'));
     }, []);
 
     useEffect(() => {
-        obterPorCategoria(anoSeleccionado).then(res => setPorCategoria(res.data));
+        // Ao trocar de ano depressa, a resposta de um ano anterior pode chegar
+        // depois da do ano escolhido: é ignorada
+        let cancelado = false;
+        obterPorCategoria(anoSeleccionado).then(res => {
+            if (!cancelado) setPorCategoria(res.data);
+        });
+        obterPorSubcategoria(anoSeleccionado).then(res => {
+            if (!cancelado) setPorSubcategoria(res.data);
+        });
+        return () => {
+            cancelado = true;
+        };
     }, [anoSeleccionado]);
+
+    // Só a despesa: as percentagens são sobre o total gasto no período. Uma
+    // categoria ou subcategoria em que os reembolsos cobrem a despesa fica de fora
+    const distribuicao = useMemo(() => {
+        const despesas = porSubcategoria.filter(c => c.tipo === 'despesa' && c.total < 0);
+        const totalDespesa = despesas.reduce((s, c) => s - c.total, 0);
+        const item = (chave, nome, total) => ({
+            chave,
+            nome,
+            valor: -total,
+            rotulo: `${formatarEuros(-total)} · ${formatarPercentagem(-total / totalDespesa * 100)}`,
+        });
+        return despesas
+            .map(c => ({
+                ...item(c.categoria_id, c.categoria_nome, c.total),
+                subcategorias: c.subcategorias
+                    .filter(sub => sub.total < 0)
+                    .map(sub => item(sub.subcategoria_nome, sub.subcategoria_nome, sub.total))
+                    .sort((a, b) => b.valor - a.valor),
+            }))
+            .sort((a, b) => b.valor - a.valor);
+    }, [porSubcategoria]);
+
+    const categoriaDistribuicaoDados = distribuicao.find(c => c.chave === categoriaDistribuicao);
 
     const MULTIPLICADOR_EXTREMO = 4;
 
@@ -72,7 +159,12 @@ export default function Estatisticas() {
             return { dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
         }
 
-        const dadosGrafico = resumo.meses.map(m => ({
+        // As médias móveis calculam-se sobre todos os meses, antes do filtro de
+        // ano: assim, janeiro de um ano usa os meses do ano anterior
+        const movel3 = taxaMovel(resumo.meses, 3);
+        const movel12 = taxaMovel(resumo.meses, 12);
+
+        const dadosGrafico = resumo.meses.map((m, i) => ({
             ano: m.ano,
             label: labelMes(m.ano, m.mes),
             Receitas: m.receitas,
@@ -80,6 +172,8 @@ export default function Estatisticas() {
             Investimento: m.investimento,
             Poupança: m.poupanca,
             'Taxa de Poupança': m.receitas > 0 ? parseFloat(((m.poupanca / m.receitas) * 100).toFixed(1)) : null,
+            'Média de 3 meses': movel3[i],
+            'Média de 12 meses': movel12[i],
         }));
 
         const filtrados = anoSeleccionado === 'todos'
@@ -135,23 +229,21 @@ export default function Estatisticas() {
         };
     }, [dadosGraficoFiltrados]);
 
+    if (erro) return <p className="erro">{erro}</p>;
     if (!resumo) return <p className="carregando">A carregar...</p>;
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
 
-    function classeValor(v) {
-        return v >= 0 ? 'valor-positivo' : 'valor-negativo';
-    }
-
     return (
         <div className="estatisticas-page">
-            <div className="secao-cabecalho" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+            <div className="secao-cabecalho secao-cabecalho-limpo">
                 <h1 className="titulo-pagina">Estatísticas</h1>
                 <select
                     value={anoSeleccionado}
                     onChange={e => {
                         setAnoSeleccionado(e.target.value);
                         setCategoriaExpandida(null);
+                        setCategoriaDistribuicao(null);
                     }}
                     className="filtro-ano"
                 >
@@ -207,14 +299,14 @@ export default function Estatisticas() {
                         <div className="cartao-corpo">
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Do período</span>
-                                <span className={`cartao-metade-valor ${cardTaxa.periodo !== null ? classeValor(cardTaxa.periodo) : ''}`}>
-                                    {cardTaxa.periodo !== null ? `${cardTaxa.periodo.toFixed(1)}%` : '—'}
+                                <span className={`cartao-metade-valor ${cardTaxa.periodo !== null ? classeValor(cardTaxa.periodo, 1) : ''}`}>
+                                    {formatarPercentagem(cardTaxa.periodo)}
                                 </span>
                             </div>
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Mediana mensal</span>
-                                <span className={`cartao-metade-valor ${cardTaxa.mediana !== null ? classeValor(cardTaxa.mediana) : ''}`}>
-                                    {cardTaxa.mediana !== null ? `${cardTaxa.mediana.toFixed(1)}%` : '—'}
+                                <span className={`cartao-metade-valor ${cardTaxa.mediana !== null ? classeValor(cardTaxa.mediana, 1) : ''}`}>
+                                    {formatarPercentagem(cardTaxa.mediana)}
                                 </span>
                             </div>
                         </div>
@@ -245,14 +337,14 @@ export default function Estatisticas() {
                         <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
                         <YAxis
                             tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
-                            tickFormatter={v => `${v} €`}
+                            tickFormatter={formatarEurosEixo}
                             domain={dominioValores}
                             allowDataOverflow={true}
                         />
                         <Tooltip
                             contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             labelStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v) => `${v.toFixed(2)} €`}
+                            formatter={(v) => formatarEuros(v)}
                         />
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
                         <Bar dataKey="Receitas" fill="var(--success)" />
@@ -264,21 +356,57 @@ export default function Estatisticas() {
 
             {/* GRÁFICO TAXA DE POUPANÇA */}
             <section className="secao">
-                <h2 className="titulo-secao">Taxa de poupança mensal</h2>
+                <h2 className="titulo-secao">Taxa de poupança</h2>
                 <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
+                    <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 100, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="label" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} angle={-45} textAnchor="end" />
                         <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => `${v}%`} />
                         <Tooltip
                             contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             labelStyle={{ color: 'var(--text-primary)' }}
-                            formatter={(v) => v !== null ? `${v.toFixed(1)}%` : '—'}
+                            formatter={(v) => formatarPercentagem(v)}
                         />
                         <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
-                        <Line dataKey="Taxa de Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls={false} />
+                        {cardTaxa.periodo !== null && (
+                            <ReferenceLine
+                                y={cardTaxa.periodo}
+                                stroke="var(--text-secondary)"
+                                strokeDasharray="6 4"
+                                ifOverflow="extendDomain"
+                                label={{
+                                    value: `Período: ${formatarPercentagem(cardTaxa.periodo)}`,
+                                    position: 'right',
+                                    fill: 'var(--text-secondary)',
+                                    fontSize: 11,
+                                }}
+                            />
+                        )}
+                        <Line dataKey="Média de 3 meses" type="monotone" stroke="var(--accent)" strokeWidth={2} dot={false} connectNulls={false} />
+                        <Line dataKey="Média de 12 meses" type="monotone" stroke="var(--chart-2)" strokeWidth={2} dot={false} connectNulls={false} />
                     </ComposedChart>
                 </ResponsiveContainer>
+            </section>
+
+            {/* DISTRIBUIÇÃO DA DESPESA */}
+            <section className="secao">
+                <h2 className="titulo-secao">Distribuição da despesa</h2>
+                {distribuicao.length === 0 ? (
+                    <p className="estado-vazio">Sem despesas no período.</p>
+                ) : (
+                    <GraficoDistribuicao
+                        dados={distribuicao}
+                        chaveSeleccionada={categoriaDistribuicao}
+                        onSeleccionar={c => setCategoriaDistribuicao(categoriaDistribuicao === c.chave ? null : c.chave)}
+                    />
+                )}
+
+                {categoriaDistribuicaoDados && (
+                    <div className="subcategoria-detalhe">
+                        <h3>{categoriaDistribuicaoDados.nome}</h3>
+                        <GraficoDistribuicao dados={categoriaDistribuicaoDados.subcategorias} />
+                    </div>
+                )}
             </section>
 
             {/* POR CATEGORIA */}
@@ -293,39 +421,55 @@ export default function Estatisticas() {
                         </tr>
                     </thead>
                     <tbody>
-                        {[...porCategoria]
-                            .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
-                            .map(c => (
-                                <Fragment key={c.categoria_id}>
-                                    <tr
-                                        className="linha-ano"
-                                        onClick={() => setCategoriaExpandida(
-                                            categoriaExpandida === c.categoria_id ? null : c.categoria_id
-                                        )}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        <td>
-                                            <span className="seta-expansao">
-                                                {categoriaExpandida === c.categoria_id ? '▼' : '▶'}
-                                            </span>
-                                            {c.categoria_nome}
-                                        </td>
-                                        <td className={classeValor(c.media)}>{formatarEuros(c.media)}</td>
-                                        <td className={classeValor(c.mediana)}>{formatarEuros(c.mediana)}</td>
+                        {GRUPOS_CATEGORIA.map(grupo => {
+                            const categorias = porCategoria
+                                .filter(c => c.tipo === grupo.tipo)
+                                .sort((a, b) => Math.abs(b.media) - Math.abs(a.media));
+                            if (categorias.length === 0) return null;
+                            // Os mesmos meses das categorias: a linha das despesas
+                            // bate certo com o cartão «Despesas mensais»
+                            const totais = dadosGraficoFiltrados.map(m => m[grupo.campo]);
+                            const media = calcularMedia(totais);
+                            const mediana = calcularMediana(totais);
+                            return (
+                                <Fragment key={grupo.tipo}>
+                                    <tr className="linha-ano linha-grupo">
+                                        <td>{grupo.titulo}</td>
+                                        <td className={classeValor(media)}>{formatarEuros(media)}</td>
+                                        <td className={classeValor(mediana)}>{formatarEuros(mediana)}</td>
                                     </tr>
-                                    {categoriaExpandida === c.categoria_id &&
-                                        [...c.subcategorias]
-                                            .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
-                                            .map(sub => (
-                                                <tr key={sub.subcategoria_nome} className="linha-mes">
-                                                    <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                    <td className={classeValor(sub.media)}>{formatarEuros(sub.media)}</td>
-                                                    <td className={classeValor(sub.mediana)}>{formatarEuros(sub.mediana)}</td>
+                                    {categorias.map(c => {
+                                        const expandida = categoriaExpandida === c.categoria_id;
+                                        return (
+                                            <Fragment key={c.categoria_id}>
+                                                <tr
+                                                    className={`linha-mes ${expandida ? 'linha-mes-activa' : ''}`}
+                                                    onClick={() => setCategoriaExpandida(expandida ? null : c.categoria_id)}
+                                                >
+                                                    <td>
+                                                        <span className="seta-expansao">{expandida ? '▼' : '▶'}</span>
+                                                        {c.categoria_nome}
+                                                    </td>
+                                                    <td className={classeValor(c.media)}>{formatarEuros(c.media)}</td>
+                                                    <td className={classeValor(c.mediana)}>{formatarEuros(c.mediana)}</td>
                                                 </tr>
-                                            ))
-                                    }
+                                                {expandida &&
+                                                    [...c.subcategorias]
+                                                        .sort((a, b) => Math.abs(b.media) - Math.abs(a.media))
+                                                        .map(sub => (
+                                                            <tr key={sub.subcategoria_nome} className="linha-subcategoria-detalhe">
+                                                                <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                                                <td className={classeValor(sub.media)}>{formatarEuros(sub.media)}</td>
+                                                                <td className={classeValor(sub.mediana)}>{formatarEuros(sub.mediana)}</td>
+                                                            </tr>
+                                                        ))
+                                                }
+                                            </Fragment>
+                                        );
+                                    })}
                                 </Fragment>
-                            ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             </section>

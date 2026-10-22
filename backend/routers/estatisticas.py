@@ -82,6 +82,7 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
             extract("month", Transacao.data).label("mes"),
             Transacao.categoria_id,
             Categoria.nome.label("categoria_nome"),
+            Categoria.tipo.label("categoria_tipo"),
             Transacao.subcategoria_id,
             Subcategoria.nome.label("subcategoria_nome"),
             func.sum(Transacao.valor).label("total"),
@@ -107,6 +108,7 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
             por_cat[cat_id] = {
                 "categoria_id": cat_id,
                 "categoria_nome": r.categoria_nome,
+                "tipo": r.categoria_tipo.value,
                 "por_mes": {},
                 "subcategorias": {},
             }
@@ -154,6 +156,7 @@ def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
         db.query(
             Transacao.categoria_id,
             Categoria.nome.label("categoria_nome"),
+            Categoria.tipo.label("categoria_tipo"),
             Transacao.subcategoria_id,
             Subcategoria.nome.label("subcategoria_nome"),
             Transacao.valor,
@@ -178,6 +181,7 @@ def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
             por_cat[cat_id] = {
                 "categoria_id": cat_id,
                 "categoria_nome": r.categoria_nome,
+                "tipo": r.categoria_tipo.value,
                 "total_centimos": 0,
                 "subcategorias": {},
             }
@@ -211,6 +215,7 @@ def por_subcategoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
                 {
                     "categoria_id": cat["categoria_id"],
                     "categoria_nome": cat["categoria_nome"],
+                    "tipo": cat["tipo"],
                     "total": total_cat,
                     "subcategorias": subcategorias,
                 }
