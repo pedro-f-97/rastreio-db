@@ -317,27 +317,23 @@ def test_backfill_respeita_as_regras_de_exclusao(client, session):
 
 
 def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, session):
-    # A pré-visualização pré-filtra `subcategoria_id IS NULL` e o backfill
-    # filtra por `categoria_id == None` (1.ª query) e
-    # `categoria_id == nova.categoria_id and subcategoria_id == None` (2.ª).
-    """Com dados válidos, as duas contagens coincidem (2 e 2).
+    """Com dados válidos, as duas contagens coincidem (1 e 1).
 
-    Lendo o código: a pré-visualização pré-filtra `subcategoria_id IS NULL`
-    (`:87-89`) e, na fase 2 (`:107-136`), mantém as transacções cuja categoria
-    é None ou é a da regra. O backfill soma a 1.ª query (categoria None) à 2.ª
-    (mesma categoria e subcategoria None). Para dados válidos — em que uma
-    subcategoria só existe com uma categoria — os dois conjuntos são iguais.
-    Esperado: `len(sem_conflito) = 2`, `len(com_conflito) = 0` e
-    `transacoes_atualizadas = 2`.
+    Lendo o código: a pré-visualização pré-filtra `subcategoria_id IS NULL` e,
+    na fase 2, mantém as transacções cuja categoria é None ou é a da regra,
+    excepto quando já têm a categoria da regra e a regra não traz
+    subcategoria: aí nada mudaria (achado 2.4). O backfill faz o mesmo: a 1.ª
+    query apanha as sem categoria, e a 2.ª (mesma categoria, sem subcategoria)
+    só corre se a regra tiver subcategoria.
 
-    A divergência do pré-filtro só apareceria com uma
-    transacção órfã (categoria None e subcategoria definida), um estado
-    inválido; essa semente está no teste
-    `test_backfill_sobre_transacao_orfa_sobrescreve_a_subcategoria`.
+    Cálculo à mão, com a regra "PINGO" -> Casa, sem subcategoria:
+      t_a (categoria None) -> muda para Casa: conta
+      t_b (Casa, sem subcategoria) -> ficaria igual: não conta
+    Esperado: `sem_conflito = [t_a]`, `com_conflito = []` e
+    `transacoes_atualizadas = 1`. Antes da correcção, as duas contavam 2.
 
     Estado final da BD: a regra é eliminada e recriada (é a única forma de
-    correr o backfill), e as duas transacções ficam com a categoria da regra e
-    subcategoria None.
+    correr o backfill); t_a fica com Casa, e t_b fica como estava, (Casa, None).
     """
     casa, _lazer, _sub = _categorias(session)
     regra = RegraCategorizacao(palavra_chave="PINGO", categoria_id=casa.id)
@@ -350,9 +346,8 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
 
     preview = client.post("/api/regras/pre-visualizar")
     assert preview.status_code == 200
-    assert len(preview.json()["sem_conflito"]) == 2
-    assert len(preview.json()["com_conflito"]) == 0
-    assert {item["id"] for item in preview.json()["sem_conflito"]} == {t_a.id, t_b.id}
+    assert [item["id"] for item in preview.json()["sem_conflito"]] == [t_a.id]
+    assert preview.json()["com_conflito"] == []
 
     apagar = client.delete(f"/api/regras/{regra.id}")
     assert apagar.status_code == 200
@@ -366,11 +361,60 @@ def test_pre_visualizar_e_backfill_contam_o_mesmo_com_dados_validos(client, sess
         },
     )
     assert criar.status_code == 200
-    assert criar.json()["transacoes_atualizadas"] == 2
+    assert criar.json()["transacoes_atualizadas"] == 1
 
     session.expire_all()
     assert session.get(Transacao, t_a.id).categoria_id == casa.id
-    assert session.get(Transacao, t_b.id).categoria_id == casa.id
+    assert (
+        session.get(Transacao, t_b.id).categoria_id,
+        session.get(Transacao, t_b.id).subcategoria_id,
+    ) == (casa.id, None)
+
+
+def test_pre_visualizar_sem_mudanca_nao_passa_a_regra_seguinte(client, session):
+    """Quando a primeira regra não muda nada, a regra seguinte não decide.
+
+    Cálculo à mão: "pingo doce" -> Casa, sem subcategoria (11 caracteres) e
+    "pingo" -> Lazer (5). A transacção "PINGO DOCE" está em Casa, sem
+    subcategoria. A mais longa é avaliada primeiro e decide sozinha (decisão do
+    README): não muda nada, por isso a transacção não aparece. Se a avaliação
+    seguisse para "pingo", apareceria como conflito Casa -> Lazer.
+    Esperado: as duas listas vazias.
+    """
+    casa, lazer, _ = _categorias(session)
+    session.add(RegraCategorizacao(palavra_chave="pingo doce", categoria_id=casa.id))
+    session.add(RegraCategorizacao(palavra_chave="pingo", categoria_id=lazer.id))
+    session.commit()
+    _transacao(session, "PINGO DOCE", 1, categoria_id=casa.id)
+
+    r = client.post("/api/regras/pre-visualizar")
+
+    assert r.status_code == 200
+    assert r.json() == {"sem_conflito": [], "com_conflito": []}
+
+
+def test_pre_visualizar_mostra_a_mesma_categoria_quando_a_regra_traz_subcategoria(client, session):
+    """Com subcategoria na regra, uma transacção da mesma categoria aparece.
+
+    Cálculo à mão: regra "PINGO" -> Casa › Alimentação; a transacção está em
+    Casa, sem subcategoria. A regra dá-lhe a subcategoria, pelo que aparece em
+    `sem_conflito` com a sugestão Alimentação. É o caso que o achado 2.4 não
+    pode esconder: só desaparece quando a regra não traz subcategoria.
+    """
+    casa, _lazer, sub_alim = _categorias(session)
+    session.add(
+        RegraCategorizacao(palavra_chave="PINGO", categoria_id=casa.id, subcategoria_id=sub_alim.id)
+    )
+    session.commit()
+    t = _transacao(session, "PINGO DOCE", 1, categoria_id=casa.id)
+
+    r = client.post("/api/regras/pre-visualizar")
+
+    assert r.status_code == 200
+    assert [(x["id"], x["subcategoria_sugerida_id"]) for x in r.json()["sem_conflito"]] == [
+        (t.id, sub_alim.id)
+    ]
+    assert r.json()["com_conflito"] == []
 
 
 # ---------------------------------------------------------------------------

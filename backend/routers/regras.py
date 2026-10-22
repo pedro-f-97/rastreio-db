@@ -74,17 +74,20 @@ def criar_regra(regra: RegraCreate, db: Session = Depends(get_db)):
             t.categoria_id = nova.categoria_id
             t.subcategoria_id = nova.subcategoria_id
 
-        # Transações com categoria coincidente mas sem subcategoria
-        com_categoria = [
-            t
-            for t in db.query(Transacao)
-            .filter(
-                Transacao.categoria_id == nova.categoria_id,
-                Transacao.subcategoria_id == None,
-            )
-            .all()
-            if apanha(t)
-        ]
+        # Transações com categoria coincidente mas sem subcategoria. Sem
+        # subcategoria na regra, não há nada a mudar nelas (achado 2.4)
+        com_categoria = []
+        if nova.subcategoria_id is not None:
+            com_categoria = [
+                t
+                for t in db.query(Transacao)
+                .filter(
+                    Transacao.categoria_id == nova.categoria_id,
+                    Transacao.subcategoria_id == None,
+                )
+                .all()
+                if apanha(t)
+            ]
         for t in com_categoria:
             t.subcategoria_id = nova.subcategoria_id
 
@@ -137,6 +140,10 @@ def pre_visualizar_regras(db: Session = Depends(get_db)):
             if regra.categoria_id is None:
                 continue
             if casa_palavra(regra.palavra_chave, t.descricao):
+                if t.categoria_id == regra.categoria_id and regra.subcategoria_id is None:
+                    # Já tem a categoria e a regra não traz subcategoria: nada
+                    # muda, por isso não aparece (achado 2.4)
+                    break
                 if t.categoria_id is None or t.categoria_id == regra.categoria_id:
                     sem_conflito.append(
                         {
@@ -226,6 +233,9 @@ def aplicar_em_massa(
                 invalidas.append(item.id)
                 continue
 
+        if (t.categoria_id, t.subcategoria_id) == (item.categoria_id, item.subcategoria_id):
+            # Já está assim: não conta como aplicada (achado 2.4)
+            continue
         t.categoria_id = item.categoria_id
         t.subcategoria_id = item.subcategoria_id
         aplicadas += 1

@@ -43,8 +43,8 @@ data de hoje.
 
 Os testes
 ---------
-Seis: um por ramo da resposta, mais o caso do payload inválido e o da lista
-vazia. Nenhum toca no `main`, na base de dados real, nem no sistema de ficheiros.
+Sete: um por ramo da resposta, mais o caso do payload inválido, o da lista
+vazia e o de um item que não muda nada (achado 2.4). Nenhum toca no `main`, na base de dados real, nem no sistema de ficheiros.
 """
 
 from datetime import date
@@ -84,7 +84,7 @@ def _semeia_categoria_subcategoria_transacao(session):
 
 
 # ---------------------------------------------------------------------------
-# Os seis testes
+# Os sete testes
 # ---------------------------------------------------------------------------
 
 
@@ -221,6 +221,31 @@ def test_categoria_inexistente_e_invalida(client, session):
 
     assert r.status_code == 200
     assert r.json() == {"aplicadas": 0, "ignoradas": [], "invalidas": [transacao.id]}
+
+
+def test_item_igual_ao_que_ja_esta_nao_conta_como_aplicado(client, session):
+    """Um item que não muda nada não entra em `aplicadas` (achado 2.4).
+
+    Cálculo à mão: a transacção já tem a categoria e a subcategoria do item.
+    Escrevê-las de novo não muda nada, por isso não conta: `aplicadas = 0`, e
+    também não é `ignorada` (existe) nem `invalida` (as referências são
+    coerentes). A transacção fica como estava.
+    """
+    t, cat, sub = _semeia_categoria_subcategoria_transacao(session)
+    t.categoria_id = cat.id
+    t.subcategoria_id = sub.id
+    session.commit()
+
+    r = client.post(
+        "/api/regras/aplicar-em-massa",
+        json={"itens": [{"id": t.id, "categoria_id": cat.id, "subcategoria_id": sub.id}]},
+    )
+
+    assert r.status_code == 200
+    assert r.json() == {"aplicadas": 0, "ignoradas": [], "invalidas": []}
+    session.expire_all()
+    t = session.get(Transacao, t.id)
+    assert (t.categoria_id, t.subcategoria_id) == (cat.id, sub.id)
 
 
 def test_lista_vazia_da_resultado_vazio(client):
