@@ -188,6 +188,7 @@ O router de transações só tem `GET` e `PUT`. Uma importação para a conta er
   - (a) Documentar nas «Limitações».
   - (b) Acrescentar a remoção, que tem de lidar com os movimentos de ativo ligados à transação.
   - (c) Acrescentar a criação manual.
+- **Resolvido:** com a opção (a). É uma limitação aceite, e está nas «Limitações» do README.
 
 ### O que está bem
 
@@ -769,9 +770,9 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 ## Resumo de achados
 
-São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 por classificar, além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
+São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 21 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 3.2, 3.3, 4.3, 6.1, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
+**Progresso:** 22 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.6, 3.2, 3.3, 4.3, 6.1, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2 e 11.3). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -819,4 +820,4 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 por classificar,
 | 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado |  |
 | 11.5 | Ficheiros soltos e restos | baixa | estrutura | confirmado |  |
 | 11.6 | O README diz que se pode editar a conta de uma transação | baixa | documentação | confirmado por leitura |  |
-| 2.6 | Não há forma de apagar nem de criar transações | a definir | lógica de negócio | em aberto |  |
+| 2.6 | Não há forma de apagar nem de criar transações | limitação | lógica de negócio | documentado | resolvido |
