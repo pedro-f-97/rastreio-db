@@ -338,7 +338,6 @@ export default function Estatisticas() {
                             labelStyle={{ color: 'var(--text-primary)' }}
                             formatter={(v) => formatarPercentagem(v)}
                         />
-                        <Legend wrapperStyle={{ color: 'var(--text-secondary)', paddingTop: '2rem' }} />
                         <Line dataKey="Taxa de Poupança" type="monotone" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls={false} />
                     </ComposedChart>
                 </ResponsiveContainer>
