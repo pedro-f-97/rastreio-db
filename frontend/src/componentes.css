@@ -475,3 +475,10 @@
     color: var(--text-secondary);
     font-size: var(--text-sm);
 }
+
+/* --- Gráficos --- */
+/* O recharts dá foco a uma camada do gráfico ao clicar, e o browser
+   desenhava-lhe um contorno; com o teclado o contorno continua */
+.recharts-wrapper :focus:not(:focus-visible) {
+    outline: none;
+}
