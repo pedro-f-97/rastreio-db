@@ -59,19 +59,26 @@ e a conta são criados com as classes e enums reais (`PerfilImportacao`,
 atribui, nunca números fixos.
 """
 
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
 from database import (
+    Ativo,
     Categoria,
     Conta,
+    Importacao,
     ModoValor,
+    MovimentoAtivo,
     PerfilImportacao,
+    PrecoAtivo,
     RegraCategorizacao,
     Subcategoria,
+    TipoAtivo,
     TipoCategoria,
+    TipoContabilizacao,
     TipoFicheiro,
+    TipoMovimento,
     Transacao,
 )
 
@@ -779,3 +786,379 @@ def test_importar_com_perfil_inexistente_da_404(client):
 
     assert r.status_code == 404
     assert r.json() == {"detail": "Perfil não encontrado."}
+
+
+# ---------------------------------------------------------------------------
+# /importar — registo da importação, para a poder desfazer
+# ---------------------------------------------------------------------------
+
+
+def test_importar_regista_a_importacao_e_marca_as_transaccoes(client, session, tmp_path):
+    """Uma importação que insere fica registada, e as suas linhas levam o id dela.
+
+    Cálculo à mão: `CSV_DUAS_LINHAS` insere 2 linhas novas e nenhuma duplicada,
+    numa conta vazia. Fica 1 importação, da conta do perfil, com o nome com que o
+    ficheiro foi enviado, `inseridas` 2, `duplicadas` 0 e a data e a hora do
+    pedido; as 2 transacções têm `importacao_id` igual ao id dela.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS)
+
+    antes = datetime.now()
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes(), nome="janeiro.csv")
+    depois = datetime.now()
+
+    assert r.status_code == 200
+    importacao = session.query(Importacao).one()
+    assert (
+        importacao.conta_id,
+        importacao.ficheiro,
+        importacao.inseridas,
+        importacao.duplicadas,
+    ) == (conta.id, "janeiro.csv", 2, 0)
+    assert antes <= importacao.data_hora <= depois
+    assert [t.importacao_id for t in session.query(Transacao).all()] == [
+        importacao.id,
+        importacao.id,
+    ]
+
+
+def test_importacao_com_novas_e_duplicadas_so_marca_as_novas(client, session, tmp_path):
+    """As linhas duplicadas não são da importação nova: ficam com a marca antiga.
+
+    Cálculo à mão: a 1.ª importação traz Supermercado e Salário (importação A).
+    A 2.ª traz as mesmas duas mais uma Renda de -600,00: 1 inserida e 2
+    duplicadas (importação B). Supermercado e Salário ficam com A, a Renda com B.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    primeiro = escrever_csv(tmp_path / "a.csv", CSV_DUAS_LINHAS)
+    segundo = escrever_csv(tmp_path / "b.csv", CSV_DUAS_LINHAS + ('03/02/2026,Renda,"-600,00"',))
+
+    _pedido_importar(client, perfil.id, primeiro.read_bytes(), nome="a.csv")
+    r = _pedido_importar(client, perfil.id, segundo.read_bytes(), nome="b.csv")
+
+    assert r.json() == {"inseridas": 1, "duplicadas": 2}
+    a, b = session.query(Importacao).order_by(Importacao.id).all()
+    assert (a.ficheiro, a.inseridas, a.duplicadas) == ("a.csv", 2, 0)
+    assert (b.ficheiro, b.inseridas, b.duplicadas) == ("b.csv", 1, 2)
+    marcas = {t.descricao: t.importacao_id for t in session.query(Transacao).all()}
+    assert marcas == {"Supermercado": a.id, "Salário": a.id, "Renda": b.id}
+
+
+def test_importacao_so_com_duplicadas_nao_fica_registada(client, session, tmp_path):
+    """Sem nada inserido, não há nada a desfazer: não se regista.
+
+    Cálculo à mão: o mesmo ficheiro duas vezes; a 2.ª dá 0 inseridas e 2
+    duplicadas, e continua a haver só a importação da 1.ª.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    conteudo = escrever_csv(tmp_path / "extrato.csv", CSV_DUAS_LINHAS).read_bytes()
+
+    _pedido_importar(client, perfil.id, conteudo)
+    r = _pedido_importar(client, perfil.id, conteudo)
+
+    assert r.json() == {"inseridas": 0, "duplicadas": 2}
+    assert session.query(Importacao).count() == 1
+
+
+def test_importacao_recusada_nao_fica_registada(client, session, tmp_path):
+    """Um ficheiro com uma linha com erro não importa nada, nem o registo.
+
+    Cálculo à mão: a 2.ª linha tem a data «32/01/2026», inválida; o endpoint dá
+    400 antes de chamar `importar_transacoes`, e ficam 0 importações e 0
+    transacções.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    caminho = escrever_csv(
+        tmp_path / "erro.csv",
+        ("Data,Descrição,Valor", '31/01/2026,Supermercado,"-45,60"', '32/01/2026,Café,"-0,80"'),
+    )
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 400
+    assert session.query(Importacao).count() == 0
+    assert session.query(Transacao).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# /historico e desfazer uma importação
+# ---------------------------------------------------------------------------
+
+# Uma compra de um ETF, para os cenários com movimentos de ativo.
+# Cálculo à mão: "-100,00" -> -100.00, a 03/02/2026.
+CSV_COMPRA_ETF = ("Data,Descrição,Valor", '03/02/2026,Compra ETF,"-100,00"')
+
+
+def _importar_ficheiro(client, perfil, tmp_path, nome, linhas):
+    caminho = escrever_csv(tmp_path / nome, linhas)
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes(), nome=nome)
+    assert r.status_code == 200
+    return r.json()
+
+
+def _desfazer(client, importacao_id, apagar_movimentos=None):
+    params = {} if apagar_movimentos is None else {"apagar_movimentos": apagar_movimentos}
+    return client.delete(f"/api/importacao/{importacao_id}", params=params)
+
+
+def _ativo_com_unidades(session):
+    tipo = TipoAtivo(nome="ETF", tem_unidades=True)
+    session.add(tipo)
+    session.commit()
+    ativo = Ativo(nome="ETF Mundo", tipo_id=tipo.id, contabilizacao=TipoContabilizacao.investimento)
+    session.add(ativo)
+    session.commit()
+    return ativo
+
+
+def _comprar_com_a_transacao(client, session, ativo):
+    """Trata a compra importada como o ecrã faz: 10 unidades a 10,00."""
+    transacao = session.query(Transacao).filter_by(descricao="Compra ETF").one()
+    r = client.post(
+        "/api/patrimonio/movimentos",
+        json={
+            "ativo_id": ativo.id,
+            "transacao_id": transacao.id,
+            "tipo_movimento": "compra",
+            "data": "2026-02-03",
+            "quantidade": 10,
+            "preco_unitario": 10.0,
+            "valor_total": -100.0,
+        },
+    )
+    assert r.status_code == 200
+
+
+def test_historico_lista_a_mais_recente_primeiro_e_quais_se_desfazem(client, session, tmp_path):
+    """Só a última importação de cada conta se pode desfazer.
+
+    Cálculo à mão: a conta X importa a.csv (2 linhas) e depois b.csv (as mesmas
+    2 mais a Renda: 1 inserida, 2 duplicadas); a conta Y importa c.csv (2
+    linhas). Ids 1, 2 e 3, listados por ordem inversa: c (Y, a última de Y), b
+    (X, a última de X) e a (X, já não é a última).
+    """
+    x = _criar_conta(session, "Conta X")
+    y = _criar_conta(session, "Conta Y")
+    perfil_x = _criar_perfil(session, nome="Perfil X", conta_id=x.id)
+    perfil_y = _criar_perfil(session, nome="Perfil Y", conta_id=y.id)
+    _importar_ficheiro(client, perfil_x, tmp_path, "a.csv", CSV_DUAS_LINHAS)
+    _importar_ficheiro(
+        client, perfil_x, tmp_path, "b.csv", CSV_DUAS_LINHAS + ('03/02/2026,Renda,"-600,00"',)
+    )
+    _importar_ficheiro(client, perfil_y, tmp_path, "c.csv", CSV_DUAS_LINHAS)
+
+    r = client.get("/api/importacao/historico")
+
+    assert r.status_code == 200
+    assert [
+        (
+            i["ficheiro"],
+            i["conta_id"],
+            i["conta_nome"],
+            i["inseridas"],
+            i["duplicadas"],
+            i["pode_desfazer"],
+        )
+        for i in r.json()
+    ] == [
+        ("c.csv", y.id, "Conta Y", 2, 0, True),
+        ("b.csv", x.id, "Conta X", 1, 2, True),
+        ("a.csv", x.id, "Conta X", 2, 0, False),
+    ]
+
+
+def test_desfazer_a_ultima_apaga_as_suas_transaccoes_e_o_registo(client, session, tmp_path):
+    """Desfazer b.csv tira só a Renda; Supermercado e Salário são de a.csv.
+
+    Cálculo à mão: a.csv insere 2, b.csv insere 1 (a Renda) e dá 2 duplicadas.
+    Desfazer b dá 204; ficam as 2 transacções de a e só o registo de a, que
+    passa a ser a última da conta e se pode desfazer.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    _importar_ficheiro(client, perfil, tmp_path, "a.csv", CSV_DUAS_LINHAS)
+    _importar_ficheiro(
+        client, perfil, tmp_path, "b.csv", CSV_DUAS_LINHAS + ('03/02/2026,Renda,"-600,00"',)
+    )
+    b = session.query(Importacao).filter_by(ficheiro="b.csv").one()
+
+    r = _desfazer(client, b.id)
+
+    assert r.status_code == 204
+    session.expire_all()
+    assert sorted(t.descricao for t in session.query(Transacao).all()) == [
+        "Salário",
+        "Supermercado",
+    ]
+    assert [i.ficheiro for i in session.query(Importacao).all()] == ["a.csv"]
+    historico = client.get("/api/importacao/historico").json()
+    assert [(i["ficheiro"], i["pode_desfazer"]) for i in historico] == [("a.csv", True)]
+
+
+def test_depois_de_desfazer_o_mesmo_ficheiro_volta_a_entrar(client, session, tmp_path):
+    """Desfeita, a importação pode ser repetida: as linhas não ficam duplicadas.
+
+    Cálculo à mão: importar, desfazer e importar outra vez o mesmo ficheiro dá
+    2 inseridas e 0 duplicadas, porque a conta ficou vazia.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    _importar_ficheiro(client, perfil, tmp_path, "a.csv", CSV_DUAS_LINHAS)
+    _desfazer(client, session.query(Importacao).one().id)
+
+    assert _importar_ficheiro(client, perfil, tmp_path, "a.csv", CSV_DUAS_LINHAS) == {
+        "inseridas": 2,
+        "duplicadas": 0,
+    }
+
+
+def test_desfazer_uma_que_nao_e_a_ultima_da_conta_da_409(client, session, tmp_path):
+    """a.csv já tem uma importação a seguir na mesma conta: 409, nada muda.
+
+    Cálculo à mão: a insere 2, b insere 1; desfazer a é recusado, e ficam as 3
+    transacções e os 2 registos.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    _importar_ficheiro(client, perfil, tmp_path, "a.csv", CSV_DUAS_LINHAS)
+    _importar_ficheiro(
+        client, perfil, tmp_path, "b.csv", CSV_DUAS_LINHAS + ('03/02/2026,Renda,"-600,00"',)
+    )
+    a = session.query(Importacao).filter_by(ficheiro="a.csv").one()
+
+    r = _desfazer(client, a.id)
+
+    assert r.status_code == 409
+    assert r.json() == {"detail": "Só se pode desfazer a importação mais recente de cada conta."}
+    assert session.query(Transacao).count() == 3
+    assert session.query(Importacao).count() == 2
+
+
+def test_a_ultima_de_outra_conta_nao_impede_desfazer(client, session, tmp_path):
+    """A regra é por conta: uma importação mais recente noutra conta não conta.
+
+    Cálculo à mão: X importa a.csv (id 1), Y importa c.csv (id 2). Desfazer a
+    dá 204: é a última de X. Ficam as 2 transacções de c.
+    """
+    x = _criar_conta(session, "Conta X")
+    y = _criar_conta(session, "Conta Y")
+    perfil_x = _criar_perfil(session, nome="Perfil X", conta_id=x.id)
+    perfil_y = _criar_perfil(session, nome="Perfil Y", conta_id=y.id)
+    _importar_ficheiro(client, perfil_x, tmp_path, "a.csv", CSV_DUAS_LINHAS)
+    _importar_ficheiro(client, perfil_y, tmp_path, "c.csv", CSV_DUAS_LINHAS)
+    a = session.query(Importacao).filter_by(ficheiro="a.csv").one()
+
+    r = _desfazer(client, a.id)
+
+    assert r.status_code == 204
+    session.expire_all()
+    assert {t.conta_id for t in session.query(Transacao).all()} == {y.id}
+    assert session.query(Transacao).count() == 2
+
+
+def test_desfazer_importacao_inexistente_da_404(client):
+    r = _desfazer(client, 999999)
+
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Importação não encontrada."}
+
+
+def test_com_movimentos_sem_confirmar_da_409_com_a_lista(client, session, tmp_path):
+    """A compra importada já foi tratada como ativo: 409 com o movimento, nada muda.
+
+    Cálculo à mão: o movimento é a compra de 10 unidades por -100,00 a
+    03/02/2026, do «ETF Mundo». Ficam a transacção, o movimento e o registo.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    _importar_ficheiro(client, perfil, tmp_path, "etf.csv", CSV_COMPRA_ETF)
+    ativo = _ativo_com_unidades(session)
+    _comprar_com_a_transacao(client, session, ativo)
+    movimento = session.query(MovimentoAtivo).one()
+
+    r = _desfazer(client, session.query(Importacao).one().id)
+
+    assert r.status_code == 409
+    assert r.json() == {
+        "detail": {
+            "mensagem": "Há transações desta importação já tratadas como ativos.",
+            "movimentos": [
+                {
+                    "id": movimento.id,
+                    "ativo_nome": "ETF Mundo",
+                    "tipo_movimento": "compra",
+                    "data": "2026-02-03",
+                    "valor_total": -100.0,
+                }
+            ],
+        }
+    }
+    assert session.query(Transacao).count() == 1
+    assert session.query(MovimentoAtivo).count() == 1
+    assert session.query(Importacao).count() == 1
+
+
+def test_com_movimentos_e_confirmacao_apaga_tudo_menos_o_preco(client, session, tmp_path):
+    """Confirmado, saem o movimento, a transacção e o registo; o preço fica.
+
+    Cálculo à mão: a compra a 10,00 gravou o preço de 03/02/2026 (como no
+    ecrã). Desfazer com `apagar_movimentos=true` dá 204 e deixa 0 movimentos,
+    0 transacções, 0 importações e 1 preço, de 10,00.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    _importar_ficheiro(client, perfil, tmp_path, "etf.csv", CSV_COMPRA_ETF)
+    ativo = _ativo_com_unidades(session)
+    _comprar_com_a_transacao(client, session, ativo)
+
+    r = _desfazer(client, session.query(Importacao).one().id, apagar_movimentos=True)
+
+    assert r.status_code == 204
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 0
+    assert session.query(Transacao).count() == 0
+    assert session.query(Importacao).count() == 0
+    assert [(p.data, p.preco) for p in session.query(PrecoAtivo).all()] == [
+        (date(2026, 2, 3), 10.0)
+    ]
+
+
+def test_com_confirmacao_recusa_se_uma_venda_ficar_sem_unidades(client, session, tmp_path):
+    """Sem a compra importada, a venda posterior ficava a descoberto: 422, nada muda.
+
+    Cálculo à mão: a compra de 10 unidades (03/02/2026) vem da importação; a
+    venda de 4 (10/02/2026) foi registada à parte. Sem a compra, há 0 unidades
+    a 10/02, e a venda de 4 excede-as. Ficam os 2 movimentos, a transacção e o
+    registo.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    _importar_ficheiro(client, perfil, tmp_path, "etf.csv", CSV_COMPRA_ETF)
+    ativo = _ativo_com_unidades(session)
+    _comprar_com_a_transacao(client, session, ativo)
+    session.add(
+        MovimentoAtivo(
+            ativo_id=ativo.id,
+            tipo_movimento=TipoMovimento.venda,
+            data=date(2026, 2, 10),
+            quantidade=4,
+            valor_total=48.0,
+        )
+    )
+    session.commit()
+
+    r = _desfazer(client, session.query(Importacao).one().id, apagar_movimentos=True)
+
+    assert r.status_code == 422
+    assert r.json() == {
+        "detail": "A venda de 10/02/2026 (4 unidades) excede as 0 unidades em carteira nessa data."
+    }
+    session.expire_all()
+    assert session.query(MovimentoAtivo).count() == 2
+    assert session.query(Transacao).count() == 1
+    assert session.query(Importacao).count() == 1

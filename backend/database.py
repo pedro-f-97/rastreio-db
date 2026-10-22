@@ -3,13 +3,14 @@ import os
 import re
 import sqlite3
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional
 
 from sqlalchemy import (
     Boolean,
     Date,
+    DateTime,
     Enum as SAEnum,
     Float,
     ForeignKey,
@@ -213,10 +214,28 @@ class Transacao(Base):
     conta_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contas.id"))
     conta: Mapped[Optional["Conta"]] = relationship("Conta", back_populates="transacoes")
 
+    # A importação que trouxe a transacção; NULL nas de antes do histórico
+    importacao_id: Mapped[Optional[int]] = mapped_column(ForeignKey("importacoes.id"))
+
     categoria: Mapped[Optional["Categoria"]] = relationship("Categoria")
     subcategoria: Mapped[Optional["Subcategoria"]] = relationship(
         "Subcategoria", back_populates="transacoes"
     )
+
+
+class Importacao(Base):
+    """Uma importação que inseriu transacções, para se poder desfazer."""
+
+    __tablename__ = "importacoes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    data_hora: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    conta_id: Mapped[int] = mapped_column(ForeignKey("contas.id"), nullable=False)
+    ficheiro: Mapped[str] = mapped_column(String(255), nullable=False)
+    inseridas: Mapped[int] = mapped_column(nullable=False)
+    duplicadas: Mapped[int] = mapped_column(nullable=False)
+
+    conta: Mapped["Conta"] = relationship("Conta")
 
 
 class RegraCategorizacao(Base):
@@ -405,6 +424,28 @@ def remover_coluna_reembolso(caminho: str = DB_PATH) -> bool:
     return True
 
 
+def acrescentar_importacao_id(caminho: str = DB_PATH) -> bool:
+    """Acrescenta a coluna `transacoes.importacao_id`, se ainda não existir.
+
+    Fica NULL nas transacções que já lá estão: só as importações a partir desta
+    versão se podem desfazer. Um `ADD COLUMN` que pode ser NULL não reescreve a
+    tabela, por isso os IDs e as outras chaves ficam como estão. Idempotente:
+    com a coluna, ou sem a tabela (um ficheiro que não é do Rastreio-DB, que a
+    validação recusa a seguir), não escreve nada. Devolve se a acrescentou.
+    """
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(transacoes)")}
+        if not colunas or "importacao_id" in colunas:
+            return False
+        con.execute(
+            "ALTER TABLE transacoes ADD COLUMN importacao_id INTEGER REFERENCES importacoes(id)"
+        )
+    finally:
+        con.close()
+    return True
+
+
 # As migrações do schema, por ordem: a posição na lista é a versão a que cada
 # uma leva a BD. A BD guarda em `PRAGMA user_version` a última que já levou, e
 # no arranque e no restauro de um backup correm as que faltam. Uma BD nova é
@@ -419,6 +460,7 @@ def remover_coluna_reembolso(caminho: str = DB_PATH) -> bool:
 MIGRACOES = (
     ("chaves para ativos_old reparadas", reparar_fk_ativos),
     ("coluna transacoes.reembolso removida", remover_coluna_reembolso),
+    ("coluna transacoes.importacao_id acrescentada", acrescentar_importacao_id),
 )
 
 
