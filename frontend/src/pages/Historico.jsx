@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { obterResumoMensal, obterDetalheMensal } from '../api/estatisticas';
 import './Estatisticas.css';
 import '../componentes.css';
-import { formatarEuros, formatarPercentagem, labelMes } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarPercentagem, labelMes } from '../utils/formatacao';
 
 export default function Historico() {
     const [resumo, setResumo] = useState(null);
@@ -67,11 +67,11 @@ export default function Historico() {
                                 <Fragment key={`ano-${ano}`}>
                                     <tr className="linha-ano">
                                         <td>{ano}</td>
-                                        <td className="valor-positivo">{formatarEuros(totalAno.receitas)}</td>
-                                        <td className="valor-negativo">{formatarEuros(totalAno.despesas)}</td>
-                                        <td className={totalAno.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{formatarEuros(totalAno.investimento)}</td>
-                                        <td className={totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarEuros(totalAno.poupanca)}</td>
-                                        <td className={totalAno.taxa === null ? '' : totalAno.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarPercentagem(totalAno.taxa)}</td>
+                                        <td className={classeValor(totalAno.receitas)}>{formatarEuros(totalAno.receitas)}</td>
+                                        <td className={classeValor(totalAno.despesas)}>{formatarEuros(totalAno.despesas)}</td>
+                                        <td className={classeValor(totalAno.investimento)}>{formatarEuros(totalAno.investimento)}</td>
+                                        <td className={classeValor(totalAno.poupanca)}>{formatarEuros(totalAno.poupanca)}</td>
+                                        <td className={totalAno.taxa === null ? '' : classeValor(totalAno.taxa, 1)}>{formatarPercentagem(totalAno.taxa)}</td>
                                     </tr>
                                     {mesesPorAno[ano].map(m => {
                                         const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
@@ -85,28 +85,28 @@ export default function Historico() {
                                                         <span className="seta-expansao">{seleccionado ? '▼' : '▶'}</span>
                                                         {labelMes(m.ano, m.mes)}
                                                     </td>
-                                                    <td className="valor-positivo">{formatarEuros(m.receitas)}</td>
-                                                    <td className="valor-negativo">{formatarEuros(m.despesas)}</td>
-                                                    <td className={m.investimento <= 0 ? 'valor-negativo' : 'valor-positivo'}>{formatarEuros(m.investimento)}</td>
-                                                    <td className={m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{formatarEuros(m.poupanca)}</td>
-                                                    <td className={m.receitas <= 0 ? '' : m.poupanca >= 0 ? 'valor-positivo' : 'valor-negativo'}>{m.receitas > 0 ? formatarPercentagem(m.poupanca / m.receitas * 100) : '—'}</td>
+                                                    <td className={classeValor(m.receitas)}>{formatarEuros(m.receitas)}</td>
+                                                    <td className={classeValor(m.despesas)}>{formatarEuros(m.despesas)}</td>
+                                                    <td className={classeValor(m.investimento)}>{formatarEuros(m.investimento)}</td>
+                                                    <td className={classeValor(m.poupanca)}>{formatarEuros(m.poupanca)}</td>
+                                                    <td className={m.receitas <= 0 ? '' : classeValor(m.poupanca / m.receitas * 100, 1)}>{m.receitas > 0 ? formatarPercentagem(m.poupanca / m.receitas * 100) : '—'}</td>
                                                 </tr>
                                                 {seleccionado && detalheMes.map(cat => (
                                                     <Fragment key={`cat-${cat.categoria_id}`}>
                                                         <tr className="linha-categoria-detalhe">
                                                             <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
-                                                            <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? formatarEuros(cat.total) : ''}</td>
-                                                            <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? formatarEuros(cat.total) : ''}</td>
-                                                            <td className={cat.tipo === 'investimento' ? (cat.total >= 0 ? 'valor-positivo' : 'valor-negativo') : ''}>{cat.tipo === 'investimento' ? formatarEuros(cat.total) : ''}</td>
+                                                            <td className={cat.tipo === 'receita' ? classeValor(cat.total) : ''}>{cat.tipo === 'receita' ? formatarEuros(cat.total) : ''}</td>
+                                                            <td className={cat.tipo === 'despesa' ? classeValor(cat.total) : ''}>{cat.tipo === 'despesa' ? formatarEuros(cat.total) : ''}</td>
+                                                            <td className={cat.tipo === 'investimento' ? classeValor(cat.total) : ''}>{cat.tipo === 'investimento' ? formatarEuros(cat.total) : ''}</td>
                                                             <td></td>
                                                             <td></td>
                                                         </tr>
                                                         {cat.subcategorias.map(sub => (
                                                             <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
                                                                 <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                                <td className={cat.tipo === 'receita' ? 'valor-positivo' : ''}>{cat.tipo === 'receita' ? formatarEuros(sub.total) : ''}</td>
-                                                                <td className={cat.tipo === 'despesa' ? 'valor-negativo' : ''}>{cat.tipo === 'despesa' ? formatarEuros(sub.total) : ''}</td>
-                                                                <td className={cat.tipo === 'investimento' ? (sub.total >= 0 ? 'valor-positivo' : 'valor-negativo') : ''}>{cat.tipo === 'investimento' ? formatarEuros(sub.total) : ''}</td>
+                                                                <td className={cat.tipo === 'receita' ? classeValor(sub.total) : ''}>{cat.tipo === 'receita' ? formatarEuros(sub.total) : ''}</td>
+                                                                <td className={cat.tipo === 'despesa' ? classeValor(sub.total) : ''}>{cat.tipo === 'despesa' ? formatarEuros(sub.total) : ''}</td>
+                                                                <td className={cat.tipo === 'investimento' ? classeValor(sub.total) : ''}>{cat.tipo === 'investimento' ? formatarEuros(sub.total) : ''}</td>
                                                                 <td></td>
                                                                 <td></td>
                                                             </tr>

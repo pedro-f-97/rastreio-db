@@ -55,6 +55,10 @@
     color: var(--valor-negativo);
 }
 
+.cartao-metade-valor.valor-zero {
+    color: var(--text-secondary);
+}
+
 .tabela-stats {
     table-layout: fixed;
 }
@@ -75,6 +79,10 @@
 
 .tabela-stats td.valor-negativo {
     color: var(--valor-negativo);
+}
+
+.tabela-stats td.valor-zero {
+    color: var(--text-secondary);
 }
 
 .tabela-stats tr.linha-categoria-detalhe td {

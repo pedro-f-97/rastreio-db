@@ -286,6 +286,11 @@
     font-family: var(--font-mono);
 }
 
+.valor-zero {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
 /* --- Botão primário (aproveita base de `button` do index.css) --- */
 .btn-primario {
     background: var(--accent);

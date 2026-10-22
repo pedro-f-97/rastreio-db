@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
-import { formatarEuros, formatarPercentagem, formatarQuantidade } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarPercentagem, formatarQuantidade } from '../utils/formatacao';
 import "../componentes.css";
 
 const estadoModalInicial = {
@@ -272,7 +272,7 @@ export default function Ativos({ onDadosAlterados }) {
                 <tr key={t.id}>
                   <td className="col-mono">{t.data}</td>
                   <td>{t.descricao}</td>
-                  <td className={`col-valor col-mono ${t.valor < 0 ? "valor-negativo" : "valor-positivo"}`}>
+                  <td className={`col-valor col-mono ${classeValor(t.valor)}`}>
                     {formatarEuros(t.valor)}
                   </td>
                   <td>
@@ -301,7 +301,7 @@ export default function Ativos({ onDadosAlterados }) {
                       <span className="secao-resumo">
                         {formatarEuros(resumoTipo.valorAtualTotal)}
                         {" · "}
-                        <span className={resumoTipo.resultadoTotal >= 0 ? "valor-positivo" : "valor-negativo"}>
+                        <span className={classeValor(resumoTipo.resultadoTotal)}>
                           {resumoTipo.resultadoTotal >= 0 ? "+" : ""}{formatarEuros(resumoTipo.resultadoTotal)}
                           {resumoTipo.pct != null && ` (${resumoTipo.pct >= 0 ? "+" : ""}${formatarPercentagem(resumoTipo.pct, 2)})`}
                         </span>
@@ -403,7 +403,7 @@ export default function Ativos({ onDadosAlterados }) {
                               </div>
                             ) : "—"}
                           </td>
-                          <td className={`col-valor col-mono ${mmv != null && !semPreco ? (mmv >= 0 ? "valor-positivo" : "valor-negativo") : ""}`}>
+                          <td className={`col-valor col-mono ${mmv != null && !semPreco ? classeValor(mmv) : ""}`}>
                             {semPreco ? (
                               <span className="data-preco" title="Sem preço registado: regista um preço para ver a mais-valia.">sem preço</span>
                             ) : mmv != null ? (

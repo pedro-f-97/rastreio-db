@@ -3,7 +3,7 @@ import { getContas, getSaldoConta } from "../api/contas";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
 import '../componentes.css';
-import { formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
 import { obterEvolucao } from "../api/patrimonio";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
@@ -152,11 +152,11 @@ export default function Patrimonio() {
         <div className="cartao">
           <span className="cartao-titulo">Resultados</span>
           <div className="cartao-valor-linha">
-            <span className={`cartao-valor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+            <span className={`cartao-valor ${classeValor(totalMaisValia)}`}>
               {formatarEuros(totalMaisValia)}
             </span>
             {pctMaisValia !== null && (
-              <span className={`cartao-subvalor ${totalMaisValia >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+              <span className={`cartao-subvalor ${classeValor(pctMaisValia, 2)}`}>
                 {pctMaisValia >= 0 ? "+" : ""}{formatarPercentagem(pctMaisValia, 2)}
               </span>
             )}
@@ -174,7 +174,7 @@ export default function Patrimonio() {
                 <div key={a.id} className="cartao-breakdown-linha">
                   <span className="cartao-breakdown-label">{a.nome}</span>
                   {pct !== null ? (
-                    <span className={`cartao-breakdown-valor ${pct >= 0 ? "valor-positivo" : "valor-negativo"}`}>
+                    <span className={`cartao-breakdown-valor ${classeValor(pct, 2)}`}>
                       {pct >= 0 ? "+" : ""}{formatarPercentagem(pct, 2)}
                     </span>
                   ) : (

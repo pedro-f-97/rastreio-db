@@ -13,6 +13,19 @@ export function formatarEuros(valor, casas = 2) {
   return formatador.format(valor) + " €";
 }
 
+/**
+ * Classe CSS da cor de um valor: verde se positivo, vermelho se negativo e
+ * cinzento se for zero com as casas decimais com que é mostrado (assim,
+ * -0.004 €, que aparece como 0,00 €, também fica a cinzento).
+ */
+export function classeValor(valor, casas = 2) {
+  // Metade para longe de zero, como o formatarEuros e o arredondar do backend
+  const arredondado = Math.sign(valor) * Math.round(Math.abs(valor) * 10 ** casas);
+  if (arredondado > 0) return "valor-positivo";
+  if (arredondado < 0) return "valor-negativo";
+  return "valor-zero";
+}
+
 const formatadorQuantidade = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 8,
   useGrouping: true,

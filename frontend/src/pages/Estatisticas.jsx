@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import './Estatisticas.css';
 import '../componentes.css';
-import { formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
+import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
 
 function calcularLimiteSerie(valores, multiplicador = 4) {
     const absolutos = valores.map(Math.abs).filter(v => v > 0);
@@ -234,10 +234,6 @@ export default function Estatisticas() {
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
 
-    function classeValor(v) {
-        return v >= 0 ? 'valor-positivo' : 'valor-negativo';
-    }
-
     return (
         <div className="estatisticas-page">
             <div className="secao-cabecalho secao-cabecalho-limpo">
@@ -303,13 +299,13 @@ export default function Estatisticas() {
                         <div className="cartao-corpo">
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Do período</span>
-                                <span className={`cartao-metade-valor ${cardTaxa.periodo !== null ? classeValor(cardTaxa.periodo) : ''}`}>
+                                <span className={`cartao-metade-valor ${cardTaxa.periodo !== null ? classeValor(cardTaxa.periodo, 1) : ''}`}>
                                     {formatarPercentagem(cardTaxa.periodo)}
                                 </span>
                             </div>
                             <div className="cartao-metade">
                                 <span className="cartao-metade-label">Mediana mensal</span>
-                                <span className={`cartao-metade-valor ${cardTaxa.mediana !== null ? classeValor(cardTaxa.mediana) : ''}`}>
+                                <span className={`cartao-metade-valor ${cardTaxa.mediana !== null ? classeValor(cardTaxa.mediana, 1) : ''}`}>
                                     {formatarPercentagem(cardTaxa.mediana)}
                                 </span>
                             </div>
