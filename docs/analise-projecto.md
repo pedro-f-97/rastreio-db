@@ -751,6 +751,7 @@ O AGENTS.md manda definir `RASTREIO_DB_DIR` antes de correr qualquer script que 
 - **Opções:**
   - (a) Mudar para `error::DeprecationWarning:(database|schemas|routers|servicos|importador_transacoes|parser_importacao).*`.
   - (b) Retirar a linha e o comentário.
+- **Resolvido:** com a opção (a), com todos os módulos do backend (`database`, `schemas`, `seguranca`, `tray`, `main`, `dados_iniciais`, `importador_transacoes`, `parser_importacao`, `routers`, `servicos`). O comentário explica o filtro. Numa cópia, um `DeprecationWarning` injectado em `servicos/dinheiro.arredondar` faz falhar 62 testes, e um em `routers/contas.listar_contas` faz falhar 3; com o `pytest.ini` antigo, o mesmo aviso em `routers/contas` dava `436 passed, 4 warnings`.
 
 ### 11.5 Ficheiros soltos e restos
 
@@ -792,7 +793,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 40 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.4, 8.5, 8.6, 9.1, 10.1, 10.2, 10.4, 11.2, 11.3, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
+**Progresso:** 41 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.4, 8.5, 8.6, 9.1, 10.1, 10.2, 10.4, 11.2, 11.3, 11.4, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -837,7 +838,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado |  |
 | 10.3 | A aplicação não mostra a sua versão | baixa | estrutura | confirmado |  |
 | 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado | resolvido |
-| 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado |  |
+| 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado | resolvido |
 | 11.5 | Ficheiros soltos e restos | baixa | estrutura | confirmado | resolvido |
 | 11.6 | O README diz que se pode editar a conta de uma transação | baixa | documentação | confirmado por leitura | resolvido |
 | 2.6 | Não há forma de apagar nem de criar transações | limitação | lógica de negócio | documentado | resolvido |
