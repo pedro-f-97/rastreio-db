@@ -644,6 +644,7 @@ O 400 do achado 2.1 está fixado como intencional, mas nenhum teste cobre a sequ
 - **Opções:**
   - (a) Um teste de API que reproduz cada fluxo do frontend que é crítico.
   - (b) Na CI, um passo que arranca o executável gerado e faz um `GET /api/configuracao/estado`.
+- **Resolvido:** a (a) ficou coberta pelas correcções: o pedido combinado da tabela de transações tem teste desde o 2.1, e a origem dos pedidos desde o 7.1 (`test_seguranca_origem.py`). Para a (b), o build de Linux no `build.yml` arranca o executável com a BD numa pasta temporária e pede `/api/configuracao/estado`; se não responder em 30 tentativas, o build falha. Experimentado em local com um build real: respondeu `{"inicializado":false,"tour_visto":false}`, com a janela de controlo indisponível sem ecrã, como esperado; e sem nada a responder, o mesmo `curl` sai com o código 7. O passo não corre no Windows.
 
 ### O que está bem
 
@@ -796,7 +797,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 44 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.3, 8.4, 8.5, 8.6, 9.1, 10.1, 10.2, 10.3, 10.4, 11.2, 11.3, 11.4, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
+**Progresso:** 45 resolvidos (os 7 de gravidade alta, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 3.3, 3.4, 4.3, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4, 7.2, 7.3, 7.4, 8.2, 8.3, 8.4, 8.5, 8.6, 9.1, 9.2, 10.1, 10.2, 10.3, 10.4, 11.2, 11.3, 11.4, 11.5 e 11.6). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -838,7 +839,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura | resolvido |
 | 8.4 | A média e a mediana do backend não são usadas | baixa | qualidade | confirmado | resolvido |
 | 8.6 | A taxa anual do Histórico perde a casa decimal | baixa | apresentação | confirmado | resolvido |
-| 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado |  |
+| 9.2 | Faltam testes nas fronteiras entre partes | baixa | testes | confirmado | resolvido |
 | 10.3 | A aplicação não mostra a sua versão | baixa | estrutura | confirmado | resolvido |
 | 10.4 | O `pyinstaller` está nas dependências de produção | baixa | estrutura | confirmado | resolvido |
 | 11.4 | O filtro de avisos do `pytest.ini` nunca se aplica | baixa | qualidade | confirmado | resolvido |

@@ -106,6 +106,18 @@ jobs:
           chmod +x build.sh
           ./build.sh
 
+      # Arranca o executável gerado e confirma que responde (achado 9.2): apanha
+      # um build que empacota mas não arranca. A BD fica numa pasta temporária;
+      # sem ecrã, a janela de controlo não abre e a aplicação continua sem ela,
+      # e BROWSER=true faz do abrir o browser um comando que não faz nada.
+      - name: Testar o arranque do executável
+        run: |
+          export RASTREIO_DB_DIR="$(mktemp -d)" BROWSER=true
+          ./dist_executavel/rastreio-db &
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 \
+            http://127.0.0.1:9742/api/configuracao/estado
+          kill %1
+
       # Mesma lógica do Windows: --onedir produz uma pasta, compacta-se
       # para anexar à Release. tar.gz é o formato habitual no Linux.
       - name: Compactar dist_executavel
