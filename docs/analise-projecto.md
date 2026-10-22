@@ -492,6 +492,7 @@ Se a porta estiver ocupada, o uvicorn sai com `sys.exit(1)` dentro da thread. O 
 - **Opções:**
   - (a) Testar a porta no `_preflight` e, se estiver ocupada, abrir o browser na instância existente ou mostrar uma mensagem.
   - (b) Apanhar `BaseException` na thread e fechar a janela de controlo.
+- **Resolvido:** com a opção (a). Antes do `_preflight`, `quem_esta_na_porta` (em `tray.py`) liga-se à porta: livre, arranca; se responder como o Rastreio-DB (`/api/configuracao/estado`), abre o browser nessa instância e sai; se for outro programa, regista no log e sai com o código 4. Essa mensagem só se vê no log até ao 7.4. Testado com servidores locais e contra o backend numa cópia da BD; os ramos do `_main` não correram num executável.
 
 ### 7.4 No executável, um erro no arranque não se vê: a aplicação simplesmente não abre
 
@@ -781,7 +782,7 @@ A BD real nunca foi aberta e está igual ao início: md5 `8e6d8ac8cc48f83e2ab075
 
 São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como limitação (2.6), além de uma decisão a rever, já decidida (as categorias predefinidas «Património» e «Prestação», na Área 4). Não há nenhum achado crítico em geral. O 3.1 é crítico para quem usa um banco que exporta o débito com sinal. Sugestão de ordem para a fase de correcção: primeiro a segurança e os dados (7.1, 7.2, 11.1, 3.1, 3.2, 4.2), depois os números que se vêem (4.1, 8.1, 4.3) e por fim o resto. A decisão é tua.
 
-**Progresso:** 29 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.2, 2.4, 2.6, 3.2, 3.3, 3.4, 4.3, 5.2, 5.3, 6.1, 6.3, 7.2, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2, 11.3 e 11.6). A coluna «Resolução» diz em que commit.
+**Progresso:** 30 resolvidos (os 7 de gravidade alta, 1.2, 2.1, 2.2, 2.4, 2.6, 3.2, 3.3, 3.4, 4.3, 5.2, 5.3, 6.1, 6.3, 7.2, 7.3, 8.2, 8.5, 9.1, 10.1, 10.2, 11.2, 11.3 e 11.6). A coluna «Resolução» diz em que commit.
 
 | Nº | Achado | Gravidade | Categoria | Estado | Resolução |
 | --- | --- | --- | --- | --- | --- |
@@ -818,7 +819,7 @@ São 45 achados: 7 de gravidade alta, 13 médios, 24 baixos e 1 tratado como lim
 | 6.2 | Um backup com valores inválidos é aceite | baixa | robustez | confirmado |  |
 | 6.3 | Só há um `.anterior`, substituído em cada restauro | baixa | perda de dados | confirmado por leitura | resolvido |
 | 6.4 | O restauro recusa um backup a que só falta uma tabela nova | baixa | perda de dados / robustez | confirmado por leitura |  |
-| 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado |  |
+| 7.3 | Com a porta ocupada, a aplicação parece arrancar | baixa | robustez | confirmado | resolvido |
 | 7.4 | No executável, um erro no arranque não se vê | baixa | robustez / apresentação | confirmado por leitura |  |
 | 8.3 | Erros da API passam em silêncio | baixa | robustez | confirmado por leitura |  |
 | 8.4 | A média e a mediana do backend não são usadas | baixa | qualidade | confirmado |  |

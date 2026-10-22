@@ -244,6 +244,22 @@ def _preflight() -> None:
 
 
 def _main() -> None:
+    # Com a porta ocupada, o servidor não arrancava e a janela de controlo abria
+    # na mesma (achado 7.3). Antes de tocar na BD: outra instância pode estar a
+    # usá-la.
+    from tray import quem_esta_na_porta
+
+    ocupante = quem_esta_na_porta(PORTA)
+    if ocupante == "rastreio":
+        import webbrowser
+
+        _log("O Rastreio-DB já está aberto. A abrir o browser nessa instância.")
+        webbrowser.open(f"http://localhost:{PORTA}")
+        sys.exit(0)
+    if ocupante == "outro":
+        _log(f"A porta {PORTA} está ocupada por outro programa. Fecha-o e abre de novo.")
+        sys.exit(4)
+
     _preflight()
 
     servidor = uvicorn.Server(
