@@ -33,7 +33,6 @@
 }
 
 .cartao-metade-label {
-    font-size: var(--text-sm);
     color: var(--text-secondary);
     opacity: 0.7;
     text-transform: uppercase;
@@ -54,12 +53,6 @@
 
 .cartao-metade-valor.valor-negativo {
     color: var(--valor-negativo);
-}
-
-/* classes legadas mantidas para compatibilidade */
-.cartao-label {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
 }
 
 .tabela-stats {
@@ -102,15 +95,6 @@
 
 .tabela-stats tr.linha-subcategoria-detalhe td.celula-subcategoria-nome {
     padding-left: calc(var(--space-2xl) + var(--space-xl));
-}
-
-
-.mes-positivo td {
-    border-left: 2px solid var(--valor-positivo);
-}
-
-.mes-negativo td:first-child {
-    border-left: 2px solid var(--valor-negativo);
 }
 
 .subcategoria-detalhe {

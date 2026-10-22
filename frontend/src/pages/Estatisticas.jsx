@@ -207,7 +207,7 @@ export default function Estatisticas() {
 
     return (
         <div className="estatisticas-page">
-            <div className="secao-cabecalho" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+            <div className="secao-cabecalho secao-cabecalho-limpo">
                 <h1 className="titulo-pagina">Estatísticas</h1>
                 <select
                     value={anoSeleccionado}

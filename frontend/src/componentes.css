@@ -411,6 +411,12 @@
     padding-bottom: var(--space-sm);
 }
 
+/* Cabeçalho de secção sem a linha por baixo */
+.secao-cabecalho-limpo {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
 .secao-cabecalho h2 {
     border-bottom: none;
     padding-bottom: 0;

@@ -188,7 +188,7 @@ export default function Patrimonio() {
       </div>
       {/* EVOLUÇÃO DO PATRIMÓNIO */}
       <section className="secao">
-        <div className="secao-cabecalho" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+        <div className="secao-cabecalho secao-cabecalho-limpo">
           <h2>Evolução do património</h2>
           <select
             value={anoSeleccionado}
