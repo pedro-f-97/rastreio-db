@@ -156,3 +156,78 @@ def test_main_verifica_a_porta_antes_do_preflight():
     ]
 
     assert chamadas[:2] == ["quem_esta_na_porta(PORTA)", "_preflight()"]
+
+
+# ---------------------------------------------------------------------------
+# Erros do arranque numa caixa de diálogo (achado 7.4)
+# ---------------------------------------------------------------------------
+
+
+def test_mostrar_erro_abre_uma_caixa_com_a_mensagem(monkeypatch):
+    """`mostrar_erro` mostra a mensagem com `messagebox.showerror`, título "Rastreio-DB".
+
+    O tkinter é substituído por um `MagicMock`, como nos testes da janela de
+    controlo. A janela raiz é escondida antes e destruída depois.
+    """
+    tk_falso = MagicMock()
+    monkeypatch.setitem(sys.modules, "tkinter", tk_falso)
+    monkeypatch.setitem(sys.modules, "tkinter.messagebox", tk_falso.messagebox)
+
+    tray.mostrar_erro("A porta 9742 está ocupada.")
+
+    raiz = tk_falso.Tk.return_value
+    tk_falso.messagebox.showerror.assert_called_once_with(
+        "Rastreio-DB", "A porta 9742 está ocupada.", parent=raiz
+    )
+    raiz.withdraw.assert_called_once_with()
+    raiz.destroy.assert_called_once_with()
+
+
+def test_mostrar_erro_sem_ecra_nao_rebenta(monkeypatch):
+    """Sem ecrã, o `tk.Tk()` levanta; `mostrar_erro` engole o erro e não mostra nada."""
+    tk_falso = MagicMock()
+    tk_falso.Tk.side_effect = RuntimeError("no display name")
+    monkeypatch.setitem(sys.modules, "tkinter", tk_falso)
+    monkeypatch.setitem(sys.modules, "tkinter.messagebox", tk_falso.messagebox)
+
+    tray.mostrar_erro("qualquer")
+
+    tk_falso.messagebox.showerror.assert_not_called()
+
+
+def test_main_mostra_os_erros_do_arranque():
+    """No `main.py`, os quatro erros do arranque saem por `_sair_com_erro`.
+
+    Lido com `ast` para não importar o `main`. `_sair_com_erro` chama
+    `mostrar_erro` e depois `sys.exit`. Os códigos são 2 (pasta de dados), 3
+    (base de dados), 4 (porta ocupada por outro programa) e 1 (erro inesperado,
+    no `__main__`). Fora de `_sair_com_erro`, não sobra
+    nenhum `sys.exit` com código diferente de 0.
+    """
+    caminho = os.path.join(os.path.dirname(tray.__file__), "main.py")
+    with open(caminho, encoding="utf-8") as f:
+        arvore = ast.parse(f.read())
+
+    sair = next(
+        n for n in ast.walk(arvore) if isinstance(n, ast.FunctionDef) and n.name == "_sair_com_erro"
+    )
+    chamadas_em_sair = [ast.unparse(n.func) for n in ast.walk(sair) if isinstance(n, ast.Call)]
+    assert chamadas_em_sair.index("mostrar_erro") < chamadas_em_sair.index("sys.exit")
+
+    codigos = [
+        ast.unparse(n.args[1])
+        for n in ast.walk(arvore)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "_sair_com_erro"
+    ]
+    assert sorted(codigos) == ["1", "2", "3", "4"]
+
+    outros_exits = [
+        ast.unparse(n)
+        for n in ast.walk(arvore)
+        if isinstance(n, ast.Call)
+        and ast.unparse(n.func) == "sys.exit"
+        and n not in list(ast.walk(sair))
+    ]
+    assert outros_exits == ["sys.exit(0)"]

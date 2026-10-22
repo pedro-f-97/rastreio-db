@@ -220,6 +220,19 @@ if os.path.exists(PASTA_FRONTEND):
 # ---------------------------------------------------------------------------
 
 
+def _sair_com_erro(mensagem: str, codigo: int, detalhe: str = "") -> None:
+    """Regista o erro no log, mostra-o numa caixa de diálogo e sai com `codigo`.
+
+    O `detalhe` (por exemplo, o traceback) só vai para o log.
+    """
+    _log(f"{mensagem}\n{detalhe}" if detalhe else mensagem)
+    from tray import mostrar_erro
+
+    onde = f"\n\nMais detalhes no log:\n{LOG_ARRANQUE}" if LOG_ARRANQUE else ""
+    mostrar_erro(mensagem + onde)
+    sys.exit(codigo)
+
+
 def _preflight() -> None:
     """Tudo o que pode falhar antes de arrancar threads. Fora do __main__
     para poder ser chamado de testes."""
@@ -229,8 +242,7 @@ def _preflight() -> None:
     try:
         garantir_pasta_dados()
     except RuntimeError as e:
-        _log(f"Erro fatal na pasta de dados:\n{e}")
-        sys.exit(2)
+        _sair_com_erro(f"Erro fatal na pasta de dados:\n{e}", 2)
     anunciar_bd_ativa()
 
     # 2) criar tabelas ANTES de arrancar o uvicorn, para o erro não se perder
@@ -239,8 +251,11 @@ def _preflight() -> None:
     try:
         criar_tabelas()
     except Exception as e:
-        _log(f"Erro a criar tabelas: {type(e).__name__}: {e}\n{traceback.format_exc()}")
-        sys.exit(3)
+        _sair_com_erro(
+            f"Erro a preparar a base de dados:\n{e}",
+            3,
+            f"{type(e).__name__}\n{traceback.format_exc()}",
+        )
 
 
 def _main() -> None:
@@ -257,8 +272,9 @@ def _main() -> None:
         webbrowser.open(f"http://localhost:{PORTA}")
         sys.exit(0)
     if ocupante == "outro":
-        _log(f"A porta {PORTA} está ocupada por outro programa. Fecha-o e abre de novo.")
-        sys.exit(4)
+        _sair_com_erro(
+            f"A porta {PORTA} está ocupada por outro programa. Fecha-o e abre de novo.", 4
+        )
 
     _preflight()
 
@@ -335,5 +351,6 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except BaseException as e:
-        _log(f"Exceção não tratada no arranque: {type(e).__name__}: {e}\n{traceback.format_exc()}")
-        sys.exit(1)
+        _sair_com_erro(
+            f"Erro inesperado no arranque:\n{type(e).__name__}: {e}", 1, traceback.format_exc()
+        )
