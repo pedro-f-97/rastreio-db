@@ -36,19 +36,22 @@ function calcularMediana(valores) {
         : ordenados[meio];
 }
 
+// Sem meses (só o mês em curso no período), não há média: mostra-se «—»
 function calcularMedia(valores) {
-    if (valores.length === 0) return 0;
+    if (valores.length === 0) return null;
     return valores.reduce((s, v) => s + v, 0) / valores.length;
 }
 
 // Taxa de poupança dos `n` meses que acabam em cada mês. Soma a poupança e as
 // receitas da janela antes de dividir, para que um salário que caia no fim do
-// mês anterior não crie picos. Sem `n` meses de histórico, não há valor. Os
-// meses vêm ordenados, como os devolve o resumo mensal
+// mês anterior não crie picos. Sem `n` meses de histórico, não há valor, nem
+// no mês em curso, que está incompleto. Os meses vêm ordenados, como os
+// devolve o resumo mensal
 function taxaMovel(meses, n) {
     const indice = m => m.ano * 12 + m.mes;
     const primeiro = meses.length > 0 ? indice(meses[0]) : 0;
     return meses.map(m => {
+        if (m.em_curso) return null;
         const fim = indice(m);
         if (fim - n + 1 < primeiro) return null;
         const janela = meses.filter(x => indice(x) > fim - n && indice(x) <= fim);
@@ -241,6 +244,7 @@ export default function Estatisticas() {
             Extraordinaria: m.despesa_extraordinaria,
             SemClasse: m.despesa_sem_classe,
             DespesaTipica: m.despesas - m.despesa_extraordinaria,
+            emCurso: m.em_curso,
             'Média de 3 meses': movel3[i],
             'Média de 12 meses': movel12[i],
         }));
@@ -273,8 +277,10 @@ export default function Estatisticas() {
     }, [resumo, anoSeleccionado, incluirOutliers]);
 
     const { cardTipico, cardPoupanca, cardTaxa, partesTipico } = useMemo(() => {
-        const meses = dadosGraficoFiltrados;
-        const soma = campo => meses.reduce((s, m) => s + m[campo], 0);
+        // As médias e as taxas contam só os meses completos; as somas do
+        // período contam todos
+        const meses = dadosGraficoFiltrados.filter(m => !m.emCurso);
+        const soma = (campo, lista = meses) => lista.reduce((s, m) => s + m[campo], 0);
         // Sem as extraordinárias, a poupança do mês sobe o que elas custaram
         const poupancasTipicas = meses.map(m => m.Poupança - m.Extraordinaria);
         // Taxa do período: soma da poupança / soma das receitas, como no Histórico
@@ -284,7 +290,7 @@ export default function Estatisticas() {
         return {
             cardTipico: {
                 media: calcularMedia(meses.map(m => m.DespesaTipica)),
-                extraordinarias: soma('Extraordinaria'),
+                extraordinarias: soma('Extraordinaria', dadosGraficoFiltrados),
             },
             cardPoupanca: {
                 media: calcularMedia(meses.map(m => m.Poupança)),
@@ -504,10 +510,12 @@ export default function Estatisticas() {
                             if (categorias.length === 0) return null;
                             // Os mesmos meses das categorias: a linha das despesas
                             // bate certo com o cartão «Mês típico» na última coluna
-                            const totais = dadosGraficoFiltrados.map(m => m[grupo.campo]);
+                            // (sem o mês em curso, como as categorias)
+                            const completos = dadosGraficoFiltrados.filter(m => !m.emCurso);
+                            const totais = completos.map(m => m[grupo.campo]);
                             const media = calcularMedia(totais);
                             const mediana = calcularMediana(totais);
-                            const tipico = calcularMedia(dadosGraficoFiltrados.map(m => m[grupo.campoTipico]));
+                            const tipico = calcularMedia(completos.map(m => m[grupo.campoTipico]));
                             return (
                                 <Fragment key={grupo.tipo}>
                                     <tr className="linha-ano linha-grupo">
