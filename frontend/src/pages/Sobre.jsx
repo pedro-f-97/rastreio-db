@@ -1,20 +1,24 @@
 import { useGuia } from '../contexts/GuiaContext';
 import './Sobre.css';
-import './Categorias.css';
+import '../componentes.css';
+import CabecalhoPagina from '../components/CabecalhoPagina';
 
 export default function Sobre() {
     const { reiniciar } = useGuia();
 
     return (
-        <div className="sobre-page">
-            <div className="sobre-cabecalho">
-                <h1>Conceitos</h1>
-                <button className="sobre-botao-tour" onClick={reiniciar}>
+        <div className="pagina-container sobre-page">
+            <CabecalhoPagina
+                secao="Ajuda"
+                titulo="Conceitos"
+                descricao="Como a aplicação pensa: contas, categorias, regras e património."
+            >
+                <button className="btn-secundario" onClick={reiniciar}>
                     Reiniciar tour guiado
                 </button>
-            </div>
+            </CabecalhoPagina>
 
-            <section className="sobre-seccao">
+            <section className="sobre-seccao" data-numero="01">
                 <h2>Contas, Perfis de Importação e Transações</h2>
                 <p>
                     Cada perfil de importação é criado com base no formato do extracto de um banco específico e fica
@@ -34,7 +38,7 @@ export default function Sobre() {
                 </div>
             </section>
 
-            <section className="sobre-seccao">
+            <section className="sobre-seccao" data-numero="02">
                 <h2>Verificação do saldo e transações manuais</h2>
                 <p>
                     O saldo de cada conta é calculado a partir do saldo de referência e das transações. Para
@@ -63,7 +67,7 @@ export default function Sobre() {
                 </div>
             </section>
 
-            <section className="sobre-seccao">
+            <section className="sobre-seccao" data-numero="03">
                 <h2>Categorias</h2>
                 <p>
                     Cada categoria tem um de quatro tipos:{' '}
@@ -86,7 +90,7 @@ export default function Sobre() {
                 </div>
             </section>
 
-            <section className="sobre-seccao">
+            <section className="sobre-seccao" data-numero="04">
                 <h2>Classificação das despesas</h2>
                 <p>
                     Cada subcategoria de uma categoria de despesa pode ter uma classificação:{' '}
@@ -113,7 +117,7 @@ export default function Sobre() {
                 </div>
             </section>
 
-            <section className="sobre-seccao">
+            <section className="sobre-seccao" data-numero="05">
                 <h2>Regras</h2>
                 <p>
                     Uma regra associa um padrão de descrição a uma categoria e subcategoria, e é aplicada
@@ -132,7 +136,7 @@ export default function Sobre() {
                 </p>
             </section>
 
-            <section className="sobre-seccao">
+            <section className="sobre-seccao" data-numero="06">
                 <h2>Património</h2>
                 <p>
                     O património é composto por três tipos de activo: <strong>Liquidez</strong>,{' '}
@@ -164,7 +168,7 @@ export default function Sobre() {
                 </div>
             </section>
 
-            <section className="sobre-seccao">
+            <section className="sobre-seccao" data-numero="07">
                 <h2>Versão</h2>
                 <p>{import.meta.env.VITE_VERSAO}</p>
             </section>

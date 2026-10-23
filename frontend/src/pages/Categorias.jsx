@@ -6,15 +6,10 @@ import {
 import { NOMES_CLASSE_DESPESA } from '../utils/formatacao';
 import '../componentes.css';
 import './Categorias.css';
+import CabecalhoPagina from '../components/CabecalhoPagina';
+import Icone from '../components/Icone';
 
-const ESTILO_CLASSE = {
-    background: 'var(--bg-tertiary)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-    padding: 'var(--space-xs) var(--space-sm)',
-    fontSize: 'var(--text-sm)',
-    borderRadius: 'var(--radius-sm)',
-};
+const AJUDA_TIPOS = "Despesa: gastos normais (alimentação, transportes, etc.)\nReceita: entradas de dinheiro (salário, vendas, etc.)\nInvestimento: alocação de capital (ETFs, poupança, etc.)\nTransferência: movimentos internos entre contas (excluídos das métricas)";
 
 // A classificação só existe nas subcategorias de categorias de despesa; o valor
 // vazio é «sem classificação» (null na API)
@@ -23,7 +18,7 @@ function SelectClasse({ valor, onChange }) {
         <select
             value={valor ?? ''}
             onChange={e => onChange(e.target.value || null)}
-            style={ESTILO_CLASSE}
+            className="select-pequeno"
             title="Classificação da despesa, para o mês típico das Estatísticas"
         >
             <option value="">Sem classificação</option>
@@ -120,9 +115,14 @@ export default function Categorias() {
 
     return (
         <div className="pagina-container">
-            <h1 className="titulo-pagina">Categorias</h1>
+            <CabecalhoPagina
+                secao="02 · Configuração"
+                titulo="Categorias"
+                descricao="O tipo da categoria decide como entra nas Estatísticas. Nas subcategorias de despesa, a classificação separa o essencial do evitável."
+            />
 
             <div className="form-linha nova-categoria" data-tour="categorias-nova-categoria">
+                <span className="form-linha-titulo">Nova</span>
                 <input
                     type="text"
                     placeholder="Nova categoria..."
@@ -139,12 +139,13 @@ export default function Categorias() {
                     <option value="investimento">Investimento</option>
                     <option value="transferencia">Transferência</option>
                 </select>
-                <button onClick={aoAdicionarCategoria}>Adicionar</button>
+                <button onClick={aoAdicionarCategoria}><Icone nome="mais" /> Adicionar</button>
+                <span className="tipo-info" title={AJUDA_TIPOS}><Icone nome="info" tamanho={14} /></span>
             </div>
 
             {erro && <p className="erro">{erro}</p>}
 
-            <div className="lista-itens">
+            <div className="grelha-itens grelha-colunas">
                 {categorias.map(cat => (
                     <CategoriaItem
                         key={cat.id}
@@ -192,8 +193,8 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
     const estaAEditar = editando.tipoEdicao === 'categoria' && editando.id === cat.id;
 
     return (
-        <div className="item-lista">
-            <div className="item-cabecalho">
+        <div className={`item-lista categoria-cartao categoria-${cat.tipo}`}>
+            <div className="item-cabecalho revelar-accoes">
                 {estaAEditar ? (
                     <>
                         <input
@@ -214,29 +215,30 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                             <option value="investimento">Investimento</option>
                             <option value="transferencia">Transferência</option>
                         </select>
-                        <button className="btn-confirmar" onClick={() => onRenomear(cat.id, editando.valor, editando.tipoCategoria)}>✓</button>
-                        <button className="btn-cancelar" onClick={() => setEditando({})}>✕</button>
+                        <button className="btn-confirmar" onClick={() => onRenomear(cat.id, editando.valor, editando.tipoCategoria)} title="Guardar"><Icone nome="confirmar" /></button>
+                        <button className="btn-cancelar" onClick={() => setEditando({})} title="Cancelar"><Icone nome="fechar" /></button>
                     </>
                 ) : (
                     <>
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className="item-titulo">
                             <span className="item-nome">{cat.nome}</span>
-                            <span className={`badge-tipo badge-tipo-${cat.tipo}`}>{cat.tipo}</span>
-                            <span className="tipo-info" title={"Despesa: gastos normais (alimentação, transportes, etc.)\nReceita: entradas de dinheiro (salário, vendas, etc.)\nInvestimento: alocação de capital (ETFs, poupança, etc.)\nTransferência: movimentos internos entre contas (excluídos das métricas)"}>ℹ</span>
+                            <span className={`badge-tipo badge-tipo-${cat.tipo}`} title={AJUDA_TIPOS}>{cat.tipo}</span>
                         </div>
                     </>
                 )}
-                <div className="accoes">
-                    <button onClick={() => setEditando({ tipoEdicao: 'categoria', id: cat.id, valor: cat.nome, tipoCategoria: cat.tipo })}>✏️</button>
-                    <button className="btn-ghost" onClick={() => onApagar(cat.id)}>🗑</button>
-                </div>
+                {!estaAEditar && (
+                    <div className="accoes">
+                        <button onClick={() => setEditando({ tipoEdicao: 'categoria', id: cat.id, valor: cat.nome, tipoCategoria: cat.tipo })} title="Editar a categoria"><Icone nome="editar" /></button>
+                        <button className="perigo" onClick={() => onApagar(cat.id)} title="Apagar a categoria"><Icone nome="apagar" /></button>
+                    </div>
+                )}
             </div>
 
             <div className="subcategorias">
                 {cat.subcategorias?.map(sub => {
                     const estaAEditarSub = editando.tipo === 'subcategoria' && editando.id === sub.id;
                     return (
-                        <div key={sub.id} className="subcategoria-item">
+                        <div key={sub.id} className={`subcategoria-item ${estaAEditarSub ? 'a-editar' : 'revelar-accoes'}`}>
                             {estaAEditarSub ? (
                                 <>
                                     <input
@@ -248,12 +250,11 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                             if (e.key === 'Escape') setEditando({});
                                         }}
                                     />
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                    <label className="caixa-marcar">
                                         <input
                                             type="checkbox"
                                             checked={!!editando.trataPatrimonio}
                                             onChange={e => setEditando(prev => ({ ...prev, trataPatrimonio: e.target.checked }))}
-                                            style={{ width: 'auto' }}
                                         />
                                         Património
                                     </label>
@@ -263,26 +264,28 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                             onChange={v => setEditando(prev => ({ ...prev, classeDespesa: v }))}
                                         />
                                     )}
-                                    <button className="btn-confirmar" onClick={() => confirmarSub(sub)}>✓</button>
-                                    <button className="btn-cancelar" onClick={() => setEditando({})}>✕</button>
+                                    <button className="btn-confirmar" onClick={() => confirmarSub(sub)} title="Guardar"><Icone nome="confirmar" /></button>
+                                    <button className="btn-cancelar" onClick={() => setEditando({})} title="Cancelar"><Icone nome="fechar" /></button>
                                 </>
                             ) : (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                                <span className="subcategoria-nome">
                                     <span>{sub.nome}</span>
                                     {sub.trata_patrimonio && (
-                                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>P</span>
+                                        <span className="chip chip-accent" title="As transações desta subcategoria contam para o património">Património</span>
                                     )}
                                     {eDespesa && sub.classe_despesa && (
-                                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', opacity: 0.8 }}>
+                                        <span className={`chip chip-ponto classe-${sub.classe_despesa}`}>
                                             {NOMES_CLASSE_DESPESA[sub.classe_despesa]}
                                         </span>
                                     )}
                                 </span>
                             )}
-                            <div className="accoes">
-                                <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio, classeDespesa: sub.classe_despesa })}>✏️</button>
-                                <button className="btn-ghost" onClick={() => onApagarSub(cat.id, sub.id)}>🗑</button>
-                            </div>
+                            {!estaAEditarSub && (
+                                <div className="accoes">
+                                    <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio, classeDespesa: sub.classe_despesa })} title="Editar a subcategoria"><Icone nome="editar" tamanho={14} /></button>
+                                    <button className="perigo" onClick={() => onApagarSub(cat.id, sub.id)} title="Apagar a subcategoria"><Icone nome="apagar" tamanho={14} /></button>
+                                </div>
+                            )}
                         </div>
                     );
                 })}
@@ -300,21 +303,20 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                 if (e.key === 'Escape') cancelarNovaSub();
                             }}
                         />
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        <label className="caixa-marcar">
                             <input
                                 type="checkbox"
                                 checked={novaSubPatrimonio}
                                 onChange={e => setNovaSubPatrimonio(e.target.checked)}
-                                style={{ width: 'auto' }}
                             />
                             Património
                         </label>
                         {eDespesa && <SelectClasse valor={novaSubClasse} onChange={setNovaSubClasse} />}
-                        <button className="btn-confirmar" onClick={submeterNovaSub}>✓</button>
-                        <button className="btn-cancelar" onClick={cancelarNovaSub}>✕</button>
+                        <button className="btn-confirmar" onClick={submeterNovaSub} title="Criar"><Icone nome="confirmar" /></button>
+                        <button className="btn-cancelar" onClick={cancelarNovaSub} title="Cancelar"><Icone nome="fechar" /></button>
                     </div>
                 ) : (
-                    <button className="btn-nova-subcategoria" onClick={() => setACriarSub(true)}>+ Nova subcategoria</button>
+                    <button className="btn-ghost btn-nova-subcategoria" onClick={() => setACriarSub(true)}><Icone nome="mais" tamanho={14} /> Nova subcategoria</button>
                 )}
             </div>
         </div>

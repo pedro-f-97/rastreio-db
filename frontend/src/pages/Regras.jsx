@@ -3,6 +3,8 @@ import { listarRegras, criarRegra, apagarRegra, preVisualizarRegras, aplicarEmMa
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import './Regras.css';
 import '../componentes.css';
+import CabecalhoPagina from '../components/CabecalhoPagina';
+import Icone from '../components/Icone';
 
 export default function Regras() {
     const [regras, setRegras] = useState([]);
@@ -134,14 +136,18 @@ export default function Regras() {
 
     return (
         <div className="pagina-container">
-            <div className="flex-row-between">
-                <h1 className="titulo-pagina">Regras de categorização</h1>
-                <button className="btn-aplicar" onClick={aoAbrirModal}>
-                    Aplicar regras às transações
+            <CabecalhoPagina
+                secao="02 · Configuração"
+                titulo="Regras de categorização"
+                descricao="Uma palavra na descrição decide a categoria. As regras aplicam-se ao importar e, ao criar, às transações por categorizar."
+            >
+                <button className="btn-primario" onClick={aoAbrirModal}>
+                    <Icone nome="regras" /> Aplicar regras às transações
                 </button>
-            </div>
+            </CabecalhoPagina>
 
             <div className="form-linha regras-form">
+                <span className="form-linha-titulo">Nova</span>
                 <input
                     type="text"
                     placeholder="Palavra-chave..."
@@ -167,7 +173,7 @@ export default function Regras() {
                         <option key={s.id} value={s.id}>{s.nome}</option>
                     ))}
                 </select>
-                <button onClick={aoSubmeter}>Adicionar</button>
+                <button onClick={aoSubmeter}><Icone nome="mais" /> Adicionar</button>
             </div>
 
             {feedback && (
@@ -176,28 +182,37 @@ export default function Regras() {
                 </p>
             )}
 
-            <table className="tabela-base tabela-regras">
-                <thead>
-                    <tr>
-                        <th>Palavra-chave</th>
-                        <th>Categoria</th>
-                        <th>Subcategoria</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {regras.map(r => (
-                        <tr key={r.id}>
-                            <td>{r.palavra_chave}</td>
-                            <td>{r.categoria_nome ?? '—'}</td>
-                            <td>{r.subcategoria_nome ?? '—'}</td>
-                            <td>
-                                <button className="btn-ghost" onClick={() => aoApagar(r.id)}>🗑</button>
-                            </td>
+            <div className="tabela-wrapper">
+                <table className="tabela-base tabela-regras">
+                    <thead>
+                        <tr>
+                            <th>Palavra-chave <span className="contagem">{regras.length}</span></th>
+                            <th></th>
+                            <th>Categoria</th>
+                            <th>Subcategoria</th>
+                            <th></th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {regras.length === 0 && (
+                            <tr><td colSpan={5} className="tabela-vazia">Ainda não há regras.</td></tr>
+                        )}
+                        {regras.map(r => (
+                            <tr key={r.id} className="revelar-accoes">
+                                <td><span className="palavra-chave">{r.palavra_chave}</span></td>
+                                <td className="regra-seta"><Icone nome="direita" tamanho={14} /></td>
+                                <td>{r.categoria_nome ?? '—'}</td>
+                                <td className="celula-secundaria">{r.subcategoria_nome ?? '—'}</td>
+                                <td className="col-accoes">
+                                    <div className="accoes">
+                                        <button className="perigo" onClick={() => aoApagar(r.id)} title="Apagar a regra"><Icone nome="apagar" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
             {modalAberto && (
                 <div className="modal-overlay">
@@ -206,12 +221,20 @@ export default function Regras() {
                         {fase === 'resumo' && (
                             <>
                                 <h3>Aplicar regras às transações</h3>
-                                <p>{semConflito.length} transações serão actualizadas automaticamente.</p>
-                                {comConflito.length > 0 && (
-                                    <p>{comConflito.length} transações têm conflito de categoria — serão analisadas uma a uma.</p>
-                                )}
+                                <div className="resumo-aplicar">
+                                    <div className="resumo-aplicar-numero">
+                                        <strong>{semConflito.length}</strong>
+                                        <span>transações serão actualizadas automaticamente.</span>
+                                    </div>
+                                    {comConflito.length > 0 && (
+                                        <div className="resumo-aplicar-numero conflito">
+                                            <strong>{comConflito.length}</strong>
+                                            <span>transações têm conflito de categoria — serão analisadas uma a uma.</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="modal-acoes">
-                                    <button onClick={fecharModal}>Cancelar</button>
+                                    <button className="btn-ghost" onClick={fecharModal}>Cancelar</button>
                                     {comConflito.length > 0 ? (
                                         <button className="btn-primario" onClick={() => setFase('conflitos')}>
                                             Analisar conflitos →
@@ -230,17 +253,21 @@ export default function Regras() {
                                 <h3>Conflito {indiceConflito + 1} de {comConflito.length}</h3>
                                 <p className="modal-descricao">{conflitoActual.descricao}</p>
                                 <div className="conflito-detalhe">
-                                    <div>
+                                    <div className="conflito-lado">
                                         <span className="label">Categoria actual</span>
                                         <span>{conflitoActual.categoria_atual_nome}</span>
                                     </div>
-                                    <div>
+                                    <Icone nome="direita" tamanho={18} />
+                                    <div className="conflito-lado sugerida">
                                         <span className="label">Sugerida pela regra</span>
                                         <span>{conflitoActual.categoria_sugerida_nome} → {conflitoActual.subcategoria_sugerida_nome}</span>
                                     </div>
                                 </div>
+                                <div className="conflito-progresso">
+                                    <span style={{ width: `${((indiceConflito + 1) / comConflito.length) * 100}%` }} />
+                                </div>
                                 <div className="modal-acoes">
-                                    <button onClick={avancarConflito}>Ignorar</button>
+                                    <button className="btn-ghost" onClick={avancarConflito}>Ignorar</button>
                                     <button className="btn-primario" onClick={() => aoAprovarConflito(conflitoActual)}>
                                         Aplicar regra
                                     </button>
@@ -251,7 +278,12 @@ export default function Regras() {
                         {fase === 'concluido' && (
                             <>
                                 <h3>Concluído</h3>
-                                <p>{resultado?.aplicadas} transações actualizadas.</p>
+                                <div className="resumo-aplicar">
+                                    <div className="resumo-aplicar-numero">
+                                        <strong>{resultado?.aplicadas}</strong>
+                                        <span>transações actualizadas.</span>
+                                    </div>
+                                </div>
                                 <div className="modal-acoes">
                                     <button className="btn-primario" onClick={fecharModal}>Fechar</button>
                                 </div>
