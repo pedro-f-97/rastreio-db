@@ -3,6 +3,7 @@ import { listarPerfis, criarPerfil, atualizarPerfil, eliminarPerfil, analisarFic
 import { previewExtrato, importarExtrato, listarHistorico, desfazerImportacao } from '../api/importacao'
 import { getContas } from '../api/contas'
 import { classeValor, formatarEuros } from '../utils/formatacao'
+import VerificacaoSaldo from '../components/VerificacaoSaldo'
 import '../componentes.css'
 import './Importacao.css'
 
@@ -61,6 +62,8 @@ export default function Importacao({ onDadosAlterados }) {
     const [preview, setPreview] = useState(null)
     const [aImportar, setAImportar] = useState(false)
     const [resultado, setResultado] = useState(null)
+    // A conta da última importação, cujo saldo se verifica, e um contador
+    const [verificacao, setVerificacao] = useState({ contaId: null, chave: 0 })
     const inputFicheiroRef = useRef(null)
 
     const [contas, setContas] = useState([])
@@ -225,6 +228,8 @@ export default function Importacao({ onDadosAlterados }) {
         try {
             const res = await importarExtrato(perfilId, ficheiro)
             setResultado(res.data)
+            const contaId = perfis.find(p => p.id === Number(perfilId))?.conta_id ?? null
+            setVerificacao(v => ({ contaId, chave: v.chave + 1 }))
             setPreview(null)
             setFicheiro(null)
             if (inputFicheiroRef.current) inputFicheiroRef.current.value = ''
@@ -399,6 +404,18 @@ export default function Importacao({ onDadosAlterados }) {
                         <span className="resultado-inseridas">✓ {resultado.inseridas} inseridas</span>
                         <span className="resultado-duplicadas">{resultado.duplicadas} duplicadas</span>
                     </div>
+                )}
+
+                {resultado && (
+                    <VerificacaoSaldo
+                        contaId={verificacao.contaId}
+                        contaNome={contas.find(c => c.id === verificacao.contaId)?.nome}
+                        chave={verificacao.chave}
+                        onTransacaoCriada={t => {
+                            onDadosAlterados?.()
+                            setVerificacao(v => ({ contaId: t.conta_id, chave: v.chave + 1 }))
+                        }}
+                    />
                 )}
             </section>
 
