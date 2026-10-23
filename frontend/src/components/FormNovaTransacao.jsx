@@ -54,7 +54,9 @@ export default function FormNovaTransacao({ inicial = {}, onFechar, onCriada }) 
             });
             onCriada?.(res.data);
         } catch (err) {
-            setErro(err.response?.data?.detail?.toString() || 'Erro ao criar a transação.');
+            // Um 422 traz uma lista de erros, e não uma mensagem
+            const detalhe = err.response?.data?.detail;
+            setErro(typeof detalhe === 'string' ? detalhe : 'Erro ao criar a transação: verifica os campos.');
         } finally {
             setAGuardar(false);
         }
@@ -88,7 +90,10 @@ export default function FormNovaTransacao({ inicial = {}, onFechar, onCriada }) 
                 <label className="label">Categoria (sem categoria, aplicam-se as regras)
                     <select
                         value={form.categoria_id}
-                        onChange={e => setForm(f => ({ ...f, categoria_id: e.target.value, subcategoria_id: '' }))}
+                        onChange={e => {
+                            setSubcategorias([]);
+                            setForm(f => ({ ...f, categoria_id: e.target.value, subcategoria_id: '' }));
+                        }}
                     >
                         <option value="">—</option>
                         {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}

@@ -16,12 +16,16 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
 
     useEffect(() => {
         if (!contaId) return;
+        // Uma resposta antiga, que chegue depois de um pedido mais recente, ignora-se
+        let ignorar = false;
         verificarSaldo(contaId)
             .then(res => {
+                if (ignorar) return;
                 setResultado(res.data);
                 setAberto(res.data.intervalos.length > 0);
             })
-            .catch(() => setResultado(null));
+            .catch(() => !ignorar && setResultado(null));
+        return () => { ignorar = true; };
     }, [contaId, chave]);
 
     if (!resultado) return null;
@@ -37,7 +41,11 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
     );
 
     function descreverDiferenca() {
-        if (diferenca_atual === 0) return `O saldo calculado ${nome} bate certo com o do banco.`;
+        // O último saldo bate certo, mas os anteriores não: falta ou sobra uma
+        // transação no passado, que muda o histórico e as estatísticas
+        if (diferenca_atual === 0) {
+            return `O último saldo ${nome} bate certo com o do banco, mas os anteriores não.`;
+        }
         const sentido = diferenca_atual > 0 ? 'acima' : 'abaixo';
         return `O saldo calculado ${nome} está ${formatarEuros(Math.abs(diferenca_atual))} ${sentido} do banco.`;
     }
@@ -69,21 +77,25 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
                                         <td>
                                             {i.de
                                                 ? `Entre ${formatarData(i.de)} e ${formatarData(i.ate)}`
-                                                : `Até ${formatarData(i.ate)}`}
+                                                : `No saldo de referência, de ${formatarData(i.ate)}`}
                                         </td>
                                         <td className="valor" style={{ whiteSpace: 'nowrap' }}>{prefixoSinal(i.variacao)}{formatarEuros(i.variacao)}</td>
                                         <td>
-                                            <button
-                                                className="btn-secundario"
-                                                onClick={() => setCorrecao({
-                                                    conta_id: contaId,
-                                                    data: i.ate,
-                                                    // O calculado está acima do banco: falta uma saída
-                                                    valor: -i.variacao,
-                                                })}
-                                            >
-                                                Criar transação de correção
-                                            </button>
+                                            {/* Uma transação não corrige o saldo de referência:
+                                                é o saldo no fim desse dia, seja qual for */}
+                                            {i.de ? (
+                                                <button
+                                                    className="btn-secundario"
+                                                    onClick={() => setCorrecao({
+                                                        conta_id: contaId,
+                                                        data: i.ate,
+                                                        // O calculado está acima do banco: falta uma saída
+                                                        valor: -i.variacao,
+                                                    })}
+                                                >
+                                                    Criar transação de correção
+                                                </button>
+                                            ) : 'Corrige o saldo de referência na página Contas.'}
                                         </td>
                                     </tr>
                                 ))}

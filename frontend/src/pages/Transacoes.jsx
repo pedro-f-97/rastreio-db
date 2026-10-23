@@ -147,8 +147,11 @@ export default function Transacoes({ onDadosAlterados }) {
 
     async function aoGuardarSaldo(t, saldo) {
         // A verificação compara ao fim do dia: com outras transações no mesmo
-        // dia, o saldo tem de ser o do fim do dia
-        const outrasNoDia = transacoes.some(o => o.id !== t.id && o.conta_id === t.conta_id && o.data === t.data);
+        // dia, o saldo tem de ser o do fim do dia. Procuram-se no mês da conta,
+        // e não só na página, que pode estar filtrada
+        const [ano, mes] = t.data.split('-').map(Number);
+        const doMes = await listarTransacoes({ conta_id: t.conta_id, ano, mes, tamanho: 200 });
+        const outrasNoDia = doMes.data.items.some(o => o.id !== t.id && o.data === t.data);
         if (saldo !== null && outrasNoDia && !window.confirm(
             "Há outras transações desta conta neste dia. Indica o saldo da conta no fim deste dia, " +
             "depois de todas elas. Guardar?"
