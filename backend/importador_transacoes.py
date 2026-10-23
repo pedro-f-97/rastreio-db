@@ -1,4 +1,4 @@
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -41,7 +41,11 @@ def regras_por_precedencia(db: Session) -> list[RegraCategorizacao]:
 
 
 def importar_transacoes(
-    transacoes_parsed: list[dict], db: Session, conta_id: int, ficheiro: str
+    transacoes_parsed: list[dict],
+    db: Session,
+    conta_id: int,
+    ficheiro: str,
+    compara_saldo: bool = True,
 ) -> dict:
     regras = regras_por_precedencia(db)
     novas = []
@@ -52,24 +56,21 @@ def importar_transacoes(
             Transacao.data, Transacao.descricao, Transacao.valor, Transacao.saldo
         ).filter(Transacao.conta_id == conta_id)
 
+        # Sem saldo no extracto, o saldo da BD não entra na comparação: é o que
+        # se escreveu à mão, e a linha do ficheiro é a mesma transação
+        def chave(data, descricao, valor, saldo):
+            return (data, descricao, valor, saldo) if compara_saldo else (data, descricao, valor)
+
         # Conta-se quantas vezes cada linha já existe: cada cópia na BD absorve
         # uma linha igual do ficheiro, e as restantes são transações novas
-        # (dois cafés iguais no mesmo dia, um deles só no extracto seguinte).
-        # Por (data, descrição, valor), os saldos de cada cópia
-        existentes: defaultdict[tuple, Counter] = defaultdict(Counter)
-        for r in query_existentes:
-            existentes[(r.data, r.descricao, r.valor)][r.saldo] += 1
+        # (dois cafés iguais no mesmo dia, um deles só no extracto seguinte)
+        existentes = Counter(chave(r.data, r.descricao, r.valor, r.saldo) for r in query_existentes)
 
         for t in transacoes_parsed:
-            saldos = existentes[(t["data"], t["descricao"], t["valor"])]
-            saldo = t["saldo"]
-            # Uma linha sem saldo também é a cópia a que se escreveu o saldo à
-            # mão; com saldo, tem de ser igual
-            if saldo is None and saldos[None] == 0:
-                saldo = next((s for s, n in saldos.items() if n > 0), None)
+            c = chave(t["data"], t["descricao"], t["valor"], t["saldo"])
 
-            if saldos[saldo] > 0:
-                saldos[saldo] -= 1
+            if existentes[c] > 0:
+                existentes[c] -= 1
                 duplicadas += 1
                 continue
 

@@ -75,7 +75,11 @@ async def importar_extrato(
             ),
         )
     return importar_transacoes(
-        resultado["transacoes"], db, conta_id=perfil.conta_id, ficheiro=file.filename or ""
+        resultado["transacoes"],
+        db,
+        conta_id=perfil.conta_id,
+        ficheiro=file.filename or "",
+        compara_saldo=perfil.tem_saldo,
     )
 
 
