@@ -136,6 +136,12 @@ class TipoCategoria(enum.Enum):
     transferencia = "transferencia"
 
 
+class ClasseDespesa(enum.Enum):
+    essencial = "essencial"
+    evitavel = "evitavel"
+    extraordinaria = "extraordinaria"
+
+
 class TipoAtivo(Base):
     __tablename__ = "tipos_ativo"
 
@@ -191,6 +197,8 @@ class Subcategoria(Base):
     nome: Mapped[str] = mapped_column(String(100), nullable=False)
     trata_patrimonio: Mapped[bool] = mapped_column(Boolean, default=False)
     categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias.id"), nullable=False)
+    # Só nas subcategorias de categorias de despesa; NULL é sem classificação
+    classe_despesa: Mapped[Optional[ClasseDespesa]] = mapped_column(SAEnum(ClasseDespesa))
 
     categoria: Mapped["Categoria"] = relationship("Categoria", back_populates="subcategorias")
     transacoes: Mapped[List["Transacao"]] = relationship("Transacao", back_populates="subcategoria")
@@ -446,6 +454,25 @@ def acrescentar_importacao_id(caminho: str = DB_PATH) -> bool:
     return True
 
 
+def acrescentar_classe_despesa(caminho: str = DB_PATH) -> bool:
+    """Acrescenta a coluna `subcategorias.classe_despesa`, se ainda não existir.
+
+    Fica NULL (sem classificação) nas subcategorias que já lá estão, e essas
+    contam nas estatísticas como até aqui. Como em `acrescentar_importacao_id`,
+    o `ADD COLUMN` que pode ser NULL não reescreve a tabela, e com a coluna ou
+    sem a tabela não escreve nada. Devolve se a acrescentou.
+    """
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(subcategorias)")}
+        if not colunas or "classe_despesa" in colunas:
+            return False
+        con.execute("ALTER TABLE subcategorias ADD COLUMN classe_despesa VARCHAR(14)")
+    finally:
+        con.close()
+    return True
+
+
 # As migrações do schema, por ordem: a posição na lista é a versão a que cada
 # uma leva a BD. A BD guarda em `PRAGMA user_version` a última que já levou, e
 # no arranque e no restauro de um backup correm as que faltam. Uma BD nova é
@@ -461,6 +488,7 @@ MIGRACOES = (
     ("chaves para ativos_old reparadas", reparar_fk_ativos),
     ("coluna transacoes.reembolso removida", remover_coluna_reembolso),
     ("coluna transacoes.importacao_id acrescentada", acrescentar_importacao_id),
+    ("coluna subcategorias.classe_despesa acrescentada", acrescentar_classe_despesa),
 )
 
 

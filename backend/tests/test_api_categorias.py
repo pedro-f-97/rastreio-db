@@ -158,7 +158,8 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
 
     Cálculo à mão (o corpo de `listar_subcategorias`):
       categoria Casa    -> [Alimentação], serializada como
-        {trata_patrimonio: False, nome: "Alimentação", id, categoria_id}
+        {trata_patrimonio: False, nome: "Alimentação", id, categoria_id,
+         classe_despesa: None}
       categoria Receita -> [Salário], com trata_patrimonio True
       categoria 9999    -> a `first()` devolve None -> 404
         {"detail": "Categoria não encontrada"}
@@ -175,6 +176,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
             "nome": "Alimentação",
             "id": d["sub_alim"].id,
             "categoria_id": d["cat_casa"].id,
+            "classe_despesa": None,
         }
     ]
 
@@ -186,6 +188,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
             "nome": "Salário",
             "id": d["sub_salario"].id,
             "categoria_id": d["cat_receita"].id,
+            "classe_despesa": None,
         }
     ]
 
@@ -329,7 +332,8 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
 
     Cálculo à mão:
       POST {"nome": "Casa de banho"} em Casa -> `None or False` = False,
-        resposta {trata_patrimonio: False, nome, id: 3, categoria_id: 1}
+        resposta {trata_patrimonio: False, nome, id: 3, categoria_id: 1,
+        classe_despesa: None}
         (as ids de subcategoria seguem a criação: Alimentação=1, Salário=2)
       POST {"nome": "Prémio", "trata_patrimonio": True} em Receita ->
         `True or False` = True, id 4, categoria_id 2
@@ -349,6 +353,7 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
         "nome": "Casa de banho",
         "id": 3,
         "categoria_id": d["cat_casa"].id,
+        "classe_despesa": None,
     }
 
     r2 = client.post(
@@ -362,6 +367,7 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
         "nome": "Prémio",
         "id": 4,
         "categoria_id": d["cat_receita"].id,
+        "classe_despesa": None,
     }
 
     r_404 = client.post("/api/categorias/9999/subcategorias", json={"nome": "X"})
@@ -399,6 +405,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
         "nome": "Comida",
         "id": d["sub_alim"].id,
         "categoria_id": d["cat_casa"].id,
+        "classe_despesa": None,
     }
 
     r2 = client.put(
@@ -411,6 +418,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
         "nome": "Ordenado",
         "id": d["sub_salario"].id,
         "categoria_id": d["cat_receita"].id,
+        "classe_despesa": None,
     }
 
     r_404 = client.put(
