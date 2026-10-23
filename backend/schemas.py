@@ -59,10 +59,27 @@ class TransacaoBase(BaseModel):
     subcategoria_id: Optional[int] = None
 
 
+class TransacaoCreate(BaseModel):
+    """Uma transacção criada à mão, para corrigir o saldo."""
+
+    conta_id: int
+    data: date
+    descricao: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+    ]
+    valor: FiniteFloat
+    notas: Optional[str] = None
+    categoria_id: Optional[int] = None
+    subcategoria_id: Optional[int] = None
+
+
 class TransacaoUpdate(BaseModel):
     categoria_id: Optional[int] = None
     subcategoria_id: Optional[int] = None
     notas: Optional[str] = None
+    # Omitido mantém o que existe e enviado a null apaga-o; só nas contas cujo
+    # extracto não traz saldo
+    saldo: Optional[FiniteFloat] = None
 
 
 class Transacao(TransacaoBase):
