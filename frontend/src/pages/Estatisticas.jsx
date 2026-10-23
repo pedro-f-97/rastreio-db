@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria } from '../api/estatisticas';
+import { obterResumoMensal, obterPorCategoria, obterPorSubcategoria, obterExtraordinarias } from '../api/estatisticas';
 import {
     ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     Line, Legend, CartesianGrid, Cell, LabelList, ReferenceLine
 } from 'recharts';
 import './Estatisticas.css';
 import '../componentes.css';
-import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes } from '../utils/formatacao';
+import {
+    classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes, NOMES_CLASSE_DESPESA
+} from '../utils/formatacao';
 
 function calcularLimiteSerie(valores, multiplicador = 4) {
     const absolutos = valores.map(Math.abs).filter(v => v > 0);
@@ -56,6 +58,30 @@ function taxaMovel(meses, n) {
     });
 }
 
+// Um cartão do resumo global com dois valores lado a lado. Em percentagem, um
+// valor null (sem receitas no período) mostra-se sem cor
+function CartaoMetades({ titulo, metades, percentagem = false }) {
+    return (
+        <div className="cartao">
+            <span className="cartao-titulo">{titulo}</span>
+            <div className="cartao-corpo">
+                {metades.map(([label, valor]) => (
+                    <div className="cartao-metade" key={label}>
+                        <span className="cartao-metade-label">{label}</span>
+                        {percentagem ? (
+                            <span className={`cartao-metade-valor ${valor !== null ? classeValor(valor, 1) : ''}`}>
+                                {formatarPercentagem(valor)}
+                            </span>
+                        ) : (
+                            <span className={`cartao-metade-valor ${classeValor(valor)}`}>{formatarEuros(valor)}</span>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 // Barras horizontais da distribuição da despesa, para as categorias e para as
 // subcategorias da categoria escolhida
 function GraficoDistribuicao({ dados, chaveSeleccionada = null, onSeleccionar }) {
@@ -90,18 +116,52 @@ function GraficoDistribuicao({ dados, chaveSeleccionada = null, onSeleccionar })
 
 // Grupos da tabela «Por categoria», pela ordem em que aparecem. O `campo` é o
 // total do tipo em cada mês do resumo mensal, de onde vêm a média e a mediana
-// do grupo
+// do grupo, e o `campoTipico` o mesmo total sem as extraordinárias
 const GRUPOS_CATEGORIA = [
-    { tipo: 'despesa', titulo: 'Despesas', campo: 'Despesas' },
-    { tipo: 'receita', titulo: 'Receitas', campo: 'Receitas' },
-    { tipo: 'investimento', titulo: 'Investimento', campo: 'Investimento' },
+    { tipo: 'despesa', titulo: 'Despesas', campo: 'Despesas', campoTipico: 'DespesaTipica' },
+    { tipo: 'receita', titulo: 'Receitas', campo: 'Receitas', campoTipico: 'Receitas' },
+    { tipo: 'investimento', titulo: 'Investimento', campo: 'Investimento', campoTipico: 'Investimento' },
 ];
+
+// As partes da despesa do mês típico, pela ordem da barra da composição
+const PARTES_TIPICO = [
+    { campo: 'Essencial', nome: NOMES_CLASSE_DESPESA.essencial, cor: 'var(--chart-7)' },
+    { campo: 'Evitavel', nome: NOMES_CLASSE_DESPESA.evitavel, cor: 'var(--chart-3)' },
+    { campo: 'SemClasse', nome: 'Sem classificação', cor: 'var(--text-secondary)' },
+];
+
+// A despesa do mês típico (a média sem as extraordinárias) separada pela
+// classificação, numa barra com o valor médio e a percentagem de cada parte
+function ComposicaoTipico({ partes }) {
+    const total = partes.reduce((s, p) => s + p.valor, 0);
+    if (total <= 0) return null;
+    return (
+        <div className="cartao">
+            <span className="cartao-titulo">Composição do mês típico</span>
+            <div className="composicao-barra">
+                {partes.filter(p => p.valor > 0).map(p => (
+                    <div key={p.campo} style={{ width: `${(p.valor / total) * 100}%`, background: p.cor }} title={p.nome} />
+                ))}
+            </div>
+            <div className="composicao-legenda">
+                {partes.map(p => (
+                    <span key={p.campo}>
+                        <span className="composicao-cor" style={{ background: p.cor }} />
+                        {p.nome}: <strong>{formatarEuros(-p.valor)}</strong>{' '}
+                        <span className="composicao-percentagem">({formatarPercentagem((p.valor / total) * 100, 0)})</span>
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+}
 
 export default function Estatisticas() {
     const [resumo, setResumo] = useState(null);
     const [erro, setErro] = useState(null);
     const [porCategoria, setPorCategoria] = useState([]);
     const [porSubcategoria, setPorSubcategoria] = useState([]);
+    const [extraordinarias, setExtraordinarias] = useState(null);
     const [categoriaExpandida, setCategoriaExpandida] = useState(null);
     const [categoriaDistribuicao, setCategoriaDistribuicao] = useState(null);
     const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
@@ -122,6 +182,9 @@ export default function Estatisticas() {
         });
         obterPorSubcategoria(anoSeleccionado).then(res => {
             if (!cancelado) setPorSubcategoria(res.data);
+        });
+        obterExtraordinarias(anoSeleccionado).then(res => {
+            if (!cancelado) setExtraordinarias(res.data);
         });
         return () => {
             cancelado = true;
@@ -171,7 +234,13 @@ export default function Estatisticas() {
             Despesas: m.despesas,
             Investimento: m.investimento,
             Poupança: m.poupanca,
-            'Taxa de Poupança': m.receitas > 0 ? parseFloat(((m.poupanca / m.receitas) * 100).toFixed(1)) : null,
+            // A despesa por classe, para o mês típico e a sua composição; o
+            // gráfico não as mostra
+            Essencial: m.despesa_essencial,
+            Evitavel: m.despesa_evitavel,
+            Extraordinaria: m.despesa_extraordinaria,
+            SemClasse: m.despesa_sem_classe,
+            DespesaTipica: m.despesas - m.despesa_extraordinaria,
             'Média de 3 meses': movel3[i],
             'Média de 12 meses': movel12[i],
         }));
@@ -203,29 +272,30 @@ export default function Estatisticas() {
         };
     }, [resumo, anoSeleccionado, incluirOutliers]);
 
-    const { cardDespesas, cardPoupanca, cardTaxa } = useMemo(() => {
-        const despesas = dadosGraficoFiltrados.map(m => m.Despesas);
-        const poupancas = dadosGraficoFiltrados.map(m => m.Poupança);
-        const taxas = dadosGraficoFiltrados
-            .filter(m => m['Taxa de Poupança'] !== null)
-            .map(m => m['Taxa de Poupança']);
+    const { cardTipico, cardPoupanca, cardTaxa, partesTipico } = useMemo(() => {
+        const meses = dadosGraficoFiltrados;
+        const soma = campo => meses.reduce((s, m) => s + m[campo], 0);
+        // Sem as extraordinárias, a poupança do mês sobe o que elas custaram
+        const poupancasTipicas = meses.map(m => m.Poupança - m.Extraordinaria);
         // Taxa do período: soma da poupança / soma das receitas, como no Histórico
-        const receitas = dadosGraficoFiltrados.reduce((s, m) => s + m.Receitas, 0);
-        const poupanca = poupancas.reduce((s, v) => s + v, 0);
+        const receitas = soma('Receitas');
+        const taxa = poupanca => (receitas > 0 ? (poupanca / receitas) * 100 : null);
 
         return {
-            cardDespesas: {
-                mediana: calcularMediana(despesas),
-                media: calcularMedia(despesas),
+            cardTipico: {
+                media: calcularMedia(meses.map(m => m.DespesaTipica)),
+                extraordinarias: soma('Extraordinaria'),
             },
             cardPoupanca: {
-                mediana: calcularMediana(poupancas),
-                media: calcularMedia(poupancas),
+                media: calcularMedia(meses.map(m => m.Poupança)),
+                semExtraordinarias: calcularMedia(poupancasTipicas),
             },
             cardTaxa: {
-                periodo: receitas > 0 ? (poupanca / receitas) * 100 : null,
-                mediana: taxas.length > 0 ? calcularMediana(taxas) : null,
+                periodo: taxa(soma('Poupança')),
+                semExtraordinarias: taxa(poupancasTipicas.reduce((s, v) => s + v, 0)),
             },
+            // Média mensal de cada parte, em positivo para a barra
+            partesTipico: PARTES_TIPICO.map(p => ({ ...p, valor: -calcularMedia(meses.map(m => m[p.campo])) })),
         };
     }, [dadosGraficoFiltrados]);
 
@@ -258,60 +328,30 @@ export default function Estatisticas() {
             <section className="secao">
                 <h2 className="titulo-secao">Resumo global</h2>
                 <div className="cartoes">
-                    <div className="cartao">
-                        <span className="cartao-titulo">Despesas mensais</span>
-                        <div className="cartao-corpo">
-                            <div className="cartao-metade">
-                                <span className="cartao-metade-label">Mediana</span>
-                                <span className={`cartao-metade-valor ${classeValor(cardDespesas.mediana)}`}>
-                                    {formatarEuros(cardDespesas.mediana)}
-                                </span>
-                            </div>
-                            <div className="cartao-metade">
-                                <span className="cartao-metade-label">Média</span>
-                                <span className={`cartao-metade-valor ${classeValor(cardDespesas.media)}`}>
-                                    {formatarEuros(cardDespesas.media)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="cartao">
-                        <span className="cartao-titulo">Poupança mensal</span>
-                        <div className="cartao-corpo">
-                            <div className="cartao-metade">
-                                <span className="cartao-metade-label">Mediana</span>
-                                <span className={`cartao-metade-valor ${classeValor(cardPoupanca.mediana)}`}>
-                                    {formatarEuros(cardPoupanca.mediana)}
-                                </span>
-                            </div>
-                            <div className="cartao-metade">
-                                <span className="cartao-metade-label">Média</span>
-                                <span className={`cartao-metade-valor ${classeValor(cardPoupanca.media)}`}>
-                                    {formatarEuros(cardPoupanca.media)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="cartao">
-                        <span className="cartao-titulo">Taxa de poupança</span>
-                        <div className="cartao-corpo">
-                            <div className="cartao-metade">
-                                <span className="cartao-metade-label">Do período</span>
-                                <span className={`cartao-metade-valor ${cardTaxa.periodo !== null ? classeValor(cardTaxa.periodo, 1) : ''}`}>
-                                    {formatarPercentagem(cardTaxa.periodo)}
-                                </span>
-                            </div>
-                            <div className="cartao-metade">
-                                <span className="cartao-metade-label">Mediana mensal</span>
-                                <span className={`cartao-metade-valor ${cardTaxa.mediana !== null ? classeValor(cardTaxa.mediana, 1) : ''}`}>
-                                    {formatarPercentagem(cardTaxa.mediana)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    <CartaoMetades
+                        titulo="Mês típico (sem extraordinárias)"
+                        metades={[
+                            ['Despesa média', cardTipico.media],
+                            ['Extraordinárias no período', cardTipico.extraordinarias],
+                        ]}
+                    />
+                    <CartaoMetades
+                        titulo="Poupança mensal"
+                        metades={[
+                            ['Média', cardPoupanca.media],
+                            ['Sem extraordinárias', cardPoupanca.semExtraordinarias],
+                        ]}
+                    />
+                    <CartaoMetades
+                        titulo="Taxa de poupança"
+                        percentagem
+                        metades={[
+                            ['Do período', cardTaxa.periodo],
+                            ['Sem extraordinárias', cardTaxa.semExtraordinarias],
+                        ]}
+                    />
                 </div>
+                <ComposicaoTipico partes={partesTipico} />
             </section>
 
             {/* GRÁFICO EVOLUÇÃO — VALORES */}
@@ -409,6 +449,41 @@ export default function Estatisticas() {
                 )}
             </section>
 
+            {/* DESPESAS EXTRAORDINÁRIAS */}
+            <section className="secao">
+                <h2 className="titulo-secao">Despesas extraordinárias</h2>
+                {extraordinarias === null ? null : extraordinarias.transacoes.length === 0 ? (
+                    <p className="estado-vazio">Sem despesas extraordinárias no período.</p>
+                ) : (
+                    <table className="tabela-base tabela-stats">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Subcategoria</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {extraordinarias.transacoes.map(t => (
+                                <tr key={t.id}>
+                                    <td>{t.data}</td>
+                                    <td>{t.descricao}</td>
+                                    <td>{t.categoria_nome} / {t.subcategoria_nome}</td>
+                                    <td className={classeValor(t.valor)}>{formatarEuros(t.valor)}</td>
+                                </tr>
+                            ))}
+                            <tr className="linha-ano linha-grupo">
+                                <td>Total</td>
+                                <td />
+                                <td />
+                                <td className={classeValor(extraordinarias.total)}>{formatarEuros(extraordinarias.total)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                )}
+            </section>
+
             {/* POR CATEGORIA */}
             <section className="secao">
                 <h2 className="titulo-secao">Por categoria</h2>
@@ -418,6 +493,7 @@ export default function Estatisticas() {
                             <th>Categoria</th>
                             <th>Média mensal</th>
                             <th>Mediana mensal</th>
+                            <th>Mês típico</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -427,16 +503,18 @@ export default function Estatisticas() {
                                 .sort((a, b) => Math.abs(b.media) - Math.abs(a.media));
                             if (categorias.length === 0) return null;
                             // Os mesmos meses das categorias: a linha das despesas
-                            // bate certo com o cartão «Despesas mensais»
+                            // bate certo com o cartão «Mês típico» na última coluna
                             const totais = dadosGraficoFiltrados.map(m => m[grupo.campo]);
                             const media = calcularMedia(totais);
                             const mediana = calcularMediana(totais);
+                            const tipico = calcularMedia(dadosGraficoFiltrados.map(m => m[grupo.campoTipico]));
                             return (
                                 <Fragment key={grupo.tipo}>
                                     <tr className="linha-ano linha-grupo">
                                         <td>{grupo.titulo}</td>
                                         <td className={classeValor(media)}>{formatarEuros(media)}</td>
                                         <td className={classeValor(mediana)}>{formatarEuros(mediana)}</td>
+                                        <td className={classeValor(tipico)}>{formatarEuros(tipico)}</td>
                                     </tr>
                                     {categorias.map(c => {
                                         const expandida = categoriaExpandida === c.categoria_id;
@@ -452,6 +530,7 @@ export default function Estatisticas() {
                                                     </td>
                                                     <td className={classeValor(c.media)}>{formatarEuros(c.media)}</td>
                                                     <td className={classeValor(c.mediana)}>{formatarEuros(c.mediana)}</td>
+                                                    <td className={classeValor(c.mes_tipico)}>{formatarEuros(c.mes_tipico)}</td>
                                                 </tr>
                                                 {expandida &&
                                                     [...c.subcategorias]
@@ -461,6 +540,7 @@ export default function Estatisticas() {
                                                                 <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
                                                                 <td className={classeValor(sub.media)}>{formatarEuros(sub.media)}</td>
                                                                 <td className={classeValor(sub.mediana)}>{formatarEuros(sub.mediana)}</td>
+                                                                <td className={classeValor(sub.mes_tipico)}>{formatarEuros(sub.mes_tipico)}</td>
                                                             </tr>
                                                         ))
                                                 }

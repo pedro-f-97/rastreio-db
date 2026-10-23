@@ -214,3 +214,30 @@
 .aviso-outlier button:hover {
     background: var(--bg-tertiary);
 }
+
+/* Composição do mês típico: uma barra com as partes e a legenda por baixo */
+.composicao-barra {
+    display: flex;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.composicao-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xl);
+    font-size: var(--text-sm);
+}
+
+.composicao-cor {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: var(--space-xs);
+    border-radius: 2px;
+}
+
+.composicao-percentagem {
+    color: var(--text-secondary);
+}
