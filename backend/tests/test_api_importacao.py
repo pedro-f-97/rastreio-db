@@ -26,7 +26,10 @@ Regra de deduplicação, lida do código (`importador_transacoes.py:31-48`)
 -----------------------------------------------------------------------
 1. A chave é o 4-uplo `(data, descricao, valor, saldo)`, com comparação
    **exacta**: `descricao` tal como o parser a produziu, `valor`/`saldo` sem
-   arredondar, e `saldo` distingue `None` de `0.0`.
+   arredondar, e `saldo` distingue `None` de `0.0`. Excepção: uma linha do
+   ficheiro **sem saldo** também é duplicada de uma cópia com saldo (o saldo
+   escrito à mão numa conta cujo extracto não o traz), quando não há cópia
+   sem saldo por absorver.
 2. A comparação é feita **só contra transacções da mesma conta**
    (`filter(Transacao.conta_id == conta_id)`). Com `conta_id=None` o SQLAlchemy
    traduz `== None` para `IS NULL`, pelo que só compara com transacções de
@@ -476,6 +479,110 @@ def test_dedup_com_saldo_zero_contra_none_nao_e_duplicado(client, session, tmp_p
 
     assert r.status_code == 200
     assert r.json() == {"inseridas": 1, "duplicadas": 0}
+    assert session.query(Transacao).count() == 2
+
+
+def test_linha_sem_saldo_e_duplicada_da_transacao_com_saldo_escrito(client, session, tmp_path):
+    """Uma linha sem saldo absorve a cópia a que se escreveu o saldo à mão.
+
+    Semeia-se `(2026-01-31, "Supermercado", -45.6, saldo=954.4)`, como se o
+    saldo tivesse sido escrito à mão. `CSV_DUAS_LINHAS` (perfil sem saldo) traz
+    o Supermercado sem saldo, que é a mesma transação, e o Salário, que é nova:
+    `{"inseridas": 1, "duplicadas": 1}`; a BD fica com 1 + 1 = 2, e o saldo
+    escrito continua lá.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    session.add(
+        Transacao(
+            data=date(2026, 1, 31),
+            descricao="Supermercado",
+            valor=-45.6,
+            saldo=954.4,
+            conta_id=conta.id,
+        )
+    )
+    session.commit()
+    caminho = escrever_csv(tmp_path / "sem_saldo.csv", CSV_DUAS_LINHAS)
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 1, "duplicadas": 1}
+    assert session.query(Transacao).count() == 2
+    assert session.query(Transacao.saldo).filter(Transacao.descricao == "Supermercado").all() == [
+        (954.4,)
+    ]
+
+
+def test_linhas_sem_saldo_contam_as_copias_com_e_sem_saldo(client, session, tmp_path):
+    """Cada cópia na BD, com ou sem saldo, absorve uma linha sem saldo.
+
+    Semeiam-se 2 Supermercados de 31/01/2026 a -45,60: um sem saldo e um com o
+    saldo 954,4 escrito à mão. O ficheiro traz 3 linhas iguais, sem saldo:
+    as 2 cópias absorvem 2, sobra 1 -> `{"inseridas": 1, "duplicadas": 2}`; a
+    BD fica com 2 + 1 = 3.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id)
+    for saldo in (None, 954.4):
+        session.add(
+            Transacao(
+                data=date(2026, 1, 31),
+                descricao="Supermercado",
+                valor=-45.6,
+                saldo=saldo,
+                conta_id=conta.id,
+            )
+        )
+    session.commit()
+    caminho = escrever_csv(
+        tmp_path / "tres.csv",
+        ("Data,Descrição,Valor",) + ('31/01/2026,Supermercado,"-45,60"',) * 3,
+    )
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 1, "duplicadas": 2}
+    assert session.query(Transacao).count() == 3
+
+
+def test_linha_sem_saldo_gasta_primeiro_a_copia_sem_saldo(client, session, tmp_path):
+    """Uma linha sem saldo só absorve uma cópia com saldo se não houver nenhuma
+    sem saldo, para não roubar a cópia a uma linha com esse saldo.
+
+    Semeiam-se 2 Supermercados de 31/01/2026 a -45,60, primeiro o com saldo
+    954,4 e depois o sem saldo. O ficheiro (perfil com saldo) traz a linha com a
+    célula do saldo vazia e depois a linha com `954,40`: a primeira absorve a
+    cópia sem saldo, a segunda a de 954,4 -> `{"inseridas": 0, "duplicadas": 2}`.
+    """
+    conta = _criar_conta(session)
+    perfil = _criar_perfil(session, conta_id=conta.id, tem_saldo=True, coluna_saldo=3)
+    for saldo in (954.4, None):
+        session.add(
+            Transacao(
+                data=date(2026, 1, 31),
+                descricao="Supermercado",
+                valor=-45.6,
+                saldo=saldo,
+                conta_id=conta.id,
+            )
+        )
+    session.commit()
+    caminho = escrever_csv(
+        tmp_path / "misturado.csv",
+        (
+            "Data,Descrição,Valor,Saldo",
+            '31/01/2026,Supermercado,"-45,60",',
+            '31/01/2026,Supermercado,"-45,60","954,40"',
+        ),
+    )
+
+    r = _pedido_importar(client, perfil.id, caminho.read_bytes())
+
+    assert r.status_code == 200
+    assert r.json() == {"inseridas": 0, "duplicadas": 2}
     assert session.query(Transacao).count() == 2
 
 

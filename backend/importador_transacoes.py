@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -54,14 +54,22 @@ def importar_transacoes(
 
         # Conta-se quantas vezes cada linha já existe: cada cópia na BD absorve
         # uma linha igual do ficheiro, e as restantes são transações novas
-        # (dois cafés iguais no mesmo dia, um deles só no extracto seguinte)
-        existentes = Counter((r.data, r.descricao, r.valor, r.saldo) for r in query_existentes)
+        # (dois cafés iguais no mesmo dia, um deles só no extracto seguinte).
+        # Por (data, descrição, valor), os saldos de cada cópia
+        existentes: defaultdict[tuple, Counter] = defaultdict(Counter)
+        for r in query_existentes:
+            existentes[(r.data, r.descricao, r.valor)][r.saldo] += 1
 
         for t in transacoes_parsed:
-            chave = (t["data"], t["descricao"], t["valor"], t["saldo"])
+            saldos = existentes[(t["data"], t["descricao"], t["valor"])]
+            saldo = t["saldo"]
+            # Uma linha sem saldo também é a cópia a que se escreveu o saldo à
+            # mão; com saldo, tem de ser igual
+            if saldo is None and saldos[None] == 0:
+                saldo = next((s for s, n in saldos.items() if n > 0), None)
 
-            if existentes[chave] > 0:
-                existentes[chave] -= 1
+            if saldos[saldo] > 0:
+                saldos[saldo] -= 1
                 duplicadas += 1
                 continue
 
