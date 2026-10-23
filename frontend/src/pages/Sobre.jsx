@@ -35,6 +35,35 @@ export default function Sobre() {
             </section>
 
             <section className="sobre-seccao">
+                <h2>Verificação do saldo e transações manuais</h2>
+                <p>
+                    O saldo de cada conta é calculado a partir do saldo de referência e das transações. Para
+                    confirmar que não falta nenhuma, compara-se com o saldo que o banco indica: o do extracto,
+                    quando o traz, ou, nas contas cujo extracto não o traz, um saldo que escreves de vez em quando
+                    numa transação (por exemplo, uma vez por mês). Escreve sempre o saldo da conta no fim desse
+                    dia. O saldo de referência também conta como um saldo certo.
+                </p>
+                <p>
+                    A verificação corre sozinha quando importas um extracto, quando crias ou apagas uma transação
+                    manual e quando escreves um saldo. Se houver diferenças, mostra entre que datas a diferença
+                    mudou: é aí que está a transação em falta ou a mais. Se o último saldo tiver mais de 31 dias,
+                    contados da última transação, sugere que escrevas um novo.
+                </p>
+                <p>
+                    Para corrigir uma diferença, podes criar uma transação à mão, mas não é recomendado: o normal
+                    é importar o extracto. As transações manuais ficam marcadas e são as únicas que se podem
+                    apagar; as importadas só saem ao desfazer a importação.
+                </p>
+                <div className="sobre-relacao">
+                    <span>Transação</span>
+                    <span className="sobre-seta">→</span>
+                    <span>saldo</span>
+                    <span className="sobre-seta">·</span>
+                    <span>manual</span>
+                </div>
+            </section>
+
+            <section className="sobre-seccao">
                 <h2>Categorias</h2>
                 <p>
                     Cada categoria tem um de quatro tipos:{' '}
