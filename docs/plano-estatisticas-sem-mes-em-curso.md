@@ -1,8 +1,15 @@
 # Plano: as médias e as taxas das Estatísticas sem o mês em curso
 
-Estado: **aprovado** (23/10/2026), com as pequenas decisões 5 a 7 como
-propostas. Feito no mesmo ramo do crescimento do património
-(`feat/crescimento-patrimonio`), que já deixa o mês em curso de fora.
+Estado: **executado** (passos 4.1 a 4.4), no mesmo ramo do crescimento do
+património (`feat/crescimento-patrimonio`). Falta a verificação com os dados
+reais (secção 5), numa cópia da BD.
+
+Pequenas decisões tomadas durante a execução:
+
+- Uma categoria que só tem transações no mês em curso não aparece na tabela
+  «Por categoria» (não tem nenhum mês completo); com só o mês em curso no
+  período, a tabela fica vazia.
+- As «Extraordinárias no período» são uma soma: contam o mês em curso.
 
 ## 1. O problema
 
@@ -78,8 +85,8 @@ Valores escritos à mão, com `date.today()` do router fixo:
   típico sem o mês de hoje (por exemplo, 100 e 200 em meses completos e 10 no
   mês em curso dão média 150, e não 103,33).
 - `por-categoria` de um ano passado: igual ao de hoje.
-- Só o mês em curso no período: média, mediana e mês típico 0 (a página mostra
-  «—»).
+- Só o mês em curso no período: a tabela vem vazia (a página mostra «—» nos
+  cartões).
 
 O frontend não tem testes: verifica-se com `npm run lint` e à mão, numa BD de
 teste. Verificar os testes novos por mutação numa cópia em `/tmp`.

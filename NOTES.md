@@ -18,6 +18,9 @@
 - **Crescimento do património por mês**: ver se os valores do cartão no
   Património fazem sentido. Ver `docs/plano-crescimento-patrimonio.md`,
   secção 5 (o preço do USDC errado distorce a valorização).
+- **Estatísticas sem o mês em curso**: com «Todos» e com o ano corrente, os
+  cartões e a tabela por categoria deixam de contar o mês de hoje. Ver
+  `docs/plano-estatisticas-sem-mes-em-curso.md`, secção 5.
 
 ## Onde estou?
 ```bash
