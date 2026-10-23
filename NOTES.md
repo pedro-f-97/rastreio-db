@@ -7,6 +7,15 @@
 > Em dev, `backend/dados/rastreio.db` **é a BD real**. Os comandos que a apagam
 > ou alteram usam uma pasta à parte via `RASTREIO_DB_DIR`.
 
+## Por testar (com uma cópia da BD real)
+- **Verificação do saldo e transações manuais**: no ActivoBank deve aparecer
+  +10,10 €, com +0,10 € perto de 13/05/2025 e +10,00 € perto de 11/06/2025.
+  Ver `docs/plano-verificacao-saldo.md`, secção 4.
+- **Classificação das subcategorias** (essencial, evitável, extraordinária):
+  com «Compra Twingo» e «Hardware» como extraordinárias, as médias das
+  Estatísticas devem bater com a tabela de `docs/plano-classificacao-despesas.md`,
+  secção 5.
+
 ## Onde estou?
 ```bash
 pwd
