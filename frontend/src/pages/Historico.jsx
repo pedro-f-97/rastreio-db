@@ -3,6 +3,21 @@ import { obterResumoMensal, obterDetalheMensal } from '../api/estatisticas';
 import './Estatisticas.css';
 import '../componentes.css';
 import { classeValor, formatarEuros, formatarPercentagem, labelMes } from '../utils/formatacao';
+import CabecalhoPagina from '../components/CabecalhoPagina';
+import Icone from '../components/Icone';
+
+// A taxa de poupança de um mês ou de um ano, com uma barra pequena: cheia aos
+// 100%, para a esquerda quando é negativa
+function CelulaTaxa({ taxa }) {
+    if (taxa === null) return <td className="col-num celula-taxa">—</td>;
+    const largura = Math.min(Math.abs(taxa), 100);
+    return (
+        <td className={`col-num celula-taxa ${classeValor(taxa, 1)}`}>
+            <span className={`barra-taxa ${taxa < 0 ? 'negativa' : ''}`}><span style={{ width: `${largura}%` }} /></span>
+            {formatarPercentagem(taxa)}
+        </td>
+    );
+}
 
 export default function Historico() {
     const [resumo, setResumo] = useState(null);
@@ -16,7 +31,7 @@ export default function Historico() {
             .catch(() => setErro('Não foi possível carregar o histórico.'));
     }, []);
 
-    if (erro) return <p className="erro">{erro}</p>;
+    if (erro) return <p className="erro carregando">{erro}</p>;
     if (!resumo) return <p className="carregando">A carregar...</p>;
 
     const mesesPorAno = resumo.meses.reduce((acc, m) => {
@@ -45,82 +60,89 @@ export default function Historico() {
     }
 
     return (
-        <div className="estatisticas-page">
-            <h1>Histórico</h1>
+        <div className="pagina-container estatisticas-page">
+            <CabecalhoPagina
+                secao="01 · Transações"
+                titulo="Histórico"
+                descricao="Os totais de cada mês e de cada ano. Clica num mês para o ver por categoria."
+            />
 
             <section className="secao">
-                <table className="tabela-base tabela-stats">
-                    <thead>
-                        <tr>
-                            <th>Mês</th>
-                            <th>Receitas</th>
-                            <th>Despesas</th>
-                            <th>Investimento</th>
-                            <th>Poupança</th>
-                            <th>Taxa</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {Object.keys(mesesPorAno).sort().reverse().map(ano => {
-                            const totalAno = totaisPorAno.find(t => t.ano === parseInt(ano));
-                            return (
-                                <Fragment key={`ano-${ano}`}>
-                                    <tr className="linha-ano">
-                                        <td>{ano}</td>
-                                        <td className={classeValor(totalAno.receitas)}>{formatarEuros(totalAno.receitas)}</td>
-                                        <td className={classeValor(totalAno.despesas)}>{formatarEuros(totalAno.despesas)}</td>
-                                        <td className={classeValor(totalAno.investimento)}>{formatarEuros(totalAno.investimento)}</td>
-                                        <td className={classeValor(totalAno.poupanca)}>{formatarEuros(totalAno.poupanca)}</td>
-                                        <td className={totalAno.taxa === null ? '' : classeValor(totalAno.taxa, 1)}>{formatarPercentagem(totalAno.taxa)}</td>
-                                    </tr>
-                                    {mesesPorAno[ano].map(m => {
-                                        const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
-                                        return (
-                                            <Fragment key={`${m.ano}-${m.mes}`}>
-                                                <tr
-                                                    onClick={() => toggleMes(m.ano, m.mes)}
-                                                    className={`linha-mes ${seleccionado ? 'linha-mes-activa' : ''}`}
-                                                >
-                                                    <td>
-                                                        <span className="seta-expansao">{seleccionado ? '▼' : '▶'}</span>
-                                                        {labelMes(m.ano, m.mes)}
-                                                    </td>
-                                                    <td className={classeValor(m.receitas)}>{formatarEuros(m.receitas)}</td>
-                                                    <td className={classeValor(m.despesas)}>{formatarEuros(m.despesas)}</td>
-                                                    <td className={classeValor(m.investimento)}>{formatarEuros(m.investimento)}</td>
-                                                    <td className={classeValor(m.poupanca)}>{formatarEuros(m.poupanca)}</td>
-                                                    <td className={m.receitas <= 0 ? '' : classeValor(m.poupanca / m.receitas * 100, 1)}>{m.receitas > 0 ? formatarPercentagem(m.poupanca / m.receitas * 100) : '—'}</td>
-                                                </tr>
-                                                {seleccionado && detalheMes.map(cat => (
-                                                    <Fragment key={`cat-${cat.categoria_id}`}>
-                                                        <tr className="linha-categoria-detalhe">
-                                                            <td className="celula-categoria-nome">↳ {cat.categoria_nome}</td>
-                                                            <td className={cat.tipo === 'receita' ? classeValor(cat.total) : ''}>{cat.tipo === 'receita' ? formatarEuros(cat.total) : ''}</td>
-                                                            <td className={cat.tipo === 'despesa' ? classeValor(cat.total) : ''}>{cat.tipo === 'despesa' ? formatarEuros(cat.total) : ''}</td>
-                                                            <td className={cat.tipo === 'investimento' ? classeValor(cat.total) : ''}>{cat.tipo === 'investimento' ? formatarEuros(cat.total) : ''}</td>
-                                                            <td></td>
-                                                            <td></td>
-                                                        </tr>
-                                                        {cat.subcategorias.map(sub => (
-                                                            <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
-                                                                <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                                <td className={cat.tipo === 'receita' ? classeValor(sub.total) : ''}>{cat.tipo === 'receita' ? formatarEuros(sub.total) : ''}</td>
-                                                                <td className={cat.tipo === 'despesa' ? classeValor(sub.total) : ''}>{cat.tipo === 'despesa' ? formatarEuros(sub.total) : ''}</td>
-                                                                <td className={cat.tipo === 'investimento' ? classeValor(sub.total) : ''}>{cat.tipo === 'investimento' ? formatarEuros(sub.total) : ''}</td>
+                <div className="tabela-wrapper">
+                    <table className="tabela-base tabela-stats tabela-historico">
+                        <thead>
+                            <tr>
+                                <th>Mês</th>
+                                <th className="col-num">Receitas</th>
+                                <th className="col-num">Despesas</th>
+                                <th className="col-num">Investimento</th>
+                                <th className="col-num">Poupança</th>
+                                <th className="col-num">Taxa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Object.keys(mesesPorAno).sort().reverse().map(ano => {
+                                const totalAno = totaisPorAno.find(t => t.ano === parseInt(ano));
+                                return (
+                                    <Fragment key={`ano-${ano}`}>
+                                        <tr className="linha-ano">
+                                            <td>{ano}</td>
+                                            <td className={`col-num ${classeValor(totalAno.receitas)}`}>{formatarEuros(totalAno.receitas)}</td>
+                                            <td className={`col-num ${classeValor(totalAno.despesas)}`}>{formatarEuros(totalAno.despesas)}</td>
+                                            <td className={`col-num ${classeValor(totalAno.investimento)}`}>{formatarEuros(totalAno.investimento)}</td>
+                                            <td className={`col-num ${classeValor(totalAno.poupanca)}`}>{formatarEuros(totalAno.poupanca)}</td>
+                                            <CelulaTaxa taxa={totalAno.taxa} />
+                                        </tr>
+                                        {mesesPorAno[ano].map(m => {
+                                            const seleccionado = mesSeleccionado?.ano === m.ano && mesSeleccionado?.mes === m.mes;
+                                            return (
+                                                <Fragment key={`${m.ano}-${m.mes}`}>
+                                                    <tr
+                                                        onClick={() => toggleMes(m.ano, m.mes)}
+                                                        className={`linha-mes ${seleccionado ? 'linha-mes-activa' : ''}`}
+                                                    >
+                                                        <td>
+                                                            <span className={`seta-expansao ${seleccionado ? 'aberta' : ''}`}><Icone nome="direita" tamanho={13} /></span>
+                                                            {labelMes(m.ano, m.mes)}
+                                                            {m.em_curso && <span className="chip chip-accent chip-em-curso">em curso</span>}
+                                                        </td>
+                                                        <td className={`col-num ${classeValor(m.receitas)}`}>{formatarEuros(m.receitas)}</td>
+                                                        <td className={`col-num ${classeValor(m.despesas)}`}>{formatarEuros(m.despesas)}</td>
+                                                        <td className={`col-num ${classeValor(m.investimento)}`}>{formatarEuros(m.investimento)}</td>
+                                                        <td className={`col-num ${classeValor(m.poupanca)}`}>{formatarEuros(m.poupanca)}</td>
+                                                        <CelulaTaxa taxa={m.receitas > 0 ? m.poupanca / m.receitas * 100 : null} />
+                                                    </tr>
+                                                    {seleccionado && detalheMes.map(cat => (
+                                                        <Fragment key={`cat-${cat.categoria_id}`}>
+                                                            <tr className="linha-categoria-detalhe">
+                                                                <td className="celula-categoria-nome">{cat.categoria_nome}</td>
+                                                                <td className={`col-num ${cat.tipo === 'receita' ? classeValor(cat.total) : ''}`}>{cat.tipo === 'receita' ? formatarEuros(cat.total) : ''}</td>
+                                                                <td className={`col-num ${cat.tipo === 'despesa' ? classeValor(cat.total) : ''}`}>{cat.tipo === 'despesa' ? formatarEuros(cat.total) : ''}</td>
+                                                                <td className={`col-num ${cat.tipo === 'investimento' ? classeValor(cat.total) : ''}`}>{cat.tipo === 'investimento' ? formatarEuros(cat.total) : ''}</td>
                                                                 <td></td>
                                                                 <td></td>
                                                             </tr>
-                                                        ))}
-                                                    </Fragment>
-                                                ))}
-                                            </Fragment>
-                                        );
-                                    })}
-                                </Fragment>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                                                            {cat.subcategorias.map(sub => (
+                                                                <tr key={`sub-${sub.subcategoria_nome}`} className="linha-subcategoria-detalhe">
+                                                                    <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
+                                                                    <td className={`col-num ${cat.tipo === 'receita' ? classeValor(sub.total) : ''}`}>{cat.tipo === 'receita' ? formatarEuros(sub.total) : ''}</td>
+                                                                    <td className={`col-num ${cat.tipo === 'despesa' ? classeValor(sub.total) : ''}`}>{cat.tipo === 'despesa' ? formatarEuros(sub.total) : ''}</td>
+                                                                    <td className={`col-num ${cat.tipo === 'investimento' ? classeValor(sub.total) : ''}`}>{cat.tipo === 'investimento' ? formatarEuros(sub.total) : ''}</td>
+                                                                    <td></td>
+                                                                    <td></td>
+                                                                </tr>
+                                                            ))}
+                                                        </Fragment>
+                                                    ))}
+                                                </Fragment>
+                                            );
+                                        })}
+                                    </Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </section>
         </div>
     );
