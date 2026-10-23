@@ -14,6 +14,21 @@ Pequenas decisões tomadas durante a execução:
 - Depois de fechado, o pop-up da verificação deixa uma linha com «Ver», para o
   abrir outra vez.
 
+Correções depois da revisão do código:
+
+- Os intervalos medem-se só entre dois pontos de controlo seguidos: antes do
+  primeiro não se sabe qual era a diferença (havia um «até» inventado quando o
+  primeiro saldo era anterior à referência). Uma diferença no dia da
+  referência é do próprio saldo de referência, e o pop-up manda corrigi-lo na
+  página Contas, em vez de propor uma transação.
+- A decisão 14 aplica-se só aos perfis sem saldo: nos perfis com saldo, a
+  deteção de duplicados compara os quatro campos, como antes.
+- Os cêntimos arredondam com a metade para longe de zero, como `arredondar`.
+- O mesmo saldo do fim do dia escrito em duas transações do dia já não marca o
+  dia como de ordem incerta.
+- Com o último saldo certo mas diferenças nos anteriores, o pop-up abre na
+  mesma: falta ou sobra uma transação no passado.
+
 ## 1. O problema
 
 O saldo de cada conta é calculado (`saldo_conta_em`, em
@@ -109,8 +124,8 @@ extractos.
 
 ### Importação
 
-14. Quando uma linha do ficheiro **não traz saldo**, a deteção de duplicados
-    compara só a data, a descrição e o valor, sem olhar para o saldo da BD.
+14. Num perfil **sem saldo**, a deteção de duplicados compara só a data, a
+    descrição e o valor, sem olhar para o saldo da BD.
     Sem isto, escrever um saldo numa transação fazia-a voltar a entrar na
     importação seguinte de um extracto sobreposto. Os bancos com saldo ficam
     como hoje.
@@ -130,8 +145,8 @@ extractos.
 
 ### 3.2 Importação (`backend/importador_transacoes.py`)
 
-- Decisão 14: um segundo contador por (data, descrição, valor) para as linhas
-  sem saldo. As linhas com saldo continuam a usar a chave de quatro campos.
+- Decisão 14: nos perfis sem saldo, a chave é (data, descrição, valor); nos
+  perfis com saldo continua a ser a de quatro campos.
 
 ### 3.3 Verificação (`backend/servicos/` e `routers/contas.py`)
 
