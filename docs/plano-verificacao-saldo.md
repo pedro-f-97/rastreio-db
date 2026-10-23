@@ -1,6 +1,18 @@
 # Plano: verificar o saldo das contas e criar transações à mão
 
-Estado: **aprovado** (23/10/2026).
+Estado: **executado** (passos 3.1 a 3.6). Falta a verificação com os dados
+reais (secção 4), numa cópia da BD.
+
+Pequenas decisões tomadas durante a execução:
+
+- O saldo de referência da conta conta como um ponto de controlo, com
+  diferença 0: o primeiro intervalo começa nele, e a sugestão dos 31 dias conta
+  a partir dele numa conta sem saldos. Se o extracto tiver saldo no dia da
+  referência, vale o do extracto.
+- Uma transação manual ligada a um movimento de ativo não se apaga (409): o
+  movimento apaga-se primeiro.
+- Depois de fechado, o pop-up da verificação deixa uma linha com «Ver», para o
+  abrir outra vez.
 
 ## 1. O problema
 
