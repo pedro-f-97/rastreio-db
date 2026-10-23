@@ -141,7 +141,7 @@ export default function Patrimonio() {
               return (
                 <div key={a.id} className="cartao-breakdown-linha">
                   <span className="cartao-breakdown-label">{a.nome}</span>
-                  <span className="cartao-breakdown-valor">{formatarPercentagem(pct)}</span>
+                  <span className="cartao-breakdown-valor">{formatarEuros(valor)} · {formatarPercentagem(pct)}</span>
                 </div>
               );
             })}

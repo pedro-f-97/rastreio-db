@@ -22,6 +22,7 @@ que o sinal gravado não altera nada.
 | Enum | Valores |
 |---|---|
 | `TipoCategoria` | `despesa`, `receita`, `investimento`, `transferencia` |
+| `ClasseDespesa` | `essencial`, `evitavel`, `extraordinaria` |
 | `TipoMovimento` | `compra`, `venda`, `dividendo` |
 | `TipoContabilizacao` | `investimento`, `patrimonio` |
 | `ModoValor` | `coluna_unica`, `duas_colunas` |
@@ -65,6 +66,7 @@ que o sinal gravado não altera nada.
 | nome | str(100) | obrigatório |
 | trata_patrimonio | bool | default `False` |
 | categoria_id | int | FK → `categorias.id`, obrigatório |
+| classe_despesa | `ClasseDespesa` | opcional; NULL é sem classificação. Só nas subcategorias de categorias de despesa: a API recusa-a nas outras, e apaga-a quando a categoria deixa de ser de despesa. Acrescentada pela 4.ª migração (`acrescentar_classe_despesa`) |
 
 **Relações:** N:1 com `Categoria` (`categoria`), 1:N com `Transacao` (`transacoes`)
 

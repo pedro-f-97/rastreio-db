@@ -17,3 +17,8 @@ export function obterPorSubcategoria(ano) {
 export function obterDetalheMensal(ano, mes) {
     return client.get(`/estatisticas/detalhe-mensal?ano=${ano}&mes=${mes}`);
 }
+
+export function obterExtraordinarias(ano) {
+    const params = ano && ano !== 'todos' ? `?ano=${ano}` : '';
+    return client.get(`/estatisticas/extraordinarias${params}`);
+}

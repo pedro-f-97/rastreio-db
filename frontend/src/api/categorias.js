@@ -20,13 +20,19 @@ export function apagarCategoria(id) {
     return client.delete(`/categorias/${id}`);
 }
 
-export function criarSubcategoria(categoriaId, nome, trataPatrimonio = false) {
-    return client.post(`/categorias/${categoriaId}/subcategorias`, { nome, trata_patrimonio: trataPatrimonio });
+// `classeDespesa` só se envia nas categorias de despesa: null é sem
+// classificação, e undefined não a envia
+export function criarSubcategoria(categoriaId, nome, trataPatrimonio = false, classeDespesa = undefined) {
+    const payload = { nome, trata_patrimonio: trataPatrimonio };
+    if (classeDespesa !== undefined) payload.classe_despesa = classeDespesa;
+    return client.post(`/categorias/${categoriaId}/subcategorias`, payload);
 }
 
-export function renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio = null) {
+// Na edição, `classeDespesa` undefined mantém a classificação, e null tira-a
+export function renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio = null, classeDespesa = undefined) {
     const payload = { nome };
     if (trataPatrimonio !== null) payload.trata_patrimonio = trataPatrimonio;
+    if (classeDespesa !== undefined) payload.classe_despesa = classeDespesa;
     return client.put(`/categorias/${categoriaId}/subcategorias/${subcategoriaId}`, payload);
 }
 

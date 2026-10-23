@@ -3,7 +3,14 @@ import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database import Categoria, RegraCategorizacao, Subcategoria, Transacao, get_db
+from database import (
+    Categoria,
+    RegraCategorizacao,
+    Subcategoria,
+    TipoCategoria,
+    Transacao,
+    get_db,
+)
 from schemas import CategoriaCreate, SubcategoriaCreate
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])
@@ -32,6 +39,15 @@ def _repetido(nome: str, existentes, excepto_id: int | None = None) -> bool:
     return any(e.id != excepto_id and _chave(e.nome) == chave for e in existentes)
 
 
+def _validar_classe_despesa(classe, cat: Categoria) -> None:
+    """Só as subcategorias de categorias de despesa têm classificação."""
+    if classe is not None and cat.tipo != TipoCategoria.despesa:
+        raise HTTPException(
+            status_code=400,
+            detail="Só as subcategorias de categorias de despesa podem ser classificadas.",
+        )
+
+
 @router.get("/")
 def listar_categorias(db: Session = Depends(get_db)):
     categorias = db.query(Categoria).all()
@@ -41,7 +57,12 @@ def listar_categorias(db: Session = Depends(get_db)):
             "nome": cat.nome,
             "tipo": cat.tipo.value,
             "subcategorias": [
-                {"id": sub.id, "nome": sub.nome, "trata_patrimonio": sub.trata_patrimonio}
+                {
+                    "id": sub.id,
+                    "nome": sub.nome,
+                    "trata_patrimonio": sub.trata_patrimonio,
+                    "classe_despesa": sub.classe_despesa.value if sub.classe_despesa else None,
+                }
                 for sub in cat.subcategorias
             ],
         }
@@ -81,10 +102,12 @@ def criar_subcategoria(
         raise HTTPException(
             status_code=409, detail="Já existe uma subcategoria com este nome nesta categoria."
         )
+    _validar_classe_despesa(subcategoria.classe_despesa, cat)
     nova = Subcategoria(
         nome=nome,
         categoria_id=categoria_id,
         trata_patrimonio=subcategoria.trata_patrimonio or False,
+        classe_despesa=subcategoria.classe_despesa,
     )
     db.add(nova)
     db.commit()
@@ -135,6 +158,11 @@ def renomear_categoria(
         raise HTTPException(status_code=409, detail="Já existe uma categoria com este nome.")
     cat.nome = nome
     cat.tipo = categoria.tipo
+    # Fora das despesas não há classificação: perde-se, e volta a escolher-se
+    # se a categoria voltar a ser de despesa
+    if cat.tipo != TipoCategoria.despesa:
+        for sub in cat.subcategorias:
+            sub.classe_despesa = None
     db.commit()
     db.refresh(cat)
     return cat
@@ -159,6 +187,9 @@ def renomear_subcategoria(
         raise HTTPException(
             status_code=409, detail="Já existe uma subcategoria com este nome nesta categoria."
         )
+    if "classe_despesa" in subcategoria.model_fields_set:
+        _validar_classe_despesa(subcategoria.classe_despesa, sub.categoria)
+        sub.classe_despesa = subcategoria.classe_despesa
     sub.nome = nome
     if subcategoria.trata_patrimonio is not None:
         sub.trata_patrimonio = subcategoria.trata_patrimonio

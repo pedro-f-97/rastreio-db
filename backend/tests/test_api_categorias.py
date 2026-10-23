@@ -24,7 +24,14 @@ categoria com transações são pré-checados e respondem **409**.
 
 from datetime import date
 
-from database import Categoria, RegraCategorizacao, Subcategoria, TipoCategoria, Transacao
+from database import (
+    Categoria,
+    ClasseDespesa,
+    RegraCategorizacao,
+    Subcategoria,
+    TipoCategoria,
+    Transacao,
+)
 
 # ---------------------------------------------------------------------------
 # Auxiliares
@@ -126,6 +133,7 @@ def test_listar_categorias_devolve_subcategorias(client, session):
                     "id": d["sub_alim"].id,
                     "nome": "Alimentação",
                     "trata_patrimonio": False,
+                    "classe_despesa": None,
                 }
             ],
         },
@@ -138,6 +146,7 @@ def test_listar_categorias_devolve_subcategorias(client, session):
                     "id": d["sub_salario"].id,
                     "nome": "Salário",
                     "trata_patrimonio": True,
+                    "classe_despesa": None,
                 }
             ],
         },
@@ -158,7 +167,8 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
 
     Cálculo à mão (o corpo de `listar_subcategorias`):
       categoria Casa    -> [Alimentação], serializada como
-        {trata_patrimonio: False, nome: "Alimentação", id, categoria_id}
+        {trata_patrimonio: False, nome: "Alimentação", id, categoria_id,
+         classe_despesa: None}
       categoria Receita -> [Salário], com trata_patrimonio True
       categoria 9999    -> a `first()` devolve None -> 404
         {"detail": "Categoria não encontrada"}
@@ -175,6 +185,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
             "nome": "Alimentação",
             "id": d["sub_alim"].id,
             "categoria_id": d["cat_casa"].id,
+            "classe_despesa": None,
         }
     ]
 
@@ -186,6 +197,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
             "nome": "Salário",
             "id": d["sub_salario"].id,
             "categoria_id": d["cat_receita"].id,
+            "classe_despesa": None,
         }
     ]
 
@@ -329,7 +341,8 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
 
     Cálculo à mão:
       POST {"nome": "Casa de banho"} em Casa -> `None or False` = False,
-        resposta {trata_patrimonio: False, nome, id: 3, categoria_id: 1}
+        resposta {trata_patrimonio: False, nome, id: 3, categoria_id: 1,
+        classe_despesa: None}
         (as ids de subcategoria seguem a criação: Alimentação=1, Salário=2)
       POST {"nome": "Prémio", "trata_patrimonio": True} em Receita ->
         `True or False` = True, id 4, categoria_id 2
@@ -349,6 +362,7 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
         "nome": "Casa de banho",
         "id": 3,
         "categoria_id": d["cat_casa"].id,
+        "classe_despesa": None,
     }
 
     r2 = client.post(
@@ -362,6 +376,7 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
         "nome": "Prémio",
         "id": 4,
         "categoria_id": d["cat_receita"].id,
+        "classe_despesa": None,
     }
 
     r_404 = client.post("/api/categorias/9999/subcategorias", json={"nome": "X"})
@@ -399,6 +414,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
         "nome": "Comida",
         "id": d["sub_alim"].id,
         "categoria_id": d["cat_casa"].id,
+        "classe_despesa": None,
     }
 
     r2 = client.put(
@@ -411,6 +427,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
         "nome": "Ordenado",
         "id": d["sub_salario"].id,
         "categoria_id": d["cat_receita"].id,
+        "classe_despesa": None,
     }
 
     r_404 = client.put(
@@ -714,3 +731,168 @@ def test_apagar_inexistentes_da_404(client, session):
     assert session.query(Categoria).count() == 3
     assert session.query(Subcategoria).count() == 2
     assert session.query(Transacao).count() == 3
+
+
+# ---------------------------------------------------------------------------
+# Classificação das subcategorias de despesa
+# ---------------------------------------------------------------------------
+
+
+def _classe(session, sub_id):
+    session.expire_all()
+    return session.get(Subcategoria, sub_id).classe_despesa
+
+
+def test_criar_subcategoria_com_classe_e_listar(client, session):
+    """A classificação grava-se ao criar e lista-se como a string do enum.
+
+    Cálculo à mão:
+      POST {"nome": "Carro", "classe_despesa": "extraordinaria"} em Casa
+        (despesa) -> 200, id 3 (Alimentação=1, Salário=2), na BD
+        ClasseDespesa.extraordinaria
+      POST {"nome": "Água"} em Casa -> sem classificação, None
+      GET / -> Casa tem Alimentação (None), Carro ("extraordinaria") e Água
+        (None), ordenadas por id para não depender da ordem do SQLite
+    """
+    d = _semear(session)
+    url = f"/api/categorias/{d['cat_casa'].id}/subcategorias"
+
+    r = client.post(url, json={"nome": "Carro", "classe_despesa": "extraordinaria"})
+    r2 = client.post(url, json={"nome": "Água"})
+
+    assert r.status_code == 200
+    assert r.json()["classe_despesa"] == "extraordinaria"
+    assert _classe(session, 3) == ClasseDespesa.extraordinaria
+    assert r2.status_code == 200
+    assert _classe(session, 4) is None
+
+    casa = next(c for c in client.get("/api/categorias/").json() if c["nome"] == "Casa")
+    assert sorted((s["id"], s["classe_despesa"]) for s in casa["subcategorias"]) == [
+        (1, None),
+        (3, "extraordinaria"),
+        (4, None),
+    ]
+
+
+def test_classe_fora_das_despesas_e_recusada(client, session):
+    """Só as subcategorias de categorias de despesa podem ser classificadas.
+
+    Cálculo à mão, na Receita (receita):
+      POST {"nome": "Prémio", "classe_despesa": "essencial"} -> 400, e ficam as
+        2 subcategorias da semente
+      PUT Salário {"nome": "Ordenado", "classe_despesa": "evitavel"} -> 400, e o
+        Salário fica com o nome e sem classificação
+      PUT Salário {"nome": "Ordenado", "classe_despesa": null} -> 200: tirar uma
+        classificação que não existe não é classificar
+      Um valor fora do enum, "luxo", em Casa -> 422
+    """
+    d = _semear(session)
+    detalhe = {"detail": "Só as subcategorias de categorias de despesa podem ser classificadas."}
+    url = f"/api/categorias/{d['cat_receita'].id}/subcategorias"
+
+    r = client.post(url, json={"nome": "Prémio", "classe_despesa": "essencial"})
+    assert r.status_code == 400
+    assert r.json() == detalhe
+    assert session.query(Subcategoria).count() == 2
+
+    r = client.put(
+        f"{url}/{d['sub_salario'].id}", json={"nome": "Ordenado", "classe_despesa": "evitavel"}
+    )
+    assert r.status_code == 400
+    assert r.json() == detalhe
+    session.expire_all()
+    salario = session.get(Subcategoria, d["sub_salario"].id)
+    assert (salario.nome, salario.classe_despesa) == ("Salário", None)
+
+    r = client.put(
+        f"{url}/{d['sub_salario'].id}", json={"nome": "Ordenado", "classe_despesa": None}
+    )
+    assert r.status_code == 200
+    assert _classe(session, d["sub_salario"].id) is None
+
+    r = client.post(
+        f"/api/categorias/{d['cat_casa'].id}/subcategorias",
+        json={"nome": "Jóias", "classe_despesa": "luxo"},
+    )
+    assert r.status_code == 422
+
+
+def test_editar_classe_omitida_mantem_e_null_tira(client, session):
+    """No PUT, a classificação omitida fica como estava; enviada a null sai.
+
+    Cálculo à mão, em Casa/Alimentação:
+      PUT {"nome": "Alimentação", "classe_despesa": "essencial"} -> essencial
+      PUT {"nome": "Comida"}  -> omitida: continua essencial, nome Comida
+      PUT {"nome": "Comida", "classe_despesa": "evitavel"} -> evitavel
+      PUT {"nome": "Comida", "classe_despesa": null} -> None
+    """
+    d = _semear(session)
+    url = f"/api/categorias/{d['cat_casa'].id}/subcategorias/{d['sub_alim'].id}"
+    sub_id = d["sub_alim"].id
+
+    assert (
+        client.put(url, json={"nome": "Alimentação", "classe_despesa": "essencial"}).json()[
+            "classe_despesa"
+        ]
+        == "essencial"
+    )
+    assert _classe(session, sub_id) == ClasseDespesa.essencial
+
+    assert client.put(url, json={"nome": "Comida"}).status_code == 200
+    assert _classe(session, sub_id) == ClasseDespesa.essencial
+    assert session.get(Subcategoria, sub_id).nome == "Comida"
+
+    client.put(url, json={"nome": "Comida", "classe_despesa": "evitavel"})
+    assert _classe(session, sub_id) == ClasseDespesa.evitavel
+
+    client.put(url, json={"nome": "Comida", "classe_despesa": None})
+    assert _classe(session, sub_id) is None
+
+
+def test_categoria_que_deixa_de_ser_despesa_perde_as_classificacoes(client, session):
+    """Mudar o tipo de uma categoria de despesa apaga as classificações das suas
+    subcategorias, e só dessas.
+
+    Cálculo à mão:
+      Casa: Alimentação essencial e Carro (novo, id 3) extraordinaria
+      Saúde: Consultas (nova, id 4) essencial
+      PUT Casa {"nome": "Casa", "tipo": "despesa"} -> o tipo não muda: ficam
+        essencial e extraordinaria
+      PUT Casa {"nome": "Casa", "tipo": "receita"} -> Alimentação e Carro None
+      Consultas, na Saúde, continua essencial
+      PUT Casa de volta a despesa -> continuam None (classificam-se de novo)
+      Alimentação volta a essencial; PUT Casa {"tipo": "transferencia"} -> None:
+        vale para qualquer tipo que não despesa, e não só para a receita
+    """
+    d = _semear(session)
+    casa = f"/api/categorias/{d['cat_casa'].id}"
+    client.put(
+        f"{casa}/subcategorias/{d['sub_alim'].id}",
+        json={"nome": "Alimentação", "classe_despesa": "essencial"},
+    )
+    client.post(f"{casa}/subcategorias", json={"nome": "Carro", "classe_despesa": "extraordinaria"})
+    client.post(
+        f"/api/categorias/{d['cat_saude'].id}/subcategorias",
+        json={"nome": "Consultas", "classe_despesa": "essencial"},
+    )
+
+    assert client.put(casa, json={"nome": "Casa", "tipo": "despesa"}).status_code == 200
+    assert _classe(session, d["sub_alim"].id) == ClasseDespesa.essencial
+    assert _classe(session, 3) == ClasseDespesa.extraordinaria
+
+    assert client.put(casa, json={"nome": "Casa", "tipo": "receita"}).status_code == 200
+    assert _classe(session, d["sub_alim"].id) is None
+    assert _classe(session, 3) is None
+    assert _classe(session, 4) == ClasseDespesa.essencial
+
+    client.put(casa, json={"nome": "Casa", "tipo": "despesa"})
+    assert _classe(session, d["sub_alim"].id) is None
+    assert _classe(session, 3) is None
+
+    client.put(
+        f"{casa}/subcategorias/{d['sub_alim'].id}",
+        json={"nome": "Alimentação", "classe_despesa": "essencial"},
+    )
+    assert _classe(session, d["sub_alim"].id) == ClasseDespesa.essencial
+    client.put(casa, json={"nome": "Casa", "tipo": "transferencia"})
+    assert _classe(session, d["sub_alim"].id) is None
