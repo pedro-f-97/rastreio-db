@@ -89,3 +89,11 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 export function labelMes(ano, mes) {
   return `${MESES[mes - 1]} ${ano}`;
 }
+
+// Os nomes da classificação das subcategorias de despesa, pela ordem em que se
+// mostram. A chave é o valor que a API usa
+export const NOMES_CLASSE_DESPESA = {
+  essencial: 'Essencial',
+  evitavel: 'Evitável',
+  extraordinaria: 'Extraordinária',
+};

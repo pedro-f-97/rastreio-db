@@ -3,8 +3,36 @@ import {
     listarCategorias, criarCategoria, renomearCategoria, apagarCategoria,
     criarSubcategoria, renomearSubcategoria, apagarSubcategoria
 } from '../api/categorias';
+import { NOMES_CLASSE_DESPESA } from '../utils/formatacao';
 import '../componentes.css';
 import './Categorias.css';
+
+const ESTILO_CLASSE = {
+    background: 'var(--bg-tertiary)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    padding: 'var(--space-xs) var(--space-sm)',
+    fontSize: 'var(--text-sm)',
+    borderRadius: 'var(--radius-sm)',
+};
+
+// A classificação só existe nas subcategorias de categorias de despesa; o valor
+// vazio é «sem classificação» (null na API)
+function SelectClasse({ valor, onChange }) {
+    return (
+        <select
+            value={valor ?? ''}
+            onChange={e => onChange(e.target.value || null)}
+            style={ESTILO_CLASSE}
+            title="Classificação da despesa, para o mês típico das Estatísticas"
+        >
+            <option value="">Sem classificação</option>
+            {Object.entries(NOMES_CLASSE_DESPESA).map(([chave, nome]) => (
+                <option key={chave} value={chave}>{nome}</option>
+            ))}
+        </select>
+    );
+}
 
 export default function Categorias() {
     const [categorias, setCategorias] = useState([]);
@@ -57,21 +85,21 @@ export default function Categorias() {
         carregar();
     }
 
-    async function aoAdicionarSubcategoria(categoriaId, nome, trataPatrimonio = false) {
+    async function aoAdicionarSubcategoria(categoriaId, nome, trataPatrimonio = false, classeDespesa = undefined) {
         if (!nome.trim()) return;
         setErro('');
         try {
-            await criarSubcategoria(categoriaId, nome.trim(), trataPatrimonio);
+            await criarSubcategoria(categoriaId, nome.trim(), trataPatrimonio, classeDespesa);
             carregar();
         } catch (e) {
             setErro(e.response?.data?.detail || 'Erro ao criar subcategoria.');
         }
     }
 
-    async function aoRenomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio) {
+    async function aoRenomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio, classeDespesa) {
         setErro('');
         try {
-            await renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio);
+            await renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio, classeDespesa);
             setEditando({});
             carregar();
         } catch (e) {
@@ -139,12 +167,15 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
     const [aCriarSub, setACriarSub] = useState(false);
     const [novaSub, setNovaSub] = useState('');
     const [novaSubPatrimonio, setNovaSubPatrimonio] = useState(false);
+    const [novaSubClasse, setNovaSubClasse] = useState(null);
+    const eDespesa = cat.tipo === 'despesa';
 
     function submeterNovaSub() {
         if (!novaSub.trim()) return;
-        onAdicionarSub(cat.id, novaSub, novaSubPatrimonio);
+        onAdicionarSub(cat.id, novaSub, novaSubPatrimonio, eDespesa ? novaSubClasse : undefined);
         setNovaSub('');
         setNovaSubPatrimonio(false);
+        setNovaSubClasse(null);
         setACriarSub(false);
     }
 
@@ -152,6 +183,11 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
         setACriarSub(false);
         setNovaSub('');
         setNovaSubPatrimonio(false);
+        setNovaSubClasse(null);
+    }
+
+    function confirmarSub(sub) {
+        onRenomearSub(cat.id, sub.id, editando.valor, editando.trataPatrimonio, eDespesa ? editando.classeDespesa : undefined);
     }
     const estaAEditar = editando.tipoEdicao === 'categoria' && editando.id === cat.id;
 
@@ -208,7 +244,7 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                         value={editando.valor}
                                         onChange={e => setEditando(prev => ({ ...prev, valor: e.target.value }))}
                                         onKeyDown={e => {
-                                            if (e.key === 'Enter') onRenomearSub(cat.id, sub.id, editando.valor, editando.trataPatrimonio);
+                                            if (e.key === 'Enter') confirmarSub(sub);
                                             if (e.key === 'Escape') setEditando({});
                                         }}
                                     />
@@ -221,19 +257,30 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                         />
                                         Património
                                     </label>
-                                    <button className="btn-confirmar" onClick={() => onRenomearSub(cat.id, sub.id, editando.valor, editando.trataPatrimonio)}>✓</button>
+                                    {eDespesa && (
+                                        <SelectClasse
+                                            valor={editando.classeDespesa}
+                                            onChange={v => setEditando(prev => ({ ...prev, classeDespesa: v }))}
+                                        />
+                                    )}
+                                    <button className="btn-confirmar" onClick={() => confirmarSub(sub)}>✓</button>
                                     <button className="btn-cancelar" onClick={() => setEditando({})}>✕</button>
                                 </>
                             ) : (
-                                <>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
                                     <span>{sub.nome}</span>
                                     {sub.trata_patrimonio && (
                                         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>P</span>
                                     )}
-                                </>
+                                    {eDespesa && sub.classe_despesa && (
+                                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', opacity: 0.8 }}>
+                                            {NOMES_CLASSE_DESPESA[sub.classe_despesa]}
+                                        </span>
+                                    )}
+                                </span>
                             )}
                             <div className="accoes">
-                                <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio })}>✏️</button>
+                                <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio, classeDespesa: sub.classe_despesa })}>✏️</button>
                                 <button className="btn-ghost" onClick={() => onApagarSub(cat.id, sub.id)}>🗑</button>
                             </div>
                         </div>
@@ -262,6 +309,7 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                             />
                             Património
                         </label>
+                        {eDespesa && <SelectClasse valor={novaSubClasse} onChange={setNovaSubClasse} />}
                         <button className="btn-confirmar" onClick={submeterNovaSub}>✓</button>
                         <button className="btn-cancelar" onClick={cancelarNovaSub}>✕</button>
                     </div>
