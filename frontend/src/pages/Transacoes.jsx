@@ -10,6 +10,8 @@ import { exportarBackup, importarBackup } from '../api/backups';
 import { getContas } from '../api/contas';
 import './Transacoes.css';
 import '../componentes.css';
+import CabecalhoPagina from '../components/CabecalhoPagina';
+import Icone from '../components/Icone';
 
 export default function Transacoes({ onDadosAlterados }) {
     // Dados
@@ -169,36 +171,35 @@ export default function Transacoes({ onDadosAlterados }) {
     
 
     return (
-        <div className="transacoes-page">
-            <div className="transacoes-header">
-                <h1 className="titulo-pagina">Transações</h1>
-                
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button onClick={() => setNovaAberta(true)} className="btn-secundario">
-                        Nova transação
-                    </button>
+        <div className="pagina-container transacoes-page">
+            <CabecalhoPagina
+                secao="01 · Transações"
+                titulo="Transações"
+                descricao="Os movimentos de todas as contas. Categoriza, escreve notas e o saldo que o banco mostra."
+            >
+                <button onClick={exportarBackup} className="btn-secundario" title="Descarregar uma cópia da base de dados">
+                    <Icone nome="descarregar" /> Exportar DB
+                </button>
 
-                    {/* Grupo de Backup */}
-                    <button onClick={exportarBackup} className="btn-secundario">
-                        Exportar DB
-                    </button>
-                    
-                    <label className="btn-secundario">
-                        Restaurar DB
-                        <input 
-                            type="file" 
-                            accept=".db" 
-                            onChange={handleImportarFicheiro} 
-                            hidden 
-                        />
-                    </label>
-                </div>
-            </div>
+                <label className="btn-secundario" title="Substituir os dados por uma cópia guardada">
+                    <Icone nome="carregar" /> Restaurar DB
+                    <input
+                        type="file"
+                        accept=".db"
+                        onChange={handleImportarFicheiro}
+                        hidden
+                    />
+                </label>
+
+                <button onClick={() => setNovaAberta(true)} className="btn-primario">
+                    <Icone nome="mais" /> Nova transação
+                </button>
+            </CabecalhoPagina>
 
             <FiltrosTransacoes
                 filtros={filtros}
                 categorias={categorias}
-                contas={contas}         
+                contas={contas}
                 onChange={mudarFiltro}
             />
 
@@ -218,7 +219,6 @@ export default function Transacoes({ onDadosAlterados }) {
                 <p className="carregando">A carregar...</p>
             ) : (
                 <>
-                    <p className="total-info">{total} transações encontradas</p>
                     <TabelaTransacoes
                         transacoes={transacoes}
                         categorias={categorias}
@@ -230,19 +230,24 @@ export default function Transacoes({ onDadosAlterados }) {
                         onApagar={aoApagar}
                     />
                     <div className="paginacao">
-                        <button
-                            disabled={filtros.pagina === 1}
-                            onClick={() => setFiltros(p => ({ ...p, pagina: p.pagina - 1 }))}
-                        >
-                            ← Anterior
-                        </button>
-                        <span>Página {filtros.pagina} de {totalPaginas}</span>
-                        <button
-                            disabled={filtros.pagina === totalPaginas}
-                            onClick={() => setFiltros(p => ({ ...p, pagina: p.pagina + 1 }))}
-                        >
-                            Seguinte →
-                        </button>
+                        <span className="total-info"><strong>{total}</strong> transações</span>
+                        <div className="paginacao-botoes">
+                            <button
+                                className="btn-secundario"
+                                disabled={filtros.pagina === 1}
+                                onClick={() => setFiltros(p => ({ ...p, pagina: p.pagina - 1 }))}
+                            >
+                                <Icone nome="esquerda" /> Anterior
+                            </button>
+                            <span className="paginacao-pagina">{filtros.pagina} / {totalPaginas}</span>
+                            <button
+                                className="btn-secundario"
+                                disabled={filtros.pagina === totalPaginas}
+                                onClick={() => setFiltros(p => ({ ...p, pagina: p.pagina + 1 }))}
+                            >
+                                Seguinte <Icone nome="direita" />
+                            </button>
+                        </div>
                     </div>
                 </>
             )}

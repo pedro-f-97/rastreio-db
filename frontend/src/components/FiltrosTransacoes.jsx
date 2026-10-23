@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { listarSubcategorias } from '../api/categorias';
+import Icone from './Icone';
 
 export default function FiltrosTransacoes({ filtros, categorias, contas = [], onChange }) {
     const anoActual = new Date().getFullYear();
@@ -27,6 +28,15 @@ export default function FiltrosTransacoes({ filtros, categorias, contas = [], on
 
     return (
         <div className="filtros">
+            <label className="filtros-pesquisa">
+                <Icone nome="procurar" />
+                <input
+                    type="text"
+                    placeholder="Pesquisar descrição..."
+                    value={filtros.descricao ?? ''}
+                    onChange={e => onChange({ descricao: e.target.value || null })}
+                />
+            </label>
             <select
                 value={filtros.ano ?? ''}
                 onChange={e => onChange({ ano: e.target.value ? Number(e.target.value) : null })}
@@ -71,16 +81,12 @@ export default function FiltrosTransacoes({ filtros, categorias, contas = [], on
                 <option value="negativo">Negativos</option>
                 <option value="positivo">Positivos</option>
             </select>
-            <input
-                type="text"
-                placeholder="Pesquisar descrição..."
-                value={filtros.descricao ?? ''}
-                onChange={e => onChange({ descricao: e.target.value || null })}
-            />
             <button
-                className={filtros.por_categorizar ? 'btn-filtro-activo' : 'btn-filtro'}
+                className={filtros.por_categorizar ? 'btn-filtro btn-filtro-activo' : 'btn-filtro'}
+                aria-pressed={!!filtros.por_categorizar}
                 onClick={() => onChange({ por_categorizar: !filtros.por_categorizar, ano: null })}
             >
+                <span className="btn-filtro-ponto" />
                 {filtros.por_categorizar ? 'Mostrar todas' : 'Por categorizar'}
             </button>
         </div>

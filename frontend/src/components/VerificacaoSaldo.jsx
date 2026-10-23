@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { verificarSaldo } from '../api/contas';
 import { formatarEuros, prefixoSinal } from '../utils/formatacao';
 import FormNovaTransacao from './FormNovaTransacao';
+import Icone from './Icone';
 import '../componentes.css';
 
 const formatarData = (iso) => iso.split('-').reverse().join('/');
@@ -58,7 +59,7 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
                     {sugestao}
                 </div>
             ) : (
-                <div className="resumo-saldo-linha">
+                <div className="resumo-saldo-linha com-diferencas">
                     <span>O saldo {nome} tem diferenças em relação ao banco.</span>
                     <button className="btn-ghost" onClick={() => setAberto(true)}>Ver</button>
                 </div>
@@ -79,7 +80,7 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
                                                 ? `Entre ${formatarData(i.de)} e ${formatarData(i.ate)}`
                                                 : `No saldo de referência, de ${formatarData(i.ate)}`}
                                         </td>
-                                        <td className="valor" style={{ whiteSpace: 'nowrap' }}>{prefixoSinal(i.variacao)}{formatarEuros(i.variacao)}</td>
+                                        <td className="col-num">{prefixoSinal(i.variacao)}{formatarEuros(i.variacao)}</td>
                                         <td>
                                             {/* Uma transação não corrige o saldo de referência:
                                                 é o saldo no fim desse dia, seja qual for */}
@@ -111,7 +112,7 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
                         <div className="modal-acoes">
                             <button className="btn-ghost" onClick={() => setAberto(false)}>Fechar</button>
                         </div>
-                        <button className="modal-fechar" onClick={() => setAberto(false)}>✕</button>
+                        <button className="modal-fechar" onClick={() => setAberto(false)} title="Fechar"><Icone nome="fechar" /></button>
                     </div>
                 </div>
             )}

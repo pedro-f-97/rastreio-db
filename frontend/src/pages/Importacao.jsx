@@ -6,6 +6,8 @@ import { classeValor, formatarEuros } from '../utils/formatacao'
 import VerificacaoSaldo from '../components/VerificacaoSaldo'
 import '../componentes.css'
 import './Importacao.css'
+import CabecalhoPagina from '../components/CabecalhoPagina'
+import Icone from '../components/Icone'
 
 const FORMATOS_DATA = [
     { label: '31/01/2026', valor: '%d/%m/%Y' },
@@ -280,54 +282,38 @@ export default function Importacao({ onDadosAlterados }) {
     const checklist = calcularChecklist()
 
     return (
-        <div className="importacao-page">
-            {/* SECÇÃO: PERFIS */}
-            <section className="importacao-secao">
-                <div className="importacao-secao-header"  data-tour="importacao-novo-perfil">
-                    <h2>Perfis de banco</h2>
-                    <button onClick={abrirModalNovo}>+ Novo perfil</button>
-                </div>
-
-                {perfis.length === 0 ? (
-                    <p className="estado-vazio-sm">Nenhum perfil configurado.</p>
-                ) : (
-                    <div className="lista-itens">
-                        {perfis.map(p => (
-                            <div key={p.id} className="item-lista">
-                                <div className="item-cabecalho item-cabecalho-limpo">
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                        <span className="item-nome">{p.nome}</span>
-                                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginLeft: 'var(--space-sm)' }}>
-                                            {contas.find(c => c.id === p.conta_id)?.nome ?? '—'}
-                                        </span>
-                                    </div>
-                                    <div className="accoes">
-                                        <button className="btn-ghost" onClick={() => abrirModalEditar(p)} title="Editar perfil">✎</button>
-                                        <button className="btn-ghost" onClick={() => aoEliminarPerfil(p.id)}>🗑</button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
+        <div className="pagina-container importacao-page">
+            <CabecalhoPagina
+                secao="01 · Transações"
+                titulo="Importação"
+                descricao="Escolhe o perfil do banco e o extracto: vês as linhas antes de importar, e as repetidas ficam de fora."
+            />
 
             {/* SECÇÃO: IMPORTAR */}
             <section className="importacao-secao">
-                <div className="importacao-secao-header">
-                    <h2>Importar extrato</h2>
-                </div>
+                <h2 className="titulo-secao"><span className="titulo-secao-numero">01</span>Importar extracto</h2>
 
                 <div className="importacao-controles" data-tour="importacao-carregar-ficheiro">
-                    <select value={perfilId} onChange={aoSelecionarPerfil}>
-                        <option value="">Selecionar perfil...</option>
-                        {perfis.map(p => (
-                            <option key={p.id} value={p.id}>{p.nome}</option>
-                        ))}
-                    </select>
+                    <div className="importacao-passo">
+                        <span className="importacao-passo-numero">1</span>
+                        <div className="importacao-passo-corpo">
+                            <span className="importacao-passo-titulo">Perfil do banco</span>
+                            <select value={perfilId} onChange={aoSelecionarPerfil}>
+                                <option value="">Selecionar perfil...</option>
+                                {perfis.map(p => (
+                                    <option key={p.id} value={p.id}>{p.nome}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
 
-                    <label className="btn-ficheiro">
-                        {ficheiro ? ficheiro.name : 'Carregar ficheiro'}
+                    <label className={`btn-ficheiro ${ficheiro ? 'com-ficheiro' : ''}`}>
+                        <span className="importacao-passo-numero">2</span>
+                        <Icone nome={ficheiro ? 'ficheiro' : 'carregar'} tamanho={22} />
+                        <span className="btn-ficheiro-texto">
+                            <span className="importacao-passo-titulo">{ficheiro ? 'Ficheiro escolhido' : 'Extracto'}</span>
+                            <span className="btn-ficheiro-nome">{ficheiro ? ficheiro.name : 'Carregar ficheiro (.xlsx ou .csv)'}</span>
+                        </span>
                         <input
                             ref={inputFicheiroRef}
                             type="file"
@@ -341,6 +327,7 @@ export default function Importacao({ onDadosAlterados }) {
                 {preview && (
                     <div className="importacao-preview">
                         <div className="importacao-preview-meta">
+                            <span className="importacao-passo-numero">3</span>
                             <span>Total de linhas: <strong>{preview.total_linhas}</strong></span>
                             {preview.erros.length > 0 && (
                                 <span className="importacao-erros-badge">
@@ -357,51 +344,53 @@ export default function Importacao({ onDadosAlterados }) {
                             </ul>
                         )}
 
-                        <table className="tabela-base">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Descrição</th>
-                                    <th>Valor</th>
-                                    <th>Saldo</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {preview.linhas_preview.map((t, i) => (
-                                    <tr key={i}>
-                                        <td>{t.data}</td>
-                                        <td>{t.descricao}</td>
-                                        <td className={classeValor(t.valor)}>
-                                            {formatarEuros(t.valor)}
-                                        </td>
-                                        <td>{formatarEuros(t.saldo)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            {preview.total_linhas > preview.linhas_preview.length && (
-                                <tfoot>
+                        <div className="tabela-wrapper">
+                            <table className="tabela-base">
+                                <thead>
                                     <tr>
-                                        <td colSpan={4} className="preview-mais-linhas">
-                                            + {preview.total_linhas - preview.linhas_preview.length} linhas não mostradas
-                                        </td>
+                                        <th>Data</th>
+                                        <th>Descrição</th>
+                                        <th className="col-num">Valor</th>
+                                        <th className="col-num">Saldo</th>
                                     </tr>
-                                </tfoot>
-                            )}
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {preview.linhas_preview.map((t, i) => (
+                                        <tr key={i}>
+                                            <td className="col-data">{t.data}</td>
+                                            <td>{t.descricao}</td>
+                                            <td className={`col-num ${classeValor(t.valor)}`}>
+                                                {formatarEuros(t.valor)}
+                                            </td>
+                                            <td className="col-num celula-secundaria">{formatarEuros(t.saldo)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                {preview.total_linhas > preview.linhas_preview.length && (
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan={4} className="preview-mais-linhas">
+                                                + {preview.total_linhas - preview.linhas_preview.length} linhas não mostradas
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
 
                         <button
-                            className="btn-importar"
+                            className="btn-primario btn-importar"
                             onClick={aoImportar}
                             disabled={aImportar}
                         >
-                            {aImportar ? 'A importar...' : 'Importar'}
+                            <Icone nome="descarregar" /> {aImportar ? 'A importar...' : 'Importar'}
                         </button>
                     </div>
                 )}
 
                 {resultado && (
                     <div className="importacao-resultado">
-                        <span className="resultado-inseridas">✓ {resultado.inseridas} inseridas</span>
+                        <span className="resultado-inseridas"><Icone nome="confirmar" /> {resultado.inseridas} inseridas</span>
                         <span className="resultado-duplicadas">{resultado.duplicadas} duplicadas</span>
                     </div>
                 )}
@@ -419,49 +408,81 @@ export default function Importacao({ onDadosAlterados }) {
                 )}
             </section>
 
-            {/* SECÇÃO: HISTÓRICO */}
+            {/* SECÇÃO: PERFIS */}
             <section className="importacao-secao">
-                <div className="importacao-secao-header">
-                    <h2>Histórico de importações</h2>
+                <div className="secao-cabecalho" data-tour="importacao-novo-perfil">
+                    <h2 className="titulo-secao"><span className="titulo-secao-numero">02</span>Perfis de banco</h2>
+                    <button className="btn-secundario" onClick={abrirModalNovo}><Icone nome="mais" /> Novo perfil</button>
                 </div>
 
-                {historico.length === 0 ? (
-                    <p className="estado-vazio-sm">Nenhuma importação registada.</p>
+                {perfis.length === 0 ? (
+                    <p className="estado-vazio">Nenhum perfil configurado.</p>
                 ) : (
-                    <table className="tabela-base">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Conta</th>
-                                <th>Ficheiro</th>
-                                <th>Inseridas</th>
-                                <th>Duplicadas</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {historico.map(i => (
-                                <tr key={i.id}>
-                                    <td>{i.data_hora.slice(0, 16).replace('T', ' ')}</td>
-                                    <td>{i.conta_nome}</td>
-                                    <td>{i.ficheiro}</td>
-                                    <td>{i.inseridas}</td>
-                                    <td>{i.duplicadas}</td>
-                                    <td>
-                                        {i.pode_desfazer && (
-                                            <button
-                                                className="btn-ghost"
-                                                onClick={() => aoDesfazer(i)}
-                                                title="Só a importação mais recente de cada conta se pode desfazer"
-                                            >
-                                                Desfazer
-                                            </button>
-                                        )}
-                                    </td>
+                    <div className="grelha-itens grelha-perfis">
+                        {perfis.map(p => (
+                            <div key={p.id} className="item-lista perfil-cartao">
+                                <div className="item-cabecalho item-cabecalho-limpo revelar-accoes">
+                                    <div className="item-titulo">
+                                        <span className="perfil-icone"><Icone nome="ficheiro" tamanho={16} /></span>
+                                        <span className="item-nome">{p.nome}</span>
+                                        <span className="chip chip-accent">
+                                            {contas.find(c => c.id === p.conta_id)?.nome ?? '—'}
+                                        </span>
+                                    </div>
+                                    <div className="accoes">
+                                        <button onClick={() => abrirModalEditar(p)} title="Editar perfil"><Icone nome="editar" /></button>
+                                        <button className="perigo" onClick={() => aoEliminarPerfil(p.id)} title="Eliminar perfil"><Icone nome="apagar" /></button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            {/* SECÇÃO: HISTÓRICO */}
+            <section className="importacao-secao">
+                <h2 className="titulo-secao"><span className="titulo-secao-numero">03</span>Histórico de importações</h2>
+
+                {historico.length === 0 ? (
+                    <p className="estado-vazio">Nenhuma importação registada.</p>
+                ) : (
+                    <div className="tabela-wrapper">
+                        <table className="tabela-base">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Conta</th>
+                                    <th>Ficheiro</th>
+                                    <th className="col-num">Inseridas</th>
+                                    <th className="col-num">Duplicadas</th>
+                                    <th></th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {historico.map(i => (
+                                    <tr key={i.id}>
+                                        <td className="col-data">{i.data_hora.slice(0, 16).replace('T', ' ')}</td>
+                                        <td><span className="chip">{i.conta_nome}</span></td>
+                                        <td className="importacao-ficheiro"><Icone nome="ficheiro" tamanho={14} /> {i.ficheiro}</td>
+                                        <td className="col-num">{i.inseridas}</td>
+                                        <td className="col-num celula-secundaria">{i.duplicadas}</td>
+                                        <td className="col-accoes">
+                                            {i.pode_desfazer && (
+                                                <button
+                                                    className="btn-ghost"
+                                                    onClick={() => aoDesfazer(i)}
+                                                    title="Só a importação mais recente de cada conta se pode desfazer"
+                                                >
+                                                    <Icone nome="desfazer" tamanho={14} /> Desfazer
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </section>
 
@@ -471,7 +492,7 @@ export default function Importacao({ onDadosAlterados }) {
                     <div className="modal modal-larga" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>{perfilEmEdicao ? 'Editar perfil' : 'Novo perfil'}</h3>
-                            <button className="modal-fechar" onClick={fecharModal}>✕</button>
+                            <button className="modal-fechar" onClick={fecharModal} title="Fechar"><Icone nome="fechar" /></button>
                         </div>
 
                         <div className="modal-corpo">
@@ -483,7 +504,7 @@ export default function Importacao({ onDadosAlterados }) {
                                         Para mudar as colunas, carrega um ficheiro exemplo; sem ficheiro, ficam como estão.
                                     </div>
                                 )}
-                                <input type="file" accept=".xlsx,.csv" onChange={aoAnalisarFicheiro} />
+                                <input className="input-ficheiro" type="file" accept=".xlsx,.csv" onChange={aoAnalisarFicheiro} />
                             </div>
 
                             {linhasAnalisadas && (
@@ -653,7 +674,7 @@ export default function Importacao({ onDadosAlterados }) {
                                 ))}
                             </div>
                             <div className="modal-footer-accoes">
-                                <button onClick={fecharModal}>Cancelar</button>
+                                <button className="btn-ghost" onClick={fecharModal}>Cancelar</button>
                                 <button className="btn-primario" onClick={aoGuardarPerfil}>Guardar</button>
                             </div>
                         </div>
