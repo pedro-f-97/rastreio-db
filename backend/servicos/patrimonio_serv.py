@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func
@@ -181,7 +181,9 @@ def saldo_conta_em(db: Session, conta: ContaModel, data_alvo: date) -> float:
     return arredondar(conta.saldo_referencia + sinal * soma_transacoes)
 
 
-def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = False) -> dict:
+def calcular_patrimonio_em(
+    db: Session, data_alvo: date, precos_futuros: bool = False, com_valorizacao: bool = False
+) -> dict:
     # --- Liquidez ---
     # Todas as contas, activas ou não: desactivar só esconde a conta das listas,
     # e o dinheiro que lá esteve continua a fazer parte do histórico. Soma os
@@ -192,6 +194,9 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
     # --- Investimentos e Ativos físicos ---
     investimentos = 0.0
     ativos_fisicos = 0.0
+    # Ganho acumulado dos ativos: o que valem acima do custo, mais o já
+    # realizado em vendas e dividendos (que a venda passa para a liquidez)
+    valorizacao = Decimal(0)
     # O tipo vem na mesma query: sem isto, cada ponto lia cada tipo à parte
     ativos = db.query(AtivoModel).options(joinedload(AtivoModel.tipo)).all()
 
@@ -216,6 +221,7 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
         # Partilha a mesma lógica FIFO / sem-unidades que resumo_ativo
         resultado = _resumo_valor_ativo(ativo, movimentos, preco)
         valor = resultado["valor"]
+        valorizacao += exato(valor) - exato(resultado["custo_base"]) + exato(resultado["realizado"])
 
         if ativo.contabilizacao.value == "investimento":
             investimentos += valor
@@ -226,16 +232,21 @@ def calcular_patrimonio_em(db: Session, data_alvo: date, precos_futuros: bool = 
     liquidez = arredondar(liquidez)
     investimentos = arredondar(investimentos)
     ativos_fisicos = arredondar(ativos_fisicos)
-    return {
+    ponto = {
         "data": str(data_alvo),
         "liquidez": liquidez,
         "investimentos": investimentos,
         "ativos_fisicos": ativos_fisicos,
         "total": arredondar(liquidez + investimentos + ativos_fisicos),
     }
+    if com_valorizacao:
+        ponto["valorizacao"] = arredondar(valorizacao)
+    return ponto
 
 
-def gerar_evolucao(db: Session, data_inicio: date, data_fim: date, hoje: date) -> list[dict]:
+def gerar_evolucao(
+    db: Session, data_inicio: date, data_fim: date, hoje: date, com_valorizacao: bool = False
+) -> list[dict]:
     from calendar import monthrange
 
     pontos = []
@@ -243,7 +254,65 @@ def gerar_evolucao(db: Session, data_inicio: date, data_fim: date, hoje: date) -
     while cursor <= data_fim:
         ultimo_dia = monthrange(cursor.year, cursor.month)[1]
         fim_mes = min(date(cursor.year, cursor.month, ultimo_dia), data_fim)
-        pontos.append(calcular_patrimonio_em(db, fim_mes, precos_futuros=fim_mes >= hoje))
+        pontos.append(
+            calcular_patrimonio_em(
+                db, fim_mes, precos_futuros=fim_mes >= hoje, com_valorizacao=com_valorizacao
+            )
+        )
         cursor = date(cursor.year + (cursor.month == 12), (cursor.month % 12) + 1, 1)
 
     return pontos
+
+
+# Abaixo disto, a recta diz pouco e o crescimento não se mostra
+MESES_MINIMOS = 3
+
+
+def _inclinacao(valores: list[float]) -> float:
+    """Inclinação da recta dos mínimos quadrados, por passo de `x` (um mês)."""
+    n = len(valores)
+    media_x = (n - 1) / 2
+    media_y = sum(valores) / n
+    numerador = sum((x - media_x) * (y - media_y) for x, y in enumerate(valores))
+    denominador = sum((x - media_x) ** 2 for x in range(n))
+    return numerador / denominador
+
+
+def calcular_crescimento(db: Session, ano: int | None, hoje: date) -> dict:
+    """Quanto o património cresce por mês, pela tendência dos fins de mês.
+
+    O período vai do mês da primeira transação (ou de janeiro de `ano`) ao
+    último mês completo antes de `hoje` (ou dezembro de `ano`): o mês em curso
+    fica de fora. Separa-se o crescimento em valorização (o ganho acumulado dos
+    ativos) e no que se poupa (o resto). A recta é linear nos valores, por isso
+    as duas inclinações somam a do total; a poupança calcula-se como a
+    diferença das já arredondadas, para somarem ao cêntimo.
+    """
+    fim = date(hoje.year, hoje.month, 1) - timedelta(days=1)
+    primeira = db.query(func.min(TransacaoModel.data)).scalar()
+    inicio = primeira
+    if ano is not None and primeira is not None:
+        inicio = max(primeira, date(ano, 1, 1))
+        fim = min(fim, date(ano, 12, 31))
+
+    pontos = []
+    if inicio is not None and inicio <= fim:
+        pontos = gerar_evolucao(db, inicio, fim, hoje, com_valorizacao=True)
+
+    resultado = {
+        "de": pontos[0]["data"] if pontos else None,
+        "ate": pontos[-1]["data"] if pontos else None,
+        "meses": len(pontos),
+        "total": None,
+        "poupanca": None,
+        "valorizacao": None,
+    }
+    if len(pontos) < MESES_MINIMOS:
+        return resultado
+
+    total = arredondar(_inclinacao([p["total"] for p in pontos]))
+    valorizacao = arredondar(_inclinacao([p["valorizacao"] for p in pontos]))
+    resultado["total"] = total
+    resultado["valorizacao"] = valorizacao
+    resultado["poupanca"] = arredondar(exato(total) - exato(valorizacao))
+    return resultado
