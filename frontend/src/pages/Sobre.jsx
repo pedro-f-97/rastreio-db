@@ -141,6 +141,13 @@ export default function Sobre() {
                     definido na subcategoria e determina se as transações dessa subcategoria contam para o
                     património.
                 </p>
+                <p>
+                    O <strong>crescimento por mês</strong> é a tendência do património no fim de cada mês, e não a
+                    diferença entre o primeiro e o último: um mês fora do normal pesa pouco. Divide-se no que vem
+                    da <strong>valorização</strong> dos ativos (o que valem acima do custo, mais o ganho já realizado)
+                    e no que vem do <strong>que poupas</strong>. Comprar um ativo não muda nenhuma das duas. Conta só
+                    os meses completos do filtro de ano, sem o mês em curso, e precisa de pelo menos 3.
+                </p>
                 <div className="sobre-relacao">
                     <span>Subcategoria</span>
                     <span className="sobre-seta">→</span>
