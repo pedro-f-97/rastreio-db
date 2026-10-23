@@ -1,6 +1,12 @@
 # Plano: quanto o património cresce por mês
 
-Estado: **aprovado** (23/10/2026).
+Estado: **executado** (passos 4.1 a 4.5). Falta a verificação com os dados
+reais (secção 5), numa cópia da BD.
+
+Pequenas decisões tomadas durante a execução:
+
+- A nota «sem o mês em curso» só aparece quando o período chega a hoje (Todos
+  ou o ano corrente); num ano passado, o período é o ano inteiro.
 
 ## 1. O problema
 

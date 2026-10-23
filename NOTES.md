@@ -15,6 +15,9 @@
   com «Compra Twingo» e «Hardware» como extraordinárias, as médias das
   Estatísticas devem bater com a tabela de `docs/plano-classificacao-despesas.md`,
   secção 5.
+- **Crescimento do património por mês**: ver se os valores do cartão no
+  Património fazem sentido. Ver `docs/plano-crescimento-patrimonio.md`,
+  secção 5 (o preço do USDC errado distorce a valorização).
 
 ## Onde estou?
 ```bash
