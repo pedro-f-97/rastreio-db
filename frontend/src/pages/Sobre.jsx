@@ -58,6 +58,29 @@ export default function Sobre() {
             </section>
 
             <section className="sobre-seccao">
+                <h2>Classificação das despesas</h2>
+                <p>
+                    Cada subcategoria de uma categoria de despesa pode ter uma classificação:{' '}
+                    <strong>Essencial</strong>, o que se precisa e se repete (supermercado, renda, combustível, seguro);{' '}
+                    <strong>Evitável</strong>, o que é dispensável e se repete (restauração, jogos, viagens); ou{' '}
+                    <strong>Extraordinária</strong>, uma compra isolada que não se espera repetir nos próximos dois ou
+                    três anos (um carro, um computador). Sem classificação, a subcategoria conta como as outras.
+                </p>
+                <p>
+                    Nas Estatísticas, o <strong>mês típico</strong> é a média mensal da despesa sem as extraordinárias,
+                    que aparecem sempre à parte, com o total do período. As despesas anuais, como o seguro ou o IUC,
+                    não são extraordinárias: contam na média, repartidas pelos meses. A classificação é da subcategoria
+                    e vale para todas as suas transações; para separar uma compra grande, cria-se outra subcategoria.
+                    Se a categoria deixar de ser de despesa, as suas subcategorias perdem a classificação.
+                </p>
+                <div className="sobre-relacao">
+                    <span>Subcategoria</span>
+                    <span className="sobre-seta">→</span>
+                    <span>classe_despesa</span>
+                </div>
+            </section>
+
+            <section className="sobre-seccao">
                 <h2>Regras</h2>
                 <p>
                     Uma regra associa um padrão de descrição a uma categoria e subcategoria, e é aplicada
