@@ -87,7 +87,8 @@
     width: 100%;
 }
 
-.tabela-transacoes input[type="text"] {
+.tabela-transacoes input[type="text"],
+.tabela-transacoes input[type="number"] {
     background: transparent;
     border: none;
     border-bottom: 1px solid transparent;
@@ -98,7 +99,8 @@
     padding: var(--space-xs) 0;
 }
 
-.tabela-transacoes input[type="text"]:focus {
+.tabela-transacoes input[type="text"]:focus,
+.tabela-transacoes input[type="number"]:focus {
     outline: none;
     border-bottom: 1px solid var(--accent);
 }
@@ -188,4 +190,18 @@
     justify-content: flex-end;
     gap: var(--space-sm);
     margin-bottom: var(--space-sm);
+}
+
+.etiqueta-manual {
+    margin-left: var(--space-sm);
+    font-size: var(--text-sm);
+    padding: 0 var(--space-xs);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+}
+
+.input-saldo {
+    width: 8rem;
+    text-align: right;
 }

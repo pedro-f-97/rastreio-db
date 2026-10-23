@@ -74,18 +74,20 @@ def tres_migracoes(monkeypatch):
     return corridas
 
 
-def test_as_migracoes_verdadeiras_sao_quatro():
+def test_as_migracoes_verdadeiras_sao_cinco():
     """A ordem das migrações que já saíram não pode mudar.
 
     Cálculo à mão: a 1 é a reparação das chaves para `ativos_old`, a 2 a remoção
     de `transacoes.reembolso`, a 3 a coluna `transacoes.importacao_id`, a 4 a
-    coluna `subcategorias.classe_despesa`. Uma BD na versão 4 já levou as quatro.
+    coluna `subcategorias.classe_despesa`, a 5 a coluna `transacoes.manual`.
+    Uma BD na versão 5 já levou as cinco.
     """
     assert [funcao for _, funcao in database.MIGRACOES] == [
         database.reparar_fk_ativos,
         database.remover_coluna_reembolso,
         database.acrescentar_importacao_id,
         database.acrescentar_classe_despesa,
+        database.acrescentar_transacao_manual,
     ]
 
 

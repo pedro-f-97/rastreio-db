@@ -41,7 +41,11 @@ def regras_por_precedencia(db: Session) -> list[RegraCategorizacao]:
 
 
 def importar_transacoes(
-    transacoes_parsed: list[dict], db: Session, conta_id: int, ficheiro: str
+    transacoes_parsed: list[dict],
+    db: Session,
+    conta_id: int,
+    ficheiro: str,
+    compara_saldo: bool = True,
 ) -> dict:
     regras = regras_por_precedencia(db)
     novas = []
@@ -52,16 +56,21 @@ def importar_transacoes(
             Transacao.data, Transacao.descricao, Transacao.valor, Transacao.saldo
         ).filter(Transacao.conta_id == conta_id)
 
+        # Sem saldo no extracto, o saldo da BD não entra na comparação: é o que
+        # se escreveu à mão, e a linha do ficheiro é a mesma transação
+        def chave(data, descricao, valor, saldo):
+            return (data, descricao, valor, saldo) if compara_saldo else (data, descricao, valor)
+
         # Conta-se quantas vezes cada linha já existe: cada cópia na BD absorve
         # uma linha igual do ficheiro, e as restantes são transações novas
         # (dois cafés iguais no mesmo dia, um deles só no extracto seguinte)
-        existentes = Counter((r.data, r.descricao, r.valor, r.saldo) for r in query_existentes)
+        existentes = Counter(chave(r.data, r.descricao, r.valor, r.saldo) for r in query_existentes)
 
         for t in transacoes_parsed:
-            chave = (t["data"], t["descricao"], t["valor"], t["saldo"])
+            c = chave(t["data"], t["descricao"], t["valor"], t["saldo"])
 
-            if existentes[chave] > 0:
-                existentes[chave] -= 1
+            if existentes[c] > 0:
+                existentes[c] -= 1
                 duplicadas += 1
                 continue
 

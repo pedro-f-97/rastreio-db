@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 import schemas
 from database import Conta as ContaModel, Transacao as TransacaoModel, get_db
 from servicos.patrimonio_serv import saldo_conta_em
+from servicos.verificacao_saldo import verificar_saldo
 
 router = APIRouter(prefix="/contas", tags=["contas"])
 
@@ -78,3 +79,11 @@ def saldo_conta(conta_id: int, db: Session = Depends(get_db)):
         "data_referencia": str(conta.data_referencia),
         "saldo_atual": saldo,
     }
+
+
+@router.get("/{conta_id}/verificacao-saldo")
+def verificacao_saldo(conta_id: int, db: Session = Depends(get_db)):
+    conta = db.query(ContaModel).filter(ContaModel.id == conta_id).first()
+    if not conta:
+        raise HTTPException(status_code=404, detail="Conta não encontrada.")
+    return verificar_saldo(db, conta)

@@ -78,12 +78,13 @@ que o sinal gravado não altera nada.
 | data | date | obrigatório |
 | descricao | str(255) | obrigatório |
 | valor | float | obrigatório |
-| saldo | float | opcional |
+| saldo | float | opcional — o saldo da conta depois da transação: vem do extracto, ou escreve-se à mão (como o saldo do fim desse dia) nas contas sem nenhum perfil de importação com saldo. É o que a verificação do saldo compara com o calculado |
 | notas | str(500) | opcional |
 | categoria_id | int | FK → `categorias.id`, opcional |
 | subcategoria_id | int | FK → `subcategorias.id`, opcional |
 | conta_id | int | FK → `contas.id`, opcional |
 | importacao_id | int | FK → `importacoes.id`, opcional — a importação que trouxe a transação; desfazê-la apaga as transações com o seu id |
+| manual | bool | obrigatório, default `False` — criada à mão, para corrigir o saldo; só estas se apagam pela API. Acrescentada pela 5.ª migração (`acrescentar_transacao_manual`) |
 
 **Relações:** N:1 com `Conta`, N:1 com `Categoria`, N:1 com `Subcategoria`
 

@@ -7,10 +7,13 @@ export default function TabelaTransacoes({
     regras,
     onGuardar,
     onCriarRegra,
-    listarSubcategorias
+    listarSubcategorias,
+    onGuardarSaldo,
+    onApagar
 }) {
     const [subcategorias, setSubcategorias] = useState({});
     const [notasEditando, setNotasEditando] = useState({});
+    const [saldosEditando, setSaldosEditando] = useState({});
     const [modalRegra, setModalRegra] = useState(null);
 
     // =========================
@@ -77,6 +80,19 @@ export default function TabelaTransacoes({
         }
     }
 
+    // O saldo escrito à mão: vazio apaga-o
+    async function aoGuardarSaldo(t) {
+        const texto = saldosEditando[t.id];
+        if (texto === undefined) return;
+        const novo = texto === '' ? null : parseFloat(texto);
+        if (novo !== t.saldo) await onGuardarSaldo(t, novo);
+        setSaldosEditando(prev => {
+            const resto = { ...prev };
+            delete resto[t.id];
+            return resto;
+        });
+    }
+
     // =========================
     // LÓGICA DE REGRAS
     // =========================
@@ -139,6 +155,7 @@ export default function TabelaTransacoes({
                             <th>Subcategoria</th>
                             <th>Conta</th>
                             <th>Notas</th>
+                            <th></th>
                         </tr>
                     </thead>
 
@@ -146,9 +163,25 @@ export default function TabelaTransacoes({
                         {transacoes.map(t => (
                             <tr key={t.id} className={t.valor < 0 ? 'despesa' : 'receita'}>
                                 <td>{t.data}</td>
-                                <td>{t.descricao}</td>
+                                <td>
+                                    {t.descricao}
+                                    {t.manual && <span className="etiqueta-manual">manual</span>}
+                                </td>
                                 <td className="valor">{formatarEuros(t.valor)}</td>
-                                <td className="valor">{formatarEuros(t.saldo)}</td>
+                                <td className="valor">
+                                    {t.saldo_editavel ? (
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            className="input-saldo"
+                                            value={saldosEditando[t.id] ?? t.saldo ?? ''}
+                                            onChange={e => setSaldosEditando(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                            onBlur={() => aoGuardarSaldo(t)}
+                                            placeholder="—"
+                                            title="Saldo da conta no fim deste dia, como o banco o mostra"
+                                        />
+                                    ) : formatarEuros(t.saldo)}
+                                </td>
                                 <td>
                                     <select
                                         value={t.categoria_id ?? ''}
@@ -188,6 +221,18 @@ export default function TabelaTransacoes({
                                         onBlur={() => aoGuardarNotas(t)}
                                         placeholder="—"
                                     />
+                                </td>
+
+                                <td>
+                                    {t.manual && (
+                                        <button
+                                            className="btn-ghost"
+                                            title="Apagar a transação manual"
+                                            onClick={() => onApagar(t)}
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

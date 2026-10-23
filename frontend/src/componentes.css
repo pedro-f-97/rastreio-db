@@ -493,3 +493,13 @@
 .recharts-wrapper :focus:not(:focus-visible) {
     outline: none;
 }
+
+/* --- Resumo da verificação do saldo (uma linha discreta) --- */
+.resumo-saldo-linha {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}

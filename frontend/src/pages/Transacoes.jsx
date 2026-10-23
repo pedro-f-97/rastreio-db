@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { listarTransacoes, atualizarTransacao } from '../api/transacoes';
+import { listarTransacoes, atualizarTransacao, apagarTransacao } from '../api/transacoes';
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import TabelaTransacoes from '../components/TabelaTransacoes';
 import FiltrosTransacoes from '../components/FiltrosTransacoes';
+import FormNovaTransacao from '../components/FormNovaTransacao';
+import VerificacaoSaldo from '../components/VerificacaoSaldo';
 import { listarRegras, criarRegra } from '../api/regras';
 import { exportarBackup, importarBackup } from '../api/backups';
 import { getContas } from '../api/contas';
@@ -33,6 +35,9 @@ export default function Transacoes({ onDadosAlterados }) {
     const [carregando, setCarregando] = useState(false);
     const [erro, setErro] = useState(null);
     const [regras, setRegras] = useState([]);
+    const [novaAberta, setNovaAberta] = useState(false);
+    // A conta a verificar, e um contador para pedir a verificação de novo
+    const [verificacao, setVerificacao] = useState({ contaId: null, chave: 0 });
 
     const totalPaginas = Math.ceil(total / filtros.tamanho);
 
@@ -115,6 +120,45 @@ export default function Transacoes({ onDadosAlterados }) {
         return true;
     }
 
+    // Depois de mudar transações ou saldos de uma conta, verifica o seu saldo
+    function verificarConta(contaId) {
+        setVerificacao(v => ({ contaId, chave: v.chave + 1 }));
+    }
+
+    async function aoCriarTransacao(t) {
+        setNovaAberta(false);
+        await carregarTransacoes();
+        onDadosAlterados?.();
+        verificarConta(t.conta_id);
+    }
+
+    async function aoApagar(t) {
+        if (!window.confirm(`Apagar a transação manual «${t.descricao}» de ${t.data}?`)) return;
+        try {
+            await apagarTransacao(t.id);
+        } catch (err) {
+            alert("Erro ao apagar a transação: " + (err.response?.data?.detail || err.message));
+            return;
+        }
+        await carregarTransacoes();
+        onDadosAlterados?.();
+        verificarConta(t.conta_id);
+    }
+
+    async function aoGuardarSaldo(t, saldo) {
+        // A verificação compara ao fim do dia: com outras transações no mesmo
+        // dia, o saldo tem de ser o do fim do dia. Procuram-se no mês da conta,
+        // e não só na página, que pode estar filtrada
+        const [ano, mes] = t.data.split('-').map(Number);
+        const doMes = await listarTransacoes({ conta_id: t.conta_id, ano, mes, tamanho: 200 });
+        const outrasNoDia = doMes.data.items.some(o => o.id !== t.id && o.data === t.data);
+        if (saldo !== null && outrasNoDia && !window.confirm(
+            "Há outras transações desta conta neste dia. Indica o saldo da conta no fim deste dia, " +
+            "depois de todas elas. Guardar?"
+        )) return;
+        if (await guardarCampos(t.id, { saldo })) verificarConta(t.conta_id);
+    }
+
     async function aoCriarRegra(novaRegra) {
         const res = await criarRegra(novaRegra);
         setRegras(prev => [...prev, res.data.regra]);
@@ -130,6 +174,10 @@ export default function Transacoes({ onDadosAlterados }) {
                 <h1 className="titulo-pagina">Transações</h1>
                 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={() => setNovaAberta(true)} className="btn-secundario">
+                        Nova transação
+                    </button>
+
                     {/* Grupo de Backup */}
                     <button onClick={exportarBackup} className="btn-secundario">
                         Exportar DB
@@ -154,6 +202,17 @@ export default function Transacoes({ onDadosAlterados }) {
                 onChange={mudarFiltro}
             />
 
+            <VerificacaoSaldo
+                contaId={verificacao.contaId}
+                contaNome={contas.find(c => c.id === verificacao.contaId)?.nome}
+                chave={verificacao.chave}
+                onTransacaoCriada={aoCriarTransacao}
+            />
+
+            {novaAberta && (
+                <FormNovaTransacao onFechar={() => setNovaAberta(false)} onCriada={aoCriarTransacao} />
+            )}
+
             {erro && <p className="erro-grande">{erro}</p>}
             {carregando ? (
                 <p className="carregando">A carregar...</p>
@@ -167,6 +226,8 @@ export default function Transacoes({ onDadosAlterados }) {
                         onGuardar={guardarCampos}
                         onCriarRegra={aoCriarRegra}
                         listarSubcategorias={listarSubcategorias}
+                        onGuardarSaldo={aoGuardarSaldo}
+                        onApagar={aoApagar}
                     />
                     <div className="paginacao">
                         <button

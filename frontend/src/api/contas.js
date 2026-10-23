@@ -10,3 +10,5 @@ export const actualizarConta = (id, payload) => client.put(`/contas/${id}`, payl
 export const apagarConta = (id) => client.delete(`/contas/${id}`);
 
 export const getSaldoConta = (id) => client.get(`/contas/${id}/saldo`);
+
+export const verificarSaldo = (id) => client.get(`/contas/${id}/verificacao-saldo`);
