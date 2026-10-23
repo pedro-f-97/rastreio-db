@@ -15,7 +15,12 @@ from database import (
     get_db,
 )
 from servicos.dinheiro import arredondar, exato
-from servicos.patrimonio_serv import _resumo_valor_ativo, gerar_evolucao, primeira_sobre_venda
+from servicos.patrimonio_serv import (
+    _resumo_valor_ativo,
+    calcular_crescimento,
+    gerar_evolucao,
+    primeira_sobre_venda,
+)
 
 router = APIRouter(prefix="/patrimonio", tags=["patrimonio"])
 
@@ -312,3 +317,8 @@ def evolucao_patrimonio(
     assert data_fim is not None
 
     return gerar_evolucao(db, data_inicio, data_fim, date.today())
+
+
+@router.get("/crescimento")
+def crescimento_patrimonio(ano: int | None = None, db: Session = Depends(get_db)):
+    return calcular_crescimento(db, ano, date.today())

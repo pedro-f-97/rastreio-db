@@ -4,7 +4,7 @@ import { useAtivos } from "../hooks/useAtivos";
 import "./Patrimonio.css";
 import '../componentes.css';
 import { classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes, prefixoSinal } from '../utils/formatacao';
-import { obterEvolucao } from "../api/patrimonio";
+import { obterCrescimento, obterEvolucao } from "../api/patrimonio";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid
 } from "recharts";
@@ -78,6 +78,21 @@ export default function Patrimonio() {
   const dadosEvolucaoFiltrados = anoSeleccionado === 'todos'
     ? dadosEvolucao
     : dadosEvolucao.filter(p => p.ano === parseInt(anoSeleccionado));
+
+  // Quanto cresce por mês, pela tendência dos meses completos do filtro
+  const [crescimento, setCrescimento] = useState(null);
+
+  useEffect(() => {
+    let ignorar = false;
+    obterCrescimento(anoSeleccionado === 'todos' ? null : parseInt(anoSeleccionado))
+      .then(res => !ignorar && setCrescimento(res.data));
+    return () => { ignorar = true; };
+  }, [anoSeleccionado]);
+
+  const mesAno = (dataISO) => dataISO.slice(0, 7).split('-').reverse().join('/');
+  const porMes = (valor) => (
+    <span className={classeValor(valor)}>{prefixoSinal(valor)}{formatarEuros(valor)}/mês</span>
+  );
 
   return (
     <div className="patrimonio-page">
@@ -201,6 +216,37 @@ export default function Patrimonio() {
             ))}
           </select>
         </div>
+        {crescimento && (
+          <div className="cartoes" style={{ marginTop: 'var(--space-md)' }}>
+            <div className="cartao">
+              <span className="cartao-titulo">Crescimento por mês</span>
+              {crescimento.total == null ? (
+                <span className="cartao-titulo">Poucos meses para calcular a tendência.</span>
+              ) : (
+                <>
+                  <span className="cartao-valor">{porMes(crescimento.total)}</span>
+                  <div className="cartao-breakdown">
+                    <div className="cartao-breakdown-linha">
+                      <span className="cartao-breakdown-label">Do que poupas</span>
+                      <span className="cartao-breakdown-valor">{porMes(crescimento.poupanca)}</span>
+                    </div>
+                    <div className="cartao-breakdown-linha">
+                      <span className="cartao-breakdown-label">Da valorização</span>
+                      <span className="cartao-breakdown-valor">{porMes(crescimento.valorizacao)}</span>
+                    </div>
+                    <span className="cartao-titulo">
+                      Tendência de {crescimento.meses} meses, de {mesAno(crescimento.de)} a{' '}
+                      {mesAno(crescimento.ate)}
+                      {/* Só um período que chega a hoje deixa de fora o mês em curso */}
+                      {(anoSeleccionado === 'todos' || parseInt(anoSeleccionado) === new Date().getFullYear())
+                        && ', sem o mês em curso'}.
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={dadosEvolucaoFiltrados} margin={{ top: 10, right: 40, left: 20, bottom: 60 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
