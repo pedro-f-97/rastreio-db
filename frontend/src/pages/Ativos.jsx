@@ -323,14 +323,16 @@ export default function Ativos({ onDadosAlterados }) {
               </button>
             {expandida && (
               <table className="tabela-base tabela-patrimonio tabela-ativos">
+                {/* Nome, identificador, custo total, valor atual, resultado atual,
+                    quantidade e ações. Sem espaços entre os <col>: o React avisa */}
                 <colgroup>
-                  <col style={{ width: '22%' }} />  {/* Nome */}
-                  <col style={{ width: '10%' }} />  {/* Identificador */}
-                  <col style={{ width: '13%' }} />  {/* Custo total */}
-                  <col style={{ width: '18%' }} />  {/* Valor atual */}
-                  <col style={{ width: '13%' }} />  {/* Resultado atual */}
-                  <col style={{ width: '10%' }} />  {/* Quantidade */}
-                  <col style={{ width: '14%' }} />  {/* Ações */}
+                  <col style={{ width: '22%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '18%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '14%' }} />
                 </colgroup>
                 <thead>
                   <tr>
