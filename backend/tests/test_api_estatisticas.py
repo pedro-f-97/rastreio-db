@@ -43,6 +43,8 @@ assenta na data de hoje nem toca na base de dados real.
 
 from datetime import date
 
+import pytest
+
 from database import Categoria, ClasseDespesa, Subcategoria, TipoCategoria, Transacao
 
 
@@ -202,6 +204,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
                 "despesas": -250.0,
                 "investimento": 0.0,
                 "poupanca": 750.0,
+                "em_curso": False,
                 "despesa_essencial": 0.0,
                 "despesa_evitavel": 0.0,
                 "despesa_extraordinaria": 0.0,
@@ -214,6 +217,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
                 "despesas": 0.0,
                 "investimento": 0.0,
                 "poupanca": 0.0,
+                "em_curso": False,
                 "despesa_essencial": 0.0,
                 "despesa_evitavel": 0.0,
                 "despesa_extraordinaria": 0.0,
@@ -226,6 +230,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
                 "despesas": 0.0,
                 "investimento": -1000.0,
                 "poupanca": 0.0,
+                "em_curso": False,
                 "despesa_essencial": 0.0,
                 "despesa_evitavel": 0.0,
                 "despesa_extraordinaria": 0.0,
@@ -963,3 +968,81 @@ def test_resumo_mensal_arredonda_a_despesa_de_cada_classe(client, session):
     mes = client.get("/api/estatisticas/resumo-mensal").json()["meses"][0]
 
     assert (mes["despesas"], mes["despesa_essencial"]) == (-0.3, -0.3)
+
+
+# ---------------------------------------------------------------------------
+# O mês em curso fica de fora das médias (resumo-mensal marca-o, por-categoria
+# tira-o)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def hoje_15_abril_2025(monkeypatch):
+    """Fixa o `date.today()` do router em 15/04/2025: abril é o mês em curso."""
+    from datetime import date as Date
+
+    from routers import estatisticas as estatisticas_router
+
+    class HojeFixo(Date):
+        @classmethod
+        def today(cls):
+            return cls(2025, 4, 15)
+
+    monkeypatch.setattr(estatisticas_router, "date", HojeFixo)
+
+
+def test_resumo_mensal_marca_so_o_mes_em_curso(client, session, hoje_15_abril_2025):
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    semear_transacao(session, date(2025, 3, 10), "Renda", -300.0, casa)
+    semear_transacao(session, date(2025, 4, 2), "Renda", -300.0, casa)
+
+    r = client.get("/api/estatisticas/resumo-mensal")
+
+    assert [(m["mes"], m["em_curso"]) for m in r.json()["meses"]] == [(3, False), (4, True)]
+
+
+@pytest.mark.parametrize("ano", [None, 2025])
+def test_por_categoria_sem_o_mes_em_curso(client, session, hoje_15_abril_2025, ano):
+    """Casa/Renda: -100 em fevereiro, -200 em março e -10 em abril (em curso).
+    Sem abril: média (-100 - 200) / 2 = -150, mediana -150, mês típico -150. Com
+    abril seria (-100 - 200 - 10) / 3 = -103,33. A Receita, só com abril, não
+    tem nenhum mês completo e não aparece."""
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    renda = semear_subcategoria(session, "Renda", casa)
+    receita = semear_categoria(session, "Receita", TipoCategoria.receita)
+    semear_transacao(session, date(2025, 2, 10), "Renda", -100.0, casa, renda)
+    semear_transacao(session, date(2025, 3, 10), "Renda", -200.0, casa, renda)
+    semear_transacao(session, date(2025, 4, 10), "Renda", -10.0, casa, renda)
+    semear_transacao(session, date(2025, 4, 5), "Ordenado", 1000.0, receita)
+
+    r = client.get("/api/estatisticas/por-categoria", params={"ano": ano} if ano else {})
+
+    assert r.status_code == 200
+    [cat] = r.json()
+    assert cat["categoria_nome"] == "Casa"
+    assert (cat["media"], cat["mediana"], cat["mes_tipico"]) == (-150.0, -150.0, -150.0)
+    [sub] = cat["subcategorias"]
+    assert (sub["media"], sub["mediana"], sub["mes_tipico"]) == (-150.0, -150.0, -150.0)
+
+
+def test_por_categoria_de_um_ano_passado_nao_muda(client, session, hoje_15_abril_2025):
+    """2024: -100 em novembro e -300 em dezembro, média -200; os -10 de abril de
+    2025 (o mês em curso) são de outro ano e não entram de qualquer forma."""
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    semear_transacao(session, date(2024, 11, 10), "Renda", -100.0, casa)
+    semear_transacao(session, date(2024, 12, 10), "Renda", -300.0, casa)
+    semear_transacao(session, date(2025, 4, 10), "Renda", -10.0, casa)
+
+    [cat] = client.get("/api/estatisticas/por-categoria", params={"ano": 2024}).json()
+
+    assert (cat["media"], cat["mediana"]) == (-200.0, -200.0)
+
+
+def test_por_categoria_so_com_o_mes_em_curso_fica_vazio(client, session, hoje_15_abril_2025):
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    semear_transacao(session, date(2025, 4, 10), "Renda", -10.0, casa)
+
+    r = client.get("/api/estatisticas/por-categoria", params={"ano": 2025})
+
+    assert r.status_code == 200
+    assert r.json() == []

@@ -5,7 +5,7 @@ from statistics import median
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import extract, func
+from sqlalchemy import extract, func, or_
 from sqlalchemy.orm import Session
 
 from database import Categoria, ClasseDespesa, Subcategoria, TipoCategoria, Transacao, get_db
@@ -22,6 +22,14 @@ CHAVES_CLASSE = {
     ClasseDespesa.extraordinaria: "despesa_extraordinaria",
     None: "despesa_sem_classe",
 }
+
+
+def _fora_do_mes_em_curso(hoje: date):
+    """Filtro que deixa de fora o mês de hoje, ainda incompleto: as médias e as
+    medianas contam só os meses completos."""
+    inicio = date(hoje.year, hoje.month, 1)
+    fim = date(hoje.year, hoje.month, calendar.monthrange(hoje.year, hoje.month)[1])
+    return or_(Transacao.data < inicio, Transacao.data > fim)
 
 
 def _mes_vazio():
@@ -51,6 +59,7 @@ def resumo_mensal(db: Session = Depends(get_db)):
             meses[chave] = _mes_vazio()
 
     resultados = []
+    hoje = date.today()
 
     for (ano, mes), v in sorted(meses.items()):
         despesas = arredondar(v["despesas"])
@@ -66,6 +75,8 @@ def resumo_mensal(db: Session = Depends(get_db)):
                 "despesas": despesas,
                 "investimento": investimento,
                 "poupanca": poupanca,
+                # Incompleto: a página deixa-o de fora das médias e das taxas
+                "em_curso": (ano, mes) == (hoje.year, hoje.month),
             }
             | {chave: arredondar(v[chave]) for chave in CHAVES_CLASSE.values()}
         )
@@ -89,6 +100,8 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
         extract("year", Transacao.data).label("ano"),
         extract("month", Transacao.data).label("mes"),
     ).distinct()
+    fora_do_mes_em_curso = _fora_do_mes_em_curso(date.today())
+    q_meses = q_meses.filter(fora_do_mes_em_curso)
     if ano:
         q_meses = q_meses.filter(extract("year", Transacao.data) == ano)
     meses_distintos = q_meses.count()
@@ -107,7 +120,7 @@ def por_categoria(ano: Optional[int] = None, db: Session = Depends(get_db)):
         )
         .join(Categoria, Transacao.categoria_id == Categoria.id)
         .outerjoin(Subcategoria, Transacao.subcategoria_id == Subcategoria.id)
-        .filter(Categoria.tipo != TipoCategoria.transferencia)
+        .filter(Categoria.tipo != TipoCategoria.transferencia, fora_do_mes_em_curso)
     )
 
     if ano:
