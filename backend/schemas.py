@@ -3,7 +3,14 @@ from typing import Annotated, Optional
 
 from pydantic import BaseModel, ConfigDict, FiniteFloat, StringConstraints, model_validator
 
-from database import ModoValor, TipoCategoria, TipoContabilizacao, TipoFicheiro, TipoMovimento
+from database import (
+    ClasseDespesa,
+    ModoValor,
+    TipoCategoria,
+    TipoContabilizacao,
+    TipoFicheiro,
+    TipoMovimento,
+)
 
 
 # --- SCHEMAS DE CATEGORIA ---
@@ -31,6 +38,8 @@ class SubcategoriaBase(BaseModel):
 class SubcategoriaCreate(BaseModel):
     nome: str
     trata_patrimonio: Optional[bool] = None
+    # Na edição, omitida mantém a que existe e enviada a null tira-a
+    classe_despesa: Optional[ClasseDespesa] = None
 
 
 class Subcategoria(SubcategoriaBase):
