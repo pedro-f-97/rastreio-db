@@ -150,10 +150,11 @@ def atualizar_transacao(transacao_id: int, dados: TransacaoUpdate, db: Session =
     if subcategoria_alvo is not None:
         _validar_subcategoria(db, categoria_alvo, subcategoria_alvo)
 
-    if "saldo" in dados.model_fields_set and (
-        t.conta_id is None or t.conta_id in _contas_com_saldo_no_extracto(db)
-    ):
-        raise HTTPException(409, "O saldo desta conta vem do extracto e não se edita.")
+    if "saldo" in dados.model_fields_set:
+        if t.conta_id is None:
+            raise HTTPException(409, "A transação não tem conta: o saldo não se escreve.")
+        if t.conta_id in _contas_com_saldo_no_extracto(db):
+            raise HTTPException(409, "O saldo desta conta vem do extracto e não se edita.")
 
     if "categoria_id" in dados.model_fields_set:
         t.categoria_id = dados.categoria_id

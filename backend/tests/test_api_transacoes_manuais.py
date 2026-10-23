@@ -306,6 +306,20 @@ def test_saldo_recusado_com_saldo_no_extracto(client, session):
     assert session.get(Transacao, t.id).saldo == 900.0
 
 
+def test_saldo_recusado_sem_conta(client, session):
+    """Uma transacção sem conta não tem saldo a verificar: 409, com essa razão."""
+    t = Transacao(data=date(2026, 3, 10), descricao="Antiga", valor=-5.0, conta_id=None)
+    session.add(t)
+    session.commit()
+
+    r = client.put(f"/api/transacoes/{t.id}", json={"saldo": 950.0})
+
+    assert r.status_code == 409
+    assert "não tem conta" in r.json()["detail"]
+    session.expire_all()
+    assert session.get(Transacao, t.id).saldo is None
+
+
 def test_saldo_de_outra_conta_com_saldo_no_extracto_nao_conta(client, session):
     """Só os perfis da própria conta contam."""
     conta = semear_conta(session)
