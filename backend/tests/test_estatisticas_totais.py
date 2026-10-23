@@ -50,7 +50,11 @@ Convenções que estes testes fixam
   investimento é uma linha informativa à parte e não entra na poupança.
 * `_calculate_totals` não arredonda nada e não devolve `poupanca` nem `saldo`.
   Devolve `{mês: {receitas, despesas, investimento}}` com os valores em euros,
-  tal como entraram.
+  tal como entraram, e a despesa separada pela classificação da subcategoria
+  (`despesa_essencial`, `despesa_evitavel`, `despesa_extraordinaria` e
+  `despesa_sem_classe`). Aqui nenhuma transacção tem subcategoria, por isso a
+  despesa do mês fica toda em `despesa_sem_classe`; as classes são testadas na
+  API (`test_api_estatisticas.py`).
 * `_agregar_por_categoria` devolve um **dicionário** indexado por
   `categoria_id`, com `total_centimos` em cêntimos inteiros, e as
   subcategorias noutro dicionário indexado por `subcategoria_id` — ou por `0`,
@@ -103,7 +107,13 @@ def transacao(ano, mes, dia, tipo, valor):
         data=date(ano, mes, dia),
         valor=valor,
         categoria=(SimpleNamespace(tipo=tipo, nome=NOMES[tipo]) if tipo is not None else None),
+        subcategoria=None,
     )
+
+
+# As três classes de despesa que nenhuma destas transacções tem: sem
+# subcategoria, toda a despesa do mês fica em `despesa_sem_classe`
+CLASSES_A_ZERO = {"despesa_essencial": 0, "despesa_evitavel": 0, "despesa_extraordinaria": 0}
 
 
 def linha(categoria_id, categoria_nome, tipo, valor, subcategoria_id=None, subcategoria_nome=None):
@@ -139,7 +149,13 @@ def test_receita_normal_entra_no_cesto_das_receitas():
     )
 
     assert resultado == {
-        (2025, 3): {"receitas": 1500.0, "despesas": 0, "investimento": 0},
+        (2025, 3): {
+            "receitas": 1500.0,
+            "despesas": 0,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": 0,
+        },
     }
 
 
@@ -159,7 +175,13 @@ def test_despesa_normal_entra_com_sinal_negativo():
     )
 
     assert resultado == {
-        (2025, 3): {"receitas": 0, "despesas": -250.5, "investimento": 0},
+        (2025, 3): {
+            "receitas": 0,
+            "despesas": -250.5,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": -250.5,
+        },
     }
 
 
@@ -183,7 +205,13 @@ def test_reembolso_entra_no_cesto_das_despesas_com_sinal_positivo():
     )
 
     assert resultado == {
-        (2025, 5): {"receitas": 0, "despesas": 120.0, "investimento": 0},
+        (2025, 5): {
+            "receitas": 0,
+            "despesas": 120.0,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": 120.0,
+        },
     }
 
 
@@ -226,7 +254,13 @@ def test_investimento_soma_compra_e_venda_no_mes():
     )
 
     assert resultado == {
-        (2025, 4): {"receitas": 0, "despesas": 0, "investimento": 500.0},
+        (2025, 4): {
+            "receitas": 0,
+            "despesas": 0,
+            "investimento": 500.0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": 0,
+        },
     }
 
 
@@ -252,7 +286,13 @@ def test_receita_negativa_reduz_as_receitas():
     )
 
     assert resultado == {
-        (2025, 3): {"receitas": 1200.0, "despesas": 0, "investimento": 0},
+        (2025, 3): {
+            "receitas": 1200.0,
+            "despesas": 0,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": 0,
+        },
     }
 
 
@@ -276,7 +316,13 @@ def test_positivo_numa_receita_conta_sempre_nas_receitas():
     )
 
     assert resultado == {
-        (2025, 4): {"receitas": 1200.0, "despesas": 0, "investimento": 0},
+        (2025, 4): {
+            "receitas": 1200.0,
+            "despesas": 0,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": 0,
+        },
     }
 
 
@@ -302,7 +348,13 @@ def test_despesa_positiva_conta_nas_despesas():
 
     # -45,50 + 30,00 = -15,50
     assert resultado == {
-        (2025, 6): {"receitas": 0, "despesas": -15.5, "investimento": 0},
+        (2025, 6): {
+            "receitas": 0,
+            "despesas": -15.5,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": -15.5,
+        },
     }
 
 
@@ -326,7 +378,13 @@ def test_valor_zero_cria_o_mes_mas_nao_soma(tipo):
     )
 
     assert resultado == {
-        (2025, 5): {"receitas": 0, "despesas": 0, "investimento": 0},
+        (2025, 5): {
+            "receitas": 0,
+            "despesas": 0,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": 0,
+        },
     }
 
 
@@ -355,8 +413,20 @@ def test_varias_transacoes_no_mesmo_mes_somam_ao_mesmo_cesto():
     )
 
     assert resultado == {
-        (2025, 6): {"receitas": 1500.0, "despesas": -1215.75, "investimento": -500.0},
-        (2025, 7): {"receitas": 0, "despesas": -800.0, "investimento": 0},
+        (2025, 6): {
+            "receitas": 1500.0,
+            "despesas": -1215.75,
+            "investimento": -500.0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": -1215.75,
+        },
+        (2025, 7): {
+            "receitas": 0,
+            "despesas": -800.0,
+            "investimento": 0,
+            **CLASSES_A_ZERO,
+            "despesa_sem_classe": -800.0,
+        },
     }
 
 

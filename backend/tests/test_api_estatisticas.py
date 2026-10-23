@@ -43,7 +43,7 @@ assenta na data de hoje nem toca na base de dados real.
 
 from datetime import date
 
-from database import Categoria, Subcategoria, TipoCategoria, Transacao
+from database import Categoria, ClasseDespesa, Subcategoria, TipoCategoria, Transacao
 
 
 def test_detalhe_mensal_mes_13_da_422(client):
@@ -171,6 +171,10 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
       fevereiro (sem transacções) não está em `todos_meses`, por isso não
       aparece em lado nenhum.
 
+    A despesa de cada mês vem também separada por classe; aqui nenhuma
+    transacção tem subcategoria, por isso a de março (-250,0) fica toda em
+    `despesa_sem_classe` e as outras classes a zero.
+
     A resposta tem só os meses: a média e a mediana calculam-se na página.
 
     Estado final da BD: as 5 transacções continuam (o GET não escreve).
@@ -198,6 +202,10 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
                 "despesas": -250.0,
                 "investimento": 0.0,
                 "poupanca": 750.0,
+                "despesa_essencial": 0.0,
+                "despesa_evitavel": 0.0,
+                "despesa_extraordinaria": 0.0,
+                "despesa_sem_classe": -250.0,
             },
             {
                 "ano": 2025,
@@ -206,6 +214,10 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
                 "despesas": 0.0,
                 "investimento": 0.0,
                 "poupanca": 0.0,
+                "despesa_essencial": 0.0,
+                "despesa_evitavel": 0.0,
+                "despesa_extraordinaria": 0.0,
+                "despesa_sem_classe": 0.0,
             },
             {
                 "ano": 2025,
@@ -214,6 +226,10 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
                 "despesas": 0.0,
                 "investimento": -1000.0,
                 "poupanca": 0.0,
+                "despesa_essencial": 0.0,
+                "despesa_evitavel": 0.0,
+                "despesa_extraordinaria": 0.0,
+                "despesa_sem_classe": 0.0,
             },
         ],
     }
@@ -670,6 +686,7 @@ def test_por_categoria_media_e_mediana_no_meio_centimo(client, session):
       mediana = (-96,70 + -62,99) / 2 = -159,69 / 2 = -79,845
       media   = -159,69 / 2 = -79,845
       empate no meio cêntimo, metade para longe de zero -> -79,85
+      mes_tipico = media, porque não há extraordinárias -> -79,85
 
     Antes da correcção ambas davam -79,84: em float, -79,845 é -79,84499999...
     """
@@ -683,7 +700,12 @@ def test_por_categoria_media_e_mediana_no_meio_centimo(client, session):
     assert r.json()[0]["mediana"] == -79.85
     assert r.json()[0]["media"] == -79.85
     assert r.json()[0]["subcategorias"] == [
-        {"subcategoria_nome": "Sem subcategoria", "mediana": -79.85, "media": -79.85},
+        {
+            "subcategoria_nome": "Sem subcategoria",
+            "mediana": -79.85,
+            "media": -79.85,
+            "mes_tipico": -79.85,
+        },
     ]
 
 
@@ -709,3 +731,235 @@ def test_por_categoria_mediana_sem_ruido_da_soma_em_float(client, session):
     assert r.status_code == 200
     assert r.json()[0]["mediana"] == -198.90
     assert r.json()[0]["media"] == -198.90
+
+
+# ---------------------------------------------------------------------------
+# Classificação das subcategorias de despesa: mês típico e extraordinárias
+# ---------------------------------------------------------------------------
+
+
+def semear_classificadas(session):
+    """Casa com uma subcategoria de cada classe, uma sem classe e transacções
+    sem subcategoria; uma receita e uma transferência.
+
+      2025-01-05  Receita/Ordenado      +1000,00
+      2025-01-08  Casa/Renda             -300,00  essencial
+      2025-01-12  Casa/Restaurantes       -40,00  evitável
+      2025-01-15  Casa/Carro            -5000,00  extraordinária
+      2025-01-20  Casa/Outros             -10,00  sem classificação
+      2025-01-22  Casa (sem sub)           -5,00
+      2025-01-25  Transferência          -200,00  fora das contas
+      2025-02-03  Casa/Renda             -300,00  essencial
+      2025-02-10  Casa/Seguro            -360,00  essencial, anual
+      2025-02-14  Casa/Carro             +500,00  reembolso, extraordinária
+      2025-02-20  Casa/Restaurantes       -60,00  evitável
+      2026-03-01  Casa/Carro             -100,00  extraordinária
+    """
+    receita = semear_categoria(session, "Receita", TipoCategoria.receita)
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    transferencia = semear_categoria(session, "Transferência", TipoCategoria.transferencia)
+    ordenado = semear_subcategoria(session, "Ordenado", receita)
+    subs = {}
+    for nome, classe in (
+        ("Renda", ClasseDespesa.essencial),
+        ("Seguro", ClasseDespesa.essencial),
+        ("Restaurantes", ClasseDespesa.evitavel),
+        ("Carro", ClasseDespesa.extraordinaria),
+        ("Outros", None),
+    ):
+        subs[nome] = semear_subcategoria(session, nome, casa)
+        subs[nome].classe_despesa = classe
+    session.commit()
+
+    semear_transacao(session, date(2025, 1, 5), "Ordenado", 1000.00, receita, ordenado)
+    semear_transacao(session, date(2025, 1, 8), "Renda", -300.00, casa, subs["Renda"])
+    semear_transacao(session, date(2025, 1, 12), "Jantar", -40.00, casa, subs["Restaurantes"])
+    semear_transacao(session, date(2025, 1, 15), "Twingo", -5000.00, casa, subs["Carro"])
+    semear_transacao(session, date(2025, 1, 20), "Pilhas", -10.00, casa, subs["Outros"])
+    semear_transacao(session, date(2025, 1, 22), "Selos", -5.00, casa)
+    semear_transacao(session, date(2025, 1, 25), "Para poupança", -200.00, transferencia)
+    semear_transacao(session, date(2025, 2, 3), "Renda", -300.00, casa, subs["Renda"])
+    semear_transacao(session, date(2025, 2, 10), "Seguro", -360.00, casa, subs["Seguro"])
+    semear_transacao(session, date(2025, 2, 14), "Devolução", 500.00, casa, subs["Carro"])
+    semear_transacao(session, date(2025, 2, 20), "Almoço", -60.00, casa, subs["Restaurantes"])
+    semear_transacao(session, date(2026, 3, 1), "Tapetes", -100.00, casa, subs["Carro"])
+
+
+def test_resumo_mensal_separa_a_despesa_por_classe(client, session):
+    """A despesa de cada mês vem também separada por classe.
+
+    Cálculo à mão (a transferência fica de fora, como sempre):
+      jan 2025: essencial -300; evitável -40; extraordinária -5000;
+        sem classe -10 (Outros) + -5 (sem sub) = -15;
+        despesas = -300 - 40 - 5000 - 15 = -5355; receitas 1000;
+        poupança = 1000 - 5355 = -4355
+      fev 2025: essencial -300 - 360 = -660; evitável -60;
+        extraordinária +500 (o reembolso reduz a extraordinária); sem classe 0;
+        despesas = -660 - 60 + 500 = -220; poupança -220
+      mar 2026: extraordinária -100; despesas -100; poupança -100
+    Em cada mês, as quatro classes somam a despesa.
+    """
+    semear_classificadas(session)
+
+    r = client.get("/api/estatisticas/resumo-mensal")
+
+    assert r.status_code == 200
+    assert [
+        (
+            m["ano"],
+            m["mes"],
+            m["despesas"],
+            m["despesa_essencial"],
+            m["despesa_evitavel"],
+            m["despesa_extraordinaria"],
+            m["despesa_sem_classe"],
+            m["receitas"],
+            m["poupanca"],
+        )
+        for m in r.json()["meses"]
+    ] == [
+        (2025, 1, -5355.0, -300.0, -40.0, -5000.0, -15.0, 1000.0, -4355.0),
+        (2025, 2, -220.0, -660.0, -60.0, 500.0, 0.0, 0.0, -220.0),
+        (2026, 3, -100.0, 0.0, 0.0, -100.0, 0.0, 0.0, -100.0),
+    ]
+
+
+def test_por_categoria_mes_tipico_sem_as_extraordinarias(client, session):
+    """`mes_tipico` é a média mensal sem as subcategorias extraordinárias.
+
+    Cálculo à mão, com ano=2025: meses_distintos = 2 (jan e fev).
+      Casa, totais [jan -5355, fev -220]: media = -5575 / 2 = -2787,5
+        sem o Carro: [jan -355, fev -720]: mes_tipico = -1075 / 2 = -537,5
+      Subcategorias (media, mes_tipico):
+        Renda  -600 / 2 = -300; Seguro -360 / 2 = -180 (o anual reparte-se
+        pelos meses); Restaurantes -100 / 2 = -50; Outros -10 / 2 = -5;
+        Sem subcategoria -5 / 2 = -2,5; todas com mes_tipico = media
+        Carro (-5000 + 500) / 2 = -2250, mes_tipico 0
+        A soma dos mes_tipico, -300 - 180 - 50 - 5 - 2,5 + 0 = -537,5, é o
+        da categoria.
+      Receita: media = mes_tipico = 1000 / 2 = 500
+    """
+    semear_classificadas(session)
+
+    r = client.get("/api/estatisticas/por-categoria", params={"ano": 2025})
+
+    assert r.status_code == 200
+    por_nome = {c["categoria_nome"]: c for c in r.json()}
+    assert set(por_nome) == {"Casa", "Receita"}
+    assert (por_nome["Casa"]["media"], por_nome["Casa"]["mes_tipico"]) == (-2787.5, -537.5)
+    assert (por_nome["Receita"]["media"], por_nome["Receita"]["mes_tipico"]) == (500.0, 500.0)
+    assert {
+        s["subcategoria_nome"]: (s["media"], s["mes_tipico"])
+        for s in por_nome["Casa"]["subcategorias"]
+    } == {
+        "Renda": (-300.0, -300.0),
+        "Seguro": (-180.0, -180.0),
+        "Restaurantes": (-50.0, -50.0),
+        "Outros": (-5.0, -5.0),
+        "Sem subcategoria": (-2.5, -2.5),
+        "Carro": (-2250.0, 0),
+    }
+
+
+def test_extraordinarias_lista_as_transaccoes_e_o_total(client, session):
+    """A lista das extraordinárias, por data, com o total; o ano filtra.
+
+    Cálculo à mão:
+      sem ano: Twingo -5000 (15/01/2025), Devolução +500 (14/02/2025),
+        Tapetes -100 (01/03/2026); total = -5000 + 500 - 100 = -4600
+      ano=2025: as duas primeiras; total -4500
+      ano=2026: Tapetes; total -100
+      ano=2024: nenhuma; total 0
+    """
+    semear_classificadas(session)
+
+    r = client.get("/api/estatisticas/extraordinarias")
+
+    assert r.status_code == 200
+    assert [
+        (t["data"], t["descricao"], t["categoria_nome"], t["subcategoria_nome"], t["valor"])
+        for t in r.json()["transacoes"]
+    ] == [
+        ("2025-01-15", "Twingo", "Casa", "Carro", -5000.0),
+        ("2025-02-14", "Devolução", "Casa", "Carro", 500.0),
+        ("2026-03-01", "Tapetes", "Casa", "Carro", -100.0),
+    ]
+    assert r.json()["total"] == -4600.0
+
+    por_ano = {
+        ano: client.get("/api/estatisticas/extraordinarias", params={"ano": ano}).json()
+        for ano in (2024, 2025, 2026)
+    }
+    assert [t["descricao"] for t in por_ano[2025]["transacoes"]] == ["Twingo", "Devolução"]
+    assert por_ano[2025]["total"] == -4500.0
+    assert [t["descricao"] for t in por_ano[2026]["transacoes"]] == ["Tapetes"]
+    assert por_ano[2026]["total"] == -100.0
+    assert por_ano[2024] == {"transacoes": [], "total": 0.0}
+
+
+def test_extraordinarias_em_centimos(client, session):
+    """O total soma-se em cêntimos, sem o ruído do float.
+
+    Cálculo à mão: -0,10 - 0,20 = -0,30 (em float daria -0,30000000000000004).
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    pc = semear_subcategoria(session, "PC", casa)
+    pc.classe_despesa = ClasseDespesa.extraordinaria
+    session.commit()
+    semear_transacao(session, date(2025, 1, 1), "Cabo", -0.10, casa, pc)
+    semear_transacao(session, date(2025, 1, 2), "Ficha", -0.20, casa, pc)
+
+    assert client.get("/api/estatisticas/extraordinarias").json()["total"] == -0.3
+
+
+def test_classe_numa_categoria_que_nao_e_despesa_e_ignorada(client, session):
+    """Uma classificação que ficou numa subcategoria de receita não conta.
+
+    A API não deixa classificar fora das despesas, mas a BD pode ter uma
+    (escrita à mão, ou de antes de a regra existir). As estatísticas tratam-na
+    como se não estivesse lá.
+
+    Cálculo à mão, uma receita «Prémio» de +200 em 2025-01, marcada
+    extraordinária: resumo com receitas 200 e as quatro classes a zero;
+    por-categoria com media = mes_tipico = 200 (um só mês), na categoria e na
+    subcategoria; e a lista das extraordinárias vazia.
+    """
+    receita = semear_categoria(session, "Receita", TipoCategoria.receita)
+    premio = semear_subcategoria(session, "Prémio", receita)
+    premio.classe_despesa = ClasseDespesa.extraordinaria
+    session.commit()
+    semear_transacao(session, date(2025, 1, 10), "Prémio", 200.00, receita, premio)
+
+    mes = client.get("/api/estatisticas/resumo-mensal").json()["meses"][0]
+    assert (mes["receitas"], mes["despesas"], mes["despesa_extraordinaria"]) == (200.0, 0.0, 0.0)
+    assert mes["despesa_sem_classe"] == 0.0
+
+    cat = client.get("/api/estatisticas/por-categoria").json()[0]
+    assert (cat["media"], cat["mes_tipico"]) == (200.0, 200.0)
+    assert (cat["subcategorias"][0]["media"], cat["subcategorias"][0]["mes_tipico"]) == (
+        200.0,
+        200.0,
+    )
+
+    assert client.get("/api/estatisticas/extraordinarias").json() == {
+        "transacoes": [],
+        "total": 0.0,
+    }
+
+
+def test_resumo_mensal_arredonda_a_despesa_de_cada_classe(client, session):
+    """A despesa de cada classe arredonda-se ao cêntimo, como a despesa total.
+
+    Cálculo à mão: -0,10 - 0,20 = -0,30 na despesa e na essencial (em float a
+    soma é -0,30000000000000004).
+    """
+    casa = semear_categoria(session, "Casa", TipoCategoria.despesa)
+    agua = semear_subcategoria(session, "Água", casa)
+    agua.classe_despesa = ClasseDespesa.essencial
+    session.commit()
+    semear_transacao(session, date(2025, 1, 1), "Água", -0.10, casa, agua)
+    semear_transacao(session, date(2025, 1, 2), "Água", -0.20, casa, agua)
+
+    mes = client.get("/api/estatisticas/resumo-mensal").json()["meses"][0]
+
+    assert (mes["despesas"], mes["despesa_essencial"]) == (-0.3, -0.3)
