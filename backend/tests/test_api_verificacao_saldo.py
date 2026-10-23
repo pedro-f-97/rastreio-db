@@ -236,8 +236,10 @@ def test_saldos_antes_da_referencia(client, session):
     20/06 −10: calculado 1000 (nada depois até 30/06), o banco diz 1000 -> 0.
     10/06 −10: calculado 1000 − (−10) = 1010, o banco diz 1015 -> −5 (falta uma
     saída de 5 entre 10/06 e 20/06).
-    Pontos: 10/06 −5, 20/06 0, referência 30/06 0. Intervalos: até 10/06 −5,
-    ]10/06, 20/06] +5. A diferença actual é a da referência, 0.
+    Pontos: 10/06 −5, 20/06 0, referência 30/06 0. Só há intervalos entre
+    pontos seguidos: ]10/06, 20/06] +5, onde falta a saída de 5 (a correção é
+    −5). Antes de 10/06 não se sabe nada, por isso não há um «até 10/06». A
+    diferença actual é a da referência, 0.
     """
     conta = semear_conta(session, 1000.0, date(2026, 6, 30))
     semear(
@@ -254,7 +256,6 @@ def test_saldos_antes_da_referencia(client, session):
     assert resultado["diferenca_atual"] == 0.0
     assert resultado["data_ultimo_saldo"] == "2026-06-30"
     assert resultado["intervalos"] == [
-        {"de": None, "ate": "2026-06-10", "variacao": -5.0},
         {"de": "2026-06-10", "ate": "2026-06-20", "variacao": 5.0},
     ]
 
@@ -272,6 +273,75 @@ def test_o_saldo_do_banco_no_dia_da_referencia_conta(client, session):
 
     assert resultado["diferenca_atual"] == 10.0
     assert resultado["intervalos"] == [{"de": None, "ate": "2026-01-01", "variacao": 10.0}]
+
+
+def test_arredonda_a_metade_para_longe_de_zero(client, session):
+    """Referência 1000,005 € a 01/01/2026; 05/01 −20 com saldo 980,01.
+
+    Calculado: 980,005, que ao cêntimo, com a metade para longe de zero (como
+    `arredondar`), dá 980,01 -> diferença 0. Com a metade para o par daria
+    980,00 e uma diferença de −0,01.
+    """
+    conta = semear_conta(session, 1000.005, date(2026, 1, 1))
+    semear(session, conta, [(date(2026, 1, 5), "A", -20.0, 980.01)])
+
+    resultado = verificar(client, conta)
+
+    assert resultado["diferenca_atual"] == 0.0
+    assert resultado["intervalos"] == []
+
+
+def test_o_mesmo_saldo_escrito_em_duas_transacoes_do_dia(client, session):
+    """Uma conta sem saldo no extracto, com o saldo do fim do dia, 950, escrito
+    nas duas transacções de 05/01/2026. Saldos antes: 970 e 980; 950 não é
+    nenhum, e as duas candidatas são o mesmo saldo -> uma só, o dia não é
+    incerto. Calculado: 1000 − 20 − 30 = 950 -> diferença 0."""
+    conta = semear_conta(session, 1000.0, date(2026, 1, 1))
+    semear(
+        session,
+        conta,
+        [
+            (date(2026, 1, 5), "A", -20.0, 950.0),
+            (date(2026, 1, 5), "B", -30.0, 950.0),
+        ],
+    )
+
+    resultado = verificar(client, conta)
+
+    assert resultado["diferenca_atual"] == 0.0
+    assert resultado["dias_ordem_incerta"] == []
+
+
+def test_intervalos_por_ordem_de_data_com_o_da_referencia(client, session):
+    """Referência 1000 € a 01/02/2026, para trás; o banco tem saldo nesse dia.
+
+    Somas até cada dia: S(10/01) = −5, S(15/01) = −10, S(01/02) = −30.
+    Calculado = 1000 + S(dia) − S(01/02):
+      10/01: 1025, o banco diz 1025 -> 0
+      15/01: 1020, o banco diz 1015 -> +5
+      01/02: 1000, o banco diz 990  -> +10 (a do saldo de referência)
+    Intervalos, por data de fim: ]10/01, 15/01] +5; a referência, +10; e
+    ]15/01, 01/02] +10 − 5 = +5.
+    """
+    conta = semear_conta(session, 1000.0, date(2026, 2, 1))
+    semear(
+        session,
+        conta,
+        [
+            (date(2026, 1, 10), "A", -5.0, 1025.0),
+            (date(2026, 1, 15), "B", -5.0, 1015.0),
+            (date(2026, 2, 1), "C", -20.0, 990.0),
+        ],
+    )
+
+    resultado = verificar(client, conta)
+
+    assert resultado["diferenca_atual"] == 10.0
+    assert resultado["intervalos"] == [
+        {"de": "2026-01-10", "ate": "2026-01-15", "variacao": 5.0},
+        {"de": None, "ate": "2026-02-01", "variacao": 10.0},
+        {"de": "2026-01-15", "ate": "2026-02-01", "variacao": 5.0},
+    ]
 
 
 def test_conta_sem_saldos_sugere_escrever_um(client, session):

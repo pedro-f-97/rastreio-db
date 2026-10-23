@@ -8,8 +8,8 @@ transacções dentro do dia.
 """
 
 from datetime import timedelta
-from decimal import Decimal
-from itertools import groupby
+from decimal import ROUND_HALF_UP, Decimal
+from itertools import groupby, pairwise
 
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,8 @@ DIAS_SALDO_ANTIGO = 31
 
 
 def _cent(x) -> Decimal:
-    return exato(x).quantize(CENTIMO)
+    """Ao cêntimo, com a metade para longe de zero, como `arredondar`."""
+    return exato(x).quantize(CENTIMO, rounding=ROUND_HALF_UP)
 
 
 def _saldo_fim_do_dia(transacoes, calculado: Decimal) -> tuple[Decimal, bool]:
@@ -36,9 +37,11 @@ def _saldo_fim_do_dia(transacoes, calculado: Decimal) -> tuple[Decimal, bool]:
     com_saldo = [t for t in transacoes if t.saldo is not None]
     saldos = [_cent(t.saldo) for t in com_saldo]
     antes = {_cent(t.saldo) - _cent(t.valor) for t in com_saldo}
-    candidatos = [s for s in saldos if s not in antes]
+    # Sem repetidos: o mesmo saldo do fim do dia escrito em duas transacções
+    # é uma só candidata
+    candidatos = {s for s in saldos if s not in antes}
     if len(candidatos) == 1:
-        return candidatos[0], False
+        return candidatos.pop(), False
     return min(saldos, key=lambda s: abs(calculado - s)), True
 
 
@@ -46,11 +49,12 @@ def verificar_saldo(db: Session, conta: ContaModel) -> dict:
     """Compara o saldo calculado com o do banco em cada dia com saldo.
 
     Devolve a diferença (calculado − banco) no último ponto de controlo, os
-    intervalos ]de, ate] em que a diferença mudou, os dias com a ordem incerta
-    e se se deve sugerir escrever um saldo novo.
+    intervalos ]de, ate] em que a diferença mudou (sem `de`, a diferença do
+    saldo de referência), os dias com a ordem incerta e se se deve sugerir
+    escrever um saldo novo.
     """
     transacoes = (
-        db.query(TransacaoModel)
+        db.query(TransacaoModel.data, TransacaoModel.valor, TransacaoModel.saldo)
         .filter(TransacaoModel.conta_id == conta.id)
         .order_by(TransacaoModel.data, TransacaoModel.id)
         .all()
@@ -80,20 +84,23 @@ def verificar_saldo(db: Session, conta: ContaModel) -> dict:
         if incerta:
             dias_ordem_incerta.append(dia)
 
-    # O saldo de referência também foi dado pelo utilizador, com diferença 0;
-    # se o banco tiver saldo nesse dia, vale o do banco
-    if referencia not in {d for d, _ in pontos}:
+    # O saldo de referência também foi dado pelo utilizador, com diferença 0.
+    # Se o banco tiver saldo nesse dia, vale o do banco, e uma diferença aí é
+    # do próprio saldo de referência: fica num intervalo sem início
+    intervalos = []
+    na_referencia = next((dif for dia, dif in pontos if dia == referencia), None)
+    if na_referencia is None:
         pontos.append((referencia, Decimal(0)))
         pontos.sort(key=lambda p: p[0])
+    elif na_referencia != 0:
+        intervalos.append({"de": None, "ate": referencia, "variacao": float(na_referencia)})
 
-    intervalos = []
-    anterior_data, anterior_dif = None, Decimal(0)
-    for dia, dif in pontos:
-        if dif != anterior_dif:
-            intervalos.append(
-                {"de": anterior_data, "ate": dia, "variacao": float(dif - anterior_dif)}
-            )
-        anterior_data, anterior_dif = dia, dif
+    # Só entre pontos seguidos: antes do primeiro não se sabe qual era a
+    # diferença, e para trás da referência mede-se a partir dela
+    for (de, dif_de), (ate, dif_ate) in pairwise(pontos):
+        if dif_ate != dif_de:
+            intervalos.append({"de": de, "ate": ate, "variacao": float(dif_ate - dif_de)})
+    intervalos.sort(key=lambda i: i["ate"])
 
     data_ultimo_saldo = pontos[-1][0]
     sugerir_saldo = bool(transacoes) and transacoes[-1].data - data_ultimo_saldo > timedelta(
