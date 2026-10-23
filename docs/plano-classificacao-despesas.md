@@ -1,7 +1,16 @@
 # Plano: classificar as subcategorias de despesa
 
-Estado: **por executar**. As decisões estão todas tomadas (secções 2 e 3); falta
-seguir os passos.
+Estado: **executado** (passos 4.1 a 4.5). Falta a verificação com os dados reais
+(secção 5), numa cópia da BD.
+
+Pequenas decisões tomadas durante a execução:
+
+- Em `por-categoria`, uma subcategoria extraordinária tem `mes_tipico` 0, para
+  as subcategorias somarem o valor da categoria; a página mostra «0,00 €».
+- Uma classificação numa categoria que não é de despesa (só possível com a BD
+  escrita à mão) é ignorada nas estatísticas.
+- As médias da página calculam-se a partir dos meses já arredondados ao
+  cêntimo, como as que já existiam.
 
 ## 1. O problema
 
