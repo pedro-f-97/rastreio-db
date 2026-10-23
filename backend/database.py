@@ -18,6 +18,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    false,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -224,6 +225,10 @@ class Transacao(Base):
 
     # A importação que trouxe a transacção; NULL nas de antes do histórico
     importacao_id: Mapped[Optional[int]] = mapped_column(ForeignKey("importacoes.id"))
+    # Criada à mão (para corrigir o saldo); só estas se podem apagar
+    manual: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     categoria: Mapped[Optional["Categoria"]] = relationship("Categoria")
     subcategoria: Mapped[Optional["Subcategoria"]] = relationship(
@@ -473,6 +478,25 @@ def acrescentar_classe_despesa(caminho: str = DB_PATH) -> bool:
     return True
 
 
+def acrescentar_transacao_manual(caminho: str = DB_PATH) -> bool:
+    """Acrescenta a coluna `transacoes.manual`, se ainda não existir.
+
+    Fica a 0 (importada) nas transacções que já lá estão. Um `ADD COLUMN` NOT
+    NULL com `DEFAULT` não reescreve a tabela, por isso os IDs e as chaves ficam
+    como estão. Como em `acrescentar_importacao_id`, com a coluna ou sem a
+    tabela não escreve nada. Devolve se a acrescentou.
+    """
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(transacoes)")}
+        if not colunas or "manual" in colunas:
+            return False
+        con.execute("ALTER TABLE transacoes ADD COLUMN manual BOOLEAN DEFAULT 0 NOT NULL")
+    finally:
+        con.close()
+    return True
+
+
 # As migrações do schema, por ordem: a posição na lista é a versão a que cada
 # uma leva a BD. A BD guarda em `PRAGMA user_version` a última que já levou, e
 # no arranque e no restauro de um backup correm as que faltam. Uma BD nova é
@@ -489,6 +513,7 @@ MIGRACOES = (
     ("coluna transacoes.reembolso removida", remover_coluna_reembolso),
     ("coluna transacoes.importacao_id acrescentada", acrescentar_importacao_id),
     ("coluna subcategorias.classe_despesa acrescentada", acrescentar_classe_despesa),
+    ("coluna transacoes.manual acrescentada", acrescentar_transacao_manual),
 )
 
 

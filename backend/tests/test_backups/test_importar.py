@@ -1350,7 +1350,7 @@ def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partid
 
     for tabela in ("precos_ativo", "movimentos_ativo"):
         assert "ativos_old" not in _ddl_em(bd_em_ficheiro, tabela)
-    assert _versao_em(bd_em_ficheiro) == 4
+    assert _versao_em(bd_em_ficheiro) == 5
 
 
 # ---------------------------------------------------------------------------
@@ -1393,8 +1393,8 @@ def test_backup_antigo_e_migrado_antes_de_ser_validado(
     """Um backup sem uma coluna que uma migração acrescenta é aceite.
 
     Cálculo à mão: o backup está na versão 0 e não tem `coluna_fee`. Com uma
-    5.ª migração que a acrescenta, a migração corre no `.tmp` antes da
-    validação, que passa: 200, a coluna existe e a BD fica na versão 5. Sem a
+    6.ª migração que a acrescenta, a migração corre no `.tmp` antes da
+    validação, que passa: 200, a coluna existe e a BD fica na versão 6. Sem a
     migração, o mesmo ficheiro é recusado
     (`test_coluna_em_falta_numa_so_tabela_e_rejeitado`).
     """
@@ -1409,11 +1409,11 @@ def test_backup_antigo_e_migrado_antes_de_ser_validado(
 
     assert resposta.status_code == 200
     assert colunas_em_falta(str(bd_em_ficheiro)) == []
-    assert _versao_em(bd_em_ficheiro) == 5
+    assert _versao_em(bd_em_ficheiro) == 6
 
 
 def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_path):
-    """Cálculo à mão: um backup na versão 0, com as 4 migrações, fica na 4."""
+    """Cálculo à mão: um backup na versão 0, com as 5 migrações, fica na 5."""
     backup = tmp_path / "antigo.db"
     criar_bd_do_modelo(backup)
     assert _versao_em(backup) == 0
@@ -1421,7 +1421,7 @@ def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_pat
     resposta = importar(client, backup.read_bytes())
 
     assert resposta.status_code == 200
-    assert _versao_em(bd_em_ficheiro) == 4
+    assert _versao_em(bd_em_ficheiro) == 5
 
 
 def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, monkeypatch):
@@ -1447,7 +1447,7 @@ def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, m
 
 
 def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
-    """Cálculo à mão: uma BD na versão 0 com a 5.ª migração falsa corre-a, e fica na 5."""
+    """Cálculo à mão: uma BD na versão 0 com a 6.ª migração falsa corre-a, e fica na 6."""
     monkeypatch.setattr(
         database, "MIGRACOES", database.MIGRACOES + (("coluna_fee", _acrescentar_coluna_fee),)
     )
@@ -1457,7 +1457,7 @@ def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
     database.criar_tabelas()
 
     assert colunas_em_falta(str(bd_em_ficheiro)) == []
-    assert _versao_em(bd_em_ficheiro) == 5
+    assert _versao_em(bd_em_ficheiro) == 6
 
 
 def test_arranque_recusa_bd_com_colunas_em_falta(bd_em_ficheiro):
