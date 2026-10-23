@@ -15,15 +15,19 @@
 .guia-caixa {
   position: fixed;
   z-index: 1000;
-  max-width: 280px;
-  background: var(--bg-tertiary);
+  max-width: 320px;
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--sombra-modal);
+  animation: modal-entrar 220ms var(--transicao) both;
 }
 
 .guia-caixa-centrada {
+  /* A animação mexe no transform, que aqui centra a caixa */
+  animation: none;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -32,6 +36,7 @@
 .guia-texto {
   color: var(--text-primary);
   font-size: var(--text-md);
+  line-height: 1.55;
   margin: 0 0 var(--space-md);
 }
 

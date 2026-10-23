@@ -20,31 +20,32 @@ import { GuiaProvider, useGuia } from './contexts/GuiaContext'
 import GuiaDestaque from './components/GuiaDestaque'
 import Sobre from './pages/Sobre'
 import TiposAtivo from './pages/TiposAtivo'
+import Icone from './components/Icone'
 
 const GRUPOS_NAV = [
   {
     label: 'Transações',
     items: [
-      { to: '/', label: 'Transações', end: true },
-      { to: '/historico', label: 'Histórico' },
-      { to: '/importacao', label: 'Importação' },
+      { to: '/', label: 'Transações', icone: 'transacoes', end: true },
+      { to: '/historico', label: 'Histórico', icone: 'historico' },
+      { to: '/importacao', label: 'Importação', icone: 'importacao' },
     ],
   },
   {
       label: 'Configuração',
       items: [
-          { to: '/categorias', label: 'Categorias' },
-          { to: '/regras', label: 'Regras' },
-          { to: '/contas', label: 'Contas' },
-          { to: '/tipos-ativo', label: 'Tipos de Ativo' },
+          { to: '/categorias', label: 'Categorias', icone: 'categorias' },
+          { to: '/regras', label: 'Regras', icone: 'regras' },
+          { to: '/contas', label: 'Contas', icone: 'contas' },
+          { to: '/tipos-ativo', label: 'Tipos de Ativo', icone: 'tipos' },
       ],
   },
   {
     label: 'Análise',
     items: [
-      { to: '/estatisticas', label: 'Estatísticas' },
-      { to: '/ativos', label: 'Ativos' },
-      { to: '/patrimonio', label: 'Património' },
+      { to: '/estatisticas', label: 'Estatísticas', icone: 'estatisticas' },
+      { to: '/ativos', label: 'Ativos', icone: 'ativos' },
+      { to: '/patrimonio', label: 'Património', icone: 'patrimonio' },
     ],
   },
 ]
@@ -111,55 +112,65 @@ function App() {
           {inicializado && (
             <nav className="sidebar">
               <div className="sidebar-logo">
-                <img src={logoRastreio} alt="Rastreio" />
-                <span>Rastreio-DB</span>
+                <img src={logoRastreio} alt="" />
+                <div className="sidebar-marca">
+                  <span className="sidebar-marca-nome">rastreio<span className="sidebar-marca-db">.db</span></span>
+                  <span className="sidebar-marca-lema">livro de contas</span>
+                </div>
               </div>
 
-              {GRUPOS_NAV.map(grupo => (
-                <div key={grupo.label} className="sidebar-grupo">
-                  <div className="sidebar-grupo-titulo">
-                    {grupo.label}
+              <div className="sidebar-grupos">
+                {GRUPOS_NAV.map((grupo, i) => (
+                  <div key={grupo.label} className="sidebar-grupo">
+                    <div className="sidebar-grupo-titulo">
+                      <span className="sidebar-grupo-numero">{String(i + 1).padStart(2, '0')}</span>
+                      {grupo.label}
+                    </div>
+                    {grupo.items.map(({ to, label, icone, end }) => (
+                      <NavLink
+                        key={to}
+                        to={to}
+                        end={end}
+                        className={({ isActive }) => `sidebar-link${isActive ? ' activo' : ''}`}
+                      >
+                        <Icone nome={icone} tamanho={17} />
+                        <span className="sidebar-link-conteudo">
+                          {label}
+                          {label === 'Transações' && porCategorizar > 0 && (
+                            <span className="badge-contador" title="Transações por categorizar">{porCategorizar}</span>
+                          )}
+                          {label === 'Ativos' && pendentesAtivos > 0 && (
+                            <span className="badge-contador" title="Movimentos pendentes">{pendentesAtivos}</span>
+                          )}
+                        </span>
+                      </NavLink>
+                    ))}
                   </div>
-                  {grupo.items.map(({ to, label, end }) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end={end}
-                      className={({ isActive }) => `sidebar-link${isActive ? ' activo' : ''}`}
-                    >
-                      <span className="sidebar-link-conteudo">
-                        {label}
-                        {label === 'Transações' && porCategorizar > 0 && (
-                          <span className="badge-contador">{porCategorizar}</span>
-                        )}
-                        {label === 'Ativos' && pendentesAtivos > 0 && (
-                          <span className="badge-contador">{pendentesAtivos}</span>
-                        )}
-                      </span>
-                    </NavLink>
-                  ))}
-                </div>
-                 ))}
+                ))}
+              </div>
 
               <div className="sidebar-rodape">
                 <NavLink
                   to="/sobre"
                   className={({ isActive }) => `sidebar-link${isActive ? ' activo' : ''}`}
                 >
-                  Conceitos
+                  <Icone nome="conceitos" tamanho={17} />
+                  <span className="sidebar-link-conteudo">Conceitos</span>
                 </NavLink>
-              </div>
 
-              <button onClick={alternarTema} className="sidebar-toggle-tema">
-                <span
-                  className="sidebar-toggle-tema-metade-escura"
-                  style={{ flex: tema === 'dark' ? 4 : 1 }}
-                />
-                <span
-                  className="sidebar-toggle-tema-metade-clara"
-                  style={{ flex: tema === 'dark' ? 1 : 4 }}
-                />
-              </button>
+                <button
+                  onClick={alternarTema}
+                  className="sidebar-toggle-tema"
+                  title={tema === 'dark' ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'}
+                >
+                  <span className={`sidebar-toggle-opcao${tema === 'dark' ? ' activa' : ''}`}>
+                    <Icone nome="lua" tamanho={14} /> Escuro
+                  </span>
+                  <span className={`sidebar-toggle-opcao${tema === 'light' ? ' activa' : ''}`}>
+                    <Icone nome="sol" tamanho={14} /> Claro
+                  </span>
+                </button>
+              </div>
             </nav>
           )}
           <main className="app-main">

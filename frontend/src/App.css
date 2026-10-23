@@ -1,105 +1,198 @@
-/* Layout principal da app (App.jsx).
-   Nota: este ficheiro foi recriado do zero — o antigo App.css era resto
-   do scaffold do Vite (nunca importado) e foi removido. */
+/* Layout principal da app (App.jsx): a barra lateral e a área das páginas */
 
 .app-layout {
     display: flex;
     height: 100vh;
 }
 
+/* O fundo das páginas é papel quadriculado a pontos, muito discreto */
 .app-main {
     flex: 1;
     overflow: auto;
-    padding: 24px;
+    background-color: var(--bg-primary);
+    background-image: radial-gradient(var(--papel-ponto) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    background-attachment: local;
 }
 
-/* Sidebar de navegação */
+/* --- Barra lateral --- */
 
 .sidebar {
-    width: 200px;
-    background-color: var(--bg-secondary);
+    width: 236px;
+    flex-shrink: 0;
+    background-color: var(--sidebar-bg);
     border-right: 1px solid var(--border);
-    padding: 24px 0;
+    padding: var(--space-xl) var(--space-md) var(--space-lg);
     display: flex;
     flex-direction: column;
+    gap: var(--space-xl);
+    overflow-y: auto;
 }
 
 .sidebar-logo {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    padding: 0 16px 24px;
-    gap: 8px;
+    gap: var(--space-md);
+    padding: 0 var(--space-sm);
 }
 
 .sidebar-logo img {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
 }
 
-.sidebar-logo span {
+.sidebar-marca {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.sidebar-marca-nome {
+    font-size: 19px;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+}
+
+.sidebar-marca-db {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    letter-spacing: -0.04em;
+    margin-left: -0.15em;
+}
+
+.sidebar-marca-lema {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: var(--text-secondary);
-    font-size: 14px;
-    letter-spacing: 1px;
+}
+
+.sidebar-grupos {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
 }
 
 .sidebar-grupo {
-    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
 
 .sidebar-grupo-titulo {
-    padding: 0 16px 6px;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    padding: 0 var(--space-sm) 6px;
+    font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.14em;
     color: var(--text-secondary);
-    opacity: 0.6;
     text-transform: uppercase;
 }
 
+.sidebar-grupo-numero {
+    color: var(--accent);
+    opacity: 0.8;
+}
+
 .sidebar-link {
-    display: block;
-    padding: 8px 16px;
-    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 7px var(--space-sm);
+    color: var(--text-secondary);
     text-decoration: none;
-    background-color: transparent;
-    border-left: 2px solid transparent;
+    border-radius: var(--radius-md);
+    position: relative;
+    transition: background-color var(--transicao), color var(--transicao);
+}
+
+.sidebar-link .icone {
+    flex-shrink: 0;
+    opacity: 0.85;
+}
+
+.sidebar-link:hover {
+    color: var(--text-primary);
+    background-color: color-mix(in srgb, var(--text-primary) 5%, transparent);
 }
 
 .sidebar-link.activo {
+    color: var(--text-primary);
+    background-color: var(--accent-suave);
+}
+
+.sidebar-link.activo .icone {
     color: var(--accent);
-    background-color: var(--bg-tertiary);
-    border-left-color: var(--accent);
+    opacity: 1;
+}
+
+/* A marca da página activa: um traço do accent encostado à esquerda */
+.sidebar-link.activo::before {
+    content: '';
+    position: absolute;
+    left: calc(-1 * var(--space-md));
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent);
 }
 
 .sidebar-link-conteudo {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--space-sm);
+    min-width: 0;
 }
 
 .sidebar-rodape {
     margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
     border-top: 1px solid var(--border);
-    padding-top: 8px;
 }
 
-/* Toggle de tema (interruptor claro/escuro) */
+/* --- Interruptor do tema: duas metades, a activa preenchida --- */
 
 .sidebar-toggle-tema {
-    margin: 8px 16px 0;
-    width: calc(100% - 32px);
-    height: 24px;
-    padding: 0;
-    display: flex;
-    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    padding: 3px;
+    background: var(--bg-primary);
     border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
 }
 
-.sidebar-toggle-tema-metade-escura {
-    background-color: #000000;
+.sidebar-toggle-tema:hover:not(:disabled) {
+    background: var(--bg-primary);
+    border-color: var(--accent-linha);
 }
 
-.sidebar-toggle-tema-metade-clara {
-    background-color: #ffffff;
+.sidebar-toggle-opcao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 5px 0;
+    border-radius: var(--radius-pill);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    transition: background-color var(--transicao), color var(--transicao);
+}
+
+.sidebar-toggle-opcao.activa {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }
