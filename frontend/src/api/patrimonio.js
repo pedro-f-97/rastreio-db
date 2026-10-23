@@ -23,3 +23,8 @@ export const eliminarPreco = (id) => client.delete(`/patrimonio/precos/${id}`);
 // --- EVOLUÇÃO ---
 export const obterEvolucao = (dataInicio, dataFim) =>
     client.get("/patrimonio/evolucao", { params: { data_inicio: dataInicio, data_fim: dataFim } });
+
+// --- CRESCIMENTO ---
+// `ano` null = todos os meses
+export const obterCrescimento = (ano) =>
+    client.get("/patrimonio/crescimento", { params: { ano: ano ?? undefined } });
