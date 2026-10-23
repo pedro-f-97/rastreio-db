@@ -1,42 +1,169 @@
-.cartao-subvalor {
-    font-size: var(--text-md);
-    font-family: var(--font-mono);
+/* --- Total e composição --- */
+.patrimonio-heroi {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.4fr);
+    gap: var(--space-2xl);
+    align-items: center;
+    padding: var(--space-2xl);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Um brilho do accent no canto, a única decoração da página */
+.patrimonio-heroi::before {
+    content: '';
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    left: -160px;
+    top: -220px;
+    background: radial-gradient(circle, var(--accent-suave), transparent 65%);
+    pointer-events: none;
+}
+
+.heroi-total {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    position: relative;
+}
+
+.heroi-valor {
+    font-size: 56px;
     font-weight: var(--font-weight-medium);
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.heroi-composicao {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.heroi-partes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+}
+
+.heroi-parte {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: var(--space-md);
+    border-left: 1px solid var(--border);
+}
+
+.heroi-parte-nome {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.heroi-parte-valor {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    white-space: nowrap;
+}
+
+.heroi-parte-pct {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+/* --- Cartões --- */
+.cartao-subvalor {
+    font-size: var(--text-sm);
+    font-family: var(--font-mono);
 }
 
 .cartao-valor-linha {
     display: flex;
-    align-items: baseline;
-    gap: var(--space-sm);
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
 }
 
-.cartao-breakdown {
+.linha-guia-pct {
+    color: var(--text-secondary);
+    margin-left: var(--space-xs);
+}
+
+/* --- Crescimento por mês, por cima do gráfico --- */
+.crescimento {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: var(--space-md) var(--space-2xl);
+    padding: var(--space-lg) var(--space-xl);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-lg);
+}
+
+.crescimento-principal {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-    margin-top: var(--space-xs);
-    padding-top: var(--space-sm);
-    border-top: 1px solid var(--border);
 }
 
-.cartao-breakdown-linha {
+.crescimento-valor {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+.crescimento-partes {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: var(--space-sm);
+    gap: var(--space-xl);
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
 }
 
-.cartao-breakdown-label {
+.crescimento-parte {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.crescimento-parte-nome {
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-.cartao-breakdown-valor {
+.crescimento-nota {
+    flex-basis: 100%;
     font-size: var(--text-sm);
-    font-family: var(--font-mono);
-    white-space: nowrap;
-    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.grafico-legenda {
+    padding: 0 var(--space-sm) var(--space-md);
+}
+
+/* A barra da composição, partilhada com as Estatísticas */
+.composicao-barra {
+    display: flex;
+    height: 14px;
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    gap: 2px;
+    background: var(--bg-primary);
+}
+
+.composicao-barra-grossa {
+    height: 18px;
+}
+
+@media (max-width: 1100px) {
+    .patrimonio-heroi {
+        grid-template-columns: 1fr;
+    }
 }
