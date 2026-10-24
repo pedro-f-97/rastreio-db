@@ -61,17 +61,23 @@ Todos os dados ficam num só ficheiro, `dados/rastreio.db`, dentro da pasta da a
 
 ## Preview
 
-### Transações (edição inline, filtros e categorização)
+As capturas usam dados de demonstração.
+
+### Transações (categorização na tabela, filtros e um separador por mês)
 ![Transações](docs/screenshots/transacoes.png)
 
-### Estatísticas (evolução mensal, distribuição por categoria e taxa de poupança)
+### Estatísticas (resumo, mês típico, evolução mensal e taxa de poupança)
 ![Estatísticas](docs/screenshots/estatisticas.png)
 
-### Património (visão global dos ativos e desempenho)
+![Estatísticas: gráficos](docs/screenshots/estatisticas-graficos.png)
+
+### Património (total, composição, crescimento por mês e evolução)
 ![Património](docs/screenshots/patrimonio.png)
 
+![Património: evolução](docs/screenshots/patrimonio-evolucao.png)
+
 <details>
-<summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas e Configuração)</summary>
+<summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas, Ativos, Conceitos e tema claro)</summary>
 
 ### Importação
 ![Importação](docs/screenshots/importacao.png)
@@ -102,6 +108,9 @@ Todos os dados ficam num só ficheiro, `dados/rastreio.db`, dentro da pasta da a
 
 ### Conceitos
 ![Conceitos](docs/screenshots/conceitos.png)
+
+### Tema claro
+![Tema claro](docs/screenshots/tema-claro.png)
 
 </details>
 
