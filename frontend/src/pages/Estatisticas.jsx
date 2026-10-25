@@ -350,12 +350,18 @@ export default function Estatisticas() {
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
 
-    // As colunas da tabela «Por categoria»: o nome e três valores
-    const celulasValor = (media, mediana, tipico) => (
+    // As colunas da tabela «Por categoria»: o nome e três valores. O
+    // investimento não é dinheiro gasto: fica na cor do investimento, e não a
+    // vermelho, mesmo negativo (o zero continua cinzento)
+    const classeCelula = (valor, tipo) => {
+        const classe = classeValor(valor);
+        return tipo === 'investimento' && classe !== 'valor-zero' ? 'valor-investimento' : classe;
+    };
+    const celulasValor = (media, mediana, tipico, tipo) => (
         <>
-            <td className={`col-num ${classeValor(media)}`}>{formatarEuros(media)}</td>
-            <td className={`col-num ${classeValor(mediana)}`}>{formatarEuros(mediana)}</td>
-            <td className={`col-num ${classeValor(tipico)}`}>{formatarEuros(tipico)}</td>
+            <td className={`col-num ${classeCelula(media, tipo)}`}>{formatarEuros(media)}</td>
+            <td className={`col-num ${classeCelula(mediana, tipo)}`}>{formatarEuros(mediana)}</td>
+            <td className={`col-num ${classeCelula(tipico, tipo)}`}>{formatarEuros(tipico)}</td>
         </>
     );
 
@@ -559,7 +565,7 @@ export default function Estatisticas() {
                                             <td>
                                                 <span className={`badge-tipo badge-tipo-${grupo.tipo}`}>{grupo.titulo}</span>
                                             </td>
-                                            {celulasValor(media, mediana, tipico)}
+                                            {celulasValor(media, mediana, tipico, grupo.tipo)}
                                         </tr>
                                         {categorias.map(c => {
                                             const expandida = categoriaExpandida === c.categoria_id;
@@ -573,7 +579,7 @@ export default function Estatisticas() {
                                                             <span className={`seta-expansao ${expandida ? 'aberta' : ''}`}><Icone nome="direita" tamanho={13} /></span>
                                                             {c.categoria_nome}
                                                         </td>
-                                                        {celulasValor(c.media, c.mediana, c.mes_tipico)}
+                                                        {celulasValor(c.media, c.mediana, c.mes_tipico, grupo.tipo)}
                                                     </tr>
                                                     {expandida &&
                                                         [...c.subcategorias]
@@ -581,7 +587,7 @@ export default function Estatisticas() {
                                                             .map(sub => (
                                                                 <tr key={sub.subcategoria_nome} className="linha-subcategoria-detalhe">
                                                                     <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
-                                                                    {celulasValor(sub.media, sub.mediana, sub.mes_tipico)}
+                                                                    {celulasValor(sub.media, sub.mediana, sub.mes_tipico, grupo.tipo)}
                                                                 </tr>
                                                             ))
                                                     }

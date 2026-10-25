@@ -82,6 +82,8 @@
   /* Valores monetários */
   --valor-positivo: var(--type-receita-text);
   --valor-negativo: var(--type-despesa-text);
+  /* O investimento não é gasto: a cor do investimento, e não a da despesa */
+  --valor-investimento: var(--type-investimento-text);
 
   /* Tipografia */
   --font-sans: 'DM Sans', system-ui, sans-serif;
@@ -270,6 +272,8 @@ input[type="checkbox"], input[type="range"] {
 --subcategoria-bg: #e4e4ec;
 --subcategoria-text: #5d5d70;
 /* Derivados que mudam com o tema */
+/* O dourado do investimento é claro de mais para texto num fundo claro */
+--valor-investimento: color-mix(in srgb, var(--type-investimento-text) 55%, #000);
 --sombra: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 28px -18px rgba(30, 40, 60, 0.35);
 --sombra-modal: 0 24px 64px -12px rgba(30, 40, 60, 0.35);
 --papel-ponto: rgba(30, 40, 60, 0.07);
