@@ -167,7 +167,7 @@ def test_resumo_mensal_agrega_por_mes_e_calcula_poupanca_media_e_mediana(client,
         transferências), mas `todos_meses` não filtra transferências e o ciclo
         seguinte acrescenta o mês a zeros -> aparece no output a zeros. É a
         mesma convenção do denominador das médias no `/por-categoria` (ver
-        «Decisões de design» no README).
+        `docs/decisoes.md`).
       junho: só investimento: a chave do mês é criada com investimento
         -1000,0 e receitas/despesas a zero.
       fevereiro (sem transacções) não está em `todos_meses`, por isso não
@@ -275,8 +275,8 @@ def test_por_categoria_media_e_mediana_mensais_com_zeros(client, session):
       `por_categoria` conta os meses de TODAS as transacções, sem excluir
       transferências, e a query de totais exclui-as (o seu `filter` de
       transferências) -> o mês 04 só com transferências entra
-      no denominador sem entrar no numerador. É a convenção registada nas
-      «Decisões de design» do README.
+      no denominador sem entrar no numerador. É a convenção registada em
+      `docs/decisoes.md`.
 
       A query agrupa por (ano, mes, categoria, subcategoria); a categoria
       soma as linhas de cada mês: o mês 03 é Renda -100 + "Sem subcategoria"

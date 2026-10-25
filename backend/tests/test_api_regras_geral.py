@@ -376,8 +376,8 @@ def test_pre_visualizar_sem_mudanca_nao_passa_a_regra_seguinte(client, session):
 
     Cálculo à mão: "pingo doce" -> Casa, sem subcategoria (11 caracteres) e
     "pingo" -> Lazer (5). A transacção "PINGO DOCE" está em Casa, sem
-    subcategoria. A mais longa é avaliada primeiro e decide sozinha (decisão do
-    README): não muda nada, por isso a transacção não aparece. Se a avaliação
+    subcategoria. A mais longa é avaliada primeiro e decide sozinha (decisão de
+    `docs/decisoes.md`): não muda nada, por isso a transacção não aparece. Se a avaliação
     seguisse para "pingo", apareceria como conflito Casa -> Lazer.
     Esperado: as duas listas vazias.
     """

@@ -138,7 +138,7 @@ build.bat           # Windows
 * Before finishing, run ./backend/test.sh and inspect git diff
 * Do not assume undocumented business rules; inspect the existing code/docs/tests first.
 * Do not decide business rules yourself. Describe the options and ask the user.
-  Decisions taken as conventions live in the README's «Decisões de design» and
+  Decisions taken as conventions live in `docs/decisoes.md` (linked from the README) and
   must not be reverted silently.
 
 ## Stop Gates

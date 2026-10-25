@@ -670,7 +670,7 @@ def test_bem_sem_unidades_trata_venda_parcial_como_venda_total(client, session):
       a parte que ficou por vender passou a ter custo zero e valor zero, ou
       seja, desaparece do patrimonio.
 
-    E a convencao registada nas «Decisoes de design» do README:
+    E a convencao registada em `docs/decisoes.md`:
     um bem sem unidades vende-se sempre por inteiro; para vender partes, o
     bem regista-se com unidades e passa pelo FIFO. O cenario 12 mostra o
     mesmo codigo com uma venda que e mesmo total.
