@@ -22,3 +22,7 @@ export function obterExtraordinarias(ano) {
     const params = ano && ano !== 'todos' ? `?ano=${ano}` : '';
     return client.get(`/estatisticas/extraordinarias${params}`);
 }
+
+export function obterPanfleto() {
+    return client.get('/estatisticas/panfleto');
+}
