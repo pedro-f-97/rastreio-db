@@ -1,54 +1,77 @@
-.nova-conta {
-    flex-wrap: wrap;
-    align-items: center;
-}
-
 .nova-conta input[type="text"] {
-    width: 220px;
+    flex: 1 1 200px;
+    max-width: 280px;
 }
 
 .nova-conta input[type="number"] {
-    width: 160px;
+    width: 180px;
 }
 
 .toggle-inativas {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    font-size: var(--text-md);
-    color: var(--text-secondary);
-    cursor: pointer;
     width: fit-content;
+    font-size: var(--text-md);
 }
 
+/* --- As contas, em cartões --- */
 .lista-contas {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-lg);
 }
 
 .conta-item {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    padding: var(--space-lg);
+    padding: var(--space-xl);
     border-radius: var(--radius-lg);
+    box-shadow: var(--sombra);
+    position: relative;
+    overflow: hidden;
+}
+
+.conta-item::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--chart-6);
 }
 
 .conta-item.conta-inativa {
-    opacity: 0.55;
+    opacity: 0.6;
+}
+
+.conta-item.conta-inativa::before {
+    background: var(--border);
 }
 
 .conta-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: var(--space-md);
 }
 
 .conta-info {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: var(--space-md);
+    min-width: 0;
+}
+
+.conta-titulo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
     flex-wrap: wrap;
+}
+
+.conta-icone {
+    display: inline-flex;
+    padding: 6px;
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--chart-6);
 }
 
 .conta-nome {
@@ -57,11 +80,23 @@
     color: var(--text-primary);
 }
 
+.conta-saldo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.conta-saldo-valor {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: -0.03em;
+}
+
 .badge-inativa {
-    font-size: var(--text-sm);
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
-    background: var(--bg-tertiary);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 1px var(--space-sm);
+    border-radius: var(--radius-pill);
     color: var(--text-secondary);
     border: 1px solid var(--border);
 }
@@ -69,6 +104,8 @@
 .conta-detalhe {
     font-size: var(--text-sm);
     color: var(--text-secondary);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--linha-fina);
 }
 
 .valor-mono {
@@ -77,60 +114,47 @@
 }
 
 .btn-reativar {
-    background: none !important;
-    border: 1px solid var(--accent) !important;
-    color: var(--accent) !important;
-    padding: var(--space-xs) var(--space-sm) !important;
-    cursor: pointer;
-    font-size: var(--text-sm) !important;
-    border-radius: var(--radius-sm);
-    opacity: 1 !important;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--text-sm);
 }
 
-.btn-reativar:hover {
-    background: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+.btn-reativar:hover:not(:disabled) {
+    background: var(--accent-suave);
 }
 
+.conta-vazia {
+    grid-column: 1 / -1;
+}
+
+/* --- Edição --- */
 .conta-edicao {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: var(--space-md);
-    flex-wrap: wrap;
 }
 
 .conta-edicao input[type="text"] {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--accent);
-    padding: var(--space-xs) var(--space-sm);
     font-size: var(--text-lg);
     font-weight: var(--font-weight-medium);
-    border-radius: var(--radius-sm);
-    width: 200px;
+    border-color: var(--accent);
 }
 
 .campo-referencia {
-    display: flex;
+    display: grid;
+    grid-template-columns: 140px 1fr;
     align-items: center;
-    gap: var(--space-xs);
+    gap: var(--space-sm);
 }
 
 .campo-referencia label {
     font-size: var(--text-sm);
     color: var(--text-secondary);
-    white-space: nowrap;
 }
 
-.campo-referencia input {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--accent);
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--text-md);
-    border-radius: var(--radius-sm);
-    width: 140px;
-}
-
-.campo-referencia input:focus {
-    outline: none;
+.conta-edicao .accoes {
+    justify-content: flex-end;
+    gap: var(--space-sm);
 }

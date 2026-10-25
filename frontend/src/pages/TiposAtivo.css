@@ -1,6 +1,20 @@
-.nova-categoria {
-    display: flex;
+.grelha-tipos {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.grelha-tipos .item-lista {
+    padding: var(--space-md) var(--space-lg);
+}
+
+/* Na edição, o campo, a caixa e os botões podem ir para a linha seguinte */
+.grelha-tipos .item-cabecalho {
     flex-wrap: wrap;
-    gap: var(--space-md);
-    align-items: center;
+}
+
+.tipo-icone {
+    display: inline-flex;
+    padding: 6px;
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--type-investimento-text);
 }

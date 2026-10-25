@@ -3,6 +3,7 @@ import { criarTransacao } from '../api/transacoes';
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import { getContas } from '../api/contas';
 import '../componentes.css';
+import Icone from './Icone';
 
 // Criar uma transação à mão, para corrigir o saldo. `inicial` pode trazer a
 // conta, a data e o valor já preenchidos (a correção sugerida pela verificação)
@@ -78,37 +79,41 @@ export default function FormNovaTransacao({ inicial = {}, onFechar, onCriada }) 
                         {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                 </label>
-                <label className="label">Data
-                    <input type="date" value={form.data} onChange={e => campo('data', e.target.value)} />
-                </label>
                 <label className="label">Descrição
                     <input value={form.descricao} onChange={e => campo('descricao', e.target.value)} />
                 </label>
-                <label className="label">Valor, em euros (€), negativo nas saídas
-                    <input type="number" step="0.01" value={form.valor} onChange={e => campo('valor', e.target.value)} />
-                </label>
-                <label className="label">Categoria (sem categoria, aplicam-se as regras)
-                    <select
-                        value={form.categoria_id}
-                        onChange={e => {
-                            setSubcategorias([]);
-                            setForm(f => ({ ...f, categoria_id: e.target.value, subcategoria_id: '' }));
-                        }}
-                    >
-                        <option value="">—</option>
-                        {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                    </select>
-                </label>
-                <label className="label">Subcategoria
-                    <select
-                        value={form.subcategoria_id}
-                        onChange={e => campo('subcategoria_id', e.target.value)}
-                        disabled={!form.categoria_id}
-                    >
-                        <option value="">—</option>
-                        {form.categoria_id && subcategorias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                    </select>
-                </label>
+                <div className="form-duas-colunas">
+                    <label className="label">Data
+                        <input type="date" value={form.data} onChange={e => campo('data', e.target.value)} />
+                    </label>
+                    <label className="label">Valor, em euros (€), negativo nas saídas
+                        <input type="number" step="0.01" value={form.valor} onChange={e => campo('valor', e.target.value)} />
+                    </label>
+                </div>
+                <div className="form-duas-colunas">
+                    <label className="label">Categoria (sem categoria, aplicam-se as regras)
+                        <select
+                            value={form.categoria_id}
+                            onChange={e => {
+                                setSubcategorias([]);
+                                setForm(f => ({ ...f, categoria_id: e.target.value, subcategoria_id: '' }));
+                            }}
+                        >
+                            <option value="">—</option>
+                            {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                        </select>
+                    </label>
+                    <label className="label">Subcategoria
+                        <select
+                            value={form.subcategoria_id}
+                            onChange={e => campo('subcategoria_id', e.target.value)}
+                            disabled={!form.categoria_id}
+                        >
+                            <option value="">—</option>
+                            {form.categoria_id && subcategorias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                        </select>
+                    </label>
+                </div>
                 <label className="label">Notas
                     <input value={form.notas} onChange={e => campo('notas', e.target.value)} />
                 </label>
@@ -122,7 +127,7 @@ export default function FormNovaTransacao({ inicial = {}, onFechar, onCriada }) 
                     </button>
                 </div>
 
-                <button className="modal-fechar" onClick={onFechar}>✕</button>
+                <button className="modal-fechar" onClick={onFechar} title="Fechar"><Icone nome="fechar" /></button>
             </div>
         </div>
     );

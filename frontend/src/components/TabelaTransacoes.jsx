@@ -1,5 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { formatarEuros } from '../utils/formatacao';
+import Icone from './Icone';
+
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
+    'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+// "2026-10-20" → o dia e o mês curto, para a coluna da data
+function DataCurta({ iso }) {
+    const [, mes, dia] = iso.split('-');
+    return (
+        <>
+            <span className="data-dia">{dia}</span>
+            <span className="data-mes">{MESES_CURTOS[Number(mes) - 1]}</span>
+        </>
+    );
+}
 
 export default function TabelaTransacoes({
     transacoes,
@@ -149,8 +165,8 @@ export default function TabelaTransacoes({
                         <tr>
                             <th>Data</th>
                             <th>Descrição</th>
-                            <th>Valor</th>
-                            <th>Saldo</th>
+                            <th className="col-num">Valor</th>
+                            <th className="col-num">Saldo</th>
                             <th>Categoria</th>
                             <th>Subcategoria</th>
                             <th>Conta</th>
@@ -160,82 +176,108 @@ export default function TabelaTransacoes({
                     </thead>
 
                     <tbody>
-                        {transacoes.map(t => (
-                            <tr key={t.id} className={t.valor < 0 ? 'despesa' : 'receita'}>
-                                <td>{t.data}</td>
-                                <td>
-                                    {t.descricao}
-                                    {t.manual && <span className="etiqueta-manual">manual</span>}
-                                </td>
-                                <td className="valor">{formatarEuros(t.valor)}</td>
-                                <td className="valor">
-                                    {t.saldo_editavel ? (
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            className="input-saldo"
-                                            value={saldosEditando[t.id] ?? t.saldo ?? ''}
-                                            onChange={e => setSaldosEditando(prev => ({ ...prev, [t.id]: e.target.value }))}
-                                            onBlur={() => aoGuardarSaldo(t)}
-                                            placeholder="—"
-                                            title="Saldo da conta no fim deste dia, como o banco o mostra"
-                                        />
-                                    ) : formatarEuros(t.saldo)}
-                                </td>
-                                <td>
-                                    <select
-                                        value={t.categoria_id ?? ''}
-                                        onChange={e => aoMudarCategoria(t, e.target.value ? Number(e.target.value) : null)}
-                                    >
-                                        <option value="">—</option>
-                                        {categorias.map(c => (
-                                            <option key={c.id} value={c.id}>
-                                                {c.nome}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </td>
-
-                                <td>
-                                    <select
-                                        value={t.subcategoria_id ?? ''}
-                                        onChange={e => aoMudarSubcategoria(t, e.target.value || null)}
-                                        disabled={!t.categoria_id}
-                                    >
-                                        <option value="">—</option>
-                                        {(subcategorias[t.categoria_id] ?? []).map(s => (
-                                            <option key={s.id} value={s.id}>
-                                                {s.nome}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </td>
-
-                                <td>{t.conta_nome ?? '—'}</td>
-
-                                <td>
-                                    <input
-                                        type="text"
-                                        value={notasEditando[t.id] ?? t.notas ?? ''}
-                                        onChange={e => aoEditarNotas(t.id, e.target.value)}
-                                        onBlur={() => aoGuardarNotas(t)}
-                                        placeholder="—"
-                                    />
-                                </td>
-
-                                <td>
-                                    {t.manual && (
-                                        <button
-                                            className="btn-ghost"
-                                            title="Apagar a transação manual"
-                                            onClick={() => onApagar(t)}
-                                        >
-                                            ✕
-                                        </button>
-                                    )}
-                                </td>
+                        {transacoes.length === 0 && (
+                            <tr>
+                                <td colSpan={9} className="tabela-vazia">Nenhuma transação com estes filtros.</td>
                             </tr>
-                        ))}
+                        )}
+                        {transacoes.map((t, i) => {
+                            // Um separador sempre que o mês muda, como num extracto
+                            const mes = t.data.slice(0, 7);
+                            const novoMes = i === 0 || transacoes[i - 1].data.slice(0, 7) !== mes;
+                            const [ano, numMes] = mes.split('-');
+                            return (
+                                <Fragment key={t.id}>
+                                    {novoMes && (
+                                        <tr className="linha-separador-mes">
+                                            <td colSpan={9}>
+                                                <span className="separador-mes-nome">{MESES[Number(numMes) - 1]}</span>
+                                                <span className="separador-mes-ano">{ano}</span>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    <tr className={`${t.valor < 0 ? 'despesa' : 'receita'} ${t.categoria_id ? '' : 'por-categorizar'} revelar-accoes`}>
+                                        <td className="col-data"><DataCurta iso={t.data} /></td>
+                                        <td className="col-descricao">
+                                            {t.descricao}
+                                            {t.manual && <span className="etiqueta-manual">manual</span>}
+                                        </td>
+                                        <td className="valor col-num">{formatarEuros(t.valor)}</td>
+                                        <td className="col-num col-saldo">
+                                            {t.saldo_editavel ? (
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="input-saldo"
+                                                    value={saldosEditando[t.id] ?? t.saldo ?? ''}
+                                                    onChange={e => setSaldosEditando(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                                    onBlur={() => aoGuardarSaldo(t)}
+                                                    placeholder="—"
+                                                    title="Saldo da conta no fim deste dia, como o banco o mostra"
+                                                />
+                                            ) : formatarEuros(t.saldo)}
+                                        </td>
+                                        <td>
+                                            <select
+                                                className="select-celula"
+                                                value={t.categoria_id ?? ''}
+                                                onChange={e => aoMudarCategoria(t, e.target.value ? Number(e.target.value) : null)}
+                                            >
+                                                <option value="">—</option>
+                                                {categorias.map(c => (
+                                                    <option key={c.id} value={c.id}>
+                                                        {c.nome}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </td>
+        
+                                        <td>
+                                            <select
+                                                className="select-celula"
+                                                value={t.subcategoria_id ?? ''}
+                                                onChange={e => aoMudarSubcategoria(t, e.target.value || null)}
+                                                disabled={!t.categoria_id}
+                                            >
+                                                <option value="">—</option>
+                                                {(subcategorias[t.categoria_id] ?? []).map(s => (
+                                                    <option key={s.id} value={s.id}>
+                                                        {s.nome}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </td>
+        
+                                        <td><span className="chip">{t.conta_nome ?? '—'}</span></td>
+        
+                                        <td>
+                                            <input
+                                                type="text"
+                                                className="input-nota"
+                                                value={notasEditando[t.id] ?? t.notas ?? ''}
+                                                onChange={e => aoEditarNotas(t.id, e.target.value)}
+                                                onBlur={() => aoGuardarNotas(t)}
+                                                placeholder="—"
+                                            />
+                                        </td>
+        
+                                        <td className="col-accoes">
+                                            {t.manual && (
+                                                <div className="accoes">
+                                                    <button
+                                                        className="perigo"
+                                                        title="Apagar a transação manual"
+                                                        onClick={() => onApagar(t)}
+                                                    >
+                                                        <Icone nome="apagar" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                </Fragment>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -245,6 +287,10 @@ export default function TabelaTransacoes({
                 <div className="modal-overlay">
                     <div className="modal">
                         <h3>Criar regra de categorização?</h3>
+                        <p className="modal-descricao">
+                            Ajusta o início e o fim do texto a procurar: as transações com estas palavras
+                            passam a ficar nesta categoria.
+                        </p>
 
                         <p className="modal-descricao-expandida">
                             <span>
@@ -285,7 +331,7 @@ export default function TabelaTransacoes({
                             />
                         </div>
 
-                        <p>
+                        <p className="palavra-chave-preview">
                             Palavra-chave:{' '}
                             <strong>
                                 {modalRegra.descricao
@@ -295,12 +341,12 @@ export default function TabelaTransacoes({
                         </p>
 
                         <div className="modal-acoes">
-                            <button onClick={() => setModalRegra(null)}>
+                            <button className="btn-ghost" onClick={() => setModalRegra(null)}>
                                 Ignorar
                             </button>
 
                             <button
-                                className="btn-confirmar"
+                                className="btn-primario"
                                 onClick={async () => {
                                     const palavraChave = modalRegra.descricao
                                         .slice(modalRegra.inicio, modalRegra.fim)

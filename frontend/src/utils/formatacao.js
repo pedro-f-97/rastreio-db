@@ -29,6 +29,15 @@ export function classeValor(valor, casas = 2) {
 }
 
 /**
+ * Classe CSS de um valor de investimento: o investimento não é dinheiro
+ * gasto, por isso fica na cor do investimento, e não a vermelho, mesmo
+ * negativo. O zero continua cinzento, como no classeValor.
+ */
+export function classeValorInvestimento(valor, casas = 2) {
+  return classeValor(valor, casas) === "valor-zero" ? "valor-zero" : "valor-investimento";
+}
+
+/**
  * "+" antes de um valor positivo, para os resultados; nada antes de um zero
  * ou de um negativo (o negativo já traz o "-"). Segue a mesma regra da cor.
  */

@@ -82,6 +82,8 @@
   /* Valores monetários */
   --valor-positivo: var(--type-receita-text);
   --valor-negativo: var(--type-despesa-text);
+  /* O investimento não é gasto: a cor do investimento, e não a da despesa */
+  --valor-investimento: var(--type-investimento-text);
 
   /* Tipografia */
   --font-sans: 'DM Sans', system-ui, sans-serif;
@@ -106,8 +108,31 @@
 
   /* Border radius */
   --radius-sm: 5px;
-  --radius-lg: 10px;
-  
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Tamanhos que faltavam nos extremos da escala */
+  --text-xs: 11px;
+  --text-3xl: 44px;
+
+  /* Derivados do accent e das superfícies: acompanham o tema sozinhos */
+  --accent-suave: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-linha: color-mix(in srgb, var(--accent) 45%, transparent);
+  --linha-fina: color-mix(in srgb, var(--border) 60%, transparent);
+  --sombra: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  --sombra-modal: 0 24px 64px -12px rgba(0, 0, 0, 0.7);
+  --papel-ponto: rgba(255, 255, 255, 0.045);
+  --sidebar-bg: #0b0b0b;
+
+  --transicao: 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* A seta dos selects, num cinzento que serve aos dois temas */
+  --seta-select: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
@@ -116,36 +141,98 @@ body {
   font-family: var(--font-sans);
   font-weight: var(--font-weight-regular);
   font-size: var(--text-md);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
 
+h1, h2, h3 {
+  font-weight: var(--font-weight-medium);
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--accent-suave);
+  color: var(--text-primary);
+}
+
+/* Botão por omissão: discreto, com o accent só no contorno ao passar */
 button {
   cursor: pointer;
   border: 1px solid var(--border);
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
   padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-family: var(--font-sans);
   font-size: var(--text-md);
+  line-height: 1.2;
+  transition: background-color var(--transicao), border-color var(--transicao), color var(--transicao), opacity var(--transicao);
 }
-button:hover {
-  background-color: var(--accent);
+button:hover:not(:disabled) {
   border-color: var(--accent);
+  background-color: var(--accent-suave);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 input, select, textarea {
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-secondary);
   color: var(--text-primary);
   border: 1px solid var(--border);
   padding: var(--space-sm) var(--space-md);
   font-family: var(--font-sans);
   font-size: var(--text-md);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   outline: none;
+  transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+input:hover, select:hover, textarea:hover {
+  border-color: color-mix(in srgb, var(--text-secondary) 60%, var(--border));
 }
 input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-suave);
 }
+input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+/* A seta própria: os longhands com !important sobrevivem aos `background:` das páginas */
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: var(--seta-select) !important;
+  background-repeat: no-repeat !important;
+  background-position: right 10px center !important;
+  background-size: 12px !important;
+  padding-right: 30px !important;
+}
+select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+select:disabled, input:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+input[type="checkbox"], input[type="range"] {
+  accent-color: var(--accent);
+}
+
+/* Barra de deslocamento discreta, nos dois temas */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
 :root[data-theme="light"] {
 /* Cores base */
 --bg-primary: #eef1f4;
@@ -184,4 +271,15 @@ input:focus, select:focus, textarea:focus {
 /* Subcategorias - cor neutra única */
 --subcategoria-bg: #e4e4ec;
 --subcategoria-text: #5d5d70;
+/* Derivados que mudam com o tema */
+/* O dourado do investimento é claro de mais para texto num fundo claro */
+--valor-investimento: color-mix(in srgb, var(--type-investimento-text) 55%, #000);
+--sombra: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 28px -18px rgba(30, 40, 60, 0.35);
+--sombra-modal: 0 24px 64px -12px rgba(30, 40, 60, 0.35);
+--papel-ponto: rgba(30, 40, 60, 0.07);
+--sidebar-bg: #e6e9ed;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }

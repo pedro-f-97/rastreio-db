@@ -1,31 +1,21 @@
-.estatisticas-page {
-    padding: var(--space-2xl);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xl);
-}
+/* Estatísticas e Histórico */
 
-.secao {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-}
-
+/* --- Cartões com duas metades --- */
 .cartao-corpo {
-    display: flex;
-    gap: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
 }
 
 .cartao-metade {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+    min-width: 0;
 }
 
 .cartao-metade:first-child {
     padding-right: var(--space-lg);
-    border-right: 1px solid var(--border);
+    border-right: 1px solid var(--linha-fina);
 }
 
 .cartao-metade:last-child {
@@ -34,210 +24,261 @@
 
 .cartao-metade-label {
     color: var(--text-secondary);
-    opacity: 0.7;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 10px;
+    font-size: var(--text-sm);
 }
 
 .cartao-metade-valor {
-    font-size: var(--text-2xl);
+    font-size: 28px;
     font-weight: var(--font-weight-medium);
-    font-family: var(--font-mono);
+    letter-spacing: -0.03em;
+    line-height: 1.15;
     color: var(--text-primary);
 }
 
-.cartao-metade-valor.valor-positivo {
-    color: var(--valor-positivo);
+.cartao-metade-valor.valor-positivo { color: var(--valor-positivo); }
+.cartao-metade-valor.valor-negativo { color: var(--valor-negativo); }
+.cartao-metade-valor.valor-zero { color: var(--text-secondary); }
+
+/* Cada cartão tem dois números grandes: precisa de mais largura */
+.estatisticas-page .cartoes {
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
 }
 
-.cartao-metade-valor.valor-negativo {
-    color: var(--valor-negativo);
+/* --- Composição do mês típico --- */
+.composicao {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
 }
 
-.cartao-metade-valor.valor-zero {
-    color: var(--text-secondary);
+.composicao-cabecalho {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
 }
 
-.tabela-stats {
-    table-layout: fixed;
-}
-
-.tabela-stats th {
-    border-bottom: 2px solid var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.tabela-stats td:nth-child(n+2) {
+.composicao-total {
     font-family: var(--font-mono);
-}
-
-.tabela-stats td.valor-positivo {
-    color: var(--valor-positivo);
-}
-
-.tabela-stats td.valor-negativo {
-    color: var(--valor-negativo);
-}
-
-.tabela-stats td.valor-zero {
     color: var(--text-secondary);
+    font-size: var(--text-sm);
 }
 
-.tabela-stats tr.linha-categoria-detalhe td {
+.composicao-barra {
+    display: flex;
+    height: 14px;
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    gap: 2px;
     background: var(--bg-primary);
-    font-weight: var(--font-weight-medium);
-    font-size: var(--text-md);
 }
 
-.tabela-stats tr.linha-categoria-detalhe td.celula-categoria-nome {
-    padding-left: var(--space-2xl);
+.composicao-barra-grossa {
+    height: 18px;
 }
 
-.tabela-stats tr.linha-subcategoria-detalhe td {
-    background: var(--bg-primary);
+.composicao-legenda {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-lg);
+}
+
+.composicao-parte {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    gap: 2px var(--space-md);
+    padding-left: var(--space-md);
+    border-left: 1px solid var(--border);
+}
+
+.composicao-nome {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    grid-column: 1 / -1;
+}
+
+.composicao-valor {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+}
+
+.composicao-percentagem {
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--text-secondary);
 }
 
-.tabela-stats tr.linha-subcategoria-detalhe td.celula-subcategoria-nome {
-    padding-left: calc(var(--space-2xl) + var(--space-xl));
+.legenda-cor.tracejada {
+    background: repeating-linear-gradient(90deg, var(--text-secondary) 0 4px, transparent 4px 7px);
+}
+
+.aviso-texto {
+    flex: 1;
+}
+
+/* --- Distribuição: o gráfico e, ao lado, o detalhe da categoria --- */
+.distribuicao {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    align-items: start;
+}
+
+.distribuicao.com-detalhe {
+    grid-template-columns: 1.2fr 1fr;
 }
 
 .subcategoria-detalhe {
-    margin-top: var(--space-2xl);
-    padding-top: var(--space-xl);
-    border-top: 1px solid var(--border);
+    border-top: 2px solid var(--detalhe-cor, var(--accent));
+    animation: modal-entrar 220ms var(--transicao) both;
+}
+
+.subcategoria-detalhe-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-sm) var(--space-md);
 }
 
 .subcategoria-detalhe h3 {
-    margin-bottom: var(--space-lg);
-    color: var(--text-secondary);
-    font-size: var(--text-md);
-    font-weight: var(--font-weight-medium);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: var(--text-lg);
+    color: var(--text-primary);
 }
 
+@media (max-width: 1200px) {
+    .distribuicao.com-detalhe {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- Tabelas --- */
+.tabela-stats td.col-num,
+.tabela-stats th.col-num {
+    width: 18%;
+}
+
+.celula-secundaria {
+    color: var(--text-secondary);
+}
+
+/* Cabeçalho de um grupo (Despesas, Receitas, Investimento) e linhas de ano */
+.linha-grupo td,
+.linha-ano td,
+.linha-total td {
+    background: var(--bg-tertiary);
+    font-weight: var(--font-weight-medium);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.tabela-base tbody .linha-grupo:first-child td,
+.tabela-base tbody .linha-ano:first-child td {
+    border-top: none;
+}
+
+.linha-grupo:hover td,
+.linha-total:hover td {
+    background: var(--bg-tertiary) !important;
+}
+
+.linha-total td:first-child {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+/* Linha que abre: a categoria (Estatísticas) ou o mês (Histórico) */
 .linha-mes {
     cursor: pointer;
 }
 
-.linha-mes td {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-}
-
 .linha-mes td:first-child {
-    padding-left: calc(var(--space-lg) + var(--space-md));
     color: var(--text-primary);
 }
 
-.linha-mes:hover {
-    background: var(--bg-secondary);
+.linha-mes-activa td {
+    background: var(--accent-suave) !important;
 }
 
-.linha-mes-activa {
-    background: var(--bg-secondary);
-    border-left: 3px solid var(--accent);
+.linha-mes-activa td:first-child {
+    box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.linha-categoria-detalhe {
-    background: var(--bg-secondary);
+/* Detalhe aberto: a categoria e as subcategorias, recolhidas e mais pequenas */
+.linha-categoria-detalhe td {
+    background: var(--bg-primary);
     font-weight: var(--font-weight-medium);
-    font-size: var(--text-md);
 }
 
 .celula-categoria-nome {
-    padding-left: var(--space-2xl);
+    padding-left: 44px !important;
 }
 
-.linha-subcategoria-detalhe {
-    background: var(--bg-secondary);
+.linha-subcategoria-detalhe td {
+    background: var(--bg-primary);
     font-size: var(--text-sm);
     color: var(--text-secondary);
 }
 
 .celula-subcategoria-nome {
-    padding-left: calc(var(--space-2xl) + var(--space-xl));
+    padding-left: 64px !important;
+    position: relative;
 }
 
-.linha-ano {
-    background: var(--bg-secondary);
-    font-weight: var(--font-weight-medium);
-    font-size: var(--text-md);
-    border-top: 2px solid var(--border);
-    cursor: pointer;
-    transition: background 0.15s;
+/* Um fio a ligar as subcategorias à linha de cima */
+.celula-subcategoria-nome::before {
+    content: '';
+    position: absolute;
+    left: 46px;
+    top: 50%;
+    width: 10px;
+    border-top: 1px solid var(--border);
 }
 
-/* Cabeçalho de um grupo da tabela por categoria: não abre nada */
-.linha-grupo {
-    cursor: default;
-}
-
+/* --- Ano no Histórico --- */
 .linha-ano td:first-child {
-    color: var(--text-primary);
-    letter-spacing: 0.03em;
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    letter-spacing: 0.02em;
 }
 
 .linha-ano:hover td {
+    background: var(--bg-tertiary) !important;
+}
+
+/* A taxa de um mês, com uma barra pequena atrás */
+.celula-taxa {
+    position: relative;
+}
+
+.barra-taxa {
+    display: inline-block;
+    vertical-align: middle;
+    width: 64px;
+    height: 6px;
+    margin-right: var(--space-sm);
+    border-radius: var(--radius-pill);
     background: var(--bg-tertiary);
-}
-
-.aviso-outlier {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-md);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: var(--space-sm) var(--space-lg);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-}
-
-.aviso-outlier button {
-    background: transparent;
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    color: var(--accent);
-    font-size: var(--text-sm);
-    padding: var(--space-xs) var(--space-md);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s;
-}
-
-.aviso-outlier button:hover {
-    background: var(--bg-tertiary);
-}
-
-/* Composição do mês típico: uma barra com as partes e a legenda por baixo */
-.composicao-barra {
-    display: flex;
-    height: 18px;
-    border-radius: var(--radius-sm);
     overflow: hidden;
 }
 
-.composicao-legenda {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xl);
-    font-size: var(--text-sm);
+.barra-taxa > span {
+    display: block;
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--valor-positivo);
 }
 
-.composicao-cor {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    margin-right: var(--space-xs);
-    border-radius: 2px;
+.barra-taxa.negativa > span {
+    background: var(--valor-negativo);
+    margin-left: auto;
 }
 
-.composicao-percentagem {
-    color: var(--text-secondary);
+.chip-em-curso {
+    margin-left: var(--space-sm);
 }

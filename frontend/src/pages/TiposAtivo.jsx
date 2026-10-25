@@ -4,6 +4,9 @@ import {
 } from '../api/tiposAtivo';
 import './Categorias.css';
 import './TiposAtivo.css';
+import '../componentes.css';
+import CabecalhoPagina from '../components/CabecalhoPagina';
+import Icone from '../components/Icone';
 
 export default function TiposAtivo() {
     const [tipos, setTipos] = useState([]);
@@ -58,9 +61,14 @@ export default function TiposAtivo() {
 
     return (
         <div className="pagina-container tipos-ativo-page">
-            <h1>Tipos de Ativo</h1>
+            <CabecalhoPagina
+                secao="02 · Configuração"
+                titulo="Tipos de Ativo"
+                descricao="Com unidades, o custo segue o FIFO das compras e vendas (ETFs, ações). Sem unidades, o custo acumula-se e o valor é o preço registado (um carro, uma casa)."
+            />
 
-            <div className="nova-categoria">
+            <div className="form-linha nova-categoria">
+                <span className="form-linha-titulo">Novo</span>
                 <input
                     type="text"
                     placeholder="Novo tipo de ativo..."
@@ -68,26 +76,25 @@ export default function TiposAtivo() {
                     onChange={e => setNovoTipo(prev => ({ ...prev, nome: e.target.value }))}
                     onKeyDown={e => e.key === 'Enter' && aoAdicionar()}
                 />
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                <label className="caixa-marcar">
                     <input
                         type="checkbox"
                         checked={novoTipo.tem_unidades}
                         onChange={e => setNovoTipo(prev => ({ ...prev, tem_unidades: e.target.checked }))}
-                        style={{ width: 'auto' }}
                     />
                     Tem unidades
                 </label>
-                <button onClick={aoAdicionar}>Adicionar</button>
+                <button onClick={aoAdicionar}><Icone nome="mais" /> Adicionar</button>
             </div>
 
             {erro && <p className="erro">{erro}</p>}
 
-            <div className="lista-itens">
+            <div className="grelha-itens grelha-iguais grelha-tipos">
                 {tipos.map(tipo => {
                     const estaAEditar = editando.id === tipo.id;
                     return (
                         <div key={tipo.id} className="item-lista">
-                            <div className="item-cabecalho item-cabecalho-limpo">
+                            <div className={`item-cabecalho item-cabecalho-limpo ${estaAEditar ? '' : 'revelar-accoes'}`}>
                                 {estaAEditar ? (
                                     <>
                                         <input
@@ -99,32 +106,30 @@ export default function TiposAtivo() {
                                                 if (e.key === 'Escape') setEditando({});
                                             }}
                                         />
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                        <label className="caixa-marcar">
                                             <input
                                                 type="checkbox"
                                                 checked={editando.temUnidades}
                                                 onChange={e => setEditando(prev => ({ ...prev, temUnidades: e.target.checked }))}
-                                                style={{ width: 'auto' }}
                                             />
                                             Tem unidades
                                         </label>
-                                        <button className="btn-confirmar" onClick={() => aoRenomear(tipo.id, editando.valor, editando.temUnidades)}>✓</button>
-                                        <button className="btn-cancelar" onClick={() => setEditando({})}>✕</button>
+                                        <button className="btn-confirmar" onClick={() => aoRenomear(tipo.id, editando.valor, editando.temUnidades)} title="Guardar"><Icone nome="confirmar" /></button>
+                                        <button className="btn-cancelar" onClick={() => setEditando({})} title="Cancelar"><Icone nome="fechar" /></button>
                                     </>
                                 ) : (
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                        <span className="item-nome">{tipo.nome}</span>
-                                        {tipo.tem_unidades && (
-                                            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginLeft: 'var(--space-sm)' }}>
-                                                unidades
-                                            </span>
-                                        )}
+                                    <div className="item-titulo">
+                                        <span className="tipo-icone"><Icone nome="tipos" tamanho={16} /></span>
+                                        <span className="item-nome" title={tipo.nome}>{tipo.nome}</span>
+                                        {tipo.tem_unidades && <span className="chip chip-accent">unidades</span>}
                                     </div>
                                 )}
-                                <div className="accoes">
-                                    <button onClick={() => setEditando({ id: tipo.id, valor: tipo.nome, temUnidades: tipo.tem_unidades })}>✏️</button>
-                                    <button className="btn-ghost" onClick={() => aoApagar(tipo.id)}>🗑</button>
-                                </div>
+                                {!estaAEditar && (
+                                    <div className="accoes">
+                                        <button onClick={() => setEditando({ id: tipo.id, valor: tipo.nome, temUnidades: tipo.tem_unidades })} title="Editar o tipo"><Icone nome="editar" /></button>
+                                        <button className="perigo" onClick={() => aoApagar(tipo.id)} title="Apagar o tipo"><Icone nome="apagar" /></button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );

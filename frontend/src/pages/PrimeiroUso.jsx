@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { inicializar } from '../api/configuracao'
 import logoRastreio from '../assets/nariz.svg'
+import '../componentes.css'
+import '../App.css'
 
 function PrimeiroUso({ onInicializado }) {
   const [loading, setLoading] = useState(false)
@@ -20,61 +22,57 @@ function PrimeiroUso({ onInicializado }) {
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '80vh',
-      gap: 'var(--space-xl)',
-      backgroundColor: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
-    }}>
-      <img src={logoRastreio} alt="Rastreio" style={{ width: '80px', height: '80px' }} />
-      <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-weight-medium)', margin: 0 }}>
-        Rastreio-DB
-      </h1>
+    <div className="primeiro-uso">
+      <div className="primeiro-uso-cartao">
+        <img src={logoRastreio} alt="" className="primeiro-uso-logo" />
+        <h1 className="primeiro-uso-marca">rastreio<span className="sidebar-marca-db">.db</span></h1>
+        <span className="sidebar-marca-lema">livro de contas</span>
 
-      {passo === 'inicial' && (
-        <>
-          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            A base de dados está vazia. Como queres começar?
-          </p>
-          {erro && <p style={{ color: 'var(--danger)', margin: 0 }}>{erro}</p>}
-          <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
-            <button onClick={() => setPasso('perfil')} disabled={loading}>
-              Carregar categorias predefinidas
-            </button>
-            <button onClick={() => handleInicializar(false)} disabled={loading}>
-              {loading ? 'A inicializar...' : 'Começar sem categorias'}
-            </button>
-          </div>
-        </>
-      )}
+        {passo === 'inicial' && (
+          <>
+            <p className="primeiro-uso-texto">
+              A base de dados está vazia. Como queres começar?
+            </p>
+            {erro && <p className="erro">{erro}</p>}
+            <div className="primeiro-uso-opcoes">
+              <button className="primeiro-uso-opcao" onClick={() => setPasso('perfil')} disabled={loading}>
+                <strong>Carregar categorias predefinidas</strong>
+                <span>Um ponto de partida que podes ajustar depois.</span>
+              </button>
+              <button className="primeiro-uso-opcao" onClick={() => handleInicializar(false)} disabled={loading}>
+                <strong>{loading ? 'A inicializar...' : 'Começar sem categorias'}</strong>
+                <span>Crias as tuas de raiz.</span>
+              </button>
+            </div>
+          </>
+        )}
 
-      {passo === 'perfil' && (
-        <>
-          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            Que conjunto de categorias preferes?
-          </p>
-          {erro && <p style={{ color: 'var(--danger)', margin: 0 }}>{erro}</p>}
-          <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
-            <button onClick={() => handleInicializar(true, 'minimalista')} disabled={loading}>
-              {loading ? 'A inicializar...' : 'Minimalista'}
+        {passo === 'perfil' && (
+          <>
+            <p className="primeiro-uso-texto">
+              Que conjunto de categorias preferes?
+            </p>
+            {erro && <p className="erro">{erro}</p>}
+            <div className="primeiro-uso-opcoes">
+              <button className="primeiro-uso-opcao" onClick={() => handleInicializar(true, 'minimalista')} disabled={loading}>
+                <strong>{loading ? 'A inicializar...' : 'Minimalista'}</strong>
+                <span>Poucas categorias, as essenciais.</span>
+              </button>
+              <button className="primeiro-uso-opcao" onClick={() => handleInicializar(true, 'completo')} disabled={loading}>
+                <strong>{loading ? 'A inicializar...' : 'Completo'}</strong>
+                <span>Mais categorias e subcategorias.</span>
+              </button>
+            </div>
+            <button
+              className="btn-ghost"
+              onClick={() => setPasso('inicial')}
+              disabled={loading}
+            >
+              Voltar
             </button>
-            <button onClick={() => handleInicializar(true, 'completo')} disabled={loading}>
-              {loading ? 'A inicializar...' : 'Completo'}
-            </button>
-          </div>
-          <button
-            onClick={() => setPasso('inicial')}
-            disabled={loading}
-            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
-          >
-            Voltar
-          </button>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

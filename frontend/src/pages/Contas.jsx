@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getContas, criarConta, actualizarConta, apagarConta } from '../api/contas';
+import { getContas, getSaldoConta, criarConta, actualizarConta, apagarConta } from '../api/contas';
 import './Contas.css';
+import '../componentes.css';
 import { formatarEuros } from '../utils/formatacao';
+import CabecalhoPagina from '../components/CabecalhoPagina';
+import Montante from '../components/Montante';
+import Icone from '../components/Icone';
 
 export default function Contas() {
     const [contas, setContas] = useState([]);
@@ -9,10 +13,16 @@ export default function Contas() {
     const [novaConta, setNovaConta] = useState({ nome: '', saldo_referencia: '', data_referencia: '' });
     const [editando, setEditando] = useState(null); // { id, nome, saldo_referencia, data_referencia }
     const [erro, setErro] = useState('');
+    // O saldo de hoje de cada conta, só para mostrar
+    const [saldos, setSaldos] = useState({});
 
     const carregar = useCallback(async () => {
         const res = await getContas(incluirInativas);
         setContas(res.data);
+        const pares = await Promise.all(
+            res.data.map(c => getSaldoConta(c.id).then(r => [c.id, r.data.saldo_atual]).catch(() => [c.id, null]))
+        );
+        setSaldos(Object.fromEntries(pares));
     }, [incluirInativas]);
 
     useEffect(() => {
@@ -74,9 +84,14 @@ export default function Contas() {
 
     return (
         <div className="pagina-container">
-            <h1 className="titulo-pagina">Contas</h1>
+            <CabecalhoPagina
+                secao="02 · Configuração"
+                titulo="Contas"
+                descricao="Uma conta por banco. O saldo de referência é o ponto de partida: o saldo de hoje é ele mais as transações."
+            />
 
             <div className="form-linha nova-conta" data-tour="contas-nova-conta">
+                <span className="form-linha-titulo">Nova</span>
                 <input
                     type="text"
                     placeholder="Nome da conta..."
@@ -97,11 +112,11 @@ export default function Contas() {
                     value={novaConta.data_referencia}
                     onChange={e => setNovaConta(p => ({ ...p, data_referencia: e.target.value }))}
                 />
-                <button onClick={aoAdicionarConta}>Adicionar</button>
+                <button onClick={aoAdicionarConta}><Icone nome="mais" /> Adicionar</button>
             </div>
             {erro && <p className="erro">{erro}</p>}
 
-            <label className="toggle-inativas">
+            <label className="toggle-inativas caixa-marcar">
                 <input
                     type="checkbox"
                     checked={incluirInativas}
@@ -144,17 +159,24 @@ export default function Contas() {
                                     />
                                 </div>
                                 <div className="accoes">
-                                    <button className="btn-confirmar" onClick={aoGuardarEdicao}>✓</button>
-                                    <button className="btn-cancelar" onClick={() => setEditando(null)}>✕</button>
+                                    <button className="btn-confirmar" onClick={aoGuardarEdicao} title="Guardar"><Icone nome="confirmar" /></button>
+                                    <button className="btn-cancelar" onClick={() => setEditando(null)} title="Cancelar"><Icone nome="fechar" /></button>
                                 </div>
                             </div>
                         ) : (
-                            <div className="conta-header">
+                            <div className="conta-header revelar-accoes">
                                 <div className="conta-info">
-                                    <span className="conta-nome">{conta.nome}</span>
-                                    {!conta.ativa && <span className="badge-inativa">inactiva</span>}
+                                    <div className="conta-titulo">
+                                        <span className="conta-icone"><Icone nome="contas" tamanho={18} /></span>
+                                        <span className="conta-nome">{conta.nome}</span>
+                                        {!conta.ativa && <span className="badge-inativa">inactiva</span>}
+                                    </div>
+                                    <div className="conta-saldo">
+                                        <span className="cartao-titulo">Saldo de hoje</span>
+                                        <Montante valor={saldos[conta.id]} className="conta-saldo-valor" />
+                                    </div>
                                     <span className="conta-detalhe">
-                                        Ref. <span className="valor-mono">{formatarEuros(Number(conta.saldo_referencia))}</span>
+                                        Referência <span className="valor-mono">{formatarEuros(Number(conta.saldo_referencia))}</span>
                                         {' '}em <span className="valor-mono">{conta.data_referencia}</span>
                                     </span>
                                 </div>
@@ -166,8 +188,8 @@ export default function Contas() {
                                                 nome: conta.nome,
                                                 saldo_referencia: conta.saldo_referencia,
                                                 data_referencia: conta.data_referencia,
-                                            })}>✏️</button>
-                                            <button onClick={() => aoApagarOuDesativar(conta.id)}>🗑</button>
+                                            })} title="Editar a conta"><Icone nome="editar" /></button>
+                                            <button className="perigo" onClick={() => aoApagarOuDesativar(conta.id)} title="Apagar ou desactivar a conta"><Icone nome="apagar" /></button>
                                         </>
                                     ) : (
                                         <button className="btn-reativar" onClick={() => aoReativar(conta.id)}>Reactivar</button>
@@ -178,7 +200,7 @@ export default function Contas() {
                     </div>
                 ))}
                 {contas.length === 0 && (
-                    <p className="estado-vazio">Nenhuma conta encontrada.</p>
+                    <p className="estado-vazio conta-vazia">Nenhuma conta encontrada.</p>
                 )}
             </div>
         </div>
