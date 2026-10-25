@@ -208,6 +208,32 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
     # Um preço é uma observação: não pode ter data futura
     if payload.data > date.today():
         raise HTTPException(status_code=422, detail="A data do preço não pode ser futura.")
+    if payload.preco is not None:
+        valor_preco = payload.preco
+    else:
+        # Sem preço, o schema garante o valor total
+        if not ativo.tipo.tem_unidades:
+            raise HTTPException(
+                status_code=422, detail="O valor total só se usa em ativos com unidades."
+            )
+        # As unidades em carteira no fim do dia do preço, pelo mesmo FIFO do
+        # resumo: o valor nessa data fica igual ao total escrito
+        movimentos = (
+            db.query(MovimentoAtivoModel)
+            .filter(
+                MovimentoAtivoModel.ativo_id == ativo.id,
+                MovimentoAtivoModel.data <= payload.data,
+            )
+            .order_by(MovimentoAtivoModel.data, MovimentoAtivoModel.id)
+            .all()
+        )
+        quantidade = _resumo_valor_ativo(ativo, movimentos, None)["quantidade"]
+        if quantidade <= 0:
+            raise HTTPException(
+                status_code=422, detail="Não havia unidades deste ativo nesta data."
+            )
+        # Sem arredondar: um preço arredondado já não daria o total ao cêntimo
+        valor_preco = float(exato(payload.valor_total) / exato(quantidade))
     # Upsert: se já existe preço para esta data, actualiza
     existente = (
         db.query(PrecoAtivoModel)
@@ -215,11 +241,11 @@ def registar_preco(payload: schemas.PrecoAtivoCreate, db: Session = Depends(get_
         .first()
     )
     if existente:
-        existente.preco = payload.preco
+        existente.preco = valor_preco
         db.commit()
         db.refresh(existente)
         return existente
-    preco = PrecoAtivoModel(**payload.model_dump())
+    preco = PrecoAtivoModel(ativo_id=payload.ativo_id, data=payload.data, preco=valor_preco)
     db.add(preco)
     db.commit()
     db.refresh(preco)
