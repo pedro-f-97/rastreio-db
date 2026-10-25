@@ -164,12 +164,6 @@
     color: var(--text-secondary);
 }
 
-/* Investimento: dinheiro aplicado, e não gasto, na cor dos gráficos */
-.tabela-base td.valor-investimento {
-    color: var(--valor-investimento);
-    font-family: var(--font-mono);
-}
-
 /* Cabeçalho de um grupo (Despesas, Receitas, Investimento) e linhas de ano */
 .linha-grupo td,
 .linha-ano td,

@@ -354,10 +354,17 @@
     font-family: var(--font-mono);
 }
 
+/* Investimento: dinheiro aplicado, e não gasto (classeValorInvestimento) */
+.valor-investimento {
+    color: var(--valor-investimento);
+    font-family: var(--font-mono);
+}
+
 /* Nas tabelas, a cor do valor ganha à cor das células */
 .tabela-base td.valor-positivo { color: var(--valor-positivo); }
 .tabela-base td.valor-negativo { color: var(--valor-negativo); }
 .tabela-base td.valor-zero { color: var(--text-secondary); }
+.tabela-base td.valor-investimento { color: var(--valor-investimento); }
 
 /* Num número grande, o montante usa a fonte do título */
 .cartao-valor.valor-positivo,

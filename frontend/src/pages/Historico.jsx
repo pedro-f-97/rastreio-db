@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { obterResumoMensal, obterDetalheMensal } from '../api/estatisticas';
 import './Estatisticas.css';
 import '../componentes.css';
-import { classeValor, formatarEuros, formatarPercentagem, labelMes } from '../utils/formatacao';
+import { classeValor, classeValorInvestimento, formatarEuros, formatarPercentagem, labelMes } from '../utils/formatacao';
 import CabecalhoPagina from '../components/CabecalhoPagina';
 import Icone from '../components/Icone';
 
@@ -89,7 +89,7 @@ export default function Historico() {
                                             <td>{ano}</td>
                                             <td className={`col-num ${classeValor(totalAno.receitas)}`}>{formatarEuros(totalAno.receitas)}</td>
                                             <td className={`col-num ${classeValor(totalAno.despesas)}`}>{formatarEuros(totalAno.despesas)}</td>
-                                            <td className={`col-num ${classeValor(totalAno.investimento)}`}>{formatarEuros(totalAno.investimento)}</td>
+                                            <td className={`col-num ${classeValorInvestimento(totalAno.investimento)}`}>{formatarEuros(totalAno.investimento)}</td>
                                             <td className={`col-num ${classeValor(totalAno.poupanca)}`}>{formatarEuros(totalAno.poupanca)}</td>
                                             <CelulaTaxa taxa={totalAno.taxa} />
                                         </tr>
@@ -108,7 +108,7 @@ export default function Historico() {
                                                         </td>
                                                         <td className={`col-num ${classeValor(m.receitas)}`}>{formatarEuros(m.receitas)}</td>
                                                         <td className={`col-num ${classeValor(m.despesas)}`}>{formatarEuros(m.despesas)}</td>
-                                                        <td className={`col-num ${classeValor(m.investimento)}`}>{formatarEuros(m.investimento)}</td>
+                                                        <td className={`col-num ${classeValorInvestimento(m.investimento)}`}>{formatarEuros(m.investimento)}</td>
                                                         <td className={`col-num ${classeValor(m.poupanca)}`}>{formatarEuros(m.poupanca)}</td>
                                                         <CelulaTaxa taxa={m.receitas > 0 ? m.poupanca / m.receitas * 100 : null} />
                                                     </tr>
@@ -118,7 +118,7 @@ export default function Historico() {
                                                                 <td className="celula-categoria-nome">{cat.categoria_nome}</td>
                                                                 <td className={`col-num ${cat.tipo === 'receita' ? classeValor(cat.total) : ''}`}>{cat.tipo === 'receita' ? formatarEuros(cat.total) : ''}</td>
                                                                 <td className={`col-num ${cat.tipo === 'despesa' ? classeValor(cat.total) : ''}`}>{cat.tipo === 'despesa' ? formatarEuros(cat.total) : ''}</td>
-                                                                <td className={`col-num ${cat.tipo === 'investimento' ? classeValor(cat.total) : ''}`}>{cat.tipo === 'investimento' ? formatarEuros(cat.total) : ''}</td>
+                                                                <td className={`col-num ${cat.tipo === 'investimento' ? classeValorInvestimento(cat.total) : ''}`}>{cat.tipo === 'investimento' ? formatarEuros(cat.total) : ''}</td>
                                                                 <td></td>
                                                                 <td></td>
                                                             </tr>
@@ -127,7 +127,7 @@ export default function Historico() {
                                                                     <td className="celula-subcategoria-nome">{sub.subcategoria_nome}</td>
                                                                     <td className={`col-num ${cat.tipo === 'receita' ? classeValor(sub.total) : ''}`}>{cat.tipo === 'receita' ? formatarEuros(sub.total) : ''}</td>
                                                                     <td className={`col-num ${cat.tipo === 'despesa' ? classeValor(sub.total) : ''}`}>{cat.tipo === 'despesa' ? formatarEuros(sub.total) : ''}</td>
-                                                                    <td className={`col-num ${cat.tipo === 'investimento' ? classeValor(sub.total) : ''}`}>{cat.tipo === 'investimento' ? formatarEuros(sub.total) : ''}</td>
+                                                                    <td className={`col-num ${cat.tipo === 'investimento' ? classeValorInvestimento(sub.total) : ''}`}>{cat.tipo === 'investimento' ? formatarEuros(sub.total) : ''}</td>
                                                                     <td></td>
                                                                     <td></td>
                                                                 </tr>

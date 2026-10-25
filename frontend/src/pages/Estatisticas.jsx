@@ -7,7 +7,8 @@ import {
 import './Estatisticas.css';
 import '../componentes.css';
 import {
-    classeValor, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes, NOMES_CLASSE_DESPESA
+    classeValor, classeValorInvestimento, formatarEuros, formatarEurosEixo, formatarPercentagem, labelMes,
+    NOMES_CLASSE_DESPESA
 } from '../utils/formatacao';
 import CabecalhoPagina from '../components/CabecalhoPagina';
 import SeletorAno from '../components/SeletorAno';
@@ -350,13 +351,11 @@ export default function Estatisticas() {
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
 
-    // As colunas da tabela «Por categoria»: o nome e três valores. O
-    // investimento não é dinheiro gasto: fica na cor do investimento, e não a
-    // vermelho, mesmo negativo (o zero continua cinzento)
-    const classeCelula = (valor, tipo) => {
-        const classe = classeValor(valor);
-        return tipo === 'investimento' && classe !== 'valor-zero' ? 'valor-investimento' : classe;
-    };
+    // As colunas da tabela «Por categoria»: o nome e três valores, com o
+    // investimento na sua cor
+    const classeCelula = (valor, tipo) => (
+        tipo === 'investimento' ? classeValorInvestimento(valor) : classeValor(valor)
+    );
     const celulasValor = (media, mediana, tipico, tipo) => (
         <>
             <td className={`col-num ${classeCelula(media, tipo)}`}>{formatarEuros(media)}</td>
