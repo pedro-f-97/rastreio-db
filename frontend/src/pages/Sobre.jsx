@@ -48,9 +48,10 @@ export default function Sobre() {
                     dia. O saldo de referência também conta como um saldo certo.
                 </p>
                 <p>
-                    A verificação corre sozinha quando importas um extracto, quando crias ou apagas uma transação
-                    manual e quando escreves um saldo. Se houver diferenças, mostra entre que datas a diferença
-                    mudou: é aí que está a transação em falta ou a mais. Se o último saldo tiver mais de 31 dias,
+                    A verificação corre sozinha ao abrir a página Transações, para todas as contas activas, e
+                    também quando importas um extracto, quando crias ou apagas uma transação manual e quando
+                    escreves um saldo. Se houver diferenças, mostra entre que datas a diferença mudou: é aí que
+                    está a transação em falta ou a mais. Se o último saldo tiver mais de 31 dias,
                     contados da última transação, sugere que escrevas um novo.
                 </p>
                 <p>

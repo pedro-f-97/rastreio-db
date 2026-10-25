@@ -15,7 +15,9 @@
     max-width: 1480px;
     margin: 0 auto;
     width: 100%;
-    animation: pagina-entrar 320ms var(--transicao) both;
+    /* `backwards` e não `both`: uma animação ao transform que fica presa no
+       fim prende os pop-ups (position: fixed) à página, e não ao ecrã */
+    animation: pagina-entrar 320ms var(--transicao) backwards;
 }
 
 @keyframes pagina-entrar {

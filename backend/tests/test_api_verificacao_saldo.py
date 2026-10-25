@@ -208,6 +208,65 @@ def test_dia_incerto_usa_o_saldo_mais_proximo(client, session):
     assert resultado["dias_ordem_incerta"] == ["2026-03-02"]
 
 
+def test_dia_incerto_conta_com_a_diferenca_que_vem_de_tras(client, session):
+    """Referência 1000 € a 28/02/2026. No banco: 02/03 −10 -> 990 (falta na
+    BD); 05/03 −20 -> 970; 09/03 +1,20 -> 971,20 e −1,20 -> 970; 12/03 −5 -> 965.
+
+    05/03: calculado 980, banco 970 -> +10.
+    09/03: saldos antes 970 e 971,20, que são os dois saldos: sem candidata.
+    O calculado é 980; o esperado é 980 − 10 (a diferença de 05/03) = 970, que
+    é um dos saldos -> +10. (Pelo mais próximo do calculado, 980, ficava
+    971,20 -> +8,80, e apareciam −1,20 e +1,20 inventados.)
+    12/03: calculado 975, banco 965 -> +10.
+    Um só intervalo, ]28/02, 05/03], com +10."""
+    conta = semear_conta(session, 1000.0, date(2026, 2, 28))
+    semear(
+        session,
+        conta,
+        [
+            (date(2026, 3, 5), "Compra", -20.0, 970.0),
+            (date(2026, 3, 9), "Transferência recebida", 1.2, 971.2),
+            (date(2026, 3, 9), "Máquina", -1.2, 970.0),
+            (date(2026, 3, 12), "Café", -5.0, 965.0),
+        ],
+    )
+
+    resultado = verificar(client, conta)
+
+    assert resultado["diferenca_atual"] == 10.0
+    assert resultado["intervalos"] == [{"de": "2026-02-28", "ate": "2026-03-05", "variacao": 10.0}]
+    assert resultado["dias_ordem_incerta"] == ["2026-03-09"]
+
+
+@pytest.mark.parametrize("dia_incerto", [date(2026, 7, 5), date(2026, 6, 30)])
+def test_dia_incerto_depois_da_referencia_parte_de_zero(client, session, dia_incerto):
+    """Referência 1000 € a 30/06/2026 (calcula-se para trás antes dela).
+
+    10/06 −10: calculado 1000 (nada depois até 30/06), o banco diz 1008 -> −8.
+    Dia incerto (05/07, ou o próprio 30/06): +10 -> 1010 e −10 -> 1000; saldos
+    antes 1000 e 1010: sem candidata. O calculado é 1000 + 10 − 10 = 1000. A
+    referência fica depois de 10/06 e até ao dia incerto, por isso a diferença
+    conhecida é a dela, 0: o esperado é 1000 -> 0. (Com a de 10/06, −8, o
+    esperado era 1008 e ficava 1010 -> −10.)
+    Pontos: 10/06 −8, 30/06 0 (e 05/07 0) -> um intervalo, ]10/06, 30/06], +8."""
+    conta = semear_conta(session, 1000.0, date(2026, 6, 30))
+    semear(
+        session,
+        conta,
+        [
+            (date(2026, 6, 10), "A", -10.0, 1008.0),
+            (dia_incerto, "Devolução", 10.0, 1010.0),
+            (dia_incerto, "Compra", -10.0, 1000.0),
+        ],
+    )
+
+    resultado = verificar(client, conta)
+
+    assert resultado["diferenca_atual"] == 0.0
+    assert resultado["intervalos"] == [{"de": "2026-06-10", "ate": "2026-06-30", "variacao": 8.0}]
+    assert resultado["dias_ordem_incerta"] == [dia_incerto.isoformat()]
+
+
 def test_saldo_escrito_num_dia_com_outras_sem_saldo(client, session):
     """Uma conta sem saldo no extracto: o saldo 945 está escrito só na última
     transacção de 05/01/2026. Referência 1000 € a 01/01: 1000 − 20 − 30 = 950,

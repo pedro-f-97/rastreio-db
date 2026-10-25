@@ -9,7 +9,9 @@ const formatarData = (iso) => iso.split('-').reverse().join('/');
 
 // O resumo da verificação do saldo de uma conta, pedido de novo sempre que
 // `chave` muda (depois de importar, de criar ou apagar uma transação manual, ou
-// de escrever um saldo). Com diferenças, abre um pop-up; sem elas, uma linha.
+// de escrever um saldo). Com diferenças, mostra uma linha e abre também um
+// pop-up, mas só depois de uma dessas acções (`chave` acima de 0), e não ao
+// abrir a página. Sem diferenças, só a sugestão de um saldo novo, se a houver.
 export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransacaoCriada }) {
     const [resultado, setResultado] = useState(null);
     const [aberto, setAberto] = useState(false);
@@ -23,7 +25,7 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
             .then(res => {
                 if (ignorar) return;
                 setResultado(res.data);
-                setAberto(res.data.intervalos.length > 0);
+                setAberto(chave > 0 && res.data.intervalos.length > 0);
             })
             .catch(() => !ignorar && setResultado(null));
         return () => { ignorar = true; };
@@ -53,11 +55,9 @@ export default function VerificacaoSaldo({ contaId, contaNome, chave, onTransaca
 
     return (
         <>
+            {/* Sem diferenças não se avisa; fica só a sugestão de um saldo novo */}
             {intervalos.length === 0 ? (
-                <div className="resumo-saldo-linha">
-                    <span>Saldo {nome} confirmado em {formatarData(data_ultimo_saldo)}.</span>
-                    {sugestao}
-                </div>
+                sugestao && <div className="resumo-saldo-linha">{sugestao}</div>
             ) : (
                 <div className="resumo-saldo-linha com-diferencas">
                     <span>O saldo {nome} tem diferenças em relação ao banco.</span>
