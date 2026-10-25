@@ -38,8 +38,9 @@ export default function Transacoes({ onDadosAlterados }) {
     const [erro, setErro] = useState(null);
     const [regras, setRegras] = useState([]);
     const [novaAberta, setNovaAberta] = useState(false);
-    // A conta a verificar, e um contador para pedir a verificação de novo
-    const [verificacao, setVerificacao] = useState({ contaId: null, chave: 0 });
+    // Um contador por conta, para pedir a verificação do saldo de novo. Ao abrir
+    // a página verificam-se todas as contas activas
+    const [verificacoes, setVerificacoes] = useState({});
 
     const totalPaginas = Math.ceil(total / filtros.tamanho);
 
@@ -124,7 +125,7 @@ export default function Transacoes({ onDadosAlterados }) {
 
     // Depois de mudar transações ou saldos de uma conta, verifica o seu saldo
     function verificarConta(contaId) {
-        setVerificacao(v => ({ contaId, chave: v.chave + 1 }));
+        setVerificacoes(v => ({ ...v, [contaId]: (v[contaId] ?? 0) + 1 }));
     }
 
     async function aoCriarTransacao(t) {
@@ -203,12 +204,15 @@ export default function Transacoes({ onDadosAlterados }) {
                 onChange={mudarFiltro}
             />
 
-            <VerificacaoSaldo
-                contaId={verificacao.contaId}
-                contaNome={contas.find(c => c.id === verificacao.contaId)?.nome}
-                chave={verificacao.chave}
-                onTransacaoCriada={aoCriarTransacao}
-            />
+            {contas.filter(c => c.ativa || verificacoes[c.id]).map(c => (
+                <VerificacaoSaldo
+                    key={c.id}
+                    contaId={c.id}
+                    contaNome={c.nome}
+                    chave={verificacoes[c.id] ?? 0}
+                    onTransacaoCriada={aoCriarTransacao}
+                />
+            ))}
 
             {novaAberta && (
                 <FormNovaTransacao onFechar={() => setNovaAberta(false)} onCriada={aoCriarTransacao} />

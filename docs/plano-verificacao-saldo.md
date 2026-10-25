@@ -36,6 +36,11 @@ Correções depois do teste com os dados reais (25/10/2026):
   então), e não do calculado. Com uma diferença de 10,10 € já de trás, o dia
   05/02/2026 do ActivoBank (+1,20 € e −1,20 €) dava −1,20 € e +1,20 €
   inventados.
+- A verificação corre também ao abrir a página Transações, para todas as contas
+  activas, só com a linha do resumo; o pop-up abre sozinho só depois de uma
+  acção da decisão 5.
+- Sem diferenças, já não aparece a linha «Saldo confirmado» (decisão 6): só
+  a sugestão de um saldo novo, se a houver.
 - A animação de entrada das páginas ficava presa no fim com um `transform`,
   e o pop-up abria fora do ecrã, abaixo do que se via.
 
