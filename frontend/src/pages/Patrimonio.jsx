@@ -164,8 +164,9 @@ export default function Patrimonio() {
         </div>
       </section>
 
-      {/* CARTÕES */}
-      <div className="cartoes">
+      {/* CARTÕES: as três partes do património, pela ordem da barra, e os
+          resultados por baixo dos investimentos */}
+      <div className="cartoes cartoes-patrimonio">
         {/* Liquidez */}
         <div className="cartao" style={{ '--cartao-cor': 'var(--chart-6)' }}>
           <span className="cartao-titulo">Liquidez</span>
@@ -203,8 +204,28 @@ export default function Patrimonio() {
           </div>
         </div>
 
+        {/* Bens */}
+        <div className="cartao" style={{ '--cartao-cor': 'var(--chart-8)' }}>
+          <span className="cartao-titulo">Bens</span>
+          <Montante valor={totalBens} className="cartao-valor" />
+          <div className="cartao-breakdown">
+            {ativosBens.length === 0 && (
+              <span className="cartao-breakdown-label">Nenhum bem</span>
+            )}
+            {ativosBens.map((a) => {
+              const valor = resumos[a.id]?.valor_atual ?? 0;
+              const pct = totalBens > 0 ? (valor / totalBens) * 100 : 0;
+              return (
+                <LinhaGuia key={a.id} nome={a.nome}>
+                  {formatarEuros(valor)} <span className="linha-guia-pct">{formatarPercentagem(pct)}</span>
+                </LinhaGuia>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Valorização */}
-        <div className="cartao" style={{ '--cartao-cor': 'var(--accent)' }}>
+        <div className="cartao cartao-resultados" style={{ '--cartao-cor': 'var(--accent)' }}>
           <span className="cartao-titulo">Resultados</span>
           <div className="cartao-valor-linha">
             <Montante valor={totalMaisValia} cor className="cartao-valor" />

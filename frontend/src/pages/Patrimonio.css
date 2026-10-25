@@ -93,6 +93,26 @@
     margin-left: var(--space-xs);
 }
 
+/* Liquidez, investimentos e bens numa linha, como a barra de cima; os
+   resultados ficam por baixo dos investimentos, de que são o detalhe */
+.cartoes-patrimonio {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cartao-resultados {
+    grid-column: 2;
+}
+
+@media (max-width: 1000px) {
+    .cartoes-patrimonio {
+        grid-template-columns: 1fr;
+    }
+
+    .cartao-resultados {
+        grid-column: auto;
+    }
+}
+
 /* --- Crescimento por mês, por cima do gráfico --- */
 .crescimento {
     display: flex;
