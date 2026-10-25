@@ -3,8 +3,9 @@ import { formatarEuros } from '../utils/formatacao';
 // Peças comuns aos gráficos do recharts, para todos terem o mesmo aspecto
 
 // A caixa que aparece ao passar o rato: o título e uma linha por série, com a
-// cor da série. `formatar` recebe o valor e o item do recharts
-export function TooltipGrafico({ active, payload, label, formatar = formatarEuros, titulo }) {
+// cor da série. `formatar` recebe o valor e o item do recharts; por omissão,
+// euros (o item não pode chegar ao formatarEuros, que o leria como as casas)
+export function TooltipGrafico({ active, payload, label, formatar = v => formatarEuros(v), titulo }) {
     if (!active || !payload?.length) return null;
     const linhas = payload.filter(p => p.value != null);
     if (linhas.length === 0) return null;
