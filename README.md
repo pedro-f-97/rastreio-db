@@ -61,12 +61,12 @@ Todos os dados ficam num só ficheiro, `dados/rastreio.db`, dentro da pasta da a
 
 ## Preview
 
-As capturas usam dados de demonstração.
+As capturas usam dados de demonstração. As principais estão no tema claro e as restantes no escuro.
 
 ### Transações (categorização na tabela, filtros e um separador por mês)
 ![Transações](docs/screenshots/transacoes.png)
 
-### Estatísticas (resumo, mês típico, evolução mensal e taxa de poupança)
+### Estatísticas (resumo, mês típico, evolução mensal, taxa de poupança e distribuição da despesa)
 ![Estatísticas](docs/screenshots/estatisticas.png)
 
 ![Estatísticas: gráficos](docs/screenshots/estatisticas-graficos.png)
@@ -77,7 +77,7 @@ As capturas usam dados de demonstração.
 ![Património: evolução](docs/screenshots/patrimonio-evolucao.png)
 
 <details>
-<summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas, Ativos, Conceitos e tema claro)</summary>
+<summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas, Ativos e Conceitos)</summary>
 
 ### Importação
 ![Importação](docs/screenshots/importacao.png)
@@ -108,9 +108,6 @@ As capturas usam dados de demonstração.
 
 ### Conceitos
 ![Conceitos](docs/screenshots/conceitos.png)
-
-### Tema claro
-![Tema claro](docs/screenshots/tema-claro.png)
 
 </details>
 
