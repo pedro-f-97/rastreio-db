@@ -526,85 +526,9 @@ export default function Estatisticas() {
                 </div>
             </section>
 
-            {/* DISTRIBUIÇÃO DA DESPESA */}
-            <section className="secao">
-                <div className="secao-cabecalho">
-                    <h2 className="titulo-secao">
-                        <span className="titulo-secao-numero">04</span>Distribuição da despesa
-                        {distribuicao.length > 0 && (
-                            <span className="titulo-secao-nota">Clica numa categoria para ver as subcategorias</span>
-                        )}
-                    </h2>
-                </div>
-                {distribuicao.length === 0 ? (
-                    <p className="estado-vazio">Sem despesas no período.</p>
-                ) : (
-                    <div className={`distribuicao ${categoriaDistribuicaoDados ? 'com-detalhe' : ''}`}>
-                        <div className="grafico-moldura">
-                            <GraficoDistribuicao
-                                dados={distribuicao}
-                                chaveSeleccionada={categoriaDistribuicao}
-                                onSeleccionar={c => setCategoriaDistribuicao(categoriaDistribuicao === c.chave ? null : c.chave)}
-                            />
-                        </div>
-
-                        {categoriaDistribuicaoDados && (
-                            <div className="grafico-moldura subcategoria-detalhe" style={{ '--detalhe-cor': categoriaDistribuicaoDados.cor }}>
-                                <div className="subcategoria-detalhe-cabecalho">
-                                    <h3>{categoriaDistribuicaoDados.nome}</h3>
-                                    <button
-                                        className="btn-icone"
-                                        title="Fechar"
-                                        onClick={() => setCategoriaDistribuicao(null)}
-                                    >
-                                        <Icone nome="fechar" />
-                                    </button>
-                                </div>
-                                <GraficoDistribuicao dados={categoriaDistribuicaoDados.subcategorias} cor={categoriaDistribuicaoDados.cor} />
-                            </div>
-                        )}
-                    </div>
-                )}
-            </section>
-
-            {/* DESPESAS EXTRAORDINÁRIAS */}
-            <section className="secao">
-                <h2 className="titulo-secao"><span className="titulo-secao-numero">05</span>Despesas extraordinárias</h2>
-                {extraordinarias === null ? null : extraordinarias.transacoes.length === 0 ? (
-                    <p className="estado-vazio">Sem despesas extraordinárias no período.</p>
-                ) : (
-                    <div className="tabela-wrapper">
-                        <table className="tabela-base tabela-stats">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Descrição</th>
-                                    <th>Subcategoria</th>
-                                    <th className="col-num">Valor</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {extraordinarias.transacoes.map(t => (
-                                    <tr key={t.id}>
-                                        <td className="col-data">{t.data}</td>
-                                        <td>{t.descricao}</td>
-                                        <td className="celula-secundaria">{t.categoria_nome} / {t.subcategoria_nome}</td>
-                                        <td className={`col-num ${classeValor(t.valor)}`}>{formatarEuros(t.valor)}</td>
-                                    </tr>
-                                ))}
-                                <tr className="linha-total">
-                                    <td colSpan={3}>Total</td>
-                                    <td className={`col-num ${classeValor(extraordinarias.total)}`}>{formatarEuros(extraordinarias.total)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </section>
-
             {/* POR CATEGORIA */}
             <section className="secao">
-                <h2 className="titulo-secao"><span className="titulo-secao-numero">06</span>Por categoria</h2>
+                <h2 className="titulo-secao"><span className="titulo-secao-numero">04</span>Por categoria</h2>
                 <div className="tabela-wrapper">
                     <table className="tabela-base tabela-stats">
                         <thead>
@@ -670,6 +594,82 @@ export default function Estatisticas() {
                         </tbody>
                     </table>
                 </div>
+            </section>
+
+            {/* DESPESAS EXTRAORDINÁRIAS */}
+            <section className="secao">
+                <h2 className="titulo-secao"><span className="titulo-secao-numero">05</span>Despesas extraordinárias</h2>
+                {extraordinarias === null ? null : extraordinarias.transacoes.length === 0 ? (
+                    <p className="estado-vazio">Sem despesas extraordinárias no período.</p>
+                ) : (
+                    <div className="tabela-wrapper">
+                        <table className="tabela-base tabela-stats">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Descrição</th>
+                                    <th>Subcategoria</th>
+                                    <th className="col-num">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {extraordinarias.transacoes.map(t => (
+                                    <tr key={t.id}>
+                                        <td className="col-data">{t.data}</td>
+                                        <td>{t.descricao}</td>
+                                        <td className="celula-secundaria">{t.categoria_nome} / {t.subcategoria_nome}</td>
+                                        <td className={`col-num ${classeValor(t.valor)}`}>{formatarEuros(t.valor)}</td>
+                                    </tr>
+                                ))}
+                                <tr className="linha-total">
+                                    <td colSpan={3}>Total</td>
+                                    <td className={`col-num ${classeValor(extraordinarias.total)}`}>{formatarEuros(extraordinarias.total)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+
+            {/* DISTRIBUIÇÃO DA DESPESA */}
+            <section className="secao">
+                <div className="secao-cabecalho">
+                    <h2 className="titulo-secao">
+                        <span className="titulo-secao-numero">06</span>Distribuição da despesa
+                        {distribuicao.length > 0 && (
+                            <span className="titulo-secao-nota">Clica numa categoria para ver as subcategorias</span>
+                        )}
+                    </h2>
+                </div>
+                {distribuicao.length === 0 ? (
+                    <p className="estado-vazio">Sem despesas no período.</p>
+                ) : (
+                    <div className={`distribuicao ${categoriaDistribuicaoDados ? 'com-detalhe' : ''}`}>
+                        <div className="grafico-moldura">
+                            <GraficoDistribuicao
+                                dados={distribuicao}
+                                chaveSeleccionada={categoriaDistribuicao}
+                                onSeleccionar={c => setCategoriaDistribuicao(categoriaDistribuicao === c.chave ? null : c.chave)}
+                            />
+                        </div>
+
+                        {categoriaDistribuicaoDados && (
+                            <div className="grafico-moldura subcategoria-detalhe" style={{ '--detalhe-cor': categoriaDistribuicaoDados.cor }}>
+                                <div className="subcategoria-detalhe-cabecalho">
+                                    <h3>{categoriaDistribuicaoDados.nome}</h3>
+                                    <button
+                                        className="btn-icone"
+                                        title="Fechar"
+                                        onClick={() => setCategoriaDistribuicao(null)}
+                                    >
+                                        <Icone nome="fechar" />
+                                    </button>
+                                </div>
+                                <GraficoDistribuicao dados={categoriaDistribuicaoDados.subcategorias} cor={categoriaDistribuicaoDados.cor} />
+                            </div>
+                        )}
+                    </div>
+                )}
             </section>
         </div>
     );
