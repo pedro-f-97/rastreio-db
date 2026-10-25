@@ -36,6 +36,8 @@ Correções depois do teste com os dados reais (25/10/2026):
   então), e não do calculado. Com uma diferença de 10,10 € já de trás, o dia
   05/02/2026 do ActivoBank (+1,20 € e −1,20 €) dava −1,20 € e +1,20 €
   inventados.
+- A animação de entrada das páginas ficava presa no fim com um `transform`,
+  e o pop-up abria fora do ecrã, abaixo do que se via.
 
 ## 1. O problema
 
