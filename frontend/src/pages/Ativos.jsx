@@ -30,7 +30,7 @@ export default function Ativos({ onDadosAlterados }) {
   const [modal, setModal] = useState(estadoModalInicial);
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
-  const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '' });
+  const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '', porTotal: false });
   const [menuAbertoId, setMenuAbertoId] = useState(null);
   const [editando, setEditando] = useState({}); // { id, nome, simbolo }
 
@@ -207,23 +207,24 @@ export default function Ativos({ onDadosAlterados }) {
   }
 
   function abrirModalPreco(ativo) {
-    setModalPreco({ aberto: true, ativo, data: new Date().toISOString().split('T')[0], preco: '' });
+    setModalPreco({ aberto: true, ativo, data: new Date().toISOString().split('T')[0], preco: '', porTotal: false });
     setErro("");
   }
 
   function fecharModalPreco() {
-    setModalPreco({ aberto: false, ativo: null, data: '', preco: '' });
+    setModalPreco({ aberto: false, ativo: null, data: '', preco: '', porTotal: false });
     setErro("");
   }
 
   async function submeterPreco() {
-    if (!modalPreco.preco) { setErro("Preço obrigatório."); return; }
+    if (!modalPreco.preco) { setErro(modalPreco.porTotal ? "Valor total obrigatório." : "Preço obrigatório."); return; }
     setLoading(true);
     try {
+      // Pelo valor total, o backend divide-o pelas unidades que havia na data
       await registarPreco({
         ativo_id: modalPreco.ativo.id,
         data: modalPreco.data,
-        preco: parseFloat(modalPreco.preco),
+        [modalPreco.porTotal ? "valor_total" : "preco"]: parseFloat(modalPreco.preco),
       });
       fecharModalPreco();
       await recarregar();
@@ -652,8 +653,16 @@ export default function Ativos({ onDadosAlterados }) {
             <label className="label">Data
               <input className="input" type="date" max={hoje} value={modalPreco.data} onChange={(e) => setModalPreco((m) => ({ ...m, data: e.target.value }))} />
             </label>
-            <label className="label">Preço unitário, em euros (€)
-              <input className="input" type="number" step="0.0001" value={modalPreco.preco} onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))} />
+            {modalPreco.ativo.tipo.tem_unidades && (
+              <label className="label">Actualizar por
+                <select className="input" value={modalPreco.porTotal ? "total" : "unitario"} onChange={(e) => setModalPreco((m) => ({ ...m, porTotal: e.target.value === "total" }))}>
+                  <option value="unitario">Preço unitário</option>
+                  <option value="total">Valor total das unidades nesta data</option>
+                </select>
+              </label>
+            )}
+            <label className="label">{modalPreco.porTotal ? "Valor total" : "Preço unitário"}, em euros (€)
+              <input className="input" type="number" step={modalPreco.porTotal ? "0.01" : "0.0001"} value={modalPreco.preco} onChange={(e) => setModalPreco((m) => ({ ...m, preco: e.target.value }))} />
             </label>
 
             {erro && <p className="erro">{erro}</p>}

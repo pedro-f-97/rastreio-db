@@ -225,8 +225,19 @@ class PrecoAtivoBase(BaseModel):
     preco: FiniteFloat
 
 
-class PrecoAtivoCreate(PrecoAtivoBase):
-    pass
+class PrecoAtivoCreate(BaseModel):
+    ativo_id: int
+    data: date
+    # Um dos dois: o preço unitário, ou o valor total das unidades que havia
+    # nessa data, que o backend divide por elas
+    preco: Optional[FiniteFloat] = None
+    valor_total: Optional[FiniteFloat] = None
+
+    @model_validator(mode="after")
+    def validar_preco_ou_total(self):
+        if (self.preco is None) == (self.valor_total is None):
+            raise ValueError("Indica o preço unitário ou o valor total, um dos dois.")
+        return self
 
 
 class PrecoAtivo(PrecoAtivoBase):

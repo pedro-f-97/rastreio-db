@@ -987,6 +987,161 @@ def test_registar_preco_com_data_futura_da_422(client, session, monkeypatch):
     assert session.query(PrecoAtivo).count() == 1
 
 
+def test_registar_preco_por_valor_total_divide_pelas_unidades_nessa_data(client, session):
+    """Pelo valor total, o preço é o total a dividir pelas unidades em carteira
+    no fim do dia do preço, pelo FIFO; o que se compra depois não conta.
+
+    Cálculo à mão:
+      2025-01-10 compra 0.1, 2025-01-20 compra 0.2, e no próprio dia do preço
+      (2025-02-01) venda 0.05, que conta porque é o fim do dia
+        -> a 2025-02-01 há 0.1 + 0.2 - 0.05 = 0.25 unidades
+      2025-03-01 compra 0.5 (depois da data do preço, não conta)
+      preço = 1200 / 0.25 = 4800.0
+      (com as unidades de hoje, 0.75, daria 1600.0)
+    """
+    tipo = semear_tipo(session, "Cripto", tem_unidades=True)
+    ativo = semear_ativo(session, "Bitcoin", tipo)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-500.0, quantidade=0.1
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 20), valor_total=-1000.0, quantidade=0.2
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.venda, date(2025, 2, 1), valor_total=300.0, quantidade=0.05
+    )
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 3, 1), valor_total=-2500.0, quantidade=0.5
+    )
+
+    r = client.post(
+        "/api/patrimonio/precos",
+        json={"ativo_id": ativo.id, "data": "2025-02-01", "valor_total": 1200.0},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["preco"] == 4800.0
+    session.expire_all()
+    precos = session.query(PrecoAtivo).all()
+    assert [(p.data, p.preco) for p in precos] == [(date(2025, 2, 1), 4800.0)]
+
+
+def test_registar_preco_por_valor_total_da_o_total_ao_centimo(client, session):
+    """O preço calculado não se arredonda, e o valor do ativo volta a dar o
+    total escrito, ao cêntimo.
+
+    Cálculo à mão: 1234.5678 unidades, total 10000.01.
+      preço = 10000.01 / 1234.5678 = 8.10000876...
+      valor = 1234.5678 x 8.10000876... = 10000.01
+      (com o preço arredondado a 4 casas, 8.1000, daria
+      1234.5678 x 8.1 = 9999.99918 -> 10000.00)
+    """
+    tipo = semear_tipo(session, "Cripto", tem_unidades=True)
+    ativo = semear_ativo(session, "Moeda", tipo)
+    semear_movimento(
+        session,
+        ativo,
+        TipoMovimento.compra,
+        date(2025, 1, 10),
+        valor_total=-9000.0,
+        quantidade=1234.5678,
+    )
+
+    r = client.post(
+        "/api/patrimonio/precos",
+        json={"ativo_id": ativo.id, "data": "2025-02-01", "valor_total": 10000.01},
+    )
+
+    assert r.status_code == 200
+    assert client.get(f"/api/patrimonio/ativos/{ativo.id}/resumo").json()["valor_atual"] == 10000.01
+
+
+def test_registar_preco_por_valor_total_no_mesmo_dia_actualiza(client, session):
+    """O valor total também faz upsert sobre o preço já registado nesse dia.
+
+    Cálculo à mão: 10 unidades; preço 20.0 a 2025-02-01, depois total 250.0 no
+    mesmo dia -> continua 1 preço, com 250 / 10 = 25.0.
+    """
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
+    semear_preco(session, ativo, date(2025, 2, 1), 20.0)
+
+    r = client.post(
+        "/api/patrimonio/precos",
+        json={"ativo_id": ativo.id, "data": "2025-02-01", "valor_total": 250.0},
+    )
+
+    assert r.status_code == 200
+    session.expire_all()
+    precos = session.query(PrecoAtivo).all()
+    assert [(p.data, p.preco) for p in precos] == [(date(2025, 2, 1), 25.0)]
+
+
+def test_registar_preco_por_valor_total_sem_unidades_na_data_da_422(client, session):
+    """Sem unidades em carteira na data do preço não há por onde dividir: 422.
+
+    Cálculo à mão: a única compra é a 2025-03-01, depois da data 2025-02-01
+    -> 0 unidades -> 422, nada gravado.
+    """
+    tipo = semear_tipo(session, "Cripto", tem_unidades=True)
+    ativo = semear_ativo(session, "Bitcoin", tipo)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 3, 1), valor_total=-500.0, quantidade=0.1
+    )
+
+    r = client.post(
+        "/api/patrimonio/precos",
+        json={"ativo_id": ativo.id, "data": "2025-02-01", "valor_total": 1200.0},
+    )
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == "Não havia unidades deste ativo nesta data."
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 0
+
+
+def test_registar_preco_por_valor_total_em_bem_sem_unidades_da_422(client, session):
+    """Num bem sem unidades, o preço já é o valor total: o `valor_total` é recusado."""
+    tipo = semear_tipo(session, "Imovel", tem_unidades=False)
+    ativo = semear_ativo(session, "Casa", tipo)
+    semear_movimento(session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-1000.0)
+
+    r = client.post(
+        "/api/patrimonio/precos",
+        json={"ativo_id": ativo.id, "data": "2025-02-01", "valor_total": 1200.0},
+    )
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == "O valor total só se usa em ativos com unidades."
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 0
+
+
+@pytest.mark.parametrize(
+    "campos", [{}, {"preco": 20.0, "valor_total": 200.0}], ids=["nenhum", "os_dois"]
+)
+def test_registar_preco_exige_preco_ou_valor_total(client, session, campos):
+    """O pedido leva o preço unitário ou o valor total, exactamente um: sem
+    nenhum ou com os dois, 422 e nada gravado. Há unidades na data, para que o
+    422 só possa vir da validação do pedido."""
+    tipo = semear_tipo(session, "Acoes", tem_unidades=True)
+    ativo = semear_ativo(session, "Acao", tipo)
+    semear_movimento(
+        session, ativo, TipoMovimento.compra, date(2025, 1, 10), valor_total=-200.0, quantidade=10
+    )
+
+    r = client.post(
+        "/api/patrimonio/precos", json={"ativo_id": ativo.id, "data": "2025-02-01", **campos}
+    )
+
+    assert r.status_code == 422
+    session.expire_all()
+    assert session.query(PrecoAtivo).count() == 0
+
+
 def test_listar_precos_do_mais_recente_para_o_mais_antigo(client, session):
     """`GET /ativos/{id}/precos` lista só os preços do ativo, por data descendente.
 
