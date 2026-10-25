@@ -207,6 +207,8 @@ export default function Estatisticas() {
     const [categoriaDistribuicao, setCategoriaDistribuicao] = useState(null);
     const [anoSeleccionado, setAnoSeleccionado] = useState('todos');
     const [incluirOutliers, setIncluirOutliers] = useState(false);
+    const [semExtraordinarias, setSemExtraordinarias] = useState(false);
+    const [incluirTaxasNegativas, setIncluirTaxasNegativas] = useState(false);
 
     useEffect(() => {
         obterResumoMensal()
@@ -260,15 +262,19 @@ export default function Estatisticas() {
 
     const MULTIPLICADOR_EXTREMO = 4;
 
-    const { dadosGraficoFiltrados, dominioValores, totalExtremos } = useMemo(() => {
+    const { dadosGraficoFiltrados, dominioValores, totalExtremos, totalTaxasNegativas } = useMemo(() => {
         if (!resumo) {
-            return { dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0 };
+            return { dadosGraficoFiltrados: [], dominioValores: ['auto', 'auto'], totalExtremos: 0, totalTaxasNegativas: 0 };
         }
 
         // As médias móveis calculam-se sobre todos os meses, antes do filtro de
-        // ano: assim, janeiro de um ano usa os meses do ano anterior
-        const movel3 = taxaMovel(resumo.meses, 3);
-        const movel12 = taxaMovel(resumo.meses, 12);
+        // ano: assim, janeiro de um ano usa os meses do ano anterior. Sem as
+        // extraordinárias, a poupança do mês sobe o que elas custaram
+        const mesesTaxa = semExtraordinarias
+            ? resumo.meses.map(m => ({ ...m, poupanca: m.poupanca - m.despesa_extraordinaria }))
+            : resumo.meses;
+        const movel3 = taxaMovel(mesesTaxa, 3);
+        const movel12 = taxaMovel(mesesTaxa, 12);
 
         const dadosGrafico = resumo.meses.map((m, i) => ({
             ano: m.ano,
@@ -310,12 +316,19 @@ export default function Estatisticas() {
             ? [-limite, limite]
             : ['auto', 'auto'];
 
+        // No gráfico da taxa, a escala começa nos 0 %: abaixo, gastou-se mais do
+        // que se recebeu, e um mês com uma compra grande esmagaria o resto da linha
+        const taxasNegativas = filtrados
+            .flatMap(m => [m['Média de 3 meses'], m['Média de 12 meses']])
+            .filter(v => v !== null && v < 0).length;
+
         return {
             dadosGraficoFiltrados: filtrados,
             dominioValores: dominio,
             totalExtremos: extremos,
+            totalTaxasNegativas: taxasNegativas,
         };
-    }, [resumo, anoSeleccionado, incluirOutliers]);
+    }, [resumo, anoSeleccionado, incluirOutliers, semExtraordinarias]);
 
     const { cardTipico, cardPoupanca, cardTaxa, partesTipico } = useMemo(() => {
         // As médias e as taxas contam só os meses completos; as somas do
@@ -348,6 +361,10 @@ export default function Estatisticas() {
 
     if (erro) return <p className="erro carregando">{erro}</p>;
     if (!resumo) return <p className="carregando">A carregar...</p>;
+
+    const taxaPeriodo = semExtraordinarias ? cardTaxa.semExtraordinarias : cardTaxa.periodo;
+    const cortarTaxa = !incluirTaxasNegativas && totalTaxasNegativas > 0;
+    const descreverTaxasNegativas = totalTaxasNegativas === 1 ? '1 valor abaixo de 0 %' : `${totalTaxasNegativas} valores abaixo de 0 %`;
 
     const anosDisponiveis = [...new Set(resumo.meses.map(m => m.ano))].sort();
 
@@ -479,11 +496,34 @@ export default function Estatisticas() {
                     <div className="legenda">
                         <span className="legenda-item"><span className="legenda-cor" style={{ background: 'var(--accent)' }} />Média de 3 meses</span>
                         <span className="legenda-item"><span className="legenda-cor linha" style={{ background: 'var(--chart-2)' }} />Média de 12 meses</span>
-                        {cardTaxa.periodo !== null && (
+                        {taxaPeriodo !== null && (
                             <span className="legenda-item"><span className="legenda-cor linha tracejada" />Período</span>
                         )}
+                        <label className="caixa-marcar">
+                            <input
+                                type="checkbox"
+                                checked={semExtraordinarias}
+                                onChange={e => setSemExtraordinarias(e.target.checked)}
+                            />
+                            Sem extraordinárias
+                        </label>
                     </div>
                 </div>
+
+                {totalTaxasNegativas > 0 && (
+                    <div className="aviso">
+                        <Icone nome="aviso" />
+                        <span className="aviso-texto">
+                            {incluirTaxasNegativas
+                                ? `Escala a incluir ${descreverTaxasNegativas}`
+                                : `Escala ajustada para ignorar ${descreverTaxasNegativas}`}
+                        </span>
+                        <button className="btn-ghost" onClick={() => setIncluirTaxasNegativas(!incluirTaxasNegativas)}>
+                            {incluirTaxasNegativas ? 'Ignorar valores abaixo de 0 %' : 'Incluir valores abaixo de 0 % na escala'}
+                        </button>
+                    </div>
+                )}
+
                 <div className="grafico-moldura">
                     <ResponsiveContainer width="100%" height={280}>
                         <ComposedChart data={dadosGraficoFiltrados} margin={{ top: 10, right: 110, left: 8, bottom: 10 }}>
@@ -495,19 +535,25 @@ export default function Estatisticas() {
                             </defs>
                             <CartesianGrid {...GRELHA} />
                             <XAxis dataKey="label" {...EIXO} tick={<TickMes />} interval={0} height={40} />
-                            <YAxis {...EIXO} tickFormatter={v => `${v}%`} width={56} />
+                            <YAxis
+                                {...EIXO}
+                                tickFormatter={v => `${v}%`}
+                                domain={cortarTaxa ? [0, 'auto'] : ['auto', 'auto']}
+                                allowDataOverflow={true}
+                                width={56}
+                            />
                             <Tooltip
                                 content={<TooltipGrafico formatar={v => formatarPercentagem(v)} />}
                                 cursor={{ stroke: 'var(--accent-linha)', strokeDasharray: '3 3' }}
                             />
-                            {cardTaxa.periodo !== null && (
+                            {taxaPeriodo !== null && (
                                 <ReferenceLine
-                                    y={cardTaxa.periodo}
+                                    y={taxaPeriodo}
                                     stroke="var(--text-secondary)"
                                     strokeDasharray="6 4"
-                                    ifOverflow="extendDomain"
+                                    ifOverflow={cortarTaxa ? 'hidden' : 'extendDomain'}
                                     label={{
-                                        value: `Período: ${formatarPercentagem(cardTaxa.periodo)}`,
+                                        value: `Período: ${formatarPercentagem(taxaPeriodo)}`,
                                         position: 'right',
                                         fill: 'var(--text-secondary)',
                                         fontSize: 11,
