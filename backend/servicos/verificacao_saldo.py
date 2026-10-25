@@ -26,13 +26,13 @@ def _cent(x) -> Decimal:
     return exato(x).quantize(CENTIMO, rounding=ROUND_HALF_UP)
 
 
-def _saldo_fim_do_dia(transacoes, calculado: Decimal) -> tuple[Decimal, bool]:
+def _saldo_fim_do_dia(transacoes, esperado: Decimal) -> tuple[Decimal, bool]:
     """O saldo do banco no fim do dia, e se a ordem ficou incerta.
 
     O saldo antes de cada transacção é o seu saldo menos o seu valor; a última
     do dia é aquela cujo saldo não é o «saldo antes» de nenhuma outra. Sem
     exactamente uma candidata (uma transacção de 0 €, um saldo repetido), fica
-    o saldo mais próximo do calculado, e a ordem é incerta.
+    o saldo mais próximo do esperado, e a ordem é incerta.
     """
     com_saldo = [t for t in transacoes if t.saldo is not None]
     saldos = [_cent(t.saldo) for t in com_saldo]
@@ -42,7 +42,7 @@ def _saldo_fim_do_dia(transacoes, calculado: Decimal) -> tuple[Decimal, bool]:
     candidatos = {s for s in saldos if s not in antes}
     if len(candidatos) == 1:
         return candidatos.pop(), False
-    return min(saldos, key=lambda s: abs(calculado - s)), True
+    return min(saldos, key=lambda s: abs(esperado - s)), True
 
 
 def verificar_saldo(db: Session, conta: ContaModel) -> dict:
@@ -79,7 +79,15 @@ def verificar_saldo(db: Session, conta: ContaModel) -> dict:
         if all(t.saldo is None for t in do_dia):
             continue
         calculado = _cent(base + acumulado)
-        banco, incerta = _saldo_fim_do_dia(do_dia, calculado)
+        # O esperado é o saldo do banco no ponto anterior mais os movimentos
+        # desde então: o calculado menos a diferença que já vinha de trás. Se a
+        # referência ficar pelo meio (ou não houver ponto anterior), a
+        # diferença conhecida é a dela, 0
+        if not pontos or pontos[-1][0] < referencia <= dia:
+            anterior = Decimal(0)
+        else:
+            anterior = pontos[-1][1]
+        banco, incerta = _saldo_fim_do_dia(do_dia, calculado - anterior)
         pontos.append((dia, calculado - banco))
         if incerta:
             dias_ordem_incerta.append(dia)

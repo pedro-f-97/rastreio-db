@@ -29,6 +29,14 @@ Correções depois da revisão do código:
 - Com o último saldo certo mas diferenças nos anteriores, o pop-up abre na
   mesma: falta ou sobra uma transação no passado.
 
+Correções depois do teste com os dados reais (25/10/2026):
+
+- Num dia de ordem incerta, o saldo do fim do dia escolhe-se pelo mais próximo
+  do **esperado** (o saldo do banco no ponto anterior mais os movimentos desde
+  então), e não do calculado. Com uma diferença de 10,10 € já de trás, o dia
+  05/02/2026 do ActivoBank (+1,20 € e −1,20 €) dava −1,20 € e +1,20 €
+  inventados.
+
 ## 1. O problema
 
 O saldo de cada conta é calculado (`saldo_conta_em`, em
