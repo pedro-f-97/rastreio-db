@@ -1,11 +1,12 @@
 .grelha-tipos {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
 .grelha-tipos .item-lista {
     padding: var(--space-md) var(--space-lg);
 }
 
+/* Na edição, o campo, a caixa e os botões podem ir para a linha seguinte */
 .grelha-tipos .item-cabecalho {
     flex-wrap: wrap;
 }

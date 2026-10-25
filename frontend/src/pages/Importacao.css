@@ -181,7 +181,7 @@
 
 /* --- Perfis e histórico --- */
 .grelha-perfis {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
 }
 
 .perfil-cartao {

@@ -541,6 +541,63 @@
     align-items: start;
 }
 
+/* Cartões todos da mesma altura, a do mais alto, em qualquer linha; o
+   conteúdo fica ao meio */
+.grelha-iguais {
+    grid-auto-rows: 1fr;
+    align-items: stretch;
+}
+
+.grelha-iguais > .item-lista {
+    display: flex;
+    align-items: center;
+}
+
+.grelha-iguais > .item-lista > .item-cabecalho {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Fora da edição, o nome numa linha e a etiqueta por baixo, ao lado do
+   ícone: um nome longo corta-se com reticências (o title mostra-o inteiro)
+   em vez de aumentar o cartão */
+.grelha-iguais .item-cabecalho.revelar-accoes {
+    flex-wrap: nowrap;
+}
+
+.grelha-iguais .revelar-accoes .item-titulo {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--space-md);
+    row-gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.grelha-iguais .revelar-accoes .item-titulo > :first-child {
+    grid-row: 1 / span 2;
+}
+
+.grelha-iguais .revelar-accoes .item-titulo > .item-nome {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.grelha-iguais .revelar-accoes .item-titulo > .chip {
+    justify-self: start;
+}
+
+/* Sem etiqueta, o nome ocupa as duas linhas e fica ao meio */
+.grelha-iguais .revelar-accoes .item-titulo > .item-nome:last-child {
+    grid-row: 1 / span 2;
+}
+
+.grelha-iguais .revelar-accoes .accoes {
+    flex-shrink: 0;
+}
+
 .item-lista {
     background: var(--bg-secondary);
     border: 1px solid var(--border);

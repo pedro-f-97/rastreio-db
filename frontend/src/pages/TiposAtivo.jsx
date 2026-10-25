@@ -89,7 +89,7 @@ export default function TiposAtivo() {
 
             {erro && <p className="erro">{erro}</p>}
 
-            <div className="grelha-itens grelha-tipos">
+            <div className="grelha-itens grelha-iguais grelha-tipos">
                 {tipos.map(tipo => {
                     const estaAEditar = editando.id === tipo.id;
                     return (
@@ -120,7 +120,7 @@ export default function TiposAtivo() {
                                 ) : (
                                     <div className="item-titulo">
                                         <span className="tipo-icone"><Icone nome="tipos" tamanho={16} /></span>
-                                        <span className="item-nome">{tipo.nome}</span>
+                                        <span className="item-nome" title={tipo.nome}>{tipo.nome}</span>
                                         {tipo.tem_unidades && <span className="chip chip-accent">unidades</span>}
                                     </div>
                                 )}

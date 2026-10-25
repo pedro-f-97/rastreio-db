@@ -418,13 +418,13 @@ export default function Importacao({ onDadosAlterados }) {
                 {perfis.length === 0 ? (
                     <p className="estado-vazio">Nenhum perfil configurado.</p>
                 ) : (
-                    <div className="grelha-itens grelha-perfis">
+                    <div className="grelha-itens grelha-iguais grelha-perfis">
                         {perfis.map(p => (
                             <div key={p.id} className="item-lista perfil-cartao">
                                 <div className="item-cabecalho item-cabecalho-limpo revelar-accoes">
                                     <div className="item-titulo">
                                         <span className="perfil-icone"><Icone nome="ficheiro" tamanho={16} /></span>
-                                        <span className="item-nome">{p.nome}</span>
+                                        <span className="item-nome" title={p.nome}>{p.nome}</span>
                                         <span className="chip chip-accent">
                                             {contas.find(c => c.id === p.conta_id)?.nome ?? '—'}
                                         </span>
