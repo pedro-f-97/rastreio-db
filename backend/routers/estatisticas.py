@@ -4,12 +4,13 @@ from decimal import Decimal
 from statistics import median
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import extract, func, or_
 from sqlalchemy.orm import Session
 
 from database import Categoria, ClasseDespesa, Subcategoria, TipoCategoria, Transacao, get_db
 from servicos.dinheiro import arredondar, exato
+from servicos.panfleto_serv import calcular_panfleto
 
 router = APIRouter(prefix="/estatisticas", tags=["estatisticas"])
 
@@ -84,6 +85,14 @@ def resumo_mensal(db: Session = Depends(get_db)):
     # A média e a mediana dos cartões calculam-se na página, a partir dos meses
     # do ano filtrado
     return {"meses": resultados}
+
+
+@router.get("/panfleto")
+def panfleto(db: Session = Depends(get_db)):
+    dados = calcular_panfleto(db, date.today())
+    if dados is None:
+        raise HTTPException(404, "Ainda não há nenhum mês completo com transações.")
+    return dados
 
 
 def _mediana_mensal(totais, meses_distintos):

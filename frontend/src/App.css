@@ -112,6 +112,20 @@
     transition: background-color var(--transicao), color var(--transicao);
 }
 
+/* O botão do panfleto, com o aspeto de uma ligação da barra */
+button.sidebar-link {
+    width: 100%;
+    background: none;
+    border: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+button.sidebar-link:disabled {
+    cursor: progress;
+}
+
 .sidebar-link .icone {
     flex-shrink: 0;
     opacity: 0.85;

@@ -49,8 +49,8 @@ Convenções que estes testes fixam
   casa com `"CAFÉ"`; `"café"` casa. Regra vazia é o caso limite de `"x" in s`,
   que é sempre verdadeiro.
 - A **primeira** regra que casa ganha, e o `break` é incondicional — ver o
-  cenário da categoria diferente. É a convenção das «Decisões de design» do
-  README: a primeira regra decide sozinha.
+  cenário da categoria diferente. É a convenção de `docs/decisoes.md`: a
+  primeira regra decide sozinha.
 - A precedência entre as duas fases é fixa pelo código, não pela ordem da
   lista: exclusão antes de categorização, sempre. A ordem dentro de cada fase
   é a da lista recebida; o `importar_transacoes` passa-a ordenada por
@@ -220,7 +220,7 @@ def test_a_primeira_regra_que_casa_ganha():
 def test_break_impede_a_segunda_regra_de_atribuir_a_subcategoria():
     """Regra 1.ª sem subcategoria: a 2.ª traria a subcategoria, o break não deixa.
 
-    Convenção (README, «Decisões de design»): este teste só passa
+    Convenção (`docs/decisoes.md`): este teste só passa
     porque o `break` da linha 23 existe. A 2.ª regra também casa, e entraria pelo ramo da
     linha 21, que é exactamente o ramo que escreve a subcategoria; é o `break` que
     impede a escrita. É o par com
@@ -297,7 +297,7 @@ def test_categoria_e_subcategoria_iguais_mudam_nada():
 def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
     """Categoria diferente: nada é atribuído e a regra seguinte é ignorada.
 
-    Convenção (README, «Decisões de design»): o `break` da linha 23
+    Convenção (`docs/decisoes.md`): o `break` da linha 23
     é incondicional: está dentro do `if` de correspondência (linha 17) e não
     dentro de nenhum dos ramos de atribuição. "Casou" não é "atribuiu", e a diferença de consequência é uma
     transação já categorizada que fica sem a subcategoria que a 2.ª regra lhe
@@ -327,7 +327,7 @@ def test_categoria_diferente_nao_atribui_e_gasta_a_regra():
 def test_regra_consumida_sem_atribuir_deixa_a_transacao_sem_subcategoria():
     """A 1.ª regra casa com outra categoria e consome o ciclo; a 2.ª traria a sub.
 
-    Convenção (README, «Decisões de design»): este teste fixa o caso
+    Convenção (`docs/decisoes.md`): este teste fixa o caso
     em que a consequência é visível numa transação que o utilizador já tinha
     classificado à mão: ela fica com categoria mas sem subcategoria, e a 2.ª regra
     —que era exactamente a que lhe servia— nunca chega a ser avaliada. Sem o

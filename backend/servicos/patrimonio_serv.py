@@ -298,7 +298,12 @@ def calcular_crescimento(db: Session, ano: int | None, hoje: date) -> dict:
     pontos = []
     if inicio is not None and inicio <= fim:
         pontos = gerar_evolucao(db, inicio, fim, hoje, com_valorizacao=True)
+    return crescimento_dos_pontos(pontos)
 
+
+def crescimento_dos_pontos(pontos: list[dict]) -> dict:
+    """O crescimento por mês de uma série de fins de mês com a valorização
+    (`gerar_evolucao(..., com_valorizacao=True)`), como em `calcular_crescimento`."""
     resultado = {
         "de": pontos[0]["data"] if pontos else None,
         "ate": pontos[-1]["data"] if pontos else None,
