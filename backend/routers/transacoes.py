@@ -1,4 +1,5 @@
 import unicodedata
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,6 +17,7 @@ from database import (
 )
 from importador_transacoes import aplicar_regras, regras_por_precedencia
 from schemas import TransacaoCreate, TransacaoUpdate
+from servicos.dinheiro import arredondar, exato
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
 
@@ -48,12 +50,19 @@ def _validar_subcategoria(db: Session, categoria_id: Optional[int], subcategoria
 
 @router.get("/por-categorizar/total")
 def total_por_categorizar(db: Session = Depends(get_db)):
-    total = (
-        db.query(Transacao)
-        .filter((Transacao.categoria_id == None) | (Transacao.subcategoria_id == None))
-        .count()
-    )
-    return {"total": total}
+    valores = [
+        exato(valor)
+        for (valor,) in db.query(Transacao.valor).filter(
+            (Transacao.categoria_id == None) | (Transacao.subcategoria_id == None)
+        )
+    ]
+    # O número é o do contador da barra lateral; as somas a entrar e a sair são
+    # para o aviso da página Transações
+    return {
+        "total": len(valores),
+        "entradas": arredondar(sum((v for v in valores if v > 0), Decimal(0))),
+        "saidas": arredondar(sum((v for v in valores if v < 0), Decimal(0))),
+    }
 
 
 @router.get("/")

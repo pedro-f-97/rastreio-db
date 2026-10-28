@@ -123,6 +123,8 @@ def test_total_por_categorizar_conta_categoria_ou_subcategoria_em_falta(client, 
       t4: cat Casa, sub NULL                -> subcategoria NULL -> conta
       t5: cat Casa, sub Supermercado        -> nenhum em falta   -> não conta
       total = 3
+      entradas = t2 = 2000,00
+      saidas   = t3 + t4 = -20,00 + -5,00 = -25,00
 
     Estado final da BD: as 5 transacções continuam (um GET não escreve).
     """
@@ -131,8 +133,81 @@ def test_total_por_categorizar_conta_categoria_ou_subcategoria_em_falta(client, 
     r = client.get("/api/transacoes/por-categorizar/total")
 
     assert r.status_code == 200
-    assert r.json() == {"total": 3}
+    assert r.json() == {"total": 3, "entradas": 2000.0, "saidas": -25.0}
     assert session.query(Transacao).count() == 5
+
+
+def test_total_por_categorizar_soma_reembolsos_nas_entradas_e_conta_os_zeros(client, session):
+    """Um reembolso por categorizar é uma entrada; uma transacção de 0 € conta
+    no número, mas em nenhuma das somas; uma categorizada fica de fora.
+
+    Cálculo à mão:
+      Reembolso,  cat Casa, sub NULL,  +15,50 -> conta, entrada
+      Taxa,       sem categoria,        -0,10 -> conta, saída
+      Imposto,    sem categoria,        -0,20 -> conta, saída
+      Anulação,   sem categoria,         0,00 -> conta, nem entrada nem saída
+      Renda,      cat Casa, sub Renda, -700,00 -> não conta
+      total = 4
+      entradas = 15,50
+      saidas = -0,10 + -0,20 = -0,30 (em float daria -0,30000000000000004)
+    """
+    casa = Categoria(nome="Casa", tipo=TipoCategoria.despesa)
+    session.add(casa)
+    session.commit()
+    renda = Subcategoria(nome="Renda", categoria_id=casa.id)
+    session.add(renda)
+    session.commit()
+    dia = date(2025, 3, 1)
+    session.add_all(
+        [
+            Transacao(data=dia, descricao="Reembolso", valor=15.5, categoria_id=casa.id),
+            Transacao(data=dia, descricao="Taxa", valor=-0.1),
+            Transacao(data=dia, descricao="Imposto", valor=-0.2),
+            Transacao(data=dia, descricao="Anulação", valor=0.0),
+            Transacao(
+                data=dia,
+                descricao="Renda",
+                valor=-700.0,
+                categoria_id=casa.id,
+                subcategoria_id=renda.id,
+            ),
+        ]
+    )
+    session.commit()
+
+    r = client.get("/api/transacoes/por-categorizar/total")
+
+    assert r.status_code == 200
+    assert r.json() == {"total": 4, "entradas": 15.5, "saidas": -0.3}
+
+
+def test_total_por_categorizar_sem_nenhuma_da_zeros(client, session):
+    """Com todas as transacções categorizadas, o número e as somas são zero.
+
+    Cálculo à mão: a única transacção tem categoria e subcategoria -> não conta.
+      total = 0, entradas = 0, saidas = 0
+    """
+    casa = Categoria(nome="Casa", tipo=TipoCategoria.despesa)
+    session.add(casa)
+    session.commit()
+    renda = Subcategoria(nome="Renda", categoria_id=casa.id)
+    session.add(renda)
+    session.commit()
+    session.add(
+        Transacao(
+            data=date(2025, 3, 1),
+            descricao="Renda",
+            valor=-700.0,
+            categoria_id=casa.id,
+            subcategoria_id=renda.id,
+        )
+    )
+    session.commit()
+
+    r = client.get("/api/transacoes/por-categorizar/total")
+
+    assert r.status_code == 200
+    assert r.json() == {"total": 0, "entradas": 0.0, "saidas": 0.0}
 
 
 # ---------------------------------------------------------------------------
