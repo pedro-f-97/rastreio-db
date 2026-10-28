@@ -1,6 +1,17 @@
 # Plano: avisar quando os números assentam em dados incompletos
 
-Estado: **por aprovar**. Decisões tomadas a 28/10/2026 (secção 3).
+Estado: **executado** (passos 1 a 4). Falta confirmar os avisos com os dados
+reais (secção 5).
+
+Pequenas decisões tomadas durante a execução:
+
+- Os pares de transferências formam-se do mais próximo no tempo para o mais
+  afastado, e em empate pelo que começa mais cedo, em vez de se percorrerem por
+  data. Assim, duas saídas de 100 € e uma entrada de 100 € deixam sem par a
+  saída mais afastada da entrada, e não a mais antiga.
+- O endpoint das transferências sem par devolve, em vez de um total, as somas
+  das entradas e das saídas, como o das transações por categorizar. Os dois
+  avisos descrevem os valores da mesma maneira.
 
 ## 1. O problema
 

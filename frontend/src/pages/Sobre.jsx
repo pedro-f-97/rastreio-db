@@ -79,6 +79,11 @@ export default function Sobre() {
                     como a categoria entra nas Estatísticas.
                 </p>
                 <p>
+                    Uma transferência fica fora das Estatísticas, porque o dinheiro só muda de conta. Por isso deve ter
+                    a outra metade, com o valor simétrico, numa conta registada; as que não a têm aparecem num aviso na
+                    página Transações.
+                </p>
+                <p>
                     A poupança mensal é calculada como receitas mais despesas — as despesas entram sempre com sinal
                     negativo. O investimento é apresentado como uma linha informativa à parte e não é subtraído da poupança.
                 </p>
