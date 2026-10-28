@@ -1,4 +1,5 @@
 import unicodedata
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,6 +17,8 @@ from database import (
 )
 from importador_transacoes import aplicar_regras, regras_por_precedencia
 from schemas import TransacaoCreate, TransacaoUpdate
+from servicos.dinheiro import arredondar, exato
+from servicos.transferencias import DIAS_PAR, transferencias_sem_par
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
 
@@ -48,12 +51,40 @@ def _validar_subcategoria(db: Session, categoria_id: Optional[int], subcategoria
 
 @router.get("/por-categorizar/total")
 def total_por_categorizar(db: Session = Depends(get_db)):
-    total = (
-        db.query(Transacao)
-        .filter((Transacao.categoria_id == None) | (Transacao.subcategoria_id == None))
-        .count()
-    )
-    return {"total": total}
+    valores = [
+        exato(valor)
+        for (valor,) in db.query(Transacao.valor).filter(
+            (Transacao.categoria_id == None) | (Transacao.subcategoria_id == None)
+        )
+    ]
+    # O número é o do contador da barra lateral; as somas a entrar e a sair são
+    # para o aviso da página Transações
+    return {
+        "total": len(valores),
+        "entradas": arredondar(sum((v for v in valores if v > 0), Decimal(0))),
+        "saidas": arredondar(sum((v for v in valores if v < 0), Decimal(0))),
+    }
+
+
+@router.get("/transferencias-sem-par")
+def listar_transferencias_sem_par(db: Session = Depends(get_db)):
+    sem_par = transferencias_sem_par(db)
+    valores = [exato(t.valor) for t in sem_par]
+    return {
+        "dias_par": DIAS_PAR,
+        "entradas": arredondar(sum((v for v in valores if v > 0), Decimal(0))),
+        "saidas": arredondar(sum((v for v in valores if v < 0), Decimal(0))),
+        "transacoes": [
+            {
+                "id": t.id,
+                "data": t.data,
+                "descricao": t.descricao,
+                "valor": t.valor,
+                "conta_nome": t.conta.nome if t.conta else None,
+            }
+            for t in sem_par
+        ],
+    }
 
 
 @router.get("/")

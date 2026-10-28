@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { listarTransacoes, atualizarTransacao, apagarTransacao } from '../api/transacoes';
+import { listarTransacoes, atualizarTransacao, apagarTransacao, totalPorCategorizar, transferenciasSemPar } from '../api/transacoes';
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import TabelaTransacoes from '../components/TabelaTransacoes';
 import FiltrosTransacoes from '../components/FiltrosTransacoes';
@@ -12,6 +12,113 @@ import './Transacoes.css';
 import '../componentes.css';
 import CabecalhoPagina from '../components/CabecalhoPagina';
 import Icone from '../components/Icone';
+import { classeValor, formatarEuros } from '../utils/formatacao';
+
+const formatarData = (iso) => iso.split('-').reverse().join('/');
+
+// As somas de um aviso, sem as que são zero: «12,00 € a sair, 5,00 € a entrar»
+function descreverSomas({ saidas, entradas }) {
+    return [
+        saidas !== 0 && `${formatarEuros(Math.abs(saidas))} a sair`,
+        entradas !== 0 && `${formatarEuros(entradas)} a entrar`,
+    ].filter(Boolean).join(', ');
+}
+
+// O aviso das transações por categorizar, que ficam fora das estatísticas ou
+// da sua divisão. Pedido de novo sempre que `chave` muda
+function AvisoPorCategorizar({ chave, filtroLigado, onMostrar }) {
+    const [dados, setDados] = useState(null);
+
+    useEffect(() => {
+        // Uma resposta antiga, que chegue depois de um pedido mais recente, ignora-se
+        let ignorar = false;
+        totalPorCategorizar()
+            .then(res => !ignorar && setDados(res.data))
+            .catch(() => !ignorar && setDados(null));
+        return () => { ignorar = true; };
+    }, [chave]);
+
+    if (!dados?.total) return null;
+
+    const somas = descreverSomas(dados);
+    const quantas = dados.total === 1 ? '1 transação' : `${dados.total} transações`;
+
+    return (
+        <div className="aviso">
+            <Icone nome="aviso" />
+            <span className="aviso-texto">
+                {quantas} por categorizar{somas && ` (${somas})`}: ficam fora das
+                estatísticas, ou da sua divisão, até serem categorizadas.
+            </span>
+            {!filtroLigado && <button className="btn-ghost" onClick={onMostrar}>Mostrar</button>}
+        </div>
+    );
+}
+
+// O aviso das transferências sem a outra metade numa conta registada, com a
+// lista num pop-up. Pedido de novo sempre que `chave` muda
+function AvisoTransferenciasSemPar({ chave }) {
+    const [dados, setDados] = useState(null);
+    const [aberto, setAberto] = useState(false);
+
+    useEffect(() => {
+        let ignorar = false;
+        transferenciasSemPar()
+            .then(res => !ignorar && setDados(res.data))
+            .catch(() => !ignorar && setDados(null));
+        return () => { ignorar = true; };
+    }, [chave]);
+
+    if (!dados?.transacoes.length) return null;
+
+    const n = dados.transacoes.length;
+    const somas = descreverSomas(dados);
+
+    return (
+        <>
+            <div className="aviso">
+                <Icone nome="aviso" />
+                <span className="aviso-texto">
+                    {n === 1 ? '1 transferência sem par' : `${n} transferências sem par`} ({somas}): o dinheiro
+                    saiu ou entrou sem passar por outra conta registada, e não conta como despesa nem como receita.
+                </span>
+                <button className="btn-ghost" onClick={() => setAberto(true)}>Ver a lista</button>
+            </div>
+
+            {aberto && (
+                <div className="modal-overlay" onClick={() => setAberto(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <h3>Transferências sem par</h3>
+                        <p>
+                            Uma transferência tem par quando há outra transferência noutra conta, com o valor
+                            simétrico e até {dados.dias_par} dias de diferença.
+                        </p>
+                        <table className="tabela-base">
+                            <tbody>
+                                {dados.transacoes.map(t => (
+                                    <tr key={t.id}>
+                                        <td>{formatarData(t.data)}</td>
+                                        <td>{t.conta_nome ?? '—'}</td>
+                                        <td>{t.descricao}</td>
+                                        <td className={`col-num ${classeValor(t.valor)}`}>{formatarEuros(t.valor)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <p className="modal-descricao">
+                            Para resolver, regista a conta que falta e importa o seu extracto, ou muda a categoria
+                            da transação: por exemplo, para uma despesa, se foi um pagamento a outra pessoa.
+                        </p>
+                        <div className="modal-acoes">
+                            <button className="btn-ghost" onClick={() => setAberto(false)}>Fechar</button>
+                        </div>
+                        <button className="modal-fechar" onClick={() => setAberto(false)} title="Fechar"><Icone nome="fechar" /></button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
 
 export default function Transacoes({ onDadosAlterados }) {
     // Dados
@@ -41,6 +148,9 @@ export default function Transacoes({ onDadosAlterados }) {
     // Um contador por conta, para pedir a verificação do saldo de novo. Ao abrir
     // a página verificam-se todas as contas activas
     const [verificacoes, setVerificacoes] = useState({});
+    // Muda depois de cada alteração que mexa nas categorias, para os avisos
+    // serem pedidos de novo
+    const [chaveAvisos, setChaveAvisos] = useState(0);
 
     const totalPaginas = Math.ceil(total / filtros.tamanho);
 
@@ -100,6 +210,12 @@ export default function Transacoes({ onDadosAlterados }) {
         getContas().then(res => setContas(res.data));
     }, []);
 
+    // Actualiza o contador da barra lateral e os avisos desta página
+    function dadosAlterados() {
+        onDadosAlterados?.();
+        setChaveAvisos(c => c + 1);
+    }
+
     function mudarFiltro(novosFiltros) {
         // Ao mudar filtros, volta sempre à página 1
         setFiltros(prev => ({ ...prev, ...novosFiltros, pagina: 1 }));
@@ -119,7 +235,7 @@ export default function Transacoes({ onDadosAlterados }) {
             prev.map(t => t.id === id ? { ...t, ...campos } : t)
         );
         // A categorização afeta o contador "por categorizar" da sidebar
-        if ('categoria_id' in campos || 'subcategoria_id' in campos) onDadosAlterados?.();
+        if ('categoria_id' in campos || 'subcategoria_id' in campos) dadosAlterados();
         return true;
     }
 
@@ -131,7 +247,7 @@ export default function Transacoes({ onDadosAlterados }) {
     async function aoCriarTransacao(t) {
         setNovaAberta(false);
         await carregarTransacoes();
-        onDadosAlterados?.();
+        dadosAlterados();
         verificarConta(t.conta_id);
     }
 
@@ -144,7 +260,7 @@ export default function Transacoes({ onDadosAlterados }) {
             return;
         }
         await carregarTransacoes();
-        onDadosAlterados?.();
+        dadosAlterados();
         verificarConta(t.conta_id);
     }
 
@@ -166,7 +282,7 @@ export default function Transacoes({ onDadosAlterados }) {
         const res = await criarRegra(novaRegra);
         setRegras(prev => [...prev, res.data.regra]);
         await carregarTransacoes();
-        onDadosAlterados?.();
+        dadosAlterados();
     }
 
     
@@ -213,6 +329,15 @@ export default function Transacoes({ onDadosAlterados }) {
                     onTransacaoCriada={aoCriarTransacao}
                 />
             ))}
+
+            <AvisoPorCategorizar
+                chave={chaveAvisos}
+                filtroLigado={!!filtros.por_categorizar}
+                // Como o botão dos filtros: o filtro por categorizar mostra todos os anos
+                onMostrar={() => mudarFiltro({ por_categorizar: true, ano: null })}
+            />
+
+            <AvisoTransferenciasSemPar chave={chaveAvisos} />
 
             {novaAberta && (
                 <FormNovaTransacao onFechar={() => setNovaAberta(false)} onCriada={aoCriarTransacao} />
