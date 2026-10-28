@@ -66,6 +66,11 @@ As capturas usam dados de demonstração. As principais estão no tema claro e a
 
 ![Património: evolução](docs/screenshots/patrimonio-evolucao.png)
 
+### Retrato em PDF (os hábitos dos últimos 12 meses e a projeção do património)
+<p align="center">
+  <img src="docs/screenshots/retrato-pdf.png" width="620" alt="Retrato em PDF" />
+</p>
+
 <details>
 <summary>Mais screenshots (Importação, Categorias, Regras, Histórico, Contas, Ativos e Conceitos)</summary>
 
