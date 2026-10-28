@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { listarTransacoes, atualizarTransacao, apagarTransacao, totalPorCategorizar } from '../api/transacoes';
+import { listarTransacoes, atualizarTransacao, apagarTransacao, totalPorCategorizar, transferenciasSemPar } from '../api/transacoes';
 import { listarCategorias, listarSubcategorias } from '../api/categorias';
 import TabelaTransacoes from '../components/TabelaTransacoes';
 import FiltrosTransacoes from '../components/FiltrosTransacoes';
@@ -12,7 +12,17 @@ import './Transacoes.css';
 import '../componentes.css';
 import CabecalhoPagina from '../components/CabecalhoPagina';
 import Icone from '../components/Icone';
-import { formatarEuros } from '../utils/formatacao';
+import { classeValor, formatarEuros } from '../utils/formatacao';
+
+const formatarData = (iso) => iso.split('-').reverse().join('/');
+
+// As somas de um aviso, sem as que são zero: «12,00 € a sair, 5,00 € a entrar»
+function descreverSomas({ saidas, entradas }) {
+    return [
+        saidas !== 0 && `${formatarEuros(Math.abs(saidas))} a sair`,
+        entradas !== 0 && `${formatarEuros(entradas)} a entrar`,
+    ].filter(Boolean).join(', ');
+}
 
 // O aviso das transações por categorizar, que ficam fora das estatísticas ou
 // da sua divisão. Pedido de novo sempre que `chave` muda
@@ -30,21 +40,83 @@ function AvisoPorCategorizar({ chave, filtroLigado, onMostrar }) {
 
     if (!dados?.total) return null;
 
-    const somas = [
-        dados.saidas !== 0 && `${formatarEuros(Math.abs(dados.saidas))} a sair`,
-        dados.entradas !== 0 && `${formatarEuros(dados.entradas)} a entrar`,
-    ].filter(Boolean);
+    const somas = descreverSomas(dados);
     const quantas = dados.total === 1 ? '1 transação' : `${dados.total} transações`;
 
     return (
         <div className="aviso">
             <Icone nome="aviso" />
             <span className="aviso-texto">
-                {quantas} por categorizar{somas.length > 0 && ` (${somas.join(', ')})`}: ficam fora das
+                {quantas} por categorizar{somas && ` (${somas})`}: ficam fora das
                 estatísticas, ou da sua divisão, até serem categorizadas.
             </span>
             {!filtroLigado && <button className="btn-ghost" onClick={onMostrar}>Mostrar</button>}
         </div>
+    );
+}
+
+// O aviso das transferências sem a outra metade numa conta registada, com a
+// lista num pop-up. Pedido de novo sempre que `chave` muda
+function AvisoTransferenciasSemPar({ chave }) {
+    const [dados, setDados] = useState(null);
+    const [aberto, setAberto] = useState(false);
+
+    useEffect(() => {
+        let ignorar = false;
+        transferenciasSemPar()
+            .then(res => !ignorar && setDados(res.data))
+            .catch(() => !ignorar && setDados(null));
+        return () => { ignorar = true; };
+    }, [chave]);
+
+    if (!dados?.transacoes.length) return null;
+
+    const n = dados.transacoes.length;
+    const somas = descreverSomas(dados);
+
+    return (
+        <>
+            <div className="aviso">
+                <Icone nome="aviso" />
+                <span className="aviso-texto">
+                    {n === 1 ? '1 transferência sem par' : `${n} transferências sem par`} ({somas}): o dinheiro
+                    saiu ou entrou sem passar por outra conta registada, e não conta como despesa nem como receita.
+                </span>
+                <button className="btn-ghost" onClick={() => setAberto(true)}>Ver a lista</button>
+            </div>
+
+            {aberto && (
+                <div className="modal-overlay" onClick={() => setAberto(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <h3>Transferências sem par</h3>
+                        <p>
+                            Uma transferência tem par quando há outra transferência noutra conta, com o valor
+                            simétrico e até {dados.dias_par} dias de diferença.
+                        </p>
+                        <table className="tabela-base">
+                            <tbody>
+                                {dados.transacoes.map(t => (
+                                    <tr key={t.id}>
+                                        <td>{formatarData(t.data)}</td>
+                                        <td>{t.conta_nome ?? '—'}</td>
+                                        <td>{t.descricao}</td>
+                                        <td className={`col-num ${classeValor(t.valor)}`}>{formatarEuros(t.valor)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <p className="modal-descricao">
+                            Para resolver, regista a conta que falta e importa o seu extracto, ou muda a categoria
+                            da transação: por exemplo, para uma despesa, se foi um pagamento a outra pessoa.
+                        </p>
+                        <div className="modal-acoes">
+                            <button className="btn-ghost" onClick={() => setAberto(false)}>Fechar</button>
+                        </div>
+                        <button className="modal-fechar" onClick={() => setAberto(false)} title="Fechar"><Icone nome="fechar" /></button>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 
@@ -264,6 +336,8 @@ export default function Transacoes({ onDadosAlterados }) {
                 // Como o botão dos filtros: o filtro por categorizar mostra todos os anos
                 onMostrar={() => mudarFiltro({ por_categorizar: true, ano: null })}
             />
+
+            <AvisoTransferenciasSemPar chave={chaveAvisos} />
 
             {novaAberta && (
                 <FormNovaTransacao onFechar={() => setNovaAberta(false)} onCriada={aoCriarTransacao} />
