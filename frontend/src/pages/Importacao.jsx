@@ -24,6 +24,7 @@ const CAMPOS_COLUNA = [
     { chave: 'coluna_credito', label: 'Coluna crédito', condicao: (f) => f.modo_valor === 'duas_colunas' },
     { chave: 'coluna_saldo', label: 'Coluna saldo', condicao: (f) => f.tem_saldo },
     { chave: 'coluna_fee', label: 'Coluna fee', condicao: (f) => f.tem_fee },  
+    { chave: 'coluna_imposto', label: 'Coluna imposto', condicao: (f) => f.tem_imposto },
 ]
 
 const PERFIL_VAZIO = {
@@ -42,6 +43,8 @@ const PERFIL_VAZIO = {
     coluna_saldo: null,
     tem_fee: false,      
     coluna_fee: null,    
+    tem_imposto: false,
+    coluna_imposto: null,
     conta_id: null,
 }
 
@@ -99,7 +102,7 @@ export default function Importacao({ onDadosAlterados }) {
     function abrirModalEditar(perfil) {
         const { id, ...dados } = perfil
         setPerfilEmEdicao(id)
-        setForm({ ...PERFIL_VAZIO, ...dados, tem_fee: dados.coluna_fee !== null })
+        setForm({ ...PERFIL_VAZIO, ...dados, tem_fee: dados.coluna_fee !== null, tem_imposto: dados.coluna_imposto !== null })
         setLinhasAnalisadas(null)
         setCampoActivo(null)
         setNumColunas(0)
@@ -166,6 +169,9 @@ export default function Importacao({ onDadosAlterados }) {
         }
         if (form.tem_fee) {
             items.push(itemChecklist('Coluna fee', form.coluna_fee !== null))
+        }
+        if (form.tem_imposto) {
+            items.push(itemChecklist('Coluna imposto', form.coluna_imposto !== null))
         }
         return items
     }
@@ -659,6 +665,15 @@ export default function Importacao({ onDadosAlterados }) {
                                                 if (!e.target.checked) campo('coluna_fee', null)
                                             }} />
                                             O ficheiro tem coluna de fee/comissão
+                                        </label>
+                                    </div>
+                                    <div className="modal-grupo modal-grupo-checkbox">
+                                        <label>
+                                            <input type="checkbox" checked={form.tem_imposto} onChange={e => {
+                                                campo('tem_imposto', e.target.checked)
+                                                if (!e.target.checked) campo('coluna_imposto', null)
+                                            }} />
+                                            O ficheiro tem coluna de imposto
                                         </label>
                                     </div>
                                 </div>
