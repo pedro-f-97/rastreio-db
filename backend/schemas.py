@@ -118,6 +118,7 @@ class PerfilImportacaoBase(BaseModel):
     tem_saldo: bool = False
     coluna_saldo: Optional[int] = None
     coluna_fee: Optional[int] = None
+    coluna_imposto: Optional[int] = None
 
     @model_validator(mode="after")
     def validar_perfil(self):
@@ -129,6 +130,7 @@ class PerfilImportacaoBase(BaseModel):
             "coluna_credito",
             "coluna_saldo",
             "coluna_fee",
+            "coluna_imposto",
         ]:
             v = getattr(self, campo)
             if v is not None and v < 0:

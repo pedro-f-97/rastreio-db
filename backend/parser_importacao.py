@@ -170,6 +170,12 @@ def parse_ficheiro(file_bytes: bytes, perfil) -> dict:
                     # que vier no extracto
                     valor -= abs(_parse_valor(raw_fee, perfil.separador_decimal))
 
+            if perfil.coluna_imposto is not None:
+                raw_imposto = celula(perfil.coluna_imposto)
+                if raw_imposto not in (None, "", "None"):
+                    # Como a comissão, o imposto é sempre pago: entra negativo
+                    valor -= abs(_parse_valor(raw_imposto, perfil.separador_decimal))
+
             saldo = None
             if perfil.tem_saldo and perfil.coluna_saldo is not None:
                 raw_saldo = celula(perfil.coluna_saldo)
