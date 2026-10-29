@@ -191,6 +191,38 @@ def test_criar_perfil_sem_coluna_valor_da_422(client, session):
     assert session.query(PerfilImportacao).count() == 0
 
 
+def test_criar_perfil_grava_a_coluna_de_imposto(client, session):
+    """A coluna de imposto é gravada e devolvida, como a da comissão.
+
+    Cálculo à mão: um `POST` com `coluna_fee` 11 e `coluna_imposto` 12, como no
+    extracto da TR -> 201, e a linha gravada tem 12.
+    """
+    conta = semear_conta(session, "Banco")
+    r = client.post(
+        "/api/perfis-importacao/",
+        json=payload(nome="TR", conta_id=conta.id, coluna_fee=11, coluna_imposto=12),
+    )
+
+    assert r.status_code == 201
+    assert r.json()["coluna_imposto"] == 12
+    assert session.query(PerfilImportacao).one().coluna_imposto == 12
+
+
+def test_criar_perfil_com_coluna_de_imposto_negativa_da_422(client, session):
+    """Uma coluna de imposto negativa é recusada pelo schema, como as outras.
+
+    Cálculo à mão: `coluna_imposto` -1 -> 422, 0 perfis na BD.
+    """
+    conta = semear_conta(session, "Banco")
+    r = client.post(
+        "/api/perfis-importacao/",
+        json=payload(nome="TR", conta_id=conta.id, coluna_imposto=-1),
+    )
+
+    assert r.status_code == 422
+    assert session.query(PerfilImportacao).count() == 0
+
+
 # ---------------------------------------------------------------------------
 # A6..A9 — POST /api/perfis-importacao/analisar-ficheiro
 # ---------------------------------------------------------------------------

@@ -299,6 +299,8 @@ class PerfilImportacao(Base):
     coluna_saldo: Mapped[Optional[int]] = mapped_column()
     coluna_fee: Mapped[Optional[int]] = mapped_column()
     conta_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contas.id"))
+    # Depois de `conta_id`, onde a migração a acrescenta
+    coluna_imposto: Mapped[Optional[int]] = mapped_column()
     conta: Mapped[Optional["Conta"]] = relationship("Conta", back_populates="perfis_importacao")
 
 
@@ -497,6 +499,25 @@ def acrescentar_transacao_manual(caminho: str = DB_PATH) -> bool:
     return True
 
 
+def acrescentar_coluna_imposto(caminho: str = DB_PATH) -> bool:
+    """Acrescenta a coluna `perfis_importacao.coluna_imposto`, se ainda não existir.
+
+    Fica NULL (sem coluna de imposto) nos perfis que já lá estão, que importam
+    como até aqui. Como em `acrescentar_importacao_id`, o `ADD COLUMN` que pode
+    ser NULL não reescreve a tabela, e com a coluna ou sem a tabela não escreve
+    nada. Devolve se a acrescentou.
+    """
+    con = sqlite3.connect(caminho, autocommit=True)
+    try:
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(perfis_importacao)")}
+        if not colunas or "coluna_imposto" in colunas:
+            return False
+        con.execute("ALTER TABLE perfis_importacao ADD COLUMN coluna_imposto INTEGER")
+    finally:
+        con.close()
+    return True
+
+
 # As migrações do schema, por ordem: a posição na lista é a versão a que cada
 # uma leva a BD. A BD guarda em `PRAGMA user_version` a última que já levou, e
 # no arranque e no restauro de um backup correm as que faltam. Uma BD nova é
@@ -514,6 +535,7 @@ MIGRACOES = (
     ("coluna transacoes.importacao_id acrescentada", acrescentar_importacao_id),
     ("coluna subcategorias.classe_despesa acrescentada", acrescentar_classe_despesa),
     ("coluna transacoes.manual acrescentada", acrescentar_transacao_manual),
+    ("coluna perfis_importacao.coluna_imposto acrescentada", acrescentar_coluna_imposto),
 )
 
 

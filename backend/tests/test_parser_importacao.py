@@ -84,6 +84,7 @@ def perfil(**campos):
         "tem_saldo": False,
         "coluna_saldo": None,
         "coluna_fee": None,
+        "coluna_imposto": None,
     }
     valores.update(campos)
     return SimpleNamespace(**valores)
@@ -798,6 +799,74 @@ def test_comissao_numa_entrada_reduz_o_que_entra(tmp_path):
 
     assert [t["valor"] for t in resultado["transacoes"]] == [99.0, 99.0]
     assert resultado["erros"] == []
+
+
+# ---------------------------------------------------------------------------
+# Secção H — o imposto (coluna de imposto), somado como a comissão
+# ---------------------------------------------------------------------------
+
+# Como o extracto do TradeRepublic: valor, comissão e imposto em colunas
+# separadas, com ponto decimal
+CSV_COM_IMPOSTO = (
+    "date,description,amount,fee,tax",
+    "2026-10-15,Buy trade,-1000,-1,-0.04",
+    "2026-10-16,Buy trade,-50,,0.04",
+    "2026-10-17,Interest payment,10,,-2.5",
+    "2026-10-18,Interest payment,4.23,,",
+)
+
+
+def perfil_com_imposto(**campos):
+    valores = {
+        "formato_data": "%Y-%m-%d",
+        "separador_decimal": ".",
+        "coluna_fee": 3,
+        "coluna_imposto": 4,
+    }
+    return perfil(**{**valores, **campos})
+
+
+def test_imposto_soma_a_comissao_e_ao_valor(tmp_path):
+    """O imposto sai como a comissão: entra negativo, venha o sinal que vier.
+
+    Cálculo à mão, linha a linha:
+      -1000 - abs(-1) - abs(-0.04) = -1001.04  (a compra de 15/10 da TR)
+      -50   - abs(0.04)            = -50.04    (imposto positivo também sai)
+      10    - abs(-2.5)            = 7.5       (numa entrada reduz o que entra)
+      4.23, comissão e imposto vazios          = 4.23
+    """
+    caminho = escrever_csv(tmp_path / "imposto.csv", CSV_COM_IMPOSTO)
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil_com_imposto())
+
+    assert [t["valor"] for t in resultado["transacoes"]] == [-1001.04, -50.04, 7.5, 4.23]
+    assert resultado["erros"] == []
+
+
+def test_sem_coluna_de_imposto_o_imposto_e_ignorado(tmp_path):
+    """Um perfil sem coluna de imposto importa como antes: só a comissão.
+
+    Cálculo à mão: -1000 - abs(-1) = -1001; -50 sem comissão = -50;
+    10 e 4.23 ficam iguais.
+    """
+    caminho = escrever_csv(tmp_path / "imposto.csv", CSV_COM_IMPOSTO)
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil_com_imposto(coluna_imposto=None))
+
+    assert [t["valor"] for t in resultado["transacoes"]] == [-1001.0, -50.0, 10.0, 4.23]
+
+
+def test_imposto_invalido_e_erro_da_linha(tmp_path):
+    """Um imposto que não é número é uma linha com erro, como a comissão.
+
+    Cálculo à mão: a linha 2 tem imposto "abc" -> 1 erro, 0 transacções.
+    """
+    caminho = escrever_csv(
+        tmp_path / "imposto.csv",
+        ("date,description,amount,fee,tax", "2026-10-15,Buy trade,-1000,-1,abc"),
+    )
+    resultado = parse_ficheiro(caminho.read_bytes(), perfil_com_imposto())
+
+    assert resultado["transacoes"] == []
+    assert resultado["erros"] == [{"linha": 2, "erro": "valor inválido: 'abc'"}]
 
 
 # ---------------------------------------------------------------------------

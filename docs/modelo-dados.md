@@ -136,6 +136,7 @@ Uma importação que inseriu pelo menos uma transação. Uma importação só co
 | coluna_saldo | int | opcional |
 | coluna_fee | int | opcional |
 | conta_id | int | FK → `contas.id`; obrigatório ao criar e ao editar o perfil, e a importação recusa um perfil que o tenha perdido (a coluna aceita `NULL`, por perfis antigos) |
+| coluna_imposto | int | opcional |
 
 **Relações:** N:1 com `Conta` (`conta`)
 
