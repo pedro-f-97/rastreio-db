@@ -1,7 +1,21 @@
 # Plano: relatório anual para o IRS (mais-valias, dividendos e juros)
 
-Estado: **por aprovar**. Decisões tomadas a 14/11/2026 (secção 4). Os pontos
-da secção 5 confirmam-se antes do passo 6.
+Estado: **passos 1 a 5 executados**. Antes do passo 6 confirmam-se os pontos
+da secção 5. Decisões tomadas a 14/11/2026 (secção 4).
+
+Pequenas decisões tomadas durante a execução:
+
+- As compras antigas têm um endpoint próprio, `POST /patrimonio/compras-antigas`,
+  em vez de uma regra nova no `POST /patrimonio/movimentos`. O endpoint não tem
+  tipo de movimento (cria sempre compras) e recusa campos a mais. O dos
+  movimentos continua a aceitar, pela API, movimentos sem transação, como os
+  testes de caracterização já fixavam; o ecrã só os cria a partir de uma
+  transação.
+- Ao corrigir a data de um movimento, o preço que a compra ou a venda gravou
+  fica na data em que foi gravado.
+- A etiqueta «antiga» só aparece nas compras sem transação.
+- O país do ativo edita-se ao lado do nome, e não do símbolo, onde a coluna é
+  estreita demais para os dois campos.
 
 ## 1. O objectivo
 
