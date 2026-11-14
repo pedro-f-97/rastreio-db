@@ -16,6 +16,8 @@ export const criarMovimento = (payload) => client.post("/patrimonio/movimentos",
 export const registarCompraAntiga = (payload) => client.post("/patrimonio/compras-antigas", payload);
 export const getMovimentos = (ativoId) => client.get(`/patrimonio/ativos/${ativoId}/movimentos`);
 export const eliminarMovimento = (id) => client.delete(`/patrimonio/movimentos/${id}`);
+// A data da operação, quando a da transação é a da liquidação
+export const corrigirDataMovimento = (id, data) => client.patch(`/patrimonio/movimentos/${id}`, { data });
 
 // --- PREÇOS ---
 export const registarPreco = (payload) => client.post("/patrimonio/precos", payload);

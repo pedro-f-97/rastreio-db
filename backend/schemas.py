@@ -241,6 +241,15 @@ class MovimentoAtivoCreate(MovimentoAtivoBase):
     pass
 
 
+class MovimentoDataUpdate(BaseModel):
+    """A data de um movimento, corrigida: a da operação, quando a da transação
+    é a da liquidação. Só a data se muda por aqui."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    data: date
+
+
 class CompraAntigaCreate(BaseModel):
     """Uma compra de antes dos extractos, sem transação. Não tem tipo de
     movimento (é sempre uma compra) e recusa campos a mais, para que uma venda

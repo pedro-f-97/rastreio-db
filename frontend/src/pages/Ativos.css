@@ -101,6 +101,13 @@
     margin-left: var(--space-sm);
 }
 
+/* A data de um movimento e o botão para a corrigir, na mesma linha */
+.edicao-data {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
 /* --- Detalhe de um ativo: movimentos e preços lado a lado --- */
 .linha-movimentos-container td {
     padding: 0;

@@ -203,6 +203,29 @@ def _gravar_movimento(db: Session, ativo: AtivoModel, payload: schemas.Movimento
     return movimento
 
 
+@router.patch("/movimentos/{movimento_id}", response_model=schemas.MovimentoAtivo)
+def corrigir_data_movimento(
+    movimento_id: int, payload: schemas.MovimentoDataUpdate, db: Session = Depends(get_db)
+):
+    """Muda a data de um movimento para a da operação, que o extracto do banco
+    costuma dar dias depois (a da liquidação).
+
+    Como ao apagar, nenhuma venda pode ficar com mais unidades do que as que
+    havia nessa data: se ficar, nada muda. O preço que a compra ou a venda
+    gravou fica na data em que foi gravado.
+    """
+    movimento = db.get(MovimentoAtivoModel, movimento_id)
+    if movimento is None:
+        raise HTTPException(status_code=404, detail="Movimento não encontrado.")
+    if payload.data > date.today():
+        raise HTTPException(status_code=422, detail="A data do movimento não pode ser futura.")
+    movimento.data = payload.data
+    _recusar_sobre_venda(db, movimento.ativo)
+    db.commit()
+    db.refresh(movimento)
+    return movimento
+
+
 @router.delete("/movimentos/{movimento_id}", status_code=204)
 def eliminar_movimento(movimento_id: int, db: Session = Depends(get_db)):
     movimento = db.query(MovimentoAtivoModel).filter(MovimentoAtivoModel.id == movimento_id).first()
