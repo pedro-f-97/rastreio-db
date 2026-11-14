@@ -1,7 +1,8 @@
 # Plano: relatório anual para o IRS (mais-valias, dividendos e juros)
 
-Estado: **passos 1 a 5 executados**. A secção 5 foi pesquisada (5.1); antes
-do passo 6 há decisões novas a tomar por causa do que se encontrou. Decisões tomadas a 14/11/2026 (secção 4).
+Estado: **passos 1 a 5 executados**. A secção 5 foi pesquisada (5.1), e as
+decisões que isso trouxe estão tomadas (4.1, decisões 16 a 19). Faltam os
+passos 6 a 9. Decisões tomadas a 14/11/2026 (secção 4).
 
 Pequenas decisões tomadas durante a execução:
 
@@ -121,15 +122,18 @@ de juros em Categorias.
   ao cêntimo. Os totais somam as linhas já arredondadas, como se declaram.
 - **Invariante, testada:** a soma dos ganhos das linhas de um ativo dá o ganho
   realizado do resumo, a menos dos cêntimos do arredondamento por linha.
-- **Agrupamento.** As linhas agrupam-se por anexo (G se o país do ativo for
-  Portugal, J se não), por país e por classificação. Os criptoativos
-  separam-se também pela detenção, menos de 365 dias ou 365 ou mais (a
-  confirmar, secção 5).
+- **Agrupamento.** As linhas agrupam-se por anexo (G se o país da corretora
+  for Portugal, J se não) e por código: G01, G20, G10 e G90 pela classificação
+  do tipo (decisão 16). Os criptoativos separam-se pela detenção (5.1, ponto
+  3): menos de 365 dias, anexo G, quadro 18A; 365 ou mais, anexo G1, quadro 7.
+- **Os países de cada linha** (decisão 17): o da fonte é o do emitente, e o da
+  contraparte é o da corretora, em códigos numéricos da Tabela X (5.1, ponto
+  1).
 
 ### 3.3 Os dividendos e os juros
 
 - **Dividendos:** os movimentos `dividendo` do ano, por ativo, com a data, o
-  valor recebido e o país do ativo (decisão 6: só o valor recebido).
+  valor recebido e o país do emitente, que é o da fonte (decisões 6 e 17).
 - **Juros:** as transações do ano nas subcategorias marcadas, por conta, com a
   data, o valor recebido e o país da conta (decisão 13: só o valor recebido).
 - **Agrupamento** (decisão 14). Os do estrangeiro agrupam-se por país, para o
@@ -232,8 +236,10 @@ de juros em Categorias.
     corretoras regista-se como dois ativos, cada um com o seu FIFO e o seu
     país. Não muda o código: fica escrito em `docs/decisoes.md`, na página
     Conceitos e na ajuda da janela «Tratar».
+19. **O CSV é para copiar linha a linha para o Portal**, e para conferir.
+    Gerar o XML oficial da declaração fica fora do âmbito.
 
-## 5. A confirmar antes do passo 6
+## 5. A confirmar antes do relatório (passo 7)
 
 São regras da lei e do Modelo 3 que conheço só em termos gerais. Têm de se
 confirmar nas instruções oficiais do ano a declarar (Portal das Finanças), e
@@ -396,15 +402,26 @@ frontend verificam-se no browser (secção 7).
    - Mudar a data de uma venda para antes da compra que consome é recusado da
      mesma forma.
    - Uma data futura é recusada.
-6. `feat`: o `irs_serv.py` e o endpoint `GET /irs/{ano}` (ver os casos em 7).
-7. `feat`: a página IRS e o CSV.
+6. `feat`: as decisões 16 e 17 nos campos fiscais. Corrige-se a migração dos
+   campos fiscais (ainda fora do `main`) em vez de se acrescentar outra:
+   - a classificação passa a Ações, Fundos e ETF, Obrigações, Outros valores
+     mobiliários, Criptoativos e Fora do IRS;
+   - os ativos ganham `pais_emitente`, vazio por omissão (igual ao da
+     corretora);
+   - as páginas Tipos de ativo e Ativos acompanham;
+   - na janela «Tratar», a nota da data passa a dizer que conta o momento da
+     venda e que as corretoras usam a data da operação (5.1, ponto 6), e há uma
+     linha de ajuda sobre um ativo por corretora (decisão 18);
+   - os testes da migração, da API e do primeiro uso acompanham.
+7. `feat`: o `irs_serv.py` e o endpoint `GET /irs/{ano}` (ver os casos em 7).
+8. `feat`: a página IRS e o CSV.
    - **Backend** (`GET /irs/{ano}/csv`):
      - o cabeçalho tem as colunas pela ordem do quadro;
      - os valores levam vírgula decimal e as datas o formato do quadro;
      - um ano sem nada dá um ficheiro só com o cabeçalho;
      - uma tabela desconhecida dá 404.
    - **Frontend:** verificação no browser.
-8. `docs`: o `docs/decisoes.md`, o `docs/modelo-dados.md`, a página Conceitos e
+9. `docs`: o `docs/decisoes.md`, o `docs/modelo-dados.md`, a página Conceitos e
    o README.
 
 ## 7. Testes e verificação
@@ -418,7 +435,7 @@ frontend verificam-se no browser (secção 7).
 - Um comportamento questionável encontrado ao testar fica fixado como está e
   é-te reportado; não se corrige no mesmo passo.
 
-**O relatório do ano (passo 6),** num ficheiro novo `test_api_irs.py`:
+**O relatório do ano (passo 7),** num ficheiro novo `test_api_irs.py`:
 - **As linhas de venda:**
   - uma venda que consome dois lotes de datas diferentes dá duas linhas, com
     os valores brutos e as comissões repartidos pelas unidades;
