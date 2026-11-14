@@ -134,6 +134,7 @@ def test_listar_categorias_devolve_subcategorias(client, session):
                     "nome": "Alimentação",
                     "trata_patrimonio": False,
                     "classe_despesa": None,
+                    "juros_irs": False,
                 }
             ],
         },
@@ -147,6 +148,7 @@ def test_listar_categorias_devolve_subcategorias(client, session):
                     "nome": "Salário",
                     "trata_patrimonio": True,
                     "classe_despesa": None,
+                    "juros_irs": False,
                 }
             ],
         },
@@ -168,7 +170,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
     Cálculo à mão (o corpo de `listar_subcategorias`):
       categoria Casa    -> [Alimentação], serializada como
         {trata_patrimonio: False, nome: "Alimentação", id, categoria_id,
-         classe_despesa: None}
+         classe_despesa: None, juros_irs: False}
       categoria Receita -> [Salário], com trata_patrimonio True
       categoria 9999    -> a `first()` devolve None -> 404
         {"detail": "Categoria não encontrada"}
@@ -186,6 +188,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
             "id": d["sub_alim"].id,
             "categoria_id": d["cat_casa"].id,
             "classe_despesa": None,
+            "juros_irs": False,
         }
     ]
 
@@ -198,6 +201,7 @@ def test_listar_subcategorias_de_categoria_e_404(client, session):
             "id": d["sub_salario"].id,
             "categoria_id": d["cat_receita"].id,
             "classe_despesa": None,
+            "juros_irs": False,
         }
     ]
 
@@ -363,6 +367,7 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
         "id": 3,
         "categoria_id": d["cat_casa"].id,
         "classe_despesa": None,
+        "juros_irs": False,
     }
 
     r2 = client.post(
@@ -377,6 +382,7 @@ def test_criar_subcategoria_default_trata_e_404(client, session):
         "id": 4,
         "categoria_id": d["cat_receita"].id,
         "classe_despesa": None,
+        "juros_irs": False,
     }
 
     r_404 = client.post("/api/categorias/9999/subcategorias", json={"nome": "X"})
@@ -415,6 +421,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
         "id": d["sub_alim"].id,
         "categoria_id": d["cat_casa"].id,
         "classe_despesa": None,
+        "juros_irs": False,
     }
 
     r2 = client.put(
@@ -428,6 +435,7 @@ def test_renomear_subcategoria_mantem_trata_e_404(client, session):
         "id": d["sub_salario"].id,
         "categoria_id": d["cat_receita"].id,
         "classe_despesa": None,
+        "juros_irs": False,
     }
 
     r_404 = client.put(

@@ -39,6 +39,15 @@ def _repetido(nome: str, existentes, excepto_id: int | None = None) -> bool:
     return any(e.id != excepto_id and _chave(e.nome) == chave for e in existentes)
 
 
+def _validar_juros_irs(juros_irs, cat: Categoria) -> None:
+    """Só as subcategorias de categorias de receita podem ser de juros."""
+    if juros_irs and cat.tipo != TipoCategoria.receita:
+        raise HTTPException(
+            status_code=400,
+            detail="Só as subcategorias de categorias de receita podem ser de juros.",
+        )
+
+
 def _validar_classe_despesa(classe, cat: Categoria) -> None:
     """Só as subcategorias de categorias de despesa têm classificação."""
     if classe is not None and cat.tipo != TipoCategoria.despesa:
@@ -62,6 +71,7 @@ def listar_categorias(db: Session = Depends(get_db)):
                     "nome": sub.nome,
                     "trata_patrimonio": sub.trata_patrimonio,
                     "classe_despesa": sub.classe_despesa.value if sub.classe_despesa else None,
+                    "juros_irs": sub.juros_irs,
                 }
                 for sub in cat.subcategorias
             ],
@@ -103,11 +113,13 @@ def criar_subcategoria(
             status_code=409, detail="Já existe uma subcategoria com este nome nesta categoria."
         )
     _validar_classe_despesa(subcategoria.classe_despesa, cat)
+    _validar_juros_irs(subcategoria.juros_irs, cat)
     nova = Subcategoria(
         nome=nome,
         categoria_id=categoria_id,
         trata_patrimonio=subcategoria.trata_patrimonio or False,
         classe_despesa=subcategoria.classe_despesa,
+        juros_irs=subcategoria.juros_irs or False,
     )
     db.add(nova)
     db.commit()
@@ -163,6 +175,10 @@ def renomear_categoria(
     if cat.tipo != TipoCategoria.despesa:
         for sub in cat.subcategorias:
             sub.classe_despesa = None
+    # E fora das receitas não há juros: a marca perde-se da mesma forma
+    if cat.tipo != TipoCategoria.receita:
+        for sub in cat.subcategorias:
+            sub.juros_irs = False
     db.commit()
     db.refresh(cat)
     return cat
@@ -190,6 +206,9 @@ def renomear_subcategoria(
     if "classe_despesa" in subcategoria.model_fields_set:
         _validar_classe_despesa(subcategoria.classe_despesa, sub.categoria)
         sub.classe_despesa = subcategoria.classe_despesa
+    if subcategoria.juros_irs is not None:
+        _validar_juros_irs(subcategoria.juros_irs, sub.categoria)
+        sub.juros_irs = subcategoria.juros_irs
     sub.nome = nome
     if subcategoria.trata_patrimonio is not None:
         sub.trata_patrimonio = subcategoria.trata_patrimonio

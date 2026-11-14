@@ -189,9 +189,9 @@ def criar_bd_com_fk_partida():
         investimento = TipoContabilizacao.investimento.name
         con = sqlite3.connect(caminho, autocommit=True)
         try:
-            con.execute("INSERT INTO tipos_ativo VALUES (1, 'Ações', 1)")
+            con.execute("INSERT INTO tipos_ativo VALUES (1, 'Ações', 1, 'fora')")
             con.executemany(
-                "INSERT INTO ativos VALUES (?, ?, 1, ?, 'EUR', NULL, ?)",
+                "INSERT INTO ativos VALUES (?, ?, 1, ?, 'EUR', NULL, ?, 'PT')",
                 [(3, "Alfa", "ALF", investimento), (7, "Beta", "BET", investimento)],
             )
             con.executemany(

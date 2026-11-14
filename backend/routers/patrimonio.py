@@ -89,6 +89,8 @@ def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depe
     # `null` enviado apaga o símbolo; só um campo omitido fica como estava
     if "simbolo" in payload.model_fields_set:
         ativo.simbolo = payload.simbolo
+    if payload.pais is not None:
+        ativo.pais = payload.pais
     db.commit()
     db.refresh(ativo)
     return ativo

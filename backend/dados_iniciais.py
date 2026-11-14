@@ -2,7 +2,14 @@ from enum import Enum
 
 from sqlalchemy.orm import Session
 
-from database import Categoria, Subcategoria, TipoAtivo, TipoCategoria
+from database import (
+    CLASSIFICACAO_POR_NOME,
+    Categoria,
+    ClassificacaoFiscal,
+    Subcategoria,
+    TipoAtivo,
+    TipoCategoria,
+)
 
 
 class PerfilCategorias(str, Enum):
@@ -14,6 +21,7 @@ CATEGORIAS_MINIMALISTA = {
     "Receita": [
         ("Salário", False),
         ("Venda", False),
+        ("Juros", False),
         ("Outros", False),
     ],
     "Casa": [
@@ -48,6 +56,7 @@ CATEGORIAS_COMPLETO = {
     "Receita": [
         ("Salário", False),
         ("Venda", False),
+        ("Juros", False),
         ("Outros", False),
     ],
     "Casa": [
@@ -137,6 +146,9 @@ TIPOS = {
     "Património": TipoCategoria.despesa,
 }
 
+# As subcategorias que nascem marcadas como juros, para o relatório do IRS
+SUBCATEGORIAS_JUROS = {("Receita", "Juros")}
+
 SEED_TIPOS_ATIVO = [
     ("ETF", True),
     ("Ações", True),
@@ -174,7 +186,10 @@ def semear_dados_iniciais(db: Session, perfil: PerfilCategorias, com_categorias:
                 if nome_sub not in nomes_sub:
                     db.add(
                         Subcategoria(
-                            nome=nome_sub, categoria_id=cat.id, trata_patrimonio=trata_patrimonio
+                            nome=nome_sub,
+                            categoria_id=cat.id,
+                            trata_patrimonio=trata_patrimonio,
+                            juros_irs=(nome_cat, nome_sub) in SUBCATEGORIAS_JUROS,
                         )
                     )
                     nomes_sub.add(nome_sub)
@@ -182,4 +197,10 @@ def semear_dados_iniciais(db: Session, perfil: PerfilCategorias, com_categorias:
     tipos_existentes = {t.nome for t in db.query(TipoAtivo).all()}
     for nome, tem_unidades in SEED_TIPOS_ATIVO:
         if nome not in tipos_existentes:
-            db.add(TipoAtivo(nome=nome, tem_unidades=tem_unidades))
+            db.add(
+                TipoAtivo(
+                    nome=nome,
+                    tem_unidades=tem_unidades,
+                    classificacao_fiscal=CLASSIFICACAO_POR_NOME.get(nome, ClassificacaoFiscal.fora),
+                )
+            )

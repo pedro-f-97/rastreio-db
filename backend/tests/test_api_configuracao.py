@@ -6,7 +6,7 @@ Cobre os três endpoints de `backend/routers/configuracao.py`:
   se não houver linha `Configuracao`);
 * `POST /inicializar` (`:15-48`) — com parâmetros `com_categorias` (True) e
   `perfil` (completo/minimalista). Ao inicializar com `perfil=completo`,
-  semeia **15 categorias** e **53 subcategorias** (constantes lidas de
+  semeia **15 categorias** e **54 subcategorias** (constantes lidas de
   `backend/dados_iniciais.py`) e **9 tipos de ativo**, criando só os que faltam
   pelo nome (`semear_dados_iniciais`);
   devolve `200 {"ok": False, ...}` se já `inicializado`, e `200 {"ok": True,
@@ -30,7 +30,7 @@ from database import Categoria, Configuracao, Subcategoria, TipoAtivo, TipoCateg
 
 # Constantes obtidas por leitura de `dados_iniciais.py` (perfil completo)
 CATEGORIAS_COMPLETO_COUNT = 15
-SUBCATEGORIAS_COMPLETO_COUNT = 53
+SUBCATEGORIAS_COMPLETO_COUNT = 54
 SEED_TIPOS_ATIVO_COUNT = 9
 
 
@@ -154,11 +154,11 @@ def test_inicializar_com_dados_existentes_cria_so_o_que_falta(client, session):
     Semente: categoria Casa com as subcategorias Renda (que está na lista) e
     Jardim (que não está); tipos de ativo ETF (na lista) e Arte (fora dela).
 
-    Cálculo à mão, perfil completo (15 categorias, 53 subcategorias, 9 tipos):
+    Cálculo à mão, perfil completo (15 categorias, 54 subcategorias, 9 tipos):
       categorias:    Casa já existe -> criadas 14 -> total 15, Casa com o mesmo id
       subcategorias: a Casa da lista tem 9; Renda já existe -> criadas 8 na Casa;
-                     as outras 14 categorias trazem 53 - 9 = 44 -> criadas 52;
-                     total = 2 (Renda, Jardim) + 52 = 54; Casa fica com 10
+                     as outras 14 categorias trazem 54 - 9 = 45 -> criadas 53;
+                     total = 2 (Renda, Jardim) + 53 = 55; Casa fica com 10
       tipos:         ETF já existe -> criados 8 -> total 2 + 8 = 10
       configuração:  1 linha, inicializado = True
     """
@@ -183,7 +183,7 @@ def test_inicializar_com_dados_existentes_cria_so_o_que_falta(client, session):
     session.expire_all()
     assert session.query(Categoria).count() == 15
     assert session.query(Categoria).filter_by(nome="Casa").one().id == casa_id
-    assert session.query(Subcategoria).count() == 54
+    assert session.query(Subcategoria).count() == 55
     assert session.query(Subcategoria).filter_by(categoria_id=casa_id).count() == 10
     assert session.query(Subcategoria).filter_by(categoria_id=casa_id, nome="Renda").count() == 1
     assert session.query(TipoAtivo).count() == 10

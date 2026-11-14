@@ -143,12 +143,27 @@ class ClasseDespesa(enum.Enum):
     extraordinaria = "extraordinaria"
 
 
+class ClassificacaoFiscal(enum.Enum):
+    """Como um tipo de ativo entra no relatório do IRS."""
+
+    valores_mobiliarios = "valores_mobiliarios"
+    criptoativos = "criptoativos"
+    fora = "fora"
+
+
 class TipoAtivo(Base):
     __tablename__ = "tipos_ativo"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nome: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     tem_unidades: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Fora do IRS por omissão: um tipo novo só entra no relatório se se escolher
+    classificacao_fiscal: Mapped[ClassificacaoFiscal] = mapped_column(
+        SAEnum(ClassificacaoFiscal),
+        nullable=False,
+        default=ClassificacaoFiscal.fora,
+        server_default=ClassificacaoFiscal.fora.value,
+    )
 
     ativos: Mapped[List["Ativo"]] = relationship("Ativo", back_populates="tipo")
 
@@ -172,6 +187,8 @@ class Conta(Base):
     saldo_referencia: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     data_referencia: Mapped[date] = mapped_column(Date, nullable=False)
     ativa: Mapped[bool] = mapped_column(Boolean, default=True)
+    # O país onde se obtêm os juros da conta, em ISO 3166 (PT, DE…), para o IRS
+    pais: Mapped[str] = mapped_column(String(2), nullable=False, default="PT", server_default="PT")
 
     transacoes: Mapped[List["Transacao"]] = relationship("Transacao", back_populates="conta")
     perfis_importacao: Mapped[List["PerfilImportacao"]] = relationship(
@@ -200,6 +217,11 @@ class Subcategoria(Base):
     categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias.id"), nullable=False)
     # Só nas subcategorias de categorias de despesa; NULL é sem classificação
     classe_despesa: Mapped[Optional[ClasseDespesa]] = mapped_column(SAEnum(ClasseDespesa))
+    # Só nas subcategorias de categorias de receita: as suas transações são juros
+    # no relatório do IRS
+    juros_irs: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     categoria: Mapped["Categoria"] = relationship("Categoria", back_populates="subcategorias")
     transacoes: Mapped[List["Transacao"]] = relationship("Transacao", back_populates="subcategoria")
@@ -316,6 +338,8 @@ class Ativo(Base):
     contabilizacao: Mapped[TipoContabilizacao] = mapped_column(
         SAEnum(TipoContabilizacao), nullable=False
     )
+    # O país onde se obtêm as vendas e os dividendos, em ISO 3166, para o IRS
+    pais: Mapped[str] = mapped_column(String(2), nullable=False, default="PT", server_default="PT")
 
     tipo: Mapped["TipoAtivo"] = relationship("TipoAtivo", back_populates="ativos")
     movimentos: Mapped[List["MovimentoAtivo"]] = relationship(
@@ -518,6 +542,56 @@ def acrescentar_coluna_imposto(caminho: str = DB_PATH) -> bool:
     return True
 
 
+# Os tipos que o primeiro uso cria e que entram no IRS, pelo nome. A migração dos
+# campos fiscais classifica os que já existem com estes nomes
+CLASSIFICACAO_POR_NOME = {
+    "ETF": ClassificacaoFiscal.valores_mobiliarios,
+    "Ações": ClassificacaoFiscal.valores_mobiliarios,
+    "Obrigações": ClassificacaoFiscal.valores_mobiliarios,
+    "Crypto": ClassificacaoFiscal.criptoativos,
+}
+
+
+def acrescentar_campos_fiscais(caminho: str = DB_PATH) -> bool:
+    """Acrescenta os campos do relatório do IRS, os que ainda não existirem:
+    `tipos_ativo.classificacao_fiscal`, `ativos.pais`, `contas.pais` e
+    `subcategorias.juros_irs`.
+
+    Os países ficam PT, nenhuma subcategoria fica marcada como juros, e os tipos
+    ficam fora do IRS, menos os que têm os nomes de `CLASSIFICACAO_POR_NOME`.
+    Essa classificação só se escreve quando a coluna é acrescentada: correr de
+    novo não desfaz o que se escolheu depois. Como em `acrescentar_coluna_imposto`,
+    o `ADD COLUMN` com um valor por omissão não reescreve a tabela, e com as
+    colunas ou sem as tabelas não escreve nada. Devolve se acrescentou alguma.
+    """
+    colunas_novas = (
+        ("tipos_ativo", "classificacao_fiscal", "VARCHAR(19) NOT NULL DEFAULT 'fora'"),
+        ("ativos", "pais", "VARCHAR(2) NOT NULL DEFAULT 'PT'"),
+        ("contas", "pais", "VARCHAR(2) NOT NULL DEFAULT 'PT'"),
+        ("subcategorias", "juros_irs", "BOOLEAN NOT NULL DEFAULT 0"),
+    )
+    mudou = False
+    con = sqlite3.connect(caminho, autocommit=False)
+    try:
+        for tabela, coluna, definicao in colunas_novas:
+            colunas = {linha[1] for linha in con.execute(f"PRAGMA table_info({tabela})")}
+            if not colunas or coluna in colunas:
+                continue
+            con.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}")
+            if coluna == "classificacao_fiscal":
+                for nome, classificacao in CLASSIFICACAO_POR_NOME.items():
+                    con.execute(
+                        "UPDATE tipos_ativo SET classificacao_fiscal = ? WHERE nome = ?",
+                        (classificacao.value, nome),
+                    )
+            mudou = True
+        # As colunas e a classificação gravam-se juntas, ou nenhuma
+        con.commit()
+    finally:
+        con.close()
+    return mudou
+
+
 # As migrações do schema, por ordem: a posição na lista é a versão a que cada
 # uma leva a BD. A BD guarda em `PRAGMA user_version` a última que já levou, e
 # no arranque e no restauro de um backup correm as que faltam. Uma BD nova é
@@ -536,6 +610,7 @@ MIGRACOES = (
     ("coluna subcategorias.classe_despesa acrescentada", acrescentar_classe_despesa),
     ("coluna transacoes.manual acrescentada", acrescentar_transacao_manual),
     ("coluna perfis_importacao.coluna_imposto acrescentada", acrescentar_coluna_imposto),
+    ("campos fiscais do relatório do IRS acrescentados", acrescentar_campos_fiscais),
 )
 
 

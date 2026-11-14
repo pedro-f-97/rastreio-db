@@ -74,14 +74,14 @@ def tres_migracoes(monkeypatch):
     return corridas
 
 
-def test_as_migracoes_verdadeiras_sao_seis():
+def test_as_migracoes_verdadeiras_sao_sete():
     """A ordem das migrações que já saíram não pode mudar.
 
     Cálculo à mão: a 1 é a reparação das chaves para `ativos_old`, a 2 a remoção
     de `transacoes.reembolso`, a 3 a coluna `transacoes.importacao_id`, a 4 a
     coluna `subcategorias.classe_despesa`, a 5 a coluna `transacoes.manual`, a 6
-    a coluna `perfis_importacao.coluna_imposto`. Uma BD na versão 6 já levou as
-    seis.
+    a coluna `perfis_importacao.coluna_imposto`, a 7 os campos fiscais do
+    relatório do IRS. Uma BD na versão 7 já levou as sete.
     """
     assert [funcao for _, funcao in database.MIGRACOES] == [
         database.reparar_fk_ativos,
@@ -90,6 +90,7 @@ def test_as_migracoes_verdadeiras_sao_seis():
         database.acrescentar_classe_despesa,
         database.acrescentar_transacao_manual,
         database.acrescentar_coluna_imposto,
+        database.acrescentar_campos_fiscais,
     ]
 
 
