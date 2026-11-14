@@ -12,6 +12,8 @@ export const editarAtivo = (id, payload) => client.put(`/patrimonio/ativos/${id}
 
 // --- MOVIMENTOS ---
 export const criarMovimento = (payload) => client.post("/patrimonio/movimentos", payload);
+// Uma compra de antes dos extractos, sem transação: entra no ativo, não nas contas
+export const registarCompraAntiga = (payload) => client.post("/patrimonio/compras-antigas", payload);
 export const getMovimentos = (ativoId) => client.get(`/patrimonio/ativos/${ativoId}/movimentos`);
 export const eliminarMovimento = (id) => client.delete(`/patrimonio/movimentos/${id}`);
 

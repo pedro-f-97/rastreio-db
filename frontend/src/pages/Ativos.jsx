@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
+import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarCompraAntiga, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
 import { classeValor, formatarEuros, formatarPercentagem, formatarQuantidade, prefixoSinal } from '../utils/formatacao';
@@ -20,6 +20,8 @@ const estadoModalInicial = {
   quantidade: "",
   comissao: "",
   valorTotal: "",
+  // Só numa compra antiga, que não tem transação de onde tirar a data
+  data: "",
 };
 
 export default function Ativos({ onDadosAlterados }) {
@@ -56,6 +58,12 @@ export default function Ativos({ onDadosAlterados }) {
 
   function abrirModal(transacao) {
     setModal({ ...estadoModalInicial, aberto: true, transacao });
+    setErro("");
+  }
+
+  // A mesma janela, sem transação: uma compra de antes dos extractos
+  function abrirCompraAntiga() {
+    setModal({ ...estadoModalInicial, aberto: true, transacao: null });
     setErro("");
   }
 
@@ -111,6 +119,7 @@ export default function Ativos({ onDadosAlterados }) {
       const precisaContabilizacao = !modal.ativoExistenteId;
 
       if (!tipoAtivo) { setErro("Selecciona o tipo de ativo."); setLoading(false); return; }
+      if (!transacao && !modal.data) { setErro("Data da compra obrigatória."); setLoading(false); return; }
       if (!modal.ativoExistenteId && !nomeAtivo.trim()) { setErro("Nome do ativo obrigatório."); setLoading(false); return; }
       if (comUnidades && (!quantidade || !valorTotal)) { setErro("Quantidade e total pago obrigatórios."); setLoading(false); return; }
       if (!comUnidades && !valorTotal) { setErro("Valor total obrigatório."); setLoading(false); return; }
@@ -146,16 +155,18 @@ export default function Ativos({ onDadosAlterados }) {
         precoUnitarioCalculado = null;
       }
 
-      await criarMovimento({
+      const valores = {
         ativo_id: ativo.id,
-        transacao_id: transacao.id,
-        tipo_movimento: tipoMovimento,
-        data: transacao.data,
         quantidade: comUnidades ? parseFloat(quantidade) : null,
         preco_unitario: precoUnitarioCalculado,
         comissao: comUnidades ? parseFloat(comissao || 0) : null,
         valor_total: valorFinal,
-      });
+      };
+      if (transacao) {
+        await criarMovimento({ ...valores, transacao_id: transacao.id, tipo_movimento: tipoMovimento, data: transacao.data });
+      } else {
+        await registarCompraAntiga({ ...valores, data: modal.data });
+      }
 
       fecharModal();
       await carregarPendentes();
@@ -258,7 +269,11 @@ export default function Ativos({ onDadosAlterados }) {
         secao="03 · Análise"
         titulo="Ativos"
         descricao="Os investimentos e os bens, com o custo, o valor e o resultado. As compras e vendas por tratar ficam em cima."
-      />
+      >
+        <button className="btn-secundario" onClick={abrirCompraAntiga} title="Uma compra de antes do primeiro extracto importado: entra no ativo, mas não nas contas">
+          <Icone nome="mais" /> Registar compra antiga
+        </button>
+      </CabecalhoPagina>
 
       {/* PENDENTES */}
       {pendentes.length > 0 && (
@@ -538,8 +553,17 @@ export default function Ativos({ onDadosAlterados }) {
       {modal.aberto && (
         <div className="modal-overlay" onClick={fecharModal}>
           <div className="modal modal-patrimonio" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-titulo">Tratar pendente</h3>
-            <p className="modal-subtitulo">{modal.transacao.descricao} · {modal.transacao.data} · {formatarEuros(modal.transacao.valor)}</p>
+            {modal.transacao ? (
+              <>
+                <h3 className="modal-titulo">Tratar pendente</h3>
+                <p className="modal-subtitulo">{modal.transacao.descricao} · {modal.transacao.data} · {formatarEuros(modal.transacao.valor)}</p>
+              </>
+            ) : (
+              <>
+                <h3 className="modal-titulo">Registar compra antiga</h3>
+                <p className="modal-subtitulo">Uma compra de antes do primeiro extracto: entra no ativo e no relatório do IRS, mas não mexe nas contas.</p>
+              </>
+            )}
 
             {modal.passo === 1 && (
               <>
@@ -560,6 +584,11 @@ export default function Ativos({ onDadosAlterados }) {
 
             {modal.passo === 2 && (
               <>
+                {!modal.transacao && (
+                  <label className="label">Data da compra
+                    <input className="input" type="date" max={hoje} value={modal.data} onChange={(e) => setModal((m) => ({ ...m, data: e.target.value }))} />
+                  </label>
+                )}
                 {tiposAtivo.find((t) => t.id === modal.tipoAtivo)?.tem_unidades ? (
                   <>
                     {(() => {
@@ -585,13 +614,16 @@ export default function Ativos({ onDadosAlterados }) {
                         </label>
                       </>
                     )}
-                    <label className="label">Tipo de movimento
-                      <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
-                        <option value="compra">Compra</option>
-                        <option value="venda">Venda</option>
-                        <option value="dividendo">Dividendo</option>
-                      </select>
-                    </label>
+                    {/* Uma compra antiga é sempre uma compra */}
+                    {modal.transacao && (
+                      <label className="label">Tipo de movimento
+                        <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
+                          <option value="compra">Compra</option>
+                          <option value="venda">Venda</option>
+                          <option value="dividendo">Dividendo</option>
+                        </select>
+                      </label>
+                    )}
                     <label className="label">Quantidade
                       <input className="input" type="number" value={modal.quantidade} onChange={(e) => setModal((m) => ({ ...m, quantidade: e.target.value }))} />
                     </label>
@@ -622,12 +654,15 @@ export default function Ativos({ onDadosAlterados }) {
                         <input className="input" value={modal.nomeAtivo} onChange={(e) => setModal((m) => ({ ...m, nomeAtivo: e.target.value }))} />
                       </label>
                     )}
-                    <label className="label">Tipo de movimento
-                      <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
-                        <option value="compra">Compra</option>
-                        <option value="venda">Venda</option>
-                      </select>
-                    </label>
+                    {/* Uma compra antiga é sempre uma compra */}
+                    {modal.transacao && (
+                      <label className="label">Tipo de movimento
+                        <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
+                          <option value="compra">Compra</option>
+                          <option value="venda">Venda</option>
+                        </select>
+                      </label>
+                    )}
                     <label className="label">Total da operação (sem comissão) (€)
                       <input className="input" type="number" value={modal.valorTotal} onChange={(e) => setModal((m) => ({ ...m, valorTotal: e.target.value }))} />
                     </label>
@@ -739,7 +774,12 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
         {movimentos.map((m) => (
           <tr key={m.id}>
             <td className="col-mono">{m.data}</td>
-            <td><span className={`chip movimento-${m.tipo_movimento}`}>{m.tipo_movimento}</span></td>
+            <td>
+              <span className={`chip movimento-${m.tipo_movimento}`}>{m.tipo_movimento}</span>
+              {m.transacao_id == null && (
+                <span className="chip chip-pais" title="Compra de antes dos extractos, sem transação">antiga</span>
+              )}
+            </td>
             <td className="col-mono">{formatarQuantidade(m.quantidade)}</td>
             <td className="col-mono">{formatarEuros(m.preco_unitario, 4)}</td>
             <td className="col-mono">{formatarEuros(m.comissao)}</td>

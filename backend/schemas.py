@@ -241,6 +241,22 @@ class MovimentoAtivoCreate(MovimentoAtivoBase):
     pass
 
 
+class CompraAntigaCreate(BaseModel):
+    """Uma compra de antes dos extractos, sem transação. Não tem tipo de
+    movimento (é sempre uma compra) e recusa campos a mais, para que uma venda
+    enviada aqui não passe por compra."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ativo_id: int
+    data: date
+    quantidade: Optional[FiniteFloat] = None
+    preco_unitario: Optional[FiniteFloat] = None
+    comissao: Optional[FiniteFloat] = 0
+    valor_total: FiniteFloat
+    notas: Optional[str] = None
+
+
 class MovimentoAtivo(MovimentoAtivoBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
