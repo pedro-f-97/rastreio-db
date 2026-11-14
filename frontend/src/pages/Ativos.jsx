@@ -34,7 +34,7 @@ export default function Ativos({ onDadosAlterados }) {
   const [loading, setLoading] = useState(false);
   const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '', porTotal: false });
   const [menuAbertoId, setMenuAbertoId] = useState(null);
-  const [editando, setEditando] = useState({}); // { id, nome, simbolo, pais }
+  const [editando, setEditando] = useState({}); // { id, nome, simbolo, pais, paisEmitente }
 
   useEffect(() => {
     carregarPendentes();
@@ -82,7 +82,7 @@ export default function Ativos({ onDadosAlterados }) {
 
   function iniciarEdicao(ativo, e) {
     e.stopPropagation();
-    setEditando({ id: ativo.id, nome: ativo.nome, simbolo: ativo.simbolo || "", pais: ativo.pais });
+    setEditando({ id: ativo.id, nome: ativo.nome, simbolo: ativo.simbolo || "", pais: ativo.pais, paisEmitente: ativo.pais_emitente || "" });
     setMenuAbertoId(null);
   }
 
@@ -101,6 +101,10 @@ export default function Ativos({ onDadosAlterados }) {
         nome: editando.nome.trim(),
         simbolo: editando.simbolo.trim() ? editando.simbolo.trim().toUpperCase() : null,
         pais: editando.pais.trim() || "PT",
+        // Vazio, ou igual ao da corretora, fica sem país do emitente
+        pais_emitente: editando.paisEmitente.trim() && editando.paisEmitente.trim() !== (editando.pais.trim() || "PT")
+          ? editando.paisEmitente.trim()
+          : null,
       });
       setEditando({});
       await recarregar();
@@ -396,9 +400,22 @@ export default function Ativos({ onDadosAlterados }) {
                                   value={editando.pais}
                                   maxLength={2}
                                   placeholder="PT"
-                                  title="O país onde se obtêm as vendas e os dividendos (PT, DE…), para o relatório do IRS"
+                                  title="O país da corretora (PT, DE…): decide entre os anexos G e J do IRS"
                                   onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => setEditando((ed) => ({ ...ed, pais: e.target.value.toUpperCase() }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") confirmarEdicao(e);
+                                    if (e.key === "Escape") cancelarEdicao(e);
+                                  }}
+                                />
+                                <input
+                                  className="input-inline"
+                                  value={editando.paisEmitente}
+                                  maxLength={2}
+                                  placeholder={editando.pais || "PT"}
+                                  title="O país do emitente (IE num ETF irlandês…), o da fonte no IRS. Vazio, é o da corretora"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setEditando((ed) => ({ ...ed, paisEmitente: e.target.value.toUpperCase() }))}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") confirmarEdicao(e);
                                     if (e.key === "Escape") cancelarEdicao(e);
@@ -408,8 +425,10 @@ export default function Ativos({ onDadosAlterados }) {
                             ) : (
                               <>
                                 {ativo.nome}
-                                {ativo.pais !== "PT" && (
-                                  <span className="chip chip-pais" title="O país onde se obtêm as vendas e os dividendos, para o relatório do IRS">{ativo.pais}</span>
+                                {(ativo.pais !== "PT" || ativo.pais_emitente) && (
+                                  <span className="chip chip-pais" title="O país da corretora e, depois do ponto, o do emitente, para o relatório do IRS">
+                                    {ativo.pais}{ativo.pais_emitente ? ` · ${ativo.pais_emitente}` : ""}
+                                  </span>
                                 )}
                                 {ativo.isin && (
                                   <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}><Icone nome="info" tamanho={13} /></span>
@@ -587,7 +606,7 @@ export default function Ativos({ onDadosAlterados }) {
                 <label className="label">{modal.transacao ? "Data da operação" : "Data da compra"}
                   <input className="input" type="date" max={hoje} value={modal.data} onChange={(e) => setModal((m) => ({ ...m, data: e.target.value }))} />
                   {modal.transacao && (
-                    <span className="cartao-nota">A do extracto pode ser a da liquidação, dias depois; para o IRS conta a da operação.</span>
+                    <span className="cartao-nota">A do extracto pode ser a da liquidação, dias depois. No IRS a venda conta no momento da alienação, e os relatórios das corretoras usam a data da operação.</span>
                   )}
                 </label>
                 {tiposAtivo.find((t) => t.id === modal.tipoAtivo)?.tem_unidades ? (
@@ -680,6 +699,8 @@ export default function Ativos({ onDadosAlterados }) {
                       <option value="investimento">Investimento</option>
                       <option value="patrimonio">Bens</option>
                     </select>
+                    {/* O FIFO do IRS conta-se em separado em cada instituição */}
+                    <span className="cartao-nota">Se tens o mesmo título em duas corretoras, regista um ativo por corretora: no IRS, as vendas contam-se em separado em cada uma.</span>
                   </label>
                 )}
                 {erro && <p className="erro">{erro}</p>}

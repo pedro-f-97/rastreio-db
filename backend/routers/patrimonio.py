@@ -92,6 +92,8 @@ def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depe
         ativo.simbolo = payload.simbolo
     if payload.pais is not None:
         ativo.pais = payload.pais
+    if "pais_emitente" in payload.model_fields_set:
+        ativo.pais_emitente = payload.pais_emitente
     db.commit()
     db.refresh(ativo)
     return ativo

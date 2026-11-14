@@ -206,6 +206,7 @@ class AtivoBase(BaseModel):
     notas: Optional[str] = None
     contabilizacao: TipoContabilizacao
     pais: Pais = "PT"
+    pais_emitente: Optional[Pais] = None
 
 
 class AtivoCreate(AtivoBase):
@@ -222,6 +223,8 @@ class AtivoUpdate(BaseModel):
     nome: Optional[str] = None
     simbolo: Optional[str] = None
     pais: Optional[Pais] = None
+    # `null` enviado volta a ser o da corretora; omitido fica como estava
+    pais_emitente: Optional[Pais] = None
 
 
 # --- SCHEMAS DE MOVIMENTO DE ATIVO ---

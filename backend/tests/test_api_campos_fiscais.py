@@ -49,10 +49,15 @@ def test_criar_tipo_guarda_a_classificacao_indicada(client, session):
 
 
 def test_criar_tipo_com_classificacao_desconhecida_e_recusado(client, session):
-    """POST com `acoes`, que não é um valor do enum -> 422, e nada é criado."""
+    """POST com `valores_mobiliarios`, que já não é um valor do enum (partiu-se
+    em quatro) -> 422, e nada é criado."""
     r = client.post(
         "/api/tipos-ativo/",
-        json={"nome": "Ações", "tem_unidades": True, "classificacao_fiscal": "acoes"},
+        json={
+            "nome": "Ações",
+            "tem_unidades": True,
+            "classificacao_fiscal": "valores_mobiliarios",
+        },
     )
 
     assert r.status_code == 422
@@ -61,12 +66,12 @@ def test_criar_tipo_com_classificacao_desconhecida_e_recusado(client, session):
 
 
 def test_editar_tipo_sem_classificacao_mantem_a_que_tinha(client, session):
-    """Um tipo valores_mobiliarios, renomeado sem `classificacao_fiscal`,
-    continua valores_mobiliarios; com `fora`, passa a fora."""
+    """Um tipo de fundos, renomeado sem `classificacao_fiscal`, continua em
+    fundos; com `fora`, passa a fora."""
     tipo = TipoAtivo(
         nome="ETF",
         tem_unidades=True,
-        classificacao_fiscal=ClassificacaoFiscal.valores_mobiliarios,
+        classificacao_fiscal=ClassificacaoFiscal.fundos,
     )
     session.add(tipo)
     session.commit()
@@ -74,7 +79,7 @@ def test_editar_tipo_sem_classificacao_mantem_a_que_tinha(client, session):
 
     r = client.put(f"/api/tipos-ativo/{tipo_id}", json={"nome": "ETFs", "tem_unidades": True})
     assert r.status_code == 200
-    assert r.json()["classificacao_fiscal"] == "valores_mobiliarios"
+    assert r.json()["classificacao_fiscal"] == "fundos"
 
     r = client.put(
         f"/api/tipos-ativo/{tipo_id}",
@@ -146,6 +151,36 @@ def test_editar_ativo_muda_o_pais_e_sem_pais_mantem_o_que_tinha(client, session,
     assert r.status_code == 200
     session.expire_all()
     assert session.get(Ativo, ativo_id).pais == "NL"
+
+
+def test_ativo_sem_pais_do_emitente_fica_vazio_e_com_ele_guarda_maiusculas(
+    client, session, tipo_etf
+):
+    """Sem `pais_emitente` -> null (vale o da corretora); com `ie` -> IE, ao
+    lado de DE na corretora."""
+    assert _criar_ativo(client, tipo_etf).json()["pais_emitente"] is None
+
+    r = _criar_ativo(client, tipo_etf, nome="VWCE", pais="de", pais_emitente="ie")
+
+    assert r.status_code == 200
+    assert (r.json()["pais"], r.json()["pais_emitente"]) == ("DE", "IE")
+
+
+def test_editar_o_pais_do_emitente(client, session, tipo_etf):
+    """PUT com `ie` -> IE; um PUT só com o nome deixa IE; com `null` volta a
+    vazio (o da corretora); com `IRL` -> 422 e fica vazio."""
+    ativo = Ativo(nome="VWCE", tipo_id=tipo_etf, contabilizacao=TipoContabilizacao.investimento)
+    session.add(ativo)
+    session.commit()
+    url = f"/api/patrimonio/ativos/{ativo.id}"
+    ativo_id = ativo.id
+
+    assert client.put(url, json={"pais_emitente": "ie"}).json()["pais_emitente"] == "IE"
+    assert client.put(url, json={"nome": "Vanguard"}).json()["pais_emitente"] == "IE"
+    assert client.put(url, json={"pais_emitente": None}).json()["pais_emitente"] is None
+    assert client.put(url, json={"pais_emitente": "IRL"}).status_code == 422
+    session.expire_all()
+    assert session.get(Ativo, ativo_id).pais_emitente is None
 
 
 # ---------------------------------------------------------------------------
@@ -314,22 +349,20 @@ def test_categoria_que_deixa_de_ser_receita_perde_a_marca(client, session, categ
 
 def test_primeiro_uso_classifica_os_tipos_que_entram_no_irs(client, session):
     """Os 9 tipos iniciais, com a classificação escrita à mão:
-    ETF, Ações e Obrigações valores mobiliários; Crypto criptoativos; os
-    outros (Ouro, Certificados de Aforro, Veículo, Imóvel, Outro) fora."""
+    ETF em fundos (G20), Ações em ações (G01), Obrigações em obrigações (G10),
+    Crypto em criptoativos; os outros (Ouro, Certificados de Aforro, Veículo,
+    Imóvel, Outro) fora."""
     r = client.post("/api/configuracao/inicializar?com_categorias=false")
     assert r.status_code == 200
 
     session.expire_all()
-    vm, cripto, fora = (
-        ClassificacaoFiscal.valores_mobiliarios,
-        ClassificacaoFiscal.criptoativos,
-        ClassificacaoFiscal.fora,
-    )
+    c = ClassificacaoFiscal
+    fora = c.fora
     assert {t.nome: t.classificacao_fiscal for t in session.query(TipoAtivo).all()} == {
-        "ETF": vm,
-        "Ações": vm,
-        "Obrigações": vm,
-        "Crypto": cripto,
+        "ETF": c.fundos,
+        "Ações": c.acoes,
+        "Obrigações": c.obrigacoes,
+        "Crypto": c.criptoativos,
         "Ouro": fora,
         "Certificados de Aforro": fora,
         "Veículo": fora,

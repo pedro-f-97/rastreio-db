@@ -1,11 +1,13 @@
 """Testes de `acrescentar_campos_fiscais`.
 
 Uma BD de antes do relatório do IRS não tem `tipos_ativo.classificacao_fiscal`,
-`ativos.pais`, `contas.pais` nem `subcategorias.juros_irs`. A função
-acrescenta-as no arranque e depois de um restauro: os países ficam PT, nenhuma
-subcategoria fica marcada como juros, e os tipos ficam fora do IRS, menos os
-que têm os nomes que o primeiro uso cria e que entram no relatório (ETF, Ações
-e Obrigações como valores mobiliários, Crypto como criptoativos).
+`ativos.pais`, `ativos.pais_emitente`, `contas.pais` nem
+`subcategorias.juros_irs`. A função acrescenta-as no arranque e depois de um
+restauro: os países das corretoras e das contas ficam PT, o do emitente NULL (o
+mesmo que o da corretora), nenhuma subcategoria fica marcada como juros, e os
+tipos ficam fora do IRS, menos os que têm os nomes que o primeiro uso cria e
+que entram no relatório (ETF em fundos, Ações em ações, Obrigações em
+obrigações, Crypto em criptoativos).
 
 A BD antiga é criada com o DDL da versão anterior, escrito à mão. Todos os
 ficheiros ficam em `tmp_path`; a função recebe o caminho, e nenhum destes
@@ -93,14 +95,14 @@ SUBCATEGORIAS = [
 
 # O que cada linha ganha, pela ordem das colunas acrescentadas no fim
 TIPOS_MIGRADOS = [
-    (2, "ETF", 1, "valores_mobiliarios"),
-    (4, "Ações", 1, "valores_mobiliarios"),
-    (5, "Obrigações", 1, "valores_mobiliarios"),
+    (2, "ETF", 1, "fundos"),
+    (4, "Ações", 1, "acoes"),
+    (5, "Obrigações", 1, "obrigacoes"),
     (8, "Crypto", 1, "criptoativos"),
     (9, "Ouro", 1, "fora"),
     (12, "Arte", 0, "fora"),
 ]
-ATIVOS_MIGRADOS = [linha + ("PT",) for linha in ATIVOS]
+ATIVOS_MIGRADOS = [linha + ("PT", None) for linha in ATIVOS]
 CONTAS_MIGRADAS = [linha + ("PT",) for linha in CONTAS]
 SUBCATEGORIAS_MIGRADAS = [linha + (0,) for linha in SUBCATEGORIAS]
 
@@ -166,9 +168,9 @@ def test_acrescenta_as_colunas_e_preserva_as_linhas(tmp_path):
     """Cada tabela ganha a sua coluna no fim, e as linhas os mesmos IDs e valores.
 
     Cálculo à mão do que cada linha ganha:
-      tipos_ativo:   ETF, Ações e Obrigações -> valores_mobiliarios;
+      tipos_ativo:   ETF -> fundos; Ações -> acoes; Obrigações -> obrigacoes;
                      Crypto -> criptoativos; Ouro e Arte -> fora
-      ativos:        os 2 -> PT
+      ativos:        os 2 -> PT na corretora, NULL no emitente
       contas:        as 2 -> PT
       subcategorias: as 2 -> 0 (sem marca de juros, mesmo a que se chama Juros)
     """
@@ -178,7 +180,7 @@ def test_acrescenta_as_colunas_e_preserva_as_linhas(tmp_path):
     assert acrescentar_campos_fiscais(str(caminho)) is True
 
     assert [c[0] for c in info_colunas(caminho, "tipos_ativo")][-1] == "classificacao_fiscal"
-    assert [c[0] for c in info_colunas(caminho, "ativos")][-1] == "pais"
+    assert [c[0] for c in info_colunas(caminho, "ativos")][-2:] == ["pais", "pais_emitente"]
     assert [c[0] for c in info_colunas(caminho, "contas")][-1] == "pais"
     assert [c[0] for c in info_colunas(caminho, "subcategorias")][-1] == "juros_irs"
     assert linhas(caminho, "tipos_ativo") == TIPOS_MIGRADOS
@@ -192,9 +194,10 @@ def test_as_colunas_migradas_sao_iguais_as_do_modelo(tmp_path):
     omissão que uma BD criada pelo modelo, nas quatro tabelas.
 
     Cálculo à mão das colunas novas:
-      classificacao_fiscal VARCHAR(19), NOT NULL, DEFAULT 'fora'
-        (o nome mais comprido do enum, `valores_mobiliarios`, tem 19 letras)
+      classificacao_fiscal VARCHAR(18), NOT NULL, DEFAULT 'fora'
+        (o nome mais comprido do enum, `outros_mobiliarios`, tem 18 letras)
       pais VARCHAR(2), NOT NULL, DEFAULT 'PT' (nos ativos e nas contas)
+      pais_emitente VARCHAR(2), pode ser NULL, sem valor por omissão
       juros_irs BOOLEAN, NOT NULL, DEFAULT 0
     """
     antiga = tmp_path / "antiga.db"
@@ -206,12 +209,15 @@ def test_as_colunas_migradas_sao_iguais_as_do_modelo(tmp_path):
 
     assert info_colunas(antiga, "tipos_ativo")[-1] == (
         "classificacao_fiscal",
-        "VARCHAR(19)",
+        "VARCHAR(18)",
         1,
         "'fora'",
         0,
     )
-    assert info_colunas(antiga, "ativos")[-1] == ("pais", "VARCHAR(2)", 1, "'PT'", 0)
+    assert info_colunas(antiga, "ativos")[-2:] == [
+        ("pais", "VARCHAR(2)", 1, "'PT'", 0),
+        ("pais_emitente", "VARCHAR(2)", 0, None, 0),
+    ]
     assert info_colunas(antiga, "contas")[-1] == ("pais", "VARCHAR(2)", 1, "'PT'", 0)
     assert info_colunas(antiga, "subcategorias")[-1] == ("juros_irs", "BOOLEAN", 1, "0", 0)
     for tabela in TABELAS:

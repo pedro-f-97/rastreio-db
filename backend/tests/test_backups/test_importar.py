@@ -1415,10 +1415,10 @@ def test_backup_antigo_e_migrado_antes_de_ser_validado(
 def test_backup_de_antes_dos_campos_fiscais_e_migrado(client, bd_em_ficheiro, tmp_path):
     """Um backup sem os campos do relatório do IRS ganha-os ao ser restaurado.
 
-    Cálculo à mão: o backup não tem as 4 colunas e tem os tipos ETF (id 1) e
+    Cálculo à mão: o backup não tem as 5 colunas e tem os tipos ETF (id 1) e
     Ouro (id 2). A 7.ª migração corre no `.tmp` antes da validação: 200, nenhuma
-    coluna em falta, o ETF fica valores_mobiliarios e o Ouro fora (o nome não
-    está na lista dos que entram no IRS), e a BD fica na versão 7.
+    coluna em falta, o ETF fica em fundos e o Ouro fora (o nome não está na
+    lista dos que entram no IRS), e a BD fica na versão 7.
     """
     backup = tmp_path / "antigo.db"
     criar_bd_do_modelo(backup)
@@ -1427,6 +1427,7 @@ def test_backup_de_antes_dos_campos_fiscais_e_migrado(client, bd_em_ficheiro, tm
         for tabela, coluna in (
             ("tipos_ativo", "classificacao_fiscal"),
             ("ativos", "pais"),
+            ("ativos", "pais_emitente"),
             ("contas", "pais"),
             ("subcategorias", "juros_irs"),
         ):
@@ -1446,7 +1447,7 @@ def test_backup_de_antes_dos_campos_fiscais_e_migrado(client, bd_em_ficheiro, tm
         ).fetchall()
     finally:
         con.close()
-    assert tipos == [(1, "ETF", "valores_mobiliarios"), (2, "Ouro", "fora")]
+    assert tipos == [(1, "ETF", "fundos"), (2, "Ouro", "fora")]
     assert _versao_em(bd_em_ficheiro) == 7
 
 

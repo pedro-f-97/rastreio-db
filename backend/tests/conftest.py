@@ -191,7 +191,7 @@ def criar_bd_com_fk_partida():
         try:
             con.execute("INSERT INTO tipos_ativo VALUES (1, 'Ações', 1, 'fora')")
             con.executemany(
-                "INSERT INTO ativos VALUES (?, ?, 1, ?, 'EUR', NULL, ?, 'PT')",
+                "INSERT INTO ativos VALUES (?, ?, 1, ?, 'EUR', NULL, ?, 'PT', NULL)",
                 [(3, "Alfa", "ALF", investimento), (7, "Beta", "BET", investimento)],
             )
             con.executemany(

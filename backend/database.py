@@ -144,9 +144,14 @@ class ClasseDespesa(enum.Enum):
 
 
 class ClassificacaoFiscal(enum.Enum):
-    """Como um tipo de ativo entra no relatório do IRS."""
+    """Como um tipo de ativo entra no relatório do IRS. Os quatro primeiros são
+    valores mobiliários, com o código do quadro das vendas: G01, G20, G10 e
+    G90."""
 
-    valores_mobiliarios = "valores_mobiliarios"
+    acoes = "acoes"
+    fundos = "fundos"
+    obrigacoes = "obrigacoes"
+    outros_mobiliarios = "outros_mobiliarios"
     criptoativos = "criptoativos"
     fora = "fora"
 
@@ -338,8 +343,12 @@ class Ativo(Base):
     contabilizacao: Mapped[TipoContabilizacao] = mapped_column(
         SAEnum(TipoContabilizacao), nullable=False
     )
-    # O país onde se obtêm as vendas e os dividendos, em ISO 3166, para o IRS
+    # O país da corretora, em ISO 3166: decide entre os anexos G e J do IRS e é
+    # o país da contraparte nas vendas
     pais: Mapped[str] = mapped_column(String(2), nullable=False, default="PT", server_default="PT")
+    # O país do emitente, o da fonte nas vendas e nos dividendos; NULL é o
+    # mesmo que o da corretora
+    pais_emitente: Mapped[Optional[str]] = mapped_column(String(2))
 
     tipo: Mapped["TipoAtivo"] = relationship("TipoAtivo", back_populates="ativos")
     movimentos: Mapped[List["MovimentoAtivo"]] = relationship(
@@ -545,19 +554,20 @@ def acrescentar_coluna_imposto(caminho: str = DB_PATH) -> bool:
 # Os tipos que o primeiro uso cria e que entram no IRS, pelo nome. A migração dos
 # campos fiscais classifica os que já existem com estes nomes
 CLASSIFICACAO_POR_NOME = {
-    "ETF": ClassificacaoFiscal.valores_mobiliarios,
-    "Ações": ClassificacaoFiscal.valores_mobiliarios,
-    "Obrigações": ClassificacaoFiscal.valores_mobiliarios,
+    "ETF": ClassificacaoFiscal.fundos,
+    "Ações": ClassificacaoFiscal.acoes,
+    "Obrigações": ClassificacaoFiscal.obrigacoes,
     "Crypto": ClassificacaoFiscal.criptoativos,
 }
 
 
 def acrescentar_campos_fiscais(caminho: str = DB_PATH) -> bool:
     """Acrescenta os campos do relatório do IRS, os que ainda não existirem:
-    `tipos_ativo.classificacao_fiscal`, `ativos.pais`, `contas.pais` e
-    `subcategorias.juros_irs`.
+    `tipos_ativo.classificacao_fiscal`, `ativos.pais`, `ativos.pais_emitente`,
+    `contas.pais` e `subcategorias.juros_irs`.
 
-    Os países ficam PT, nenhuma subcategoria fica marcada como juros, e os tipos
+    Os países das corretoras e das contas ficam PT, o do emitente fica NULL (o
+    mesmo que o da corretora), nenhuma subcategoria fica marcada como juros, e os tipos
     ficam fora do IRS, menos os que têm os nomes de `CLASSIFICACAO_POR_NOME`.
     Essa classificação só se escreve quando a coluna é acrescentada: correr de
     novo não desfaz o que se escolheu depois. Como em `acrescentar_coluna_imposto`,
@@ -565,8 +575,9 @@ def acrescentar_campos_fiscais(caminho: str = DB_PATH) -> bool:
     colunas ou sem as tabelas não escreve nada. Devolve se acrescentou alguma.
     """
     colunas_novas = (
-        ("tipos_ativo", "classificacao_fiscal", "VARCHAR(19) NOT NULL DEFAULT 'fora'"),
+        ("tipos_ativo", "classificacao_fiscal", "VARCHAR(18) NOT NULL DEFAULT 'fora'"),
         ("ativos", "pais", "VARCHAR(2) NOT NULL DEFAULT 'PT'"),
+        ("ativos", "pais_emitente", "VARCHAR(2)"),
         ("contas", "pais", "VARCHAR(2) NOT NULL DEFAULT 'PT'"),
         ("subcategorias", "juros_irs", "BOOLEAN NOT NULL DEFAULT 0"),
     )

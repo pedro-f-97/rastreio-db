@@ -90,10 +90,10 @@
     border-color: var(--accent);
 }
 
-/* Na edição, o nome e o país lado a lado; o país leva só duas letras */
+/* Na edição, o nome e os dois países lado a lado; cada país leva duas letras */
 .edicao-nome-pais {
     display: grid;
-    grid-template-columns: 1fr 3.2em;
+    grid-template-columns: 1fr 3.2em 3.2em;
     gap: var(--space-xs);
 }
 
