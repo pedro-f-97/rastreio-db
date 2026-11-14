@@ -21,18 +21,21 @@ export function apagarCategoria(id) {
 }
 
 // `classeDespesa` só se envia nas categorias de despesa: null é sem
-// classificação, e undefined não a envia
-export function criarSubcategoria(categoriaId, nome, trataPatrimonio = false, classeDespesa = undefined) {
+// classificação, e undefined não a envia. `jurosIrs`, só nas de receita
+export function criarSubcategoria(categoriaId, nome, trataPatrimonio = false, classeDespesa = undefined, jurosIrs = undefined) {
     const payload = { nome, trata_patrimonio: trataPatrimonio };
     if (classeDespesa !== undefined) payload.classe_despesa = classeDespesa;
+    if (jurosIrs !== undefined) payload.juros_irs = jurosIrs;
     return client.post(`/categorias/${categoriaId}/subcategorias`, payload);
 }
 
-// Na edição, `classeDespesa` undefined mantém a classificação, e null tira-a
-export function renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio = null, classeDespesa = undefined) {
+// Na edição, `classeDespesa` undefined mantém a classificação, e null tira-a;
+// `jurosIrs` undefined mantém a marca de juros
+export function renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio = null, classeDespesa = undefined, jurosIrs = undefined) {
     const payload = { nome };
     if (trataPatrimonio !== null) payload.trata_patrimonio = trataPatrimonio;
     if (classeDespesa !== undefined) payload.classe_despesa = classeDespesa;
+    if (jurosIrs !== undefined) payload.juros_irs = jurosIrs;
     return client.put(`/categorias/${categoriaId}/subcategorias/${subcategoriaId}`, payload);
 }
 

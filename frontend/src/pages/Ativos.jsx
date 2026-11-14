@@ -32,7 +32,7 @@ export default function Ativos({ onDadosAlterados }) {
   const [loading, setLoading] = useState(false);
   const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '', porTotal: false });
   const [menuAbertoId, setMenuAbertoId] = useState(null);
-  const [editando, setEditando] = useState({}); // { id, nome, simbolo }
+  const [editando, setEditando] = useState({}); // { id, nome, simbolo, pais }
 
   useEffect(() => {
     carregarPendentes();
@@ -74,7 +74,7 @@ export default function Ativos({ onDadosAlterados }) {
 
   function iniciarEdicao(ativo, e) {
     e.stopPropagation();
-    setEditando({ id: ativo.id, nome: ativo.nome, simbolo: ativo.simbolo || "" });
+    setEditando({ id: ativo.id, nome: ativo.nome, simbolo: ativo.simbolo || "", pais: ativo.pais });
     setMenuAbertoId(null);
   }
 
@@ -92,6 +92,7 @@ export default function Ativos({ onDadosAlterados }) {
       await editarAtivo(editando.id, {
         nome: editando.nome.trim(),
         simbolo: editando.simbolo.trim() ? editando.simbolo.trim().toUpperCase() : null,
+        pais: editando.pais.trim() || "PT",
       });
       setEditando({});
       await recarregar();
@@ -363,20 +364,38 @@ export default function Ativos({ onDadosAlterados }) {
                         >
                           <td>
                             {editando.id === ativo.id ? (
-                              <input
-                                className="input-inline"
-                                autoFocus
-                                value={editando.nome}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => setEditando((ed) => ({ ...ed, nome: e.target.value }))}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") confirmarEdicao(e);
-                                  if (e.key === "Escape") cancelarEdicao(e);
-                                }}
-                              />
+                              <div className="edicao-nome-pais">
+                                <input
+                                  className="input-inline"
+                                  autoFocus
+                                  value={editando.nome}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setEditando((ed) => ({ ...ed, nome: e.target.value }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") confirmarEdicao(e);
+                                    if (e.key === "Escape") cancelarEdicao(e);
+                                  }}
+                                />
+                                <input
+                                  className="input-inline"
+                                  value={editando.pais}
+                                  maxLength={2}
+                                  placeholder="PT"
+                                  title="O país onde se obtêm as vendas e os dividendos (PT, DE…), para o relatório do IRS"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setEditando((ed) => ({ ...ed, pais: e.target.value.toUpperCase() }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") confirmarEdicao(e);
+                                    if (e.key === "Escape") cancelarEdicao(e);
+                                  }}
+                                />
+                              </div>
                             ) : (
                               <>
                                 {ativo.nome}
+                                {ativo.pais !== "PT" && (
+                                  <span className="chip chip-pais" title="O país onde se obtêm as vendas e os dividendos, para o relatório do IRS">{ativo.pais}</span>
+                                )}
                                 {ativo.isin && (
                                   <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}><Icone nome="info" tamanho={13} /></span>
                                 )}

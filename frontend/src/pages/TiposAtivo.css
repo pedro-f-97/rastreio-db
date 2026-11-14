@@ -18,3 +18,12 @@
     background: var(--bg-primary);
     color: var(--type-investimento-text);
 }
+
+/* As etiquetas (unidades, IRS) juntas na linha de baixo do título */
+.item-etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-self: start;
+    min-width: 0;
+}

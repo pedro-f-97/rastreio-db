@@ -90,6 +90,17 @@
     border-color: var(--accent);
 }
 
+/* Na edição, o nome e o país lado a lado; o país leva só duas letras */
+.edicao-nome-pais {
+    display: grid;
+    grid-template-columns: 1fr 3.2em;
+    gap: var(--space-xs);
+}
+
+.chip-pais {
+    margin-left: var(--space-sm);
+}
+
 /* --- Detalhe de um ativo: movimentos e preços lado a lado --- */
 .linha-movimentos-container td {
     padding: 0;

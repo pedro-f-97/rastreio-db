@@ -106,3 +106,10 @@ export const NOMES_CLASSE_DESPESA = {
   evitavel: 'Evitável',
   extraordinaria: 'Extraordinária',
 };
+
+// Como um tipo de ativo entra no relatório do IRS. A chave é o valor da API
+export const NOMES_CLASSIFICACAO_FISCAL = {
+  fora: 'Fora do IRS',
+  valores_mobiliarios: 'Valores mobiliários',
+  criptoativos: 'Criptoativos',
+};
