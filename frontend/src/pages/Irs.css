@@ -1,0 +1,31 @@
+/* Relatório do IRS */
+
+.irs-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.irs-grupo-titulo {
+    font-size: var(--text-md);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+/* A linha dos totais de um quadro, no fim da tabela */
+.irs-tabela tfoot td {
+    padding: 10px var(--space-md);
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border);
+    font-weight: var(--font-weight-medium);
+}
+
+.irs-tabela td.col-num,
+.irs-tabela th.col-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.irs-data {
+    white-space: nowrap;
+}

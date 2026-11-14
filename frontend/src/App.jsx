@@ -22,6 +22,7 @@ import Sobre from './pages/Sobre'
 import TiposAtivo from './pages/TiposAtivo'
 import Icone from './components/Icone'
 import BotaoPanfleto from './components/BotaoPanfleto'
+import Irs from './pages/Irs'
 
 const GRUPOS_NAV = [
   {
@@ -149,12 +150,19 @@ function App() {
                   </div>
                 ))}
 
-                {/* Um grupo à parte, por último: gera um ficheiro, não abre uma página */}
+                {/* Um grupo à parte, por último: o relatório do IRS e o PDF, que gera um ficheiro */}
                 <div className="sidebar-grupo">
                   <div className="sidebar-grupo-titulo">
                     <span className="sidebar-grupo-numero">{String(GRUPOS_NAV.length + 1).padStart(2, '0')}</span>
                     Exportar
                   </div>
+                  <NavLink
+                    to="/irs"
+                    className={({ isActive }) => `sidebar-link${isActive ? ' activo' : ''}`}
+                  >
+                    <Icone nome="ficheiro" tamanho={17} />
+                    <span className="sidebar-link-conteudo">IRS</span>
+                  </NavLink>
                   <BotaoPanfleto />
                 </div>
               </div>
@@ -201,6 +209,7 @@ function App() {
                   <Route path="/sobre" element={<Sobre />} />
                   <Route path="/tipos-ativo" element={<TiposAtivo />} />
                   <Route path="/ativos" element={<Ativos onDadosAlterados={carregarTotaisBadges} />} />
+                  <Route path="/irs" element={<Irs />} />
                 </>
               }
             </Routes>

@@ -393,3 +393,76 @@ def test_conta_so_as_transacoes_do_ano_por_tratar(client, session, novo_ativo, m
 
 def test_ano_fora_dos_limites_da_422(client, session):
     assert client.get("/api/irs/1999").status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# CSV
+# ---------------------------------------------------------------------------
+
+CABECALHO_VENDAS = (
+    "Anexo;Quadro;Ativo;País da fonte;Código;Realização: ano;Realização: mês;"
+    "Realização: dia;Realização: valor;Aquisição: ano;Aquisição: mês;Aquisição: dia;"
+    "Aquisição: valor;Despesas e encargos;Imposto pago no estrangeiro;"
+    "País da contraparte;Dias de detenção;Ganho"
+)
+
+
+def _csv(client, ano, tabela):
+    r = client.get(f"/api/irs/{ano}/csv", params={"tabela": tabela})
+    assert r.status_code == 200
+    return r
+
+
+def test_csv_das_vendas_tem_as_linhas_do_quadro(client, session, novo_ativo, mov):
+    """O exemplo das 18 VWCE (ver `test_exemplo_das_dezoito_vwce`), em CSV.
+
+    Cálculo à mão de cada linha: anexo, quadro, ativo, país da fonte (IE ->
+    372), código, data de realização em ano, mês e dia, valor, data de
+    aquisição em ano, mês e dia, valor, despesas, imposto pago no estrangeiro
+    (vazio), país da contraparte (DE -> 276), dias e ganho, com `;` e vírgula
+    decimal; o ficheiro começa pela marca de ordem dos bytes.
+    """
+    vwce = novo_ativo("VWCE", ClassificacaoFiscal.fundos, pais="DE", pais_emitente="IE")
+    mov(vwce, COMPRA, date(2023, 3, 10), 10, 1000.0, 1.0)
+    mov(vwce, COMPRA, date(2023, 6, 15), 5, 550.0, 1.0)
+    mov(vwce, COMPRA, date(2023, 6, 15), 5, 560.0, 1.0)
+    mov(vwce, VENDA, date(2025, 5, 20), 18, 2340.0, 1.0)
+
+    r = _csv(client, 2025, "vendas")
+
+    assert r.headers["content-type"] == "text/csv; charset=utf-8"
+    assert r.headers["content-disposition"] == 'attachment; filename="irs-2025-vendas.csv"'
+    assert r.text.split("\r\n") == [
+        "﻿" + CABECALHO_VENDAS,
+        "J;9.2A;VWCE;372;G20;2025;5;20;1300,00;2023;3;10;1000,00;1,56;;276;802;298,44",
+        "J;9.2A;VWCE;372;G20;2025;5;20;1040,00;2023;6;15;886,00;2,04;;276;705;151,96",
+        "",
+    ]
+
+
+def test_csv_de_um_ano_sem_nada_tem_so_o_cabecalho(client, session):
+    assert _csv(client, 2025, "vendas").text == "﻿" + CABECALHO_VENDAS + "\r\n"
+    assert _csv(client, 2025, "juros").text == (
+        "﻿Origem;País;Data;Descrição;Conta;Valor recebido\r\n"
+    )
+
+
+def test_csv_dos_dividendos(client, session, novo_ativo, mov):
+    """Um dividendo de 15,50 a 20/03/2025 de um ETF irlandês na Trade Republic:
+    Estrangeiro; 372; 20/03/2025; VHYL; 15,50."""
+    etf = novo_ativo("VHYL", ClassificacaoFiscal.fundos, pais="DE", pais_emitente="IE")
+    mov(etf, COMPRA, date(2024, 1, 10), 10, 600.0)
+    mov(etf, DIVIDENDO, date(2025, 3, 20), None, 15.5)
+
+    assert _csv(client, 2025, "dividendos").text.split("\r\n") == [
+        "﻿Origem;País da fonte;Data;Ativo;Valor recebido",
+        "Estrangeiro;372;20/03/2025;VHYL;15,50",
+        "",
+    ]
+
+
+def test_csv_de_uma_tabela_desconhecida_da_404(client, session):
+    r = client.get("/api/irs/2025/csv", params={"tabela": "imoveis"})
+
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Tabela desconhecida."}

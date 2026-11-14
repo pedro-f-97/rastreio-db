@@ -18,6 +18,8 @@ Finanças (`docs/plano-irs.md`, decisões 9 e 19).
   corretora ou conta portuguesa ficam à parte; os outros agrupam-se pelo país.
 """
 
+import csv
+import io
 from collections import defaultdict
 from decimal import Decimal
 
@@ -323,3 +325,98 @@ def anos_disponiveis(db: Session) -> list[int]:
     )
     anos |= {data.year for (data,) in datas_juros}
     return sorted(anos, reverse=True)
+
+
+# As colunas de cada CSV. Nas vendas, a ordem é a dos quadros nas instruções
+# do Modelo 3 que se encontraram (a confirmar no modelo do ano), com as datas em
+# ano, mês e dia, como os campos do Portal, e o ativo e os dias à parte, para
+# conferir
+COLUNAS_CSV = {
+    "vendas": [
+        "Anexo",
+        "Quadro",
+        "Ativo",
+        "País da fonte",
+        "Código",
+        "Realização: ano",
+        "Realização: mês",
+        "Realização: dia",
+        "Realização: valor",
+        "Aquisição: ano",
+        "Aquisição: mês",
+        "Aquisição: dia",
+        "Aquisição: valor",
+        "Despesas e encargos",
+        "Imposto pago no estrangeiro",
+        "País da contraparte",
+        "Dias de detenção",
+        "Ganho",
+    ],
+    "dividendos": ["Origem", "País da fonte", "Data", "Ativo", "Valor recebido"],
+    "juros": ["Origem", "País", "Data", "Descrição", "Conta", "Valor recebido"],
+}
+
+
+def _euros(valor) -> str:
+    """O valor com duas casas e vírgula decimal, como o Excel português o lê."""
+    return f"{valor:.2f}".replace(".", ",")
+
+
+def _pais_csv(pais: dict | None) -> str:
+    """O código numérico do país, ou as duas letras se não estiver na lista."""
+    if pais is None:
+        return ""
+    return pais["numero"] or pais["codigo"]
+
+
+def _linhas_csv(relatorio: dict, tabela: str) -> list[list[str]]:
+    if tabela == "vendas":
+        return [
+            [
+                g["anexo"],
+                g["quadro"],
+                li["ativo"],
+                _pais_csv(li["pais_fonte"]),
+                li["codigo"] or "",
+                str(li["data_realizacao"].year),
+                str(li["data_realizacao"].month),
+                str(li["data_realizacao"].day),
+                _euros(li["valor_realizacao"]),
+                str(li["data_aquisicao"].year),
+                str(li["data_aquisicao"].month),
+                str(li["data_aquisicao"].day),
+                _euros(li["valor_aquisicao"]),
+                _euros(li["despesas"]),
+                # O imposto retido não se guarda (decisões 6 e 13)
+                "",
+                _pais_csv(li["pais_contraparte"]),
+                str(li["dias"]),
+                _euros(li["ganho"]),
+            ]
+            for g in relatorio["vendas"]
+            for li in g["linhas"]
+        ]
+    linhas = []
+    for g in relatorio[tabela]:
+        origem = "Portugal" if g["portugues"] else "Estrangeiro"
+        for li in g["linhas"]:
+            linha = [
+                origem,
+                _pais_csv(li["pais"]),
+                li["data"].strftime("%d/%m/%Y"),
+                li["descricao"],
+            ]
+            if tabela == "juros":
+                linha.append(li["conta"] or "")
+            linhas.append(linha + [_euros(li["valor"])])
+    return linhas
+
+
+def csv_da_tabela(relatorio: dict, tabela: str) -> str:
+    """Uma tabela do relatório em CSV: separador `;`, vírgula decimal e a marca
+    de ordem dos bytes, para o Excel abrir os acentos e os números como devem."""
+    saida = io.StringIO()
+    escritor = csv.writer(saida, delimiter=";", lineterminator="\r\n")
+    escritor.writerow(COLUNAS_CSV[tabela])
+    escritor.writerows(_linhas_csv(relatorio, tabela))
+    return "﻿" + saida.getvalue()
