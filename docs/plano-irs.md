@@ -1,7 +1,7 @@
 # Plano: relatório anual para o IRS (mais-valias, dividendos e juros)
 
-Estado: **passos 1 a 5 executados**. Antes do passo 6 confirmam-se os pontos
-da secção 5. Decisões tomadas a 14/11/2026 (secção 4).
+Estado: **passos 1 a 5 executados**. A secção 5 foi pesquisada (5.1); antes
+do passo 6 há decisões novas a tomar por causa do que se encontrou. Decisões tomadas a 14/11/2026 (secção 4).
 
 Pequenas decisões tomadas durante a execução:
 
@@ -237,6 +237,82 @@ cada confirmação fica registada neste plano com a fonte.
 6. Que a data de realização é a da operação, e não a da liquidação.
 7. Se o Portal das Finanças aceita importar as linhas de um ficheiro, e em que
    formato.
+
+### 5.1 O que se confirmou (14/11/2026)
+
+Pesquisa nas páginas oficiais (Portal das Finanças e Diário da República). A
+rede desta sessão não deixa abrir os PDFs do Portal, por isso o que segue vem
+dos excertos que a pesquisa devolve dessas páginas, e não da leitura do
+documento inteiro. Os pontos marcados «por confirmar» ficam para o modelo do
+ano, aberto no Portal.
+
+1. **Colunas e códigos — confirmado em parte.**
+   - As vendas de valores mobiliários obtidas no estrangeiro vão para o quadro
+     9.2A do anexo J (artigo 10.º, n.º 1, alínea b), do CIRS).
+   - Os códigos que aparecem nas instruções são: G01 ações, G10 obrigações e
+     outros títulos de dívida, G20 unidades de participação em fundos de
+     investimento, G34 criptoativos que são valores mobiliários, G90 outros
+     valores mobiliários. Um ETF é uma unidade de participação num fundo:
+     G20, e não G01.
+   - As colunas citadas nas instruções de vários anos: país da fonte (código
+     da Tabela X das instruções), código, data e valor de realização, data e
+     valor de aquisição, despesas e encargos (só as necessárias e
+     efectivamente feitas, da compra e da venda), imposto pago no estrangeiro,
+     e país da contraparte (o país de residência de quem comprou).
+   - A Tabela X usa códigos numéricos, como 276 Alemanha, 372 Irlanda e 840
+     EUA, que são os códigos numéricos da ISO 3166. **Por confirmar:** a lista
+     exacta e a ordem das colunas no modelo do ano, e se a Tabela X é igual à
+     ISO 3166 numérica em todos os países.
+   - Juros e dividendos do estrangeiro: quadro 8A do anexo J, com um código
+     por tipo de rendimento (por exemplo E21 para juros à taxa de 28 %).
+     **Por confirmar:** os códigos de juros e de dividendos no modelo do ano.
+   - Fontes: [anexo J](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/modelos_formularios/irs/Documents/Mod_3_anexo_J.pdf),
+     [instruções no Diário da República, 2019](https://files.diariodarepublica.pt/1s/2019/01/01900/0052700562.pdf),
+     [Portaria n.º 72-B/2025/1](https://diariodarepublica.pt/dr/detalhe/portaria/72-b-2025-909384934),
+     [guia fiscal dos produtos financeiros da AT](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/Guias/Documents/Guia_Fiscal_produtos_financeiros.pdf).
+2. **FIFO — confirmado.** Valores mobiliários da mesma natureza e com os mesmos
+   direitos: consideram-se vendidos os adquiridos há mais tempo (artigo 43.º do
+   CIRS, n.º 8, alínea d), na numeração actual), e o mesmo vale para os
+   criptoativos (alínea g)). **Novo:** pelo n.º 7, quando os títulos estão em
+   mais do que uma instituição, o FIFO aplica-se **a cada uma em separado**.
+   Fontes: [artigo 43.º do CIRS](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs43.aspx),
+   [informação vinculativa 25132](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/informacoes_vinculativas/rendimento/cirs/Documents/PIV_25132.pdf).
+3. **Criptoativos — confirmado.**
+   - Detidos menos de 365 dias (e que não são valores mobiliários): anexo G,
+     quadro 18A, à taxa de 28 % ou com englobamento, que é obrigatório se o
+     rendimento colectável, com esse saldo, chegar ao último escalão.
+   - Detidos 365 dias ou mais: os ganhos e as perdas ficam excluídos de
+     tributação, mas declaram-se no anexo G1, quadro 7.
+   - Os criptoativos comprados antes de 01/01/2023 contam o tempo de detenção
+     desde a compra.
+   - Os que são valores mobiliários vão para os quadros dos valores
+     mobiliários (código G34).
+   - **Por confirmar:** se uma plataforma estrangeira muda o anexo; as fontes
+     não oficiais não concordam.
+   - Fontes: [anexo G](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/modelos_formularios/irs/Documents/Mod_3_anexo_G.pdf),
+     [anexo G1](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/modelos_formularios/irs/Documents/Mod_3_anexo_G1.pdf),
+     [folheto da AT sobre criptoativos](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/Folhetos_informativos/Documents/Criptoativos.pdf).
+4. **País no anexo J — não confirmado.** As instruções pedem dois países: o
+   «país da fonte» e o «país da contraparte» (a residência de quem comprou).
+   Guias não oficiais dizem que, num ETF irlandês vendido na Trade Republic, a
+   fonte é a Irlanda (o emitente) e a contraparte a Alemanha; outros usam o
+   país da corretora como fonte. Não encontrei a resposta oficial.
+5. **Juros e dividendos portugueses — confirmado.** Sujeitos a retenção na
+   fonte a título definitivo, à taxa liberatória de 28 % (artigo 71.º do
+   CIRS); o titular pode optar por englobá-los, e então a retenção passa a
+   pagamento por conta. Englobados, os dividendos contam só por 50 % (artigo
+   40.º-A). Fontes: [artigo 71.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs71.aspx),
+   [artigo 22.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs22.aspx).
+6. **Data de realização — confirmado em parte.** O ganho considera-se obtido
+   no momento da alienação (artigo 10.º, n.º 3, do CIRS), e o Supremo Tribunal
+   Administrativo (acórdão n.º 5/2017) aplicou-o aos valores mobiliários. A lei
+   não diz se é a data da ordem ou a da liquidação; os relatórios das
+   corretoras usam a da operação. Fontes: [artigo 10.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs10.aspx),
+   [acórdão n.º 5/2017](https://diariodarepublica.pt/dr/detalhe/acordao-supremo-tribunal-administrativo/5-2017-108165173).
+7. **Importar um ficheiro — não há importação de linhas por CSV.** O Portal
+   lê e entrega a declaração inteira num ficheiro XML (gravar a declaração e
+   voltar a lê-la, ou «Entregar por ficheiro»); há ferramentas de terceiros
+   que geram esse XML. O esquema oficial do XML não apareceu na pesquisa.
 
 ## 6. Passos e commits
 
