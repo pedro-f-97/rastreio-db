@@ -1,8 +1,8 @@
 # Plano: relatório anual para o IRS (mais-valias, dividendos e juros)
 
-Estado: **passos 1 a 5 executados**. A secção 5 foi pesquisada (5.1), e as
-decisões que isso trouxe estão tomadas (4.1, decisões 16 a 19). Faltam os
-passos 6 a 9. Decisões tomadas a 14/11/2026 (secção 4).
+Estado: **executado** (passos 1 a 9). Falta conferir o relatório com os dados
+reais e com o modelo do ano (secção 5.1: a ordem das colunas e a tabela de
+países). Decisões tomadas a 14/11/2026 (secção 4).
 
 Pequenas decisões tomadas durante a execução:
 

@@ -25,6 +25,7 @@ que o sinal gravado não altera nada.
 | `ClasseDespesa` | `essencial`, `evitavel`, `extraordinaria` |
 | `TipoMovimento` | `compra`, `venda`, `dividendo` |
 | `TipoContabilizacao` | `investimento`, `patrimonio` |
+| `ClassificacaoFiscal` | `acoes`, `fundos`, `obrigacoes`, `outros_mobiliarios`, `criptoativos`, `fora` |
 | `ModoValor` | `coluna_unica`, `duas_colunas` |
 | `TipoFicheiro` | `xlsx`, `csv` |
 
@@ -45,6 +46,7 @@ que o sinal gravado não altera nada.
 | saldo_referencia | float | obrigatório, default `0` |
 | data_referencia | date | obrigatório — o `saldo_referencia` é o saldo no fim deste dia: para um dia depois dele somam-se as transacções em ]data_referencia, dia]; para um dia antes, tiram-se as de ]dia, data_referencia]. O saldo de hoje e a evolução usam o mesmo cálculo (`saldo_conta_em`) |
 | ativa | bool | default `True` |
+| pais | str(2) | obrigatório, default `"PT"` — o país da conta em ISO 3166, o dos seus juros no relatório do IRS. Acrescentado pela 7.ª migração (`acrescentar_campos_fiscais`) |
 
 **Relações:** 1:N com `Transacao` (`transacoes`), 1:N com `PerfilImportacao` (`perfis_importacao`)
 
@@ -67,6 +69,7 @@ que o sinal gravado não altera nada.
 | trata_patrimonio | bool | default `False` |
 | categoria_id | int | FK → `categorias.id`, obrigatório |
 | classe_despesa | `ClasseDespesa` | opcional; NULL é sem classificação. Só nas subcategorias de categorias de despesa: a API recusa-a nas outras, e apaga-a quando a categoria deixa de ser de despesa. Acrescentada pela 4.ª migração (`acrescentar_classe_despesa`) |
+| juros_irs | bool | obrigatório, default `False` — as transações da subcategoria são juros no relatório do IRS. Só nas subcategorias de categorias de receita: a API recusa-a nas outras, e tira-a quando a categoria deixa de ser de receita. Acrescentada pela 7.ª migração |
 
 **Relações:** N:1 com `Categoria` (`categoria`), 1:N com `Transacao` (`transacoes`)
 
@@ -149,6 +152,7 @@ Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais 
 | id | int | PK |
 | nome | str(100) | obrigatório, único |
 | tem_unidades | bool | default `False` — `True`: o custo segue FIFO por unidades e o valor é quantidade × último preço ou, sem preço, o custo; `False`: custo acumulado, e o valor actual vem do último preço registado ou, sem preço, é o custo |
+| classificacao_fiscal | `ClassificacaoFiscal` | obrigatório, default `fora` — como os ativos do tipo entram no relatório do IRS; os quatro primeiros valores são valores mobiliários, com os códigos G01, G20, G10 e G90. Acrescentada pela 7.ª migração, que classifica os tipos ETF, Ações, Obrigações e Crypto pelo nome |
 
 **Relações:** 1:N com `Ativo` (`ativos`)
 
@@ -163,6 +167,8 @@ Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais 
 | moeda | str(10) | default `"EUR"` |
 | notas | str(500) | opcional |
 | contabilizacao | `TipoContabilizacao` | obrigatório — determina onde o valor do ativo conta no património: em investimentos (`investimento`) ou em bens (`patrimonio`). O ramo de cálculo (FIFO ou custo acumulado) é decidido por `TipoAtivo.tem_unidades` |
+| pais | str(2) | obrigatório, default `"PT"` — o país da corretora em ISO 3166: decide entre os anexos G e J do IRS e é o país da contraparte. Acrescentado pela 7.ª migração |
+| pais_emitente | str(2) | opcional — o país do emitente, o da fonte nas vendas e nos dividendos; NULL é o mesmo que o da corretora. Acrescentado pela 7.ª migração |
 
 **Relações:** N:1 com `TipoAtivo` (`tipo`), 1:N com `MovimentoAtivo` (`movimentos`), 1:N com `PrecoAtivo` (`precos`)
 
@@ -172,9 +178,9 @@ Tabela (não é enum), editável na página Tipos de Ativo. Os valores iniciais 
 |---|---|---|
 | id | int | PK |
 | ativo_id | int | FK → `ativos.id`, obrigatório |
-| transacao_id | int | FK → `transacoes.id`, opcional |
+| transacao_id | int | FK → `transacoes.id`, opcional — sem transação, é uma compra antiga (`POST /patrimonio/compras-antigas`) |
 | tipo_movimento | `TipoMovimento` | obrigatório |
-| data | date | obrigatório |
+| data | date | obrigatório — a data da operação: por omissão a da transação, e corrige-se com `PATCH /patrimonio/movimentos/{id}` |
 | quantidade | float | opcional |
 | preco_unitario | float | opcional |
 | comissao | float | opcional, default `0` |

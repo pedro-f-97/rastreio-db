@@ -175,6 +175,26 @@ export default function Sobre() {
             </section>
 
             <section className="sobre-seccao" data-numero="07">
+                <h2>IRS</h2>
+                <p>
+                    A página <strong>IRS</strong> mostra, para um ano, as vendas, os dividendos e os juros pelos anexos e
+                    quadros do Modelo 3, para copiar linha a linha para o Portal das Finanças. Não calcula o imposto.
+                </p>
+                <p>
+                    O que entra decide-se no <strong>tipo de ativo</strong>, pela classificação fiscal (ações, fundos e
+                    ETF, obrigações, outros valores mobiliários, criptoativos ou fora do IRS), e cada ativo tem o país
+                    da corretora, que decide entre os anexos G e J, e o do emitente. Os juros são as transações das
+                    subcategorias de receita marcadas como <strong>Juros (IRS)</strong>, com o país da conta.
+                </p>
+                <p>
+                    As vendas contam-se pelo FIFO, em separado em cada corretora: o mesmo título em duas corretoras
+                    regista-se como dois ativos. Uma compra de antes do primeiro extracto regista-se como{' '}
+                    <strong>compra antiga</strong>, e a data de cada movimento é a da operação, que se pode corrigir
+                    quando o extracto traz a da liquidação.
+                </p>
+            </section>
+
+            <section className="sobre-seccao" data-numero="08">
                 <h2>Versão</h2>
                 <p>{import.meta.env.VITE_VERSAO}</p>
             </section>
