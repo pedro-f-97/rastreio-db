@@ -22,6 +22,7 @@ from routers import (
     contas,
     estatisticas,
     importacao,
+    irs,
     patrimonio,
     perfis_importacao,
     regras,
@@ -192,6 +193,7 @@ ROUTERS = (
     patrimonio.router,
     contas.router,
     tipos_ativo.router,
+    irs.router,
 )
 
 for router in ROUTERS:

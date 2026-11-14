@@ -115,6 +115,7 @@ def test_app_de_testes_cobre_os_mesmos_routers_que_o_main():
         contas,
         estatisticas,
         importacao,
+        irs,
         patrimonio,
         perfis_importacao,
         regras,
@@ -134,6 +135,7 @@ def test_app_de_testes_cobre_os_mesmos_routers_que_o_main():
         patrimonio.router,
         contas.router,
         tipos_ativo.router,
+        irs.router,
     ]
 
     # APIRouter não é hashable, por isso comparam-se as rotas já montadas.

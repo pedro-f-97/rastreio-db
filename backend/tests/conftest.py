@@ -99,6 +99,7 @@ from routers import (  # noqa: E402
     contas,
     estatisticas,
     importacao,
+    irs,
     patrimonio,
     perfis_importacao,
     regras,
@@ -118,6 +119,7 @@ ROUTERS = (
     patrimonio.router,
     contas.router,
     tipos_ativo.router,
+    irs.router,
 )
 
 
