@@ -17,6 +17,76 @@ from servicos.dinheiro import arredondar, exato
 TOLERANCIA = Decimal("1e-9")
 
 
+def percorrer_fifo(movimentos) -> dict:
+    """O percurso FIFO de um ativo com unidades: o único sítio onde se consomem
+    os lotes, partilhado pelo resumo, pela evolução e pelo relatório do IRS.
+
+    `movimentos` vem ordenado por (data, id). Pressuposto: `valor_total` já
+    inclui a comissão (confirmado nos dados: valor_total ≈ preco_unitario ×
+    quantidade + comissao). Cada lote guarda o custo total e não o unitário: a
+    divisão só se faz ao consumir, depois de multiplicar, para não perder
+    exatidão.
+
+    Devolve um dict, com os valores em `Decimal`:
+    - `lotes`: os lotes em carteira, cada um com `compra` (o movimento),
+      `quantidade` e `custo`;
+    - `realizado`: o ganho das vendas mais os dividendos;
+    - `vendas`: por venda, `venda` (o movimento), `quantidade` (as unidades
+      que havia para vender), `valor` (a parte do `valor_total` que lhes cabe)
+      e `consumidos`, os pedaços de lotes que a venda levou, cada um com
+      `compra`, `quantidade` e `custo`.
+    """
+    lotes = []
+    vendas = []
+    realizado = Decimal(0)
+
+    for m in movimentos:
+        q = exato(m.quantidade or 0)
+        valor_m = abs(exato(m.valor_total or 0))
+
+        if m.tipo_movimento.value == "compra":
+            if q > 0:
+                lotes.append({"compra": m, "quantidade": q, "custo": valor_m})
+
+        elif m.tipo_movimento.value == "venda":
+            if q <= 0:
+                continue
+
+            por_consumir = q
+            custo_vendido = Decimal(0)
+            consumidos = []
+            while por_consumir > TOLERANCIA and lotes:
+                lote = lotes[0]
+                consumida = min(por_consumir, lote["quantidade"])
+                custo_consumido = lote["custo"] * consumida / lote["quantidade"]
+                consumidos.append(
+                    {"compra": lote["compra"], "quantidade": consumida, "custo": custo_consumido}
+                )
+                custo_vendido += custo_consumido
+                lote["custo"] -= custo_consumido
+                lote["quantidade"] -= consumida
+                por_consumir -= consumida
+                if lote["quantidade"] <= TOLERANCIA:
+                    lotes.pop(0)
+
+            q_efetiva = q - por_consumir
+            valor_efetivo = valor_m * q_efetiva / q if q > 0 else Decimal(0)
+            realizado += valor_efetivo - custo_vendido
+            vendas.append(
+                {
+                    "venda": m,
+                    "quantidade": q_efetiva,
+                    "valor": valor_efetivo,
+                    "consumidos": consumidos,
+                }
+            )
+
+        elif m.tipo_movimento.value == "dividendo":
+            realizado += valor_m
+
+    return {"lotes": lotes, "realizado": realizado, "vendas": vendas}
+
+
 def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
     """Núcleo partilhado por resumo_ativo e pela evolução.
 
@@ -77,44 +147,9 @@ def _resumo_valor_ativo(ativo, movimentos, preco) -> dict:
         }
 
     # --- RAMO COM UNIDADES (FIFO) ---
-    # Pressuposto: valor_total já inclui a comissão (confirmado nos dados:
-    # valor_total ≈ preco_unitario × quantidade + comissao).
-    # Cada lote guarda o custo total e não o unitário: a divisão só se faz ao
-    # consumir, depois de multiplicar, para não perder exatidão.
-    lotes = []
-    realizado = Decimal(0)
-
-    for m in movimentos:
-        q = exato(m.quantidade or 0)
-        valor_m = abs(exato(m.valor_total or 0))
-
-        if m.tipo_movimento.value == "compra":
-            if q > 0:
-                lotes.append({"quantidade": q, "custo": valor_m})
-
-        elif m.tipo_movimento.value == "venda":
-            if q <= 0:
-                continue
-
-            por_consumir = q
-            custo_vendido = Decimal(0)
-            while por_consumir > TOLERANCIA and lotes:
-                lote = lotes[0]
-                consumida = min(por_consumir, lote["quantidade"])
-                custo_consumido = lote["custo"] * consumida / lote["quantidade"]
-                custo_vendido += custo_consumido
-                lote["custo"] -= custo_consumido
-                lote["quantidade"] -= consumida
-                por_consumir -= consumida
-                if lote["quantidade"] <= TOLERANCIA:
-                    lotes.pop(0)
-
-            q_efetiva = q - por_consumir
-            valor_efetivo = valor_m * q_efetiva / q if q > 0 else Decimal(0)
-            realizado += valor_efetivo - custo_vendido
-
-        elif m.tipo_movimento.value == "dividendo":
-            realizado += valor_m
+    fifo = percorrer_fifo(movimentos)
+    lotes = fifo["lotes"]
+    realizado = fifo["realizado"]
 
     quantidade = sum((lote["quantidade"] for lote in lotes), Decimal(0))
     custo_base = sum((lote["custo"] for lote in lotes), Decimal(0))
