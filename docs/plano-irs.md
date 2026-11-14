@@ -221,6 +221,12 @@ de juros em Categorias.
     (decisão 2). A migração dos campos fiscais ainda não está no `main` e é
     corrigida em vez de se acrescentar outra: ETF fica Fundos e ETF, Ações fica
     Ações, Obrigações fica Obrigações, Crypto fica Criptoativos.
+17. **Dois países em cada ativo:** o da corretora (o campo `pais` que já
+    existe), que decide entre o anexo G e o J e é o país da contraparte; e o
+    do emitente (`pais_emitente`, novo), que é o país da fonte nas vendas e nos
+    dividendos. Por omissão, o do emitente é igual ao da corretora. Entra na
+    mesma migração, que ainda não está no `main`. Os juros continuam a usar o
+    país da conta.
 
 ## 5. A confirmar antes do passo 6
 
