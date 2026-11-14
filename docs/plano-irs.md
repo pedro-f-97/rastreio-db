@@ -227,6 +227,11 @@ de juros em Categorias.
     dividendos. Por omissão, o do emitente é igual ao da corretora. Entra na
     mesma migração, que ainda não está no `main`. Os juros continuam a usar o
     país da conta.
+18. **Um ativo por corretora.** O FIFO aplica-se em separado a cada
+    instituição (artigo 43.º, n.º 7, do CIRS); o mesmo título em duas
+    corretoras regista-se como dois ativos, cada um com o seu FIFO e o seu
+    país. Não muda o código: fica escrito em `docs/decisoes.md`, na página
+    Conceitos e na ajuda da janela «Tratar».
 
 ## 5. A confirmar antes do passo 6
 
