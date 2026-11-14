@@ -213,6 +213,15 @@ de juros em Categorias.
     classificação das despesas só existe nas de despesa. Uma marca noutro tipo
     é recusada, e perde-se se a categoria deixar de ser de receita.
 
+### 4.1 Decisões novas, depois da pesquisa (14/11/2026)
+
+16. **A classificação fiscal parte os valores mobiliários em quatro:** Ações
+    (G01), Fundos e ETF (G20), Obrigações (G10) e Outros valores mobiliários
+    (G90), mais Criptoativos e Fora do IRS. Continua no tipo de ativo
+    (decisão 2). A migração dos campos fiscais ainda não está no `main` e é
+    corrigida em vez de se acrescentar outra: ETF fica Fundos e ETF, Ações fica
+    Ações, Obrigações fica Obrigações, Crypto fica Criptoativos.
+
 ## 5. A confirmar antes do passo 6
 
 São regras da lei e do Modelo 3 que conheço só em termos gerais. Têm de se
