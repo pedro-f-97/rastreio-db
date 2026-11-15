@@ -160,7 +160,7 @@ function App() {
                     to="/irs"
                     className={({ isActive }) => `sidebar-link${isActive ? ' activo' : ''}`}
                   >
-                    <Icone nome="ficheiro" tamanho={17} />
+                    <Icone nome="governo" tamanho={17} />
                     <span className="sidebar-link-conteudo">IRS</span>
                   </NavLink>
                   <BotaoPanfleto />
