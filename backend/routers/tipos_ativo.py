@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database import TipoAtivo, get_db
+from database import ClassificacaoFiscal, TipoAtivo, get_db
 from schemas import TipoAtivoCreate
 
 router = APIRouter(prefix="/tipos-ativo", tags=["tipos-ativo"])
@@ -17,7 +17,11 @@ def criar_tipo_ativo(tipo: TipoAtivoCreate, db: Session = Depends(get_db)):
     existente = db.query(TipoAtivo).filter(TipoAtivo.nome == tipo.nome).first()
     if existente:
         raise HTTPException(status_code=409, detail="Já existe um tipo de ativo com este nome.")
-    novo = TipoAtivo(nome=tipo.nome, tem_unidades=tipo.tem_unidades)
+    novo = TipoAtivo(
+        nome=tipo.nome,
+        tem_unidades=tipo.tem_unidades,
+        classificacao_fiscal=tipo.classificacao_fiscal or ClassificacaoFiscal.fora,
+    )
     db.add(novo)
     db.commit()
     db.refresh(novo)
@@ -36,6 +40,8 @@ def renomear_tipo_ativo(tipo_id: int, tipo: TipoAtivoCreate, db: Session = Depen
         raise HTTPException(status_code=409, detail="Já existe um tipo de ativo com este nome.")
     existente.nome = tipo.nome
     existente.tem_unidades = tipo.tem_unidades
+    if tipo.classificacao_fiscal is not None:
+        existente.classificacao_fiscal = tipo.classificacao_fiscal
     db.commit()
     db.refresh(existente)
     return existente

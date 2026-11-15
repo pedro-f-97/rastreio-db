@@ -55,6 +55,7 @@ export default function Contas() {
             nome: editando.nome.trim(),
             saldo_referencia: parseFloat(editando.saldo_referencia) || 0,
             data_referencia: editando.data_referencia,
+            pais: editando.pais.trim() || 'PT',
         });
         setEditando(null);
         carregar();
@@ -150,6 +151,16 @@ export default function Contas() {
                                     />
                                 </div>
                                 <div className="campo-referencia">
+                                    <label>País</label>
+                                    <input
+                                        type="text"
+                                        maxLength={2}
+                                        title="O país do banco, em duas letras (PT, DE…): decide se os juros desta conta vão para o anexo J do IRS"
+                                        value={editando.pais}
+                                        onChange={e => setEditando(p => ({ ...p, pais: e.target.value.toUpperCase() }))}
+                                    />
+                                </div>
+                                <div className="campo-referencia">
                                     <label>Data de referência</label>
                                     <input
                                         type="date"
@@ -170,6 +181,9 @@ export default function Contas() {
                                         <span className="conta-icone"><Icone nome="contas" tamanho={18} /></span>
                                         <span className="conta-nome">{conta.nome}</span>
                                         {!conta.ativa && <span className="badge-inativa">inactiva</span>}
+                                        {conta.pais !== 'PT' && (
+                                            <span className="chip" title="O país do banco, para os juros no relatório do IRS">{conta.pais}</span>
+                                        )}
                                     </div>
                                     <div className="conta-saldo">
                                         <span className="cartao-titulo">Saldo de hoje</span>
@@ -188,6 +202,7 @@ export default function Contas() {
                                                 nome: conta.nome,
                                                 saldo_referencia: conta.saldo_referencia,
                                                 data_referencia: conta.data_referencia,
+                                                pais: conta.pais,
                                             })} title="Editar a conta"><Icone nome="editar" /></button>
                                             <button className="perigo" onClick={() => aoApagarOuDesativar(conta.id)} title="Apagar ou desactivar a conta"><Icone nome="apagar" /></button>
                                         </>

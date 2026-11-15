@@ -25,6 +25,7 @@ Aplicação local para gerir e analisar extractos bancários, sem serviços exte
 - Ativos: investimentos e bens, com compras, vendas (FIFO) e preços
 - Património: liquidez, investimentos e bens ao longo do tempo, e quanto cresce por mês
 - Retrato em PDF: uma página com os hábitos dos últimos 12 meses e a projeção do património a 2, 5 e 10 anos
+- IRS: as vendas, os dividendos e os juros de um ano, pelos anexos e quadros do Modelo 3, com um CSV para copiar para o Portal das Finanças
 
 ### Geral
 - Categorias, subcategorias, regras, contas e tipos de ativo configuráveis

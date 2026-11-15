@@ -14,7 +14,7 @@ import sqlite3
 
 from sqlalchemy import create_engine
 
-from database import Base, acrescentar_classe_despesa
+from database import Base, acrescentar_campos_fiscais, acrescentar_classe_despesa
 
 # O DDL de `subcategorias` antes da classificação, sem `classe_despesa`
 DDL_ANTIGO = """CREATE TABLE subcategorias (
@@ -100,6 +100,9 @@ def test_a_coluna_migrada_e_igual_a_do_modelo(tmp_path):
     criada pelo modelo: `classe_despesa VARCHAR(14)`, que pode ser NULL.
 
     Cálculo à mão: o nome mais comprido do enum, `extraordinaria`, tem 14 letras.
+    O modelo tem depois `juros_irs`, que vem de uma migração seguinte
+    (`acrescentar_campos_fiscais`): corre-se também, para comparar a tabela
+    inteira.
     """
     antiga = tmp_path / "antiga.db"
     nova = tmp_path / "nova.db"
@@ -109,6 +112,7 @@ def test_a_coluna_migrada_e_igual_a_do_modelo(tmp_path):
     acrescentar_classe_despesa(str(antiga))
 
     assert info_colunas(antiga)[-1] == ("classe_despesa", "VARCHAR(14)", 0, None, 0)
+    acrescentar_campos_fiscais(str(antiga))
     assert info_colunas(antiga) == info_colunas(nova)
 
 

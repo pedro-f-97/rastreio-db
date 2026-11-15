@@ -29,6 +29,16 @@ function SelectClasse({ valor, onChange }) {
     );
 }
 
+// A marca de juros: as transações da subcategoria contam como juros no IRS
+function CaixaJuros({ valor, onChange }) {
+    return (
+        <label className="caixa-marcar" title="As transações desta subcategoria contam como juros no relatório do IRS">
+            <input type="checkbox" checked={!!valor} onChange={e => onChange(e.target.checked)} />
+            Juros (IRS)
+        </label>
+    );
+}
+
 export default function Categorias() {
     const [categorias, setCategorias] = useState([]);
     const [novaCategoria, setNovaCategoria] = useState({ nome: '', tipo: 'despesa' });
@@ -80,21 +90,21 @@ export default function Categorias() {
         carregar();
     }
 
-    async function aoAdicionarSubcategoria(categoriaId, nome, trataPatrimonio = false, classeDespesa = undefined) {
+    async function aoAdicionarSubcategoria(categoriaId, nome, trataPatrimonio = false, classeDespesa = undefined, jurosIrs = undefined) {
         if (!nome.trim()) return;
         setErro('');
         try {
-            await criarSubcategoria(categoriaId, nome.trim(), trataPatrimonio, classeDespesa);
+            await criarSubcategoria(categoriaId, nome.trim(), trataPatrimonio, classeDespesa, jurosIrs);
             carregar();
         } catch (e) {
             setErro(e.response?.data?.detail || 'Erro ao criar subcategoria.');
         }
     }
 
-    async function aoRenomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio, classeDespesa) {
+    async function aoRenomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio, classeDespesa, jurosIrs) {
         setErro('');
         try {
-            await renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio, classeDespesa);
+            await renomearSubcategoria(categoriaId, subcategoriaId, nome, trataPatrimonio, classeDespesa, jurosIrs);
             setEditando({});
             carregar();
         } catch (e) {
@@ -169,14 +179,18 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
     const [novaSub, setNovaSub] = useState('');
     const [novaSubPatrimonio, setNovaSubPatrimonio] = useState(false);
     const [novaSubClasse, setNovaSubClasse] = useState(null);
+    const [novaSubJuros, setNovaSubJuros] = useState(false);
     const eDespesa = cat.tipo === 'despesa';
+    // A marca de juros só existe nas subcategorias de receita
+    const eReceita = cat.tipo === 'receita';
 
     function submeterNovaSub() {
         if (!novaSub.trim()) return;
-        onAdicionarSub(cat.id, novaSub, novaSubPatrimonio, eDespesa ? novaSubClasse : undefined);
+        onAdicionarSub(cat.id, novaSub, novaSubPatrimonio, eDespesa ? novaSubClasse : undefined, eReceita ? novaSubJuros : undefined);
         setNovaSub('');
         setNovaSubPatrimonio(false);
         setNovaSubClasse(null);
+        setNovaSubJuros(false);
         setACriarSub(false);
     }
 
@@ -185,10 +199,11 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
         setNovaSub('');
         setNovaSubPatrimonio(false);
         setNovaSubClasse(null);
+        setNovaSubJuros(false);
     }
 
     function confirmarSub(sub) {
-        onRenomearSub(cat.id, sub.id, editando.valor, editando.trataPatrimonio, eDespesa ? editando.classeDespesa : undefined);
+        onRenomearSub(cat.id, sub.id, editando.valor, editando.trataPatrimonio, eDespesa ? editando.classeDespesa : undefined, eReceita ? editando.jurosIrs : undefined);
     }
     const estaAEditar = editando.tipoEdicao === 'categoria' && editando.id === cat.id;
 
@@ -264,6 +279,12 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                             onChange={v => setEditando(prev => ({ ...prev, classeDespesa: v }))}
                                         />
                                     )}
+                                    {eReceita && (
+                                        <CaixaJuros
+                                            valor={editando.jurosIrs}
+                                            onChange={v => setEditando(prev => ({ ...prev, jurosIrs: v }))}
+                                        />
+                                    )}
                                     <button className="btn-confirmar" onClick={() => confirmarSub(sub)} title="Guardar"><Icone nome="confirmar" /></button>
                                     <button className="btn-cancelar" onClick={() => setEditando({})} title="Cancelar"><Icone nome="fechar" /></button>
                                 </>
@@ -278,11 +299,14 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                                             {NOMES_CLASSE_DESPESA[sub.classe_despesa]}
                                         </span>
                                     )}
+                                    {eReceita && sub.juros_irs && (
+                                        <span className="chip" title="As transações desta subcategoria contam como juros no relatório do IRS">Juros (IRS)</span>
+                                    )}
                                 </span>
                             )}
                             {!estaAEditarSub && (
                                 <div className="accoes">
-                                    <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio, classeDespesa: sub.classe_despesa })} title="Editar a subcategoria"><Icone nome="editar" tamanho={14} /></button>
+                                    <button onClick={() => setEditando({ tipo: 'subcategoria', id: sub.id, categoriaId: cat.id, valor: sub.nome, trataPatrimonio: sub.trata_patrimonio, classeDespesa: sub.classe_despesa, jurosIrs: sub.juros_irs })} title="Editar a subcategoria"><Icone nome="editar" tamanho={14} /></button>
                                     <button className="perigo" onClick={() => onApagarSub(cat.id, sub.id)} title="Apagar a subcategoria"><Icone nome="apagar" tamanho={14} /></button>
                                 </div>
                             )}
@@ -312,6 +336,7 @@ function CategoriaItem({ cat, editando, setEditando, onRenomear, onApagar, onAdi
                             Património
                         </label>
                         {eDespesa && <SelectClasse valor={novaSubClasse} onChange={setNovaSubClasse} />}
+                        {eReceita && <CaixaJuros valor={novaSubJuros} onChange={setNovaSubJuros} />}
                         <button className="btn-confirmar" onClick={submeterNovaSub} title="Criar"><Icone nome="confirmar" /></button>
                         <button className="btn-cancelar" onClick={cancelarNovaSub} title="Cancelar"><Icone nome="fechar" /></button>
                     </div>

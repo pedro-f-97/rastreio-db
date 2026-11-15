@@ -109,6 +109,7 @@ def test_criar_conta_e_rejeitar_duplicado(client, session):
         "saldo_referencia": 100.0,
         "data_referencia": "2025-01-01",
         "ativa": True,
+        "pais": "PT",
     }
     assert session.query(Conta).count() == 1
 
@@ -150,6 +151,7 @@ def test_atualizar_conta_parcialmente_e_404_se_nao_existir(client, session):
         "saldo_referencia": 900.0,
         "data_referencia": "2025-02-01",
         "ativa": True,
+        "pais": "PT",
     }
 
     r_404 = client.put("/api/contas/9999", json={"saldo_referencia": 1.0})

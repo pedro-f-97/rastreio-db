@@ -49,8 +49,9 @@ def test_listar_tipos_ativo_ordenados_por_nome(client, session):
 
     Cálculo à mão (o `order_by(TipoAtivo.nome)` de `listar_tipos_ativo`):
     "ETF" < "Imóvel" na ordem de bytes, por isso ETF vem primeiro. Esperado:
-      [ {id: etf.id, nome: ETF,    tem_unidades: True},
-        {id: imovel.id, nome: Imóvel, tem_unidades: False} ]
+      [ {id: etf.id, nome: ETF,    tem_unidades: True,  classificacao_fiscal: fora},
+        {id: imovel.id, nome: Imóvel, tem_unidades: False, classificacao_fiscal: fora} ]
+    (os tipos semeados aqui não indicam a classificação: ficam fora do IRS)
 
     Estado final da BD: 2 tipos de ativo; sem ativos.
     """
@@ -60,8 +61,13 @@ def test_listar_tipos_ativo_ordenados_por_nome(client, session):
 
     assert r.status_code == 200
     assert r.json() == [
-        {"id": etf.id, "nome": "ETF", "tem_unidades": True},
-        {"id": imovel.id, "nome": "Imóvel", "tem_unidades": False},
+        {"id": etf.id, "nome": "ETF", "tem_unidades": True, "classificacao_fiscal": "fora"},
+        {
+            "id": imovel.id,
+            "nome": "Imóvel",
+            "tem_unidades": False,
+            "classificacao_fiscal": "fora",
+        },
     ]
     assert session.query(TipoAtivo).count() == 2
 
@@ -77,7 +83,8 @@ def test_criar_tipo_ativo_e_duplicado_da_409(client, session):
     Cálculo à mão (a pré-checagem de `criar_tipo_ativo`): compara
     `TipoAtivo.nome`; "Crypto" não existe, cria (id 3, porque ETF=1 e Imóvel=2);
     "ETF" já existe, a pré-checagem responde `409` e nada é escrito. Esperado:
-      POST Crypto -> 200 {id: 3, nome: "Crypto", tem_unidades: True}
+      POST Crypto -> 200 {id: 3, nome: "Crypto", tem_unidades: True,
+                          classificacao_fiscal: "fora"} (não foi indicada)
       POST ETF    -> 409 {"detail": "Já existe um tipo de ativo com este nome."}
 
     Estado final da BD: 3 tipos (os 2 semeados + Crypto).
@@ -86,7 +93,12 @@ def test_criar_tipo_ativo_e_duplicado_da_409(client, session):
 
     r = client.post("/api/tipos-ativo/", json={"nome": "Crypto", "tem_unidades": True})
     assert r.status_code == 200
-    assert r.json() == {"id": 3, "nome": "Crypto", "tem_unidades": True}
+    assert r.json() == {
+        "id": 3,
+        "nome": "Crypto",
+        "tem_unidades": True,
+        "classificacao_fiscal": "fora",
+    }
 
     r_dup = client.post("/api/tipos-ativo/", json={"nome": "ETF"})
     assert r_dup.status_code == 409
@@ -118,7 +130,12 @@ def test_renomear_tipo_ativo_e_404(client, session):
         f"/api/tipos-ativo/{imovel.id}", json={"nome": "Imobiliário", "tem_unidades": True}
     )
     assert r.status_code == 200
-    assert r.json() == {"id": imovel.id, "nome": "Imobiliário", "tem_unidades": True}
+    assert r.json() == {
+        "id": imovel.id,
+        "nome": "Imobiliário",
+        "tem_unidades": True,
+        "classificacao_fiscal": "fora",
+    }
 
     r_404 = client.put("/api/tipos-ativo/9999", json={"nome": "X", "tem_unidades": False})
     assert r_404.status_code == 404
@@ -178,7 +195,12 @@ def test_renomear_tipo_ativo_mantendo_o_proprio_nome_e_200(client, session):
     r = client.put(f"/api/tipos-ativo/{etf.id}", json={"nome": "ETF", "tem_unidades": True})
 
     assert r.status_code == 200
-    assert r.json() == {"id": etf.id, "nome": "ETF", "tem_unidades": True}
+    assert r.json() == {
+        "id": etf.id,
+        "nome": "ETF",
+        "tem_unidades": True,
+        "classificacao_fiscal": "fora",
+    }
 
     session.expire_all()
     assert session.query(TipoAtivo).count() == 2

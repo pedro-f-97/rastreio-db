@@ -1350,7 +1350,7 @@ def test_arranque_repara_o_schema_partido(bd_em_ficheiro, criar_bd_com_fk_partid
 
     for tabela in ("precos_ativo", "movimentos_ativo"):
         assert "ativos_old" not in _ddl_em(bd_em_ficheiro, tabela)
-    assert _versao_em(bd_em_ficheiro) == 6
+    assert _versao_em(bd_em_ficheiro) == 7
 
 
 # ---------------------------------------------------------------------------
@@ -1393,8 +1393,8 @@ def test_backup_antigo_e_migrado_antes_de_ser_validado(
     """Um backup sem uma coluna que uma migração acrescenta é aceite.
 
     Cálculo à mão: o backup está na versão 0 e não tem `coluna_fee`. Com uma
-    7.ª migração que a acrescenta, a migração corre no `.tmp` antes da
-    validação, que passa: 200, a coluna existe e a BD fica na versão 7. Sem a
+    8.ª migração que a acrescenta, a migração corre no `.tmp` antes da
+    validação, que passa: 200, a coluna existe e a BD fica na versão 8. Sem a
     migração, o mesmo ficheiro é recusado
     (`test_coluna_em_falta_numa_so_tabela_e_rejeitado`).
     """
@@ -1409,11 +1409,50 @@ def test_backup_antigo_e_migrado_antes_de_ser_validado(
 
     assert resposta.status_code == 200
     assert colunas_em_falta(str(bd_em_ficheiro)) == []
+    assert _versao_em(bd_em_ficheiro) == 8
+
+
+def test_backup_de_antes_dos_campos_fiscais_e_migrado(client, bd_em_ficheiro, tmp_path):
+    """Um backup sem os campos do relatório do IRS ganha-os ao ser restaurado.
+
+    Cálculo à mão: o backup não tem as 5 colunas e tem os tipos ETF (id 1) e
+    Ouro (id 2). A 7.ª migração corre no `.tmp` antes da validação: 200, nenhuma
+    coluna em falta, o ETF fica em fundos e o Ouro fora (o nome não está na
+    lista dos que entram no IRS), e a BD fica na versão 7.
+    """
+    backup = tmp_path / "antigo.db"
+    criar_bd_do_modelo(backup)
+    con = sqlite3.connect(backup, autocommit=True)
+    try:
+        for tabela, coluna in (
+            ("tipos_ativo", "classificacao_fiscal"),
+            ("ativos", "pais"),
+            ("ativos", "pais_emitente"),
+            ("contas", "pais"),
+            ("subcategorias", "juros_irs"),
+        ):
+            con.execute(f"ALTER TABLE {tabela} DROP COLUMN {coluna}")
+        con.execute("INSERT INTO tipos_ativo VALUES (1, 'ETF', 1), (2, 'Ouro', 1)")
+    finally:
+        con.close()
+
+    resposta = importar(client, backup.read_bytes())
+
+    assert resposta.status_code == 200
+    assert colunas_em_falta(str(bd_em_ficheiro)) == []
+    con = sqlite3.connect(bd_em_ficheiro)
+    try:
+        tipos = con.execute(
+            "SELECT id, nome, classificacao_fiscal FROM tipos_ativo ORDER BY id"
+        ).fetchall()
+    finally:
+        con.close()
+    assert tipos == [(1, "ETF", "fundos"), (2, "Ouro", "fora")]
     assert _versao_em(bd_em_ficheiro) == 7
 
 
 def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_path):
-    """Cálculo à mão: um backup na versão 0, com as 6 migrações, fica na 6."""
+    """Cálculo à mão: um backup na versão 0, com as 7 migrações, fica na 7."""
     backup = tmp_path / "antigo.db"
     criar_bd_do_modelo(backup)
     assert _versao_em(backup) == 0
@@ -1421,7 +1460,7 @@ def test_backup_restaurado_fica_na_ultima_versao(client, bd_em_ficheiro, tmp_pat
     resposta = importar(client, backup.read_bytes())
 
     assert resposta.status_code == 200
-    assert _versao_em(bd_em_ficheiro) == 6
+    assert _versao_em(bd_em_ficheiro) == 7
 
 
 def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, monkeypatch):
@@ -1447,7 +1486,7 @@ def test_arranque_com_bd_nova_fica_na_ultima_versao_sem_migrar(bd_em_ficheiro, m
 
 
 def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
-    """Cálculo à mão: uma BD na versão 0 com a 7.ª migração falsa corre-a, e fica na 7."""
+    """Cálculo à mão: uma BD na versão 0 com a 8.ª migração falsa corre-a, e fica na 8."""
     monkeypatch.setattr(
         database, "MIGRACOES", database.MIGRACOES + (("coluna_fee", _acrescentar_coluna_fee),)
     )
@@ -1457,7 +1496,7 @@ def test_arranque_com_bd_antiga_corre_as_migracoes(bd_em_ficheiro, monkeypatch):
     database.criar_tabelas()
 
     assert colunas_em_falta(str(bd_em_ficheiro)) == []
-    assert _versao_em(bd_em_ficheiro) == 7
+    assert _versao_em(bd_em_ficheiro) == 8
 
 
 def test_arranque_recusa_bd_com_colunas_em_falta(bd_em_ficheiro):

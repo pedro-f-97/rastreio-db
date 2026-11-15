@@ -11,6 +11,7 @@ from database import (
     MovimentoAtivo as MovimentoAtivoModel,
     PrecoAtivo as PrecoAtivoModel,
     TipoAtivo as TipoAtivoModel,
+    TipoMovimento,
     Transacao as TransacaoModel,
     get_db,
 )
@@ -89,6 +90,10 @@ def editar_ativo(ativo_id: int, payload: schemas.AtivoUpdate, db: Session = Depe
     # `null` enviado apaga o símbolo; só um campo omitido fica como estava
     if "simbolo" in payload.model_fields_set:
         ativo.simbolo = payload.simbolo
+    if payload.pais is not None:
+        ativo.pais = payload.pais
+    if "pais_emitente" in payload.model_fields_set:
+        ativo.pais_emitente = payload.pais_emitente
     db.commit()
     db.refresh(ativo)
     return ativo
@@ -142,6 +147,34 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
         raise HTTPException(status_code=404, detail="Ativo não encontrado.")
     if payload.transacao_id is not None and db.get(TransacaoModel, payload.transacao_id) is None:
         raise HTTPException(status_code=404, detail="Transação não encontrada.")
+    return _gravar_movimento(db, ativo, payload)
+
+
+@router.post("/compras-antigas", response_model=schemas.MovimentoAtivo)
+def registar_compra_antiga(payload: schemas.CompraAntigaCreate, db: Session = Depends(get_db)):
+    """Uma compra de antes dos extractos: um movimento de compra sem transação.
+
+    Entra no FIFO e no valor do ativo como as outras, mas não mexe na liquidez
+    nem nas estatísticas, que se fazem das transações. Só compras: as vendas e
+    os dividendos nascem sempre de uma transação.
+    """
+    ativo = db.query(AtivoModel).filter(AtivoModel.id == payload.ativo_id).first()
+    if not ativo:
+        raise HTTPException(status_code=404, detail="Ativo não encontrado.")
+    if payload.data > date.today():
+        raise HTTPException(status_code=422, detail="A data da compra não pode ser futura.")
+    if payload.valor_total == 0:
+        raise HTTPException(status_code=422, detail="O total da compra não pode ser zero.")
+    if ativo.tipo.tem_unidades and (payload.quantidade is None or payload.quantidade <= 0):
+        raise HTTPException(status_code=422, detail="A quantidade tem de ser maior do que zero.")
+    movimento = schemas.MovimentoAtivoCreate(
+        **payload.model_dump(), tipo_movimento=TipoMovimento.compra, transacao_id=None
+    )
+    return _gravar_movimento(db, ativo, movimento)
+
+
+def _gravar_movimento(db: Session, ativo: AtivoModel, payload: schemas.MovimentoAtivoCreate):
+    """Grava um movimento já validado e, numa compra ou venda, o preço desse dia."""
     movimento = MovimentoAtivoModel(**payload.model_dump())
     db.add(movimento)
 
@@ -167,6 +200,29 @@ def criar_movimento(payload: schemas.MovimentoAtivoCreate, db: Session = Depends
         _recusar_sobre_venda(db, ativo)
 
     # Um só commit: o movimento e o preço gravam-se juntos ou não se grava nada.
+    db.commit()
+    db.refresh(movimento)
+    return movimento
+
+
+@router.patch("/movimentos/{movimento_id}", response_model=schemas.MovimentoAtivo)
+def corrigir_data_movimento(
+    movimento_id: int, payload: schemas.MovimentoDataUpdate, db: Session = Depends(get_db)
+):
+    """Muda a data de um movimento para a da operação, que o extracto do banco
+    costuma dar dias depois (a da liquidação).
+
+    Como ao apagar, nenhuma venda pode ficar com mais unidades do que as que
+    havia nessa data: se ficar, nada muda. O preço que a compra ou a venda
+    gravou fica na data em que foi gravado.
+    """
+    movimento = db.get(MovimentoAtivoModel, movimento_id)
+    if movimento is None:
+        raise HTTPException(status_code=404, detail="Movimento não encontrado.")
+    if payload.data > date.today():
+        raise HTTPException(status_code=422, detail="A data do movimento não pode ser futura.")
+    movimento.data = payload.data
+    _recusar_sobre_venda(db, movimento.ativo)
     db.commit()
     db.refresh(movimento)
     return movimento

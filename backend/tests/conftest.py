@@ -99,6 +99,7 @@ from routers import (  # noqa: E402
     contas,
     estatisticas,
     importacao,
+    irs,
     patrimonio,
     perfis_importacao,
     regras,
@@ -118,6 +119,7 @@ ROUTERS = (
     patrimonio.router,
     contas.router,
     tipos_ativo.router,
+    irs.router,
 )
 
 
@@ -189,9 +191,9 @@ def criar_bd_com_fk_partida():
         investimento = TipoContabilizacao.investimento.name
         con = sqlite3.connect(caminho, autocommit=True)
         try:
-            con.execute("INSERT INTO tipos_ativo VALUES (1, 'Ações', 1)")
+            con.execute("INSERT INTO tipos_ativo VALUES (1, 'Ações', 1, 'fora')")
             con.executemany(
-                "INSERT INTO ativos VALUES (?, ?, 1, ?, 'EUR', NULL, ?)",
+                "INSERT INTO ativos VALUES (?, ?, 1, ?, 'EUR', NULL, ?, 'PT', NULL)",
                 [(3, "Alfa", "ALF", investimento), (7, "Beta", "BET", investimento)],
             )
             con.executemany(

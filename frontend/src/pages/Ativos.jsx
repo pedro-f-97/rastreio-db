@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarPreco, getMovimentos, eliminarMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
+import { getPendentes, criarAtivo, editarAtivo, criarMovimento, registarCompraAntiga, registarPreco, getMovimentos, eliminarMovimento, corrigirDataMovimento, eliminarAtivo, getPrecos, eliminarPreco } from "../api/patrimonio";
 import { useAtivos } from "../hooks/useAtivos";
 import "./Ativos.css";
 import { classeValor, formatarEuros, formatarPercentagem, formatarQuantidade, prefixoSinal } from '../utils/formatacao';
@@ -20,6 +20,8 @@ const estadoModalInicial = {
   quantidade: "",
   comissao: "",
   valorTotal: "",
+  // A data da operação: por omissão a da transação, ou escrita numa compra antiga
+  data: "",
 };
 
 export default function Ativos({ onDadosAlterados }) {
@@ -32,7 +34,7 @@ export default function Ativos({ onDadosAlterados }) {
   const [loading, setLoading] = useState(false);
   const [modalPreco, setModalPreco] = useState({ aberto: false, ativo: null, data: new Date().toISOString().split('T')[0], preco: '', porTotal: false });
   const [menuAbertoId, setMenuAbertoId] = useState(null);
-  const [editando, setEditando] = useState({}); // { id, nome, simbolo }
+  const [editando, setEditando] = useState({}); // { id, nome, simbolo, pais, paisEmitente }
 
   useEffect(() => {
     carregarPendentes();
@@ -55,7 +57,13 @@ export default function Ativos({ onDadosAlterados }) {
   }
 
   function abrirModal(transacao) {
-    setModal({ ...estadoModalInicial, aberto: true, transacao });
+    setModal({ ...estadoModalInicial, aberto: true, transacao, data: transacao.data });
+    setErro("");
+  }
+
+  // A mesma janela, sem transação: uma compra de antes dos extractos
+  function abrirCompraAntiga() {
+    setModal({ ...estadoModalInicial, aberto: true, transacao: null });
     setErro("");
   }
 
@@ -74,7 +82,7 @@ export default function Ativos({ onDadosAlterados }) {
 
   function iniciarEdicao(ativo, e) {
     e.stopPropagation();
-    setEditando({ id: ativo.id, nome: ativo.nome, simbolo: ativo.simbolo || "" });
+    setEditando({ id: ativo.id, nome: ativo.nome, simbolo: ativo.simbolo || "", pais: ativo.pais, paisEmitente: ativo.pais_emitente || "" });
     setMenuAbertoId(null);
   }
 
@@ -92,6 +100,11 @@ export default function Ativos({ onDadosAlterados }) {
       await editarAtivo(editando.id, {
         nome: editando.nome.trim(),
         simbolo: editando.simbolo.trim() ? editando.simbolo.trim().toUpperCase() : null,
+        pais: editando.pais.trim() || "PT",
+        // Vazio, ou igual ao da corretora, fica sem país do emitente
+        pais_emitente: editando.paisEmitente.trim() && editando.paisEmitente.trim() !== (editando.pais.trim() || "PT")
+          ? editando.paisEmitente.trim()
+          : null,
       });
       setEditando({});
       await recarregar();
@@ -110,6 +123,7 @@ export default function Ativos({ onDadosAlterados }) {
       const precisaContabilizacao = !modal.ativoExistenteId;
 
       if (!tipoAtivo) { setErro("Selecciona o tipo de ativo."); setLoading(false); return; }
+      if (!modal.data) { setErro(transacao ? "Data da operação obrigatória." : "Data da compra obrigatória."); setLoading(false); return; }
       if (!modal.ativoExistenteId && !nomeAtivo.trim()) { setErro("Nome do ativo obrigatório."); setLoading(false); return; }
       if (comUnidades && (!quantidade || !valorTotal)) { setErro("Quantidade e total pago obrigatórios."); setLoading(false); return; }
       if (!comUnidades && !valorTotal) { setErro("Valor total obrigatório."); setLoading(false); return; }
@@ -145,16 +159,18 @@ export default function Ativos({ onDadosAlterados }) {
         precoUnitarioCalculado = null;
       }
 
-      await criarMovimento({
+      const valores = {
         ativo_id: ativo.id,
-        transacao_id: transacao.id,
-        tipo_movimento: tipoMovimento,
-        data: transacao.data,
         quantidade: comUnidades ? parseFloat(quantidade) : null,
         preco_unitario: precoUnitarioCalculado,
         comissao: comUnidades ? parseFloat(comissao || 0) : null,
         valor_total: valorFinal,
-      });
+      };
+      if (transacao) {
+        await criarMovimento({ ...valores, transacao_id: transacao.id, tipo_movimento: tipoMovimento, data: modal.data });
+      } else {
+        await registarCompraAntiga({ ...valores, data: modal.data });
+      }
 
       fecharModal();
       await carregarPendentes();
@@ -257,7 +273,11 @@ export default function Ativos({ onDadosAlterados }) {
         secao="03 · Análise"
         titulo="Ativos"
         descricao="Os investimentos e os bens, com o custo, o valor e o resultado. As compras e vendas por tratar ficam em cima."
-      />
+      >
+        <button className="btn-secundario" onClick={abrirCompraAntiga} title="Uma compra de antes do primeiro extracto importado: entra no ativo, mas não nas contas">
+          <Icone nome="mais" /> Registar compra antiga
+        </button>
+      </CabecalhoPagina>
 
       {/* PENDENTES */}
       {pendentes.length > 0 && (
@@ -363,20 +383,53 @@ export default function Ativos({ onDadosAlterados }) {
                         >
                           <td>
                             {editando.id === ativo.id ? (
-                              <input
-                                className="input-inline"
-                                autoFocus
-                                value={editando.nome}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => setEditando((ed) => ({ ...ed, nome: e.target.value }))}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") confirmarEdicao(e);
-                                  if (e.key === "Escape") cancelarEdicao(e);
-                                }}
-                              />
+                              <div className="edicao-nome-pais">
+                                <input
+                                  className="input-inline"
+                                  autoFocus
+                                  value={editando.nome}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setEditando((ed) => ({ ...ed, nome: e.target.value }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") confirmarEdicao(e);
+                                    if (e.key === "Escape") cancelarEdicao(e);
+                                  }}
+                                />
+                                <input
+                                  className="input-inline"
+                                  value={editando.pais}
+                                  maxLength={2}
+                                  placeholder="PT"
+                                  title="O país da corretora (PT, DE…): decide entre os anexos G e J do IRS"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setEditando((ed) => ({ ...ed, pais: e.target.value.toUpperCase() }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") confirmarEdicao(e);
+                                    if (e.key === "Escape") cancelarEdicao(e);
+                                  }}
+                                />
+                                <input
+                                  className="input-inline"
+                                  value={editando.paisEmitente}
+                                  maxLength={2}
+                                  placeholder={editando.pais || "PT"}
+                                  title="O país do emitente (IE num ETF irlandês…), o da fonte no IRS. Vazio, é o da corretora"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setEditando((ed) => ({ ...ed, paisEmitente: e.target.value.toUpperCase() }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") confirmarEdicao(e);
+                                    if (e.key === "Escape") cancelarEdicao(e);
+                                  }}
+                                />
+                              </div>
                             ) : (
                               <>
                                 {ativo.nome}
+                                {(ativo.pais !== "PT" || ativo.pais_emitente) && (
+                                  <span className="chip chip-pais" title="O país da corretora e, depois do ponto, o do emitente, para o relatório do IRS">
+                                    {ativo.pais}{ativo.pais_emitente ? ` · ${ativo.pais_emitente}` : ""}
+                                  </span>
+                                )}
                                 {ativo.isin && (
                                   <span className="tooltip-isin" title={`ISIN: ${ativo.isin}`}><Icone nome="info" tamanho={13} /></span>
                                 )}
@@ -491,7 +544,7 @@ export default function Ativos({ onDadosAlterados }) {
                               <div className="detalhe-ativo">
                                 <div className="detalhe-ativo-bloco">
                                   <h4 className="detalhe-ativo-titulo">Movimentos</h4>
-                                  <MovimentosAtivo ativoId={ativo.id} onEliminar={aoEliminarMovimento} />
+                                  <MovimentosAtivo ativoId={ativo.id} onAlterado={aoEliminarMovimento} />
                                 </div>
                                 <div className="detalhe-ativo-bloco">
                                   <h4 className="detalhe-ativo-titulo">Preços registados</h4>
@@ -519,8 +572,17 @@ export default function Ativos({ onDadosAlterados }) {
       {modal.aberto && (
         <div className="modal-overlay" onClick={fecharModal}>
           <div className="modal modal-patrimonio" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-titulo">Tratar pendente</h3>
-            <p className="modal-subtitulo">{modal.transacao.descricao} · {modal.transacao.data} · {formatarEuros(modal.transacao.valor)}</p>
+            {modal.transacao ? (
+              <>
+                <h3 className="modal-titulo">Tratar pendente</h3>
+                <p className="modal-subtitulo">{modal.transacao.descricao} · {modal.transacao.data} · {formatarEuros(modal.transacao.valor)}</p>
+              </>
+            ) : (
+              <>
+                <h3 className="modal-titulo">Registar compra antiga</h3>
+                <p className="modal-subtitulo">Uma compra de antes do primeiro extracto: entra no ativo e no relatório do IRS, mas não mexe nas contas.</p>
+              </>
+            )}
 
             {modal.passo === 1 && (
               <>
@@ -541,6 +603,12 @@ export default function Ativos({ onDadosAlterados }) {
 
             {modal.passo === 2 && (
               <>
+                <label className="label">{modal.transacao ? "Data da operação" : "Data da compra"}
+                  <input className="input" type="date" max={hoje} value={modal.data} onChange={(e) => setModal((m) => ({ ...m, data: e.target.value }))} />
+                  {modal.transacao && (
+                    <span className="cartao-nota">A do extracto pode ser a da liquidação, dias depois. No IRS a venda conta no momento da alienação, e os relatórios das corretoras usam a data da operação.</span>
+                  )}
+                </label>
                 {tiposAtivo.find((t) => t.id === modal.tipoAtivo)?.tem_unidades ? (
                   <>
                     {(() => {
@@ -566,13 +634,16 @@ export default function Ativos({ onDadosAlterados }) {
                         </label>
                       </>
                     )}
-                    <label className="label">Tipo de movimento
-                      <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
-                        <option value="compra">Compra</option>
-                        <option value="venda">Venda</option>
-                        <option value="dividendo">Dividendo</option>
-                      </select>
-                    </label>
+                    {/* Uma compra antiga é sempre uma compra */}
+                    {modal.transacao && (
+                      <label className="label">Tipo de movimento
+                        <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
+                          <option value="compra">Compra</option>
+                          <option value="venda">Venda</option>
+                          <option value="dividendo">Dividendo</option>
+                        </select>
+                      </label>
+                    )}
                     <label className="label">Quantidade
                       <input className="input" type="number" value={modal.quantidade} onChange={(e) => setModal((m) => ({ ...m, quantidade: e.target.value }))} />
                     </label>
@@ -603,12 +674,15 @@ export default function Ativos({ onDadosAlterados }) {
                         <input className="input" value={modal.nomeAtivo} onChange={(e) => setModal((m) => ({ ...m, nomeAtivo: e.target.value }))} />
                       </label>
                     )}
-                    <label className="label">Tipo de movimento
-                      <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
-                        <option value="compra">Compra</option>
-                        <option value="venda">Venda</option>
-                      </select>
-                    </label>
+                    {/* Uma compra antiga é sempre uma compra */}
+                    {modal.transacao && (
+                      <label className="label">Tipo de movimento
+                        <select className="input" value={modal.tipoMovimento} onChange={(e) => setModal((m) => ({ ...m, tipoMovimento: e.target.value }))}>
+                          <option value="compra">Compra</option>
+                          <option value="venda">Venda</option>
+                        </select>
+                      </label>
+                    )}
                     <label className="label">Total da operação (sem comissão) (€)
                       <input className="input" type="number" value={modal.valorTotal} onChange={(e) => setModal((m) => ({ ...m, valorTotal: e.target.value }))} />
                     </label>
@@ -625,6 +699,8 @@ export default function Ativos({ onDadosAlterados }) {
                       <option value="investimento">Investimento</option>
                       <option value="patrimonio">Bens</option>
                     </select>
+                    {/* O FIFO do IRS conta-se em separado em cada instituição */}
+                    <span className="cartao-nota">Se tens o mesmo título em duas corretoras, regista um ativo por corretora: no IRS, as vendas contam-se em separado em cada uma.</span>
                   </label>
                 )}
                 {erro && <p className="erro">{erro}</p>}
@@ -682,8 +758,11 @@ export default function Ativos({ onDadosAlterados }) {
   );
 }
 
-function MovimentosAtivo({ ativoId, onEliminar }) {
+function MovimentosAtivo({ ativoId, onAlterado }) {
   const [movimentos, setMovimentos] = useState([]);
+  // A data a corrigir: { id, data }
+  const [editandoData, setEditandoData] = useState(null);
+  const hoje = new Date().toLocaleDateString("sv-SE");
 
   useEffect(() => {
     getMovimentos(ativoId).then((r) => setMovimentos(r.data));
@@ -698,7 +777,20 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
     }
     const res = await getMovimentos(ativoId);
     setMovimentos(res.data);
-    onEliminar();
+    onAlterado();
+  }
+
+  async function guardarData() {
+    try {
+      await corrigirDataMovimento(editandoData.id, editandoData.data);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Erro ao corrigir a data.");
+      return;
+    }
+    setEditandoData(null);
+    const res = await getMovimentos(ativoId);
+    setMovimentos(res.data);
+    onAlterado();
   }
 
   if (movimentos.length === 0) return <p className="estado-vazio">Sem movimentos registados.</p>;
@@ -719,8 +811,37 @@ function MovimentosAtivo({ ativoId, onEliminar }) {
       <tbody>
         {movimentos.map((m) => (
           <tr key={m.id}>
-            <td className="col-mono">{m.data}</td>
-            <td><span className={`chip movimento-${m.tipo_movimento}`}>{m.tipo_movimento}</span></td>
+            <td className="col-mono">
+              {editandoData?.id === m.id ? (
+                <span className="edicao-data">
+                  <input
+                    className="input-inline"
+                    type="date"
+                    max={hoje}
+                    autoFocus
+                    value={editandoData.data}
+                    onChange={(e) => setEditandoData((ed) => ({ ...ed, data: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") guardarData();
+                      if (e.key === "Escape") setEditandoData(null);
+                    }}
+                  />
+                  <button className="btn-icone" title="Guardar a data" onClick={guardarData}><Icone nome="confirmar" tamanho={14} /></button>
+                  <button className="btn-icone" title="Cancelar" onClick={() => setEditandoData(null)}><Icone nome="fechar" tamanho={14} /></button>
+                </span>
+              ) : (
+                <span className="edicao-data">
+                  {m.data}
+                  <button className="btn-icone" title="Corrigir a data (a da operação, se a do extracto for a da liquidação)" onClick={() => setEditandoData({ id: m.id, data: m.data })}><Icone nome="editar" tamanho={13} /></button>
+                </span>
+              )}
+            </td>
+            <td>
+              <span className={`chip movimento-${m.tipo_movimento}`}>{m.tipo_movimento}</span>
+              {m.transacao_id == null && m.tipo_movimento === "compra" && (
+                <span className="chip chip-pais" title="Compra de antes dos extractos, sem transação">antiga</span>
+              )}
+            </td>
             <td className="col-mono">{formatarQuantidade(m.quantidade)}</td>
             <td className="col-mono">{formatarEuros(m.preco_unitario, 4)}</td>
             <td className="col-mono">{formatarEuros(m.comissao)}</td>

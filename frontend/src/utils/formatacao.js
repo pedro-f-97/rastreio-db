@@ -106,3 +106,14 @@ export const NOMES_CLASSE_DESPESA = {
   evitavel: 'Evitável',
   extraordinaria: 'Extraordinária',
 };
+
+// Como um tipo de ativo entra no relatório do IRS, com o código do quadro das
+// vendas nos valores mobiliários. A chave é o valor da API
+export const NOMES_CLASSIFICACAO_FISCAL = {
+  fora: 'Fora do IRS',
+  acoes: 'Ações (G01)',
+  fundos: 'Fundos e ETF (G20)',
+  obrigacoes: 'Obrigações (G10)',
+  outros_mobiliarios: 'Outros valores mobiliários (G90)',
+  criptoativos: 'Criptoativos',
+};

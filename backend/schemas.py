@@ -1,16 +1,36 @@
+import re
 from datetime import date
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, FiniteFloat, StringConstraints, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    FiniteFloat,
+    StringConstraints,
+    model_validator,
+)
 
 from database import (
     ClasseDespesa,
+    ClassificacaoFiscal,
     ModoValor,
     TipoCategoria,
     TipoContabilizacao,
     TipoFicheiro,
     TipoMovimento,
 )
+
+
+def _pais_valido(pais: str) -> str:
+    """O código de duas letras de um país (ISO 3166), em maiúsculas."""
+    pais = pais.strip().upper()
+    if not re.fullmatch(r"[A-Z]{2}", pais):
+        raise ValueError("O país é um código de duas letras, por exemplo PT ou DE.")
+    return pais
+
+
+Pais = Annotated[str, AfterValidator(_pais_valido)]
 
 
 # --- SCHEMAS DE CATEGORIA ---
@@ -40,6 +60,8 @@ class SubcategoriaCreate(BaseModel):
     trata_patrimonio: Optional[bool] = None
     # Na edição, omitida mantém a que existe e enviada a null tira-a
     classe_despesa: Optional[ClasseDespesa] = None
+    # Só nas subcategorias de receita; omitida mantém a que existe
+    juros_irs: Optional[bool] = None
 
 
 class Subcategoria(SubcategoriaBase):
@@ -166,11 +188,13 @@ class TipoAtivoBase(BaseModel):
 
 
 class TipoAtivoCreate(TipoAtivoBase):
-    pass
+    # Omitida: fora do IRS num tipo novo, e a que já tinha na edição
+    classificacao_fiscal: Optional[ClassificacaoFiscal] = None
 
 
 class TipoAtivo(TipoAtivoBase):
     id: int
+    classificacao_fiscal: ClassificacaoFiscal
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -181,6 +205,8 @@ class AtivoBase(BaseModel):
     moeda: str = "EUR"
     notas: Optional[str] = None
     contabilizacao: TipoContabilizacao
+    pais: Pais = "PT"
+    pais_emitente: Optional[Pais] = None
 
 
 class AtivoCreate(AtivoBase):
@@ -196,6 +222,9 @@ class Ativo(AtivoBase):
 class AtivoUpdate(BaseModel):
     nome: Optional[str] = None
     simbolo: Optional[str] = None
+    pais: Optional[Pais] = None
+    # `null` enviado volta a ser o da corretora; omitido fica como estava
+    pais_emitente: Optional[Pais] = None
 
 
 # --- SCHEMAS DE MOVIMENTO DE ATIVO ---
@@ -213,6 +242,31 @@ class MovimentoAtivoBase(BaseModel):
 
 class MovimentoAtivoCreate(MovimentoAtivoBase):
     pass
+
+
+class MovimentoDataUpdate(BaseModel):
+    """A data de um movimento, corrigida: a da operação, quando a da transação
+    é a da liquidação. Só a data se muda por aqui."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    data: date
+
+
+class CompraAntigaCreate(BaseModel):
+    """Uma compra de antes dos extractos, sem transação. Não tem tipo de
+    movimento (é sempre uma compra) e recusa campos a mais, para que uma venda
+    enviada aqui não passe por compra."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ativo_id: int
+    data: date
+    quantidade: Optional[FiniteFloat] = None
+    preco_unitario: Optional[FiniteFloat] = None
+    comissao: Optional[FiniteFloat] = 0
+    valor_total: FiniteFloat
+    notas: Optional[str] = None
 
 
 class MovimentoAtivo(MovimentoAtivoBase):
@@ -263,6 +317,7 @@ class ContaBase(BaseModel):
     saldo_referencia: FiniteFloat = 0.0
     data_referencia: date
     ativa: bool = True
+    pais: Pais = "PT"
 
 
 class ContaCreate(ContaBase):
@@ -274,6 +329,7 @@ class ContaUpdate(BaseModel):
     saldo_referencia: Optional[FiniteFloat] = None
     data_referencia: Optional[date] = None
     ativa: Optional[bool] = None
+    pais: Optional[Pais] = None
 
 
 class Conta(ContaBase):
